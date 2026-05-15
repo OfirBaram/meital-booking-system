@@ -1,16 +1,94 @@
 /**
  * E2E tests for the 5-step booking wizard.
  *
- * The frontend runs in "mock mode" (CONFIG.API_BASE === ''), so:
- *  - mockSlots() generates random but deterministic-enough availability
- *  - apiSendOTP()      → always returns { success: true }
- *  - apiVerifyAndBook() → accepts any OTP except '000000'
+ * CONFIG.API_BASE in booking.js points at the live GAS endpoint.
+ * All tests intercept that URL via page.route() and return controlled
+ * responses — no real network calls, no Twilio, no Sheets dependency.
  *
- * No real GAS backend is called. The webServer is started by playwright.config.js.
+ * Mock contract (mirrors the real GAS API):
+ *  - getSlots  → deterministic slots, Fri/Sat skipped, all other weekdays have 4 times
+ *  - sendOTP   → always { success: true }
+ *  - verifyAndBook → { success: true } for any OTP except '000000'
  */
 import { test, expect } from '@playwright/test'
 
-// ─── Helpers: navigate through the wizard steps ───────────────────────────────
+// ─── Mock infrastructure ──────────────────────────────────────────────────────
+
+// Matches the GAS web-app URL pattern set in CONFIG.API_BASE
+const GAS_GLOB = 'https://script.google.com/macros/s/**'
+
+/** Deterministic slots: first 4 BASE times for every non-Fri/Sat weekday >= today */
+function makeMockSlots(year, month) {
+  const slots = {}
+  const floor  = new Date(); floor.setHours(0, 0, 0, 0)
+  const days   = new Date(year, month, 0).getDate()
+  const BASE   = ['09:00', '10:30', '12:00', '13:30']
+
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(year, month - 1, d)
+    if (date < floor || date.getDay() === 5 || date.getDay() === 6) continue
+    const key = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    slots[key] = BASE
+  }
+  return { success: true, slots }
+}
+
+/**
+ * Install route interception on the page BEFORE goto('/').
+ * Logs every intercepted call so Playwright traces show the mock traffic.
+ */
+async function setupMocks(page) {
+  await page.route(GAS_GLOB, async (route, request) => {
+    const method = request.method()
+
+    if (method === 'GET') {
+      const url    = new URL(request.url())
+      const year   = parseInt(url.searchParams.get('year'),  10)
+      const month  = parseInt(url.searchParams.get('month'), 10)
+      console.log(`[mock] getSlots(${year}, ${month})`)
+      return route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify(makeMockSlots(year, month)),
+      })
+    }
+
+    if (method === 'POST') {
+      let body = {}
+      try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
+      console.log(`[mock] POST action=${body.action}`)
+
+      if (body.action === 'sendOTP') {
+        return route.fulfill({
+          status:      200,
+          contentType: 'application/json',
+          body:        JSON.stringify({ success: true }),
+        })
+      }
+
+      if (body.action === 'verifyAndBook') {
+        const otp = body.otp ?? ''
+        console.log(`[mock] verifyAndBook otp=${otp}`)
+        const ok = otp !== '000000'
+        return route.fulfill({
+          status:      200,
+          contentType: 'application/json',
+          body: JSON.stringify(
+            ok
+              ? { success: true, bookingId: body.booking?.id, status: 'Pending' }
+              : { success: false, error: 'invalid_otp' }
+          ),
+        })
+      }
+
+      return route.fulfill({ status: 400, body: '{}' })
+    }
+
+    return route.continue()
+  })
+}
+
+// ─── Step helpers ─────────────────────────────────────────────────────────────
 
 async function goToStep2(page) {
   await page.locator('.service-card').first().click()
@@ -39,10 +117,9 @@ async function goToStep4(page) {
 
 // ─── OTP helper: fill each box by DOM index (focus-independent) ───────────────
 //
-// keyboard.type() dispatches to CDP's tracked focused element; on slow CI
-// runners the auto-advance focus shift from the JS input handler races the
-// CDP focus state, causing digits to land on the wrong box. fill() targets
-// the element directly and is immune to that race.
+// keyboard.type() targets whichever element CDP currently considers focused;
+// the auto-advance focus shift in the input handler races CDP on slow CI
+// runners. fill() targets the element by index and is immune to that race.
 
 async function typeOTP(page, code) {
   const inputs = page.locator('.otp-input')
@@ -55,6 +132,7 @@ async function typeOTP(page, code) {
 
 test.describe('Step 1 — Service selection', () => {
   test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
     await page.goto('/')
   })
 
@@ -84,6 +162,7 @@ test.describe('Step 1 — Service selection', () => {
 
 test.describe('Step 2 — Date & Time', () => {
   test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
     await page.goto('/')
     await goToStep2(page)
   })
@@ -115,6 +194,7 @@ test.describe('Step 2 — Date & Time', () => {
 
 test.describe('Step 3 — Personal details', () => {
   test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
     await page.goto('/')
     await goToStep3(page)
   })
@@ -144,6 +224,7 @@ test.describe('Step 3 — Personal details', () => {
 
 test.describe('Step 4 — OTP verification', () => {
   test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
     await page.goto('/')
     await goToStep4(page)
   })
@@ -171,6 +252,7 @@ test.describe('Step 4 — OTP verification', () => {
 
 test.describe('Step 5 — Confirmation', () => {
   test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
     await page.goto('/')
     await goToStep4(page)
     await typeOTP(page, '246810')
