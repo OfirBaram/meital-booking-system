@@ -1,0 +1,68 @@
+# CI pipeline — runs on every Pull Request targeting main.
+# Both jobs must pass for the merge to be unblocked.
+#
+# To enforce this in GitHub:
+#   Settings → Branches → Add rule for "main"
+#   ✅ Require status checks to pass before merging
+#   Add: "unit-tests" and "e2e-tests" as required checks
+#   ✅ Require branches to be up to date before merging
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── Job 1: Unit Tests ─────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests (Vitest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+  # ─── Job 2: E2E Tests ──────────────────────────────────────────────────────
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+
+      # Upload full HTML report as an artifact when tests fail.
+      # Download from: Actions tab → failed run → Artifacts section.
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

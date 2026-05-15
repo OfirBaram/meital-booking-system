@@ -1,0 +1,16 @@
+{
+  "name": "meital-booking-system",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:unit": "vitest run",
+    "test:e2e":  "playwright test",
+    "test":      "npm run test:unit && npm run test:e2e",
+    "serve":     "serve frontend -p 4173"
+  },
+  "devDependencies": {
+    "vitest":           "^1.6.0",
+    "@playwright/test": "^1.44.0",
+    "serve":            "^14.2.3"
+  }
+}
