@@ -85,32 +85,59 @@ function logSheet() {
 // ═══════════════════════════════════════════════════════════════
 
 function doPost(e) {
-  try {
-    const body   = JSON.parse(e.postData.contents);
-    const action = body.action;
+  // Split try-catch: parse errors and handler errors logged separately
+  Logger.log('[doPost] Invoked');
 
-    switch (action) {
+  let body;
+  try {
+    if (!e.postData || !e.postData.contents) {
+      Logger.log('[doPost] ERROR: e.postData is ' + (e.postData ? 'present but empty' : 'null/undefined'));
+      return jsonErr('No request body. Send Content-Type: text/plain with a JSON body.', 400);
+    }
+    Logger.log('[doPost] Raw body (' + e.postData.contents.length + ' chars): ' + e.postData.contents.substring(0, 200));
+    body = JSON.parse(e.postData.contents);
+    Logger.log('[doPost] Parsed OK. action=' + body.action);
+  } catch (parseErr) {
+    Logger.log('[doPost] JSON parse error: ' + parseErr.message);
+    return jsonErr('Invalid JSON body: ' + parseErr.message, 400);
+  }
+
+  try {
+    switch (body.action) {
       case 'getSlots':      return jsonOk(handleGetSlots(body));
       case 'sendOTP':       return jsonOk(handleSendOTP(body));
       case 'verifyAndBook': return jsonOk(handleVerifyAndBook(body));
       case 'adminAction':   return jsonOk(handleAdminAction(body));
       default:
-        return jsonErr('Unknown action: ' + action, 400);
+        Logger.log('[doPost] Unknown action: ' + body.action);
+        return jsonErr('Unknown action: ' + body.action, 400);
     }
   } catch (err) {
-    Logger.log('doPost error: ' + err.message + '\n' + err.stack);
+    Logger.log('[doPost] Handler error [' + body.action + ']: ' + err.message);
+    Logger.log('[doPost] Stack: ' + err.stack);
     return jsonErr(err.message, 500);
   }
 }
 
 function doGet(e) {
-  // Admin approval/rejection via GET link (SMS link opens in browser)
+  Logger.log('[doGet] params: ' + JSON.stringify(e.parameter));
   try {
     const action    = e.parameter.action;
     const token     = e.parameter.token;
     const bookingId = e.parameter.id;
 
+    // getSlots is a natural GET — the frontend uses fetch() with query params
+    if (action === 'getSlots') {
+      Logger.log('[doGet] Routing getSlots GET request');
+      const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month });
+      return ContentService
+        .createTextOutput(JSON.stringify(result))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Admin approve/reject — requires token + bookingId
     if (!action || !token || !bookingId) {
+      Logger.log('[doGet] Missing params. action=' + action + ', token=' + !!token + ', id=' + bookingId);
       return HtmlService.createHtmlOutput('<h2>קישור לא תקין.</h2>');
     }
 
@@ -120,8 +147,8 @@ function doGet(e) {
     }
     return HtmlService.createHtmlOutput('<h2>שגיאה: ' + result.error + '</h2>');
   } catch (err) {
-    Logger.log('doGet error: ' + err.message);
-    return HtmlService.createHtmlOutput('<h2>שגיאה פנימית.</h2>');
+    Logger.log('[doGet] Error: ' + err.message + '\n' + err.stack);
+    return HtmlService.createHtmlOutput('<h2>שגיאה פנימית: ' + err.message + '</h2>');
   }
 }
 
@@ -131,40 +158,133 @@ function doGet(e) {
 
 /**
  * Returns available time slots for a given year/month.
- * Only returns rows where Status === 'Available'.
- * Response: { success: true, slots: { 'YYYY-MM-DD': ['HH:MM', ...] } }
+ * Handles three bugs in the original:
+ *   1. Date cells arrive as Date objects in UTC — use Utilities.formatDate for correct Israel tz
+ *   2. Time cells arrive as Date objects (Jan 1 1900 HH:MM) — use Utilities.formatDate
+ *   3. Short/empty rows would cause index-out-of-bounds — guarded explicitly
  */
 function handleGetSlots(body) {
+  const TZ = 'Asia/Jerusalem';
+
+  Logger.log('[getSlots] START — body: ' + JSON.stringify(body));
+
   const year  = parseInt(body.year,  10);
   const month = parseInt(body.month, 10);
-  if (!year || !month) throw new Error('year and month are required');
+  Logger.log('[getSlots] Requested year=' + year + ', month=' + month);
 
-  const sh   = slotsSheet();
+  if (!year || !month || year < 2020 || month < 1 || month > 12) {
+    throw new Error('Invalid year/month. Got: year=' + body.year + ', month=' + body.month);
+  }
+
+  // ── Sheet access ──
+  let sh;
+  try {
+    sh = slotsSheet();
+  } catch (shErr) {
+    Logger.log('[getSlots] SHEET ERROR: ' + shErr.message);
+    throw shErr;
+  }
+  const lastRow = sh.getLastRow();
+  Logger.log('[getSlots] Sheet "' + sh.getName() + '" lastRow=' + lastRow);
+
+  if (lastRow < 2) {
+    Logger.log('[getSlots] Sheet has no data rows. Returning empty slots.');
+    return { success: true, slots: {} };
+  }
+
   const data = sh.getDataRange().getValues();
+  Logger.log('[getSlots] getDataRange rows=' + data.length + ', cols=' + (data[0] ? data[0].length : 0));
+  Logger.log('[getSlots] Header: ' + JSON.stringify(data[0]));
+
   const slots = {};
 
-  // Row 0 is headers — skip it
   for (let r = 1; r < data.length; r++) {
-    const row    = data[r];
-    const dateRaw = row[SLOT_COL.DATE - 1];
-    const status  = String(row[SLOT_COL.STATUS - 1]).trim();
-    const start   = String(row[SLOT_COL.START - 1]).trim();
+    const row = data[r];
 
-    if (!dateRaw || status !== 'Available') continue;
+    // Guard: skip short or completely empty rows
+    if (!row || row.length < 5) {
+      Logger.log('[getSlots] Row ' + r + ': too short (' + (row ? row.length : 0) + ' cols), skip');
+      continue;
+    }
+    if (row.every(cell => cell === '' || cell === null || cell === undefined)) {
+      Logger.log('[getSlots] Row ' + r + ': fully empty, skip');
+      continue;
+    }
 
-    const dateStr = formatSheetDate(dateRaw);
-    const d = new Date(dateStr);
-    if (d.getFullYear() !== year || (d.getMonth() + 1) !== month) continue;
+    const dateRaw  = row[SLOT_COL.DATE   - 1]; // col A
+    const startRaw = row[SLOT_COL.START  - 1]; // col C
+    const statusRaw = row[SLOT_COL.STATUS - 1]; // col E
+    const status = String(statusRaw === null || statusRaw === undefined ? '' : statusRaw).trim();
+
+    Logger.log('[getSlots] Row ' + r + ': dateRaw=' + dateRaw +
+               ' (type=' + typeof dateRaw + ', isDate=' + (dateRaw instanceof Date) + ')' +
+               ', startRaw=' + startRaw +
+               ' (type=' + typeof startRaw + ', isDate=' + (startRaw instanceof Date) + ')' +
+               ', status="' + status + '"');
+
+    // ── Skip non-available ──
+    if (status !== 'Available') {
+      Logger.log('[getSlots] Row ' + r + ': status="' + status + '", skip');
+      continue;
+    }
+
+    // ── Parse date (Fix #1: timezone-safe via Utilities.formatDate) ──
+    if (!dateRaw) { Logger.log('[getSlots] Row ' + r + ': empty date, skip'); continue; }
+    let dateStr;
+    try {
+      const d = (dateRaw instanceof Date) ? dateRaw : new Date(dateRaw);
+      if (isNaN(d.getTime())) {
+        Logger.log('[getSlots] Row ' + r + ': unparseable date "' + dateRaw + '", skip');
+        continue;
+      }
+      dateStr = Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
+    } catch (dateErr) {
+      Logger.log('[getSlots] Row ' + r + ': date error: ' + dateErr.message + ', skip');
+      continue;
+    }
+
+    // ── Month filter (compare string parts — avoids all JS Date timezone traps) ──
+    const parts    = dateStr.split('-');
+    const rowYear  = parseInt(parts[0], 10);
+    const rowMonth = parseInt(parts[1], 10);
+    if (rowYear !== year || rowMonth !== month) {
+      Logger.log('[getSlots] Row ' + r + ': ' + dateStr + ' outside ' + year + '-' + month + ', skip');
+      continue;
+    }
+
+    // ── Parse time (Fix #2: Sheets Time cells arrive as Date objects) ──
+    if (!startRaw && startRaw !== 0) {
+      Logger.log('[getSlots] Row ' + r + ': empty start time, skip');
+      continue;
+    }
+    let startStr;
+    try {
+      if (startRaw instanceof Date) {
+        startStr = Utilities.formatDate(startRaw, TZ, 'HH:mm');
+      } else {
+        startStr = String(startRaw).trim();
+      }
+    } catch (timeErr) {
+      Logger.log('[getSlots] Row ' + r + ': time error: ' + timeErr.message + ', skip');
+      continue;
+    }
+
+    if (!startStr || !/^\d{1,2}:\d{2}$/.test(startStr)) {
+      Logger.log('[getSlots] Row ' + r + ': invalid time format "' + startStr + '", skip');
+      continue;
+    }
 
     if (!slots[dateStr]) slots[dateStr] = [];
-    slots[dateStr].push(start);
+    slots[dateStr].push(startStr);
+    Logger.log('[getSlots] Row ' + r + ': ADDED ' + dateStr + ' ' + startStr);
   }
 
   // Sort times within each day
   Object.keys(slots).forEach(k => slots[k].sort());
+  Logger.log('[getSlots] DONE. Days with slots: ' + Object.keys(slots).length);
+  Logger.log('[getSlots] Result: ' + JSON.stringify(slots));
   return { success: true, slots };
 }
-
 // ═══════════════════════════════════════════════════════════════
 // ACTION: sendOTP
 // ═══════════════════════════════════════════════════════════════
