@@ -1,4 +1,4 @@
-﻿# CI pipeline — runs on every Pull Request targeting main.
+# CI pipeline — runs on every Pull Request targeting main.
 # Both jobs must pass for the merge to be unblocked.
 #
 # To enforce this in GitHub:

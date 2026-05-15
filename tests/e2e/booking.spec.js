@@ -1,4 +1,4 @@
-﻿/**
+/**
  * E2E tests for the 5-step booking wizard.
  *
  * The frontend runs in "mock mode" (CONFIG.API_BASE === ''), so:

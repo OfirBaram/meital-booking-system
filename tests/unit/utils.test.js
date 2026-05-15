@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Unit tests for the pure utility functions defined in frontend/booking.js.
  *
  * These functions have zero DOM dependency and are pure transforms,
