@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Force | ForEach-Object { $_.FullName })"
+    ]
+  }
+}

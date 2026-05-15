@@ -5,8 +5,7 @@
 // ═══════════════════════════════════════════════════
 
 const CONFIG = {
-  API_BASE: '',            // Set to GAS Web App URL when backend is live
-  TIMEZONE: 'Asia/Jerusalem',
+API_BASE: 'https://script.google.com/macros/s/AKfycbyWhuDw-pZFKQ6p1Mur0eplnKRaz5TaolOD1agpuTmGsGBhFWMusple6Xd01CMzLeoZzA/exec',  TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
   OTP_RESEND_SECS: 60,
   LS_PREFIX: 'meital_',
