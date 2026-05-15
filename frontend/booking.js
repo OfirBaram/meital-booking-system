@@ -146,7 +146,7 @@ async function apiSendOTP(phone) {
   if (CONFIG.API_BASE) {
     const r = await fetch(CONFIG.API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
     });
     return r.json();
@@ -160,7 +160,7 @@ async function apiVerifyAndBook(otp) {
   if (CONFIG.API_BASE) {
     const r = await fetch(CONFIG.API_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({
         action: 'verifyAndBook',
         otp,
