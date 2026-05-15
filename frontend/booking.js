@@ -1,0 +1,786 @@
+﻿'use strict';
+
+// ═══════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════
+
+const CONFIG = {
+  API_BASE: 'https://script.google.com/macros/s/AKfycbyWhuDw-pZFKQ6p1Mur0eplnKRaz5TaolOD1agpuTmGsGBhFWMusple6Xd01CMzLeoZzA/exec',
+  HMAC_SECRET: 'Meital123',
+  TIMEZONE: 'Asia/Jerusalem',
+  OTP_LENGTH: 6,
+  OTP_RESEND_SECS: 60,
+  LS_PREFIX: 'meital_',
+};
+
+const SERVICES = [
+  {
+    id: 'gel_classic',
+    name: "לק ג'ל קלאסי",
+    desc: "ציפוי ג'ל מושלם — צבע מלא, פרנץ' או ombre לפי בחירה",
+    duration: 90,
+    icon: '✨',
+  },
+  {
+    id: 'gel_feet',
+    name: "לק ג'ל + רגליים",
+    desc: "טיפול ג'ל מלא לידיים ולרגליים",
+    duration: 120,
+    icon: '🌸',
+  },
+];
+
+const HE_MONTHS = [
+  'ינואר','פברואר','מרץ','אפריל','מאי','יוני',
+  'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר',
+];
+const HE_DAYS_SHORT = ["א'","ב'","ג'","ד'","ה'","ו'","ש'"];
+const HE_DAYS_FULL  = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
+const STEP_LABELS = [
+  'בחירת שירות',
+  'תאריך ושעה',
+  'פרטים אישיים',
+  'אימות SMS',
+];
+
+// ═══════════════════════════════════════════════════
+// APPLICATION STATE
+// ═══════════════════════════════════════════════════
+
+const State = {
+  step: 1,
+  service: null,
+  date: null,
+  time: null,
+  name: '',
+  phone: '',
+  bookingId: null,
+  calMonth: null,
+  slots: {},
+  loading: false,
+};
+
+// ═══════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════
+
+function uuid4() {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function toISO8601Jerusalem(dateStr, timeStr) {
+  return {
+    local: `${dateStr}T${timeStr}:00`,
+    timezone: CONFIG.TIMEZONE,
+    tagged: `${dateStr}T${timeStr}:00+03:00`,
+  };
+}
+
+function addMinutes(timeStr, mins) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const total = h * 60 + m + mins;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function formatDateHe(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return `יום ${HE_DAYS_FULL[d.getDay()]}, ${d.getDate()} ב${HE_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function formatPhone(raw) {
+  const d = raw.replace(/\D/g, '');
+  return d.length === 10 ? `${d.slice(0,3)}-${d.slice(3)}` : raw;
+}
+
+function isValidPhone(raw) {
+  return /^05[0-9]{8}$/.test(raw.replace(/\D/g, ''));
+}
+
+function isValidName(n) {
+  return n.trim().length >= 2;
+}
+
+function today0() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// ═══════════════════════════════════════════════════
+// LOCAL STORAGE
+// ═══════════════════════════════════════════════════
+
+const LS = {
+  get(k) {
+    try { const v = localStorage.getItem(CONFIG.LS_PREFIX + k); return v ? JSON.parse(v) : null; }
+    catch { return null; }
+  },
+  set(k, v) {
+    try { localStorage.setItem(CONFIG.LS_PREFIX + k, JSON.stringify(v)); }
+    catch { /* quota exceeded */ }
+  },
+  del(k) {
+    try { localStorage.removeItem(CONFIG.LS_PREFIX + k); }
+    catch { /* ignore */ }
+  },
+};
+
+// ═══════════════════════════════════════════════════
+// API LAYER  (stubs for GAS backend)
+// ═══════════════════════════════════════════════════
+
+async function apiGetSlots(year, month) {
+  if (CONFIG.API_BASE) {
+    const r = await fetch(`${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`);
+    return r.json();
+  }
+  return mockSlots(year, month);
+}
+
+async function apiSendOTP(phone) {
+  if (CONFIG.API_BASE) {
+    const r = await fetch(CONFIG.API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ action: 'sendOTP', phone }),
+    });
+    return r.json();
+  }
+  console.info('[DEV] OTP would be sent to', phone);
+  return { success: true };
+}
+
+async function apiVerifyAndBook(otp) {
+  const ts = toISO8601Jerusalem(State.date, State.time);
+  if (CONFIG.API_BASE) {
+    const r = await fetch(CONFIG.API_BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({
+        action: 'verifyAndBook',
+        otp,
+        booking: {
+          id:          State.bookingId,
+          name:        State.name,
+          phone:       State.phone,
+          service:     State.service.id,
+          serviceName: State.service.name,
+          date:        State.date,
+          time:        State.time,
+          timestamp:   ts.tagged,
+          timezone:    ts.timezone,
+          duration:    State.service.duration,
+          status:      'Pending',
+        },
+      }),
+    });
+    return r.json();
+  }
+
+  await delay(750);
+  if (otp === '000000') return { success: false, error: 'invalid_otp' };
+  return { success: true, bookingId: State.bookingId, status: 'Pending' };
+}
+
+function mockSlots(year, month) {
+  const slots = {};
+  const floor = today0();
+  const days  = new Date(year, month, 0).getDate();
+  const BASE  = ['09:00','10:30','12:00','13:30','15:00','16:30'];
+
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(year, month - 1, d);
+    const dow = date.getDay();
+    if (date < floor || dow === 5 || dow === 6) continue;
+    const key = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const avail = BASE.filter(() => Math.random() > 0.38);
+    if (avail.length) slots[key] = avail;
+  }
+  return { success: true, slots };
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════
+// RENDER — PROGRESS BAR
+// ═══════════════════════════════════════════════════
+
+function renderProgress() {
+  const { step } = State;
+  const progEl = document.getElementById('js-progress');
+  if (step === 5) { progEl.classList.add('hidden'); return; }
+  progEl.classList.remove('hidden');
+
+  let html = '';
+  STEP_LABELS.forEach((lbl, i) => {
+    const n = i + 1, done = n < step, curr = n === step;
+    html += '<div class="flex flex-col items-center shrink-0">';
+    if (done) {
+      html += `<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm transition-all">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <span class="text-[10px] font-medium text-primary/80 mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    } else if (curr) {
+      html += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-md shadow-primary/30 ring-[3px] ring-cream transition-all">
+        <span class="text-white font-bold text-[11px]">${n}</span>
+      </div>
+      <span class="text-[10px] font-semibold text-primary mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    } else {
+      html += `<div class="w-7 h-7 rounded-full border border-secondary/70 bg-white flex items-center justify-center transition-all">
+        <span class="text-[10px] font-medium text-text-muted/40">${n}</span>
+      </div>
+      <span class="text-[10px] font-medium text-text-muted/40 mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    }
+    html += '</div>';
+    if (i < STEP_LABELS.length - 1) {
+      html += `<div class="flex-1 h-[1.5px] mt-3.5 mx-1.5 transition-all duration-500 ${done ? 'bg-primary/50' : 'bg-secondary/50'}"></div>`;
+    }
+  });
+
+  document.getElementById('js-progress-steps').innerHTML = html;
+  const labelEl = document.getElementById('js-progress-label');
+  if (labelEl) labelEl.textContent = '';
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER — SERVICE CARDS
+// ═══════════════════════════════════════════════════
+
+function renderServices() {
+  document.getElementById('js-services').innerHTML = SERVICES.map(s => `
+    <button
+      class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full"
+      data-id="${s.id}"
+    >
+      <div class="flex items-start gap-3">
+        <span class="text-2xl mt-0.5" aria-hidden="true">${s.icon}</span>
+        <div class="flex-1">
+          <div class="font-semibold text-text-main text-[15px] mb-1">${s.name}</div>
+          <p class="text-text-muted text-xs font-light leading-relaxed">${s.desc}</p>
+        </div>
+      </div>
+    </button>
+  `).join('');
+
+  document.getElementById('js-services').addEventListener('click', e => {
+    const btn = e.target.closest('[data-id]');
+    if (!btn) return;
+    State.service = SERVICES.find(s => s.id === btn.dataset.id);
+    document.querySelectorAll('.service-card').forEach(c =>
+      c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
+    updateNav();
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER — CALENDAR
+// ═══════════════════════════════════════════════════
+
+function renderDayHeaders() {
+  document.getElementById('js-day-headers').innerHTML =
+    HE_DAYS_SHORT.map(d => `<div class="text-center text-[11px] font-medium text-text-muted py-1">${d}</div>`).join('');
+}
+
+function renderCalendar() {
+  const { calMonth, slots, date: selDate } = State;
+  const year  = calMonth.getFullYear();
+  const month = calMonth.getMonth();
+  const floor = today0();
+
+  document.getElementById('js-month-label').textContent = `${HE_MONTHS[month]} ${year}`;
+
+  const firstDow   = new Date(year, month, 1).getDay();
+  const daysInMon  = new Date(year, month + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < firstDow; i++) html += '<div></div>';
+
+  for (let d = 1; d <= daysInMon; d++) {
+    const date = new Date(year, month, d);
+    const key  = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const past = date < floor;
+    const dow  = date.getDay();
+    const fri  = dow === 5;
+    const sat  = dow === 6;
+    const has  = (slots[key] ?? []).length > 0;
+    const sel  = selDate === key;
+    const isToday = date.getTime() === floor.getTime();
+    const disabled = past || fri || sat || !has;
+
+    const cls = [
+      'cal-day',
+      disabled ? 'disabled' : 'avail',
+      sel      ? 'selected' : '',
+      isToday && !sel ? 'today-ring' : '',
+    ].join(' ');
+
+    html += `
+      <div class="${cls}" data-date="${key}" role="button" tabindex="${disabled ? -1 : 0}"
+           aria-label="${key}" aria-pressed="${sel}">
+        <span>${d}</span>
+        ${has && !disabled && !sel ? '<span class="dot-avail"></span>' : ''}
+        ${sel ? '<span class="dot-avail" style="background:white"></span>' : ''}
+      </div>`;
+  }
+
+  document.getElementById('js-calendar').innerHTML = html;
+}
+
+async function loadMonthSlots(year, month) {
+  setLoading(true);
+  const res = await apiGetSlots(year, month);
+  setLoading(false);
+  if (res.success) {
+    State.slots = { ...State.slots, ...res.slots };
+    renderCalendar();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER — TIME SLOTS
+// ═══════════════════════════════════════════════════
+
+function renderSlots(dateKey) {
+  const slotsWrap = document.getElementById('js-slots-wrap');
+  const slotsGrid = document.getElementById('js-slots');
+  const noSlots   = document.getElementById('js-no-slots');
+  const times     = State.slots[dateKey] ?? [];
+
+  if (!times.length) {
+    slotsWrap.classList.add('hidden');
+    noSlots.classList.remove('hidden');
+    return;
+  }
+  noSlots.classList.add('hidden');
+  slotsWrap.classList.remove('hidden');
+
+  slotsGrid.innerHTML = times.map(t => `
+    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}">
+      <span class="font-semibold text-sm">${t}</span>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER — OTP INPUTS
+// ═══════════════════════════════════════════════════
+
+function renderOTPInputs() {
+  const wrap = document.getElementById('js-otp-inputs');
+  wrap.innerHTML = Array.from({ length: CONFIG.OTP_LENGTH }, (_, i) => `
+    <input
+      class="otp-input"
+      type="text"
+      inputmode="numeric"
+      pattern="[0-9]"
+      maxlength="1"
+      autocomplete="${i === 0 ? 'one-time-code' : 'off'}"
+      data-idx="${i}"
+      aria-label="ספרה ${i + 1}"
+    >
+  `).join('');
+
+  const inputs = wrap.querySelectorAll('.otp-input');
+
+  inputs.forEach((inp, idx) => {
+    inp.addEventListener('input', e => {
+      const digit = e.target.value.replace(/\D/g, '').slice(-1);
+      e.target.value = digit;
+      e.target.classList.toggle('filled', !!digit);
+      e.target.classList.remove('error');
+      if (digit && idx < inputs.length - 1) inputs[idx + 1].focus();
+      if (getOTP().length === CONFIG.OTP_LENGTH) autoSubmitOTP();
+    });
+
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !inp.value && idx > 0) {
+        inputs[idx - 1].focus();
+        inputs[idx - 1].value = '';
+        inputs[idx - 1].classList.remove('filled');
+      }
+      if (e.key === 'ArrowLeft'  && idx < inputs.length - 1) inputs[idx + 1].focus();
+      if (e.key === 'ArrowRight' && idx > 0) inputs[idx - 1].focus();
+    });
+
+    inp.addEventListener('paste', e => {
+      e.preventDefault();
+      const digits = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, CONFIG.OTP_LENGTH);
+      digits.split('').forEach((ch, i) => {
+        if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); }
+      });
+      if (digits.length === CONFIG.OTP_LENGTH) autoSubmitOTP();
+      else if (inputs[digits.length]) inputs[digits.length].focus();
+    });
+  });
+
+  setTimeout(() => inputs[0]?.focus(), 300);
+}
+
+function getOTP() {
+  return Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
+}
+
+function clearOTPInputs(markError = false) {
+  document.querySelectorAll('.otp-input').forEach(i => {
+    i.value = '';
+    i.classList.remove('filled');
+    if (markError) i.classList.add('error');
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.otp-input').forEach(i => i.classList.remove('error'));
+    document.querySelector('.otp-input[data-idx="0"]')?.focus();
+  }, 400);
+}
+
+// ═══════════════════════════════════════════════════
+// RENDER — CONFIRMATION
+// ═══════════════════════════════════════════════════
+
+function renderConfirmation() {
+  const rows = [
+    { label: 'שירות', value: `${State.service.icon} ${State.service.name}` },
+    { label: 'תאריך', value: formatDateHe(State.date) },
+    { label: 'שעה',   value: State.time },
+    { label: 'לקוחה', value: State.name },
+    { label: 'טלפון', value: formatPhone(State.phone) },
+  ];
+
+  document.getElementById('js-confirm-details').innerHTML = rows.map(r => `
+    <div class="flex items-center justify-between">
+      <span class="text-text-muted text-xs font-medium">${r.label}</span>
+      <span class="text-text-main text-sm font-semibold">${r.value}</span>
+    </div>
+  `).join('');
+
+  document.getElementById('js-confirm-id').innerHTML = `
+    <p class="text-[10px] text-text-muted text-center font-light">מזהה הזמנה</p>
+    <p class="text-[10px] font-mono text-text-muted/60 text-center mt-0.5 tracking-wider">${State.bookingId}</p>
+  `;
+
+  document.getElementById('js-nav').classList.add('hidden');
+}
+
+// ═══════════════════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════════════════
+
+function showStep(n) {
+  [1,2,3,4,5].forEach(i => {
+    const el = document.getElementById(`step-${i}`);
+    if (!el) return;
+    el.classList.toggle('hidden', i !== n);
+    if (i === n) {
+      el.style.animation = 'none';
+      void el.offsetHeight;
+      el.style.animation = '';
+    }
+  });
+  State.step = n;
+  renderProgress();
+  updateNav();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateNav() {
+  const { step, service, date, time, name, phone } = State;
+  const btnNext = document.getElementById('btn-next');
+  const btnBack = document.getElementById('btn-back');
+
+  btnBack.classList.toggle('hidden', step === 1 || step === 5);
+
+  let ok = false;
+  switch (step) {
+    case 1: ok = !!service;                              btnNext.textContent = 'המשך';          break;
+    case 2: ok = !!date && !!time;                       btnNext.textContent = 'המשך';          break;
+    case 3: ok = isValidName(name) && isValidPhone(phone); btnNext.textContent = "שלחי קוד SMS"; break;
+    case 4: ok = getOTP().length === CONFIG.OTP_LENGTH;  btnNext.textContent = 'אמתי';          break;
+  }
+  btnNext.disabled = !ok;
+}
+
+// ═══════════════════════════════════════════════════
+// STEP HANDLERS
+// ═══════════════════════════════════════════════════
+
+async function handleNext() {
+  const { step } = State;
+
+  if (step === 1) {
+    showStep(2);
+    document.getElementById('js-step2-service-label').textContent =
+      `${State.service.icon} ${State.service.name}`;
+
+    const now = new Date();
+    State.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    await loadMonthSlots(now.getFullYear(), now.getMonth() + 1);
+  }
+
+  else if (step === 2) {
+    showStep(3);
+    document.getElementById('js-step3-summary').textContent =
+      `${State.service.icon} ${State.service.name} · ${formatDateHe(State.date)} · ${State.time}`;
+
+    const saved = LS.get('client');
+    if (saved?.name && saved?.phone) {
+      document.getElementById('js-returning-banner').classList.remove('hidden');
+      document.getElementById('js-returning-name').textContent = saved.name;
+      document.getElementById('inp-name').value  = saved.name;
+      document.getElementById('inp-phone').value = saved.phone;
+      State.name  = saved.name;
+      State.phone = saved.phone;
+      updateNav();
+    } else {
+      document.getElementById('js-returning-banner').classList.add('hidden');
+    }
+  }
+
+  else if (step === 3) {
+    State.name  = document.getElementById('inp-name').value.trim();
+    State.phone = document.getElementById('inp-phone').value.replace(/\D/g,'');
+    State.bookingId = uuid4();
+    LS.set('client', { name: State.name, phone: State.phone });
+
+    setLoading(true);
+    const res = await apiSendOTP(State.phone);
+    setLoading(false);
+
+    if (res.success || !CONFIG.API_BASE) {
+      showStep(4);
+      document.getElementById('js-otp-phone').textContent =
+        `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
+      renderOTPInputs();
+      startResendTimer();
+    } else {
+      toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
+    }
+  }
+
+  else if (step === 4) {
+    await submitOTP(getOTP());
+  }
+}
+
+function handleBack() {
+  const { step } = State;
+  if (step <= 1 || step === 5) return;
+
+  if (step === 4 && resendTimer) clearInterval(resendTimer);
+  showStep(step - 1);
+
+  if (step - 1 === 2) {
+    renderCalendar();
+    if (State.date) renderSlots(State.date);
+  }
+}
+
+async function submitOTP(otp) {
+  setLoading(true);
+  const res = await apiVerifyAndBook(otp);
+  setLoading(false);
+
+  if (res.success) {
+    showStep(5);
+    renderConfirmation();
+  } else {
+    document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
+    document.getElementById('js-otp-error').classList.remove('hidden');
+    clearOTPInputs(true);
+    setTimeout(() => document.getElementById('js-otp-error').classList.add('hidden'), 3500);
+  }
+}
+
+async function autoSubmitOTP() {
+  updateNav();
+  await delay(200);
+  const otp = getOTP();
+  if (otp.length === CONFIG.OTP_LENGTH) await submitOTP(otp);
+}
+
+// ═══════════════════════════════════════════════════
+// RESEND TIMER
+// ═══════════════════════════════════════════════════
+
+let resendTimer = null;
+
+function startResendTimer() {
+  const btn   = document.getElementById('js-resend');
+  const timer = document.getElementById('js-resend-timer');
+  let secs = CONFIG.OTP_RESEND_SECS;
+
+  btn.disabled = true;
+  timer.textContent = `(${secs}s)`;
+  if (resendTimer) clearInterval(resendTimer);
+
+  resendTimer = setInterval(() => {
+    secs--;
+    timer.textContent = `(${secs}s)`;
+    if (secs <= 0) {
+      clearInterval(resendTimer);
+      btn.disabled = false;
+      timer.textContent = '';
+    }
+  }, 1000);
+}
+
+// ═══════════════════════════════════════════════════
+// LOADING STATE
+// ═══════════════════════════════════════════════════
+
+function setLoading(on) {
+  State.loading = on;
+  const btn = document.getElementById('btn-next');
+  if (on) {
+    btn.innerHTML = `
+      <svg class="spinner w-5 h-5 mx-auto" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/>
+        <path fill="currentColor" opacity=".75" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+      </svg>`;
+    btn.disabled = true;
+  } else {
+    updateNav();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  const bg  = type === 'error' ? 'bg-red-50 border-red-200 text-red-700'
+             : 'bg-white border-secondary/40 text-text-main';
+  el.className = `pointer-events-auto ${bg} border rounded-xl px-4 py-3 text-sm font-medium text-center shadow-md mb-2 transition-all`;
+  el.textContent = msg;
+  const wrap = document.getElementById('js-toast');
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// ═══════════════════════════════════════════════════
+// FORM VALIDATION (live)
+// ═══════════════════════════════════════════════════
+
+function setupFormListeners() {
+  const nameInp  = document.getElementById('inp-name');
+  const phoneInp = document.getElementById('inp-phone');
+
+  nameInp.addEventListener('input', () => {
+    State.name = nameInp.value.trim();
+    updateNav();
+  });
+
+  phoneInp.addEventListener('input', () => {
+    let v = phoneInp.value.replace(/\D/g,'').slice(0,10);
+    phoneInp.value = v;
+    State.phone = v;
+    updateNav();
+
+    const valid = v.length === 10 && isValidPhone(v);
+    phoneInp.classList.toggle('border-green-400', valid);
+    phoneInp.classList.toggle('border-red-300',   v.length === 10 && !valid);
+    if (v.length < 10) { phoneInp.classList.remove('border-green-400','border-red-300'); }
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// EVENT WIRING
+// ═══════════════════════════════════════════════════
+
+function wireEvents() {
+  document.getElementById('btn-next').addEventListener('click', handleNext);
+  document.getElementById('btn-back').addEventListener('click', handleBack);
+
+  document.getElementById('js-prev-month').addEventListener('click', () => {
+    const { calMonth } = State;
+    const prev = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
+    const floor = new Date(today0().getFullYear(), today0().getMonth(), 1);
+    if (prev < floor) return;
+    State.calMonth = prev;
+    loadMonthSlots(prev.getFullYear(), prev.getMonth() + 1);
+  });
+
+  document.getElementById('js-next-month').addEventListener('click', () => {
+    const { calMonth } = State;
+    const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
+    State.calMonth = next;
+    loadMonthSlots(next.getFullYear(), next.getMonth() + 1);
+  });
+
+  document.getElementById('js-calendar').addEventListener('click', e => {
+    const day = e.target.closest('[data-date]');
+    if (!day || day.classList.contains('disabled')) return;
+    State.date = day.dataset.date;
+    State.time = null;
+    renderCalendar();
+    renderSlots(State.date);
+    updateNav();
+  });
+
+  document.getElementById('js-slots').addEventListener('click', e => {
+    const slot = e.target.closest('[data-time]');
+    if (!slot) return;
+    State.time = slot.dataset.time;
+    renderSlots(State.date);
+    updateNav();
+  });
+
+  document.getElementById('js-resend').addEventListener('click', async () => {
+    setLoading(true);
+    const res = await apiSendOTP(State.phone);
+    setLoading(false);
+    if (res.success || !CONFIG.API_BASE) {
+      clearOTPInputs();
+      document.getElementById('js-otp-error').classList.add('hidden');
+      startResendTimer();
+      toast('קוד חדש נשלח 📲');
+    }
+  });
+
+  document.getElementById('js-not-me').addEventListener('click', () => {
+    LS.del('client');
+    document.getElementById('inp-name').value  = '';
+    document.getElementById('inp-phone').value = '';
+    State.name  = '';
+    State.phone = '';
+    document.getElementById('js-returning-banner').classList.add('hidden');
+    document.getElementById('inp-name').focus();
+    updateNav();
+  });
+
+  document.getElementById('js-book-again').addEventListener('click', resetApp);
+}
+
+function resetApp() {
+  State.service   = null;
+  State.date      = null;
+  State.time      = null;
+  State.name      = '';
+  State.phone     = '';
+  State.bookingId = null;
+
+  document.getElementById('js-nav').classList.remove('hidden');
+  document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
+  showStep(1);
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+
+function init() {
+  renderProgress();
+  renderDayHeaders();
+  renderServices();
+  setupFormListeners();
+  wireEvents();
+  console.info("[מיטל שבע ברעם — לק ג'ל בוטק] v0.2.0 — UUID support:", typeof crypto?.randomUUID === 'function');
+}
+
+document.addEventListener('DOMContentLoaded', init);
