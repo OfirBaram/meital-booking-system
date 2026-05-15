@@ -1,0 +1,24 @@
+﻿import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: 'tests/e2e',
+  timeout: 30_000,
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['dot'], ['html', { open: 'never' }]] : 'list',
+
+  use: {
+    baseURL: 'http://localhost:4173',
+    trace:   'on-first-retry',
+  },
+
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+  ],
+
+  webServer: {
+    command:            'npx serve frontend -p 4173',
+    port:               4173,
+    reuseExistingServer: !process.env.CI,
+    timeout:            10_000,
+  },
+})
