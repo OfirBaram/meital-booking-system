@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#FAF5F0">
+  <title>מייטל | סטודיו לציפורניים</title>
+
+  <!-- Tailwind CDN - Configure BEFORE loading -->
+  <script>
+    tailwind = {
+      config: {
+        theme: {
+          extend: {
+            colors: {
+              primary:      '#A67C8E',
+              'primary-dk': '#8B6175',
+              'primary-lt': '#C4A0B0',
+              secondary:    '#DDC3A5',
+              cream:        '#FAF5F0',
+              'text-main':  '#4A2E3A',
+              'text-muted': '#9B8090',
+            },
+            fontFamily: {
+              heebo: ['Heebo', 'sans-serif'],
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Heebo Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: 'Heebo', sans-serif;
+      background-color: #FAF5F0;
+      color: #4A2E3A;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #FAF5F0; }
+    ::-webkit-scrollbar-thumb { background: #DDC3A5; border-radius: 2px; }
+
+    /* ── Step transitions ── */
+    .step-section {
+      animation: fadeUp 0.35s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Service cards ── */
+    .service-card {
+      border: 2px solid #F0E6EB;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+    }
+    .service-card:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(166,124,142,.18); }
+    .service-card:active { transform: translateY(0); }
+    .service-card.selected {
+      border-color: #A67C8E;
+      background: linear-gradient(135deg,#FAF5F0 0%,#F5ECF0 100%);
+      box-shadow: 0 4px 18px rgba(166,124,142,.2);
+    }
+
+    /* ── Calendar days ── */
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      font-size: .8rem;
+      font-weight: 500;
+      transition: background .15s, color .15s, transform .15s;
+      cursor: pointer;
+    }
+    .cal-day.avail:hover  { background: rgba(166,124,142,.12); transform: scale(1.08); }
+    .cal-day.selected     { background: #A67C8E !important; color: #fff !important; }
+    .cal-day.today-ring   { outline: 2px solid #A67C8E; outline-offset: 1px; color: #A67C8E; font-weight: 700; }
+    .cal-day.disabled     { opacity: .3; cursor: not-allowed; pointer-events: none; }
+
+    /* ── Time slots ── */
+    .time-slot {
+      border: 2px solid #ECD9C6;
+      border-radius: 12px;
+      padding: .6rem;
+      font-size: .8rem;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, color .15s, transform .15s;
+    }
+    .time-slot:hover   { border-color: #A67C8E; color: #A67C8E; transform: scale(1.04); }
+    .time-slot.selected { background: #A67C8E; border-color: #A67C8E; color: #fff; box-shadow: 0 4px 12px rgba(166,124,142,.35); }
+
+    /* ── OTP inputs ── */
+    .otp-input {
+      width: 44px; height: 52px;
+      text-align: center;
+      font-size: 1.4rem; font-weight: 700;
+      border: 2px solid #DDC3A5;
+      border-radius: 12px;
+      background: #fff;
+      color: #4A2E3A;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      caret-color: #A67C8E;
+    }
+    .otp-input:focus { border-color: #A67C8E; box-shadow: 0 0 0 3px rgba(166,124,142,.18); }
+    .otp-input.filled { border-color: #A67C8E; background: #FBF6F9; }
+    .otp-input.error  { border-color: #EF4444; box-shadow: 0 0 0 3px rgba(239,68,68,.12); animation: shake .3s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%      { transform: translateX(-4px); }
+      75%      { transform: translateX(4px); }
+    }
+
+    /* ── Primary button ── */
+    .btn-primary {
+      background: linear-gradient(135deg, #A67C8E 0%, #8B6175 100%);
+      transition: transform .2s, box-shadow .2s, opacity .2s;
+    }
+    .btn-primary:not(:disabled):hover  { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(166,124,142,.4); }
+    .btn-primary:not(:disabled):active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Spinner ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .75s linear infinite; }
+
+    /* ── Confirmation checkmark ── */
+    @keyframes drawCheck {
+      from { stroke-dashoffset: 120; }
+      to   { stroke-dashoffset: 0; }
+    }
+    .check-path {
+      stroke-dasharray: 120;
+      stroke-dashoffset: 120;
+      animation: drawCheck .55s ease forwards .25s;
+    }
+
+    /* ── Pulse dot (available indicator) ── */
+    .dot-avail { width: 4px; height: 4px; border-radius: 50%; background: #A67C8E; margin-top: 2px; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-cream font-heebo">
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-secondary/30 shadow-sm shadow-secondary/10">
+    <div class="max-w-md mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div>
+        <h1 class="text-lg font-bold text-text-main tracking-wide leading-tight">מייטל</h1>
+        <p class="text-[10px] text-text-muted font-light tracking-[.2em] uppercase">Nail Studio</p>
+      </div>
+      <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-base select-none">💅</div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  <main class="max-w-md mx-auto px-4 pb-28">
+
+    <!-- Progress bar -->
+    <div id="js-progress" class="py-5">
+      <div id="js-progress-steps" class="flex items-center"></div>
+      <p id="js-progress-label" class="text-center text-[11px] text-text-muted font-medium tracking-wide mt-2"></p>
+    </div>
+
+    <!-- ══ STEP 1: Service selection ══ -->
+    <section id="step-1" class="step-section">
+      <h2 class="text-2xl font-bold text-text-main mb-1">בחרי שירות</h2>
+      <p class="text-text-muted text-sm mb-5 font-light">כל השירותים כוללים ייעוץ ועיצוב לפי בחירה</p>
+      <div id="js-services" class="grid grid-cols-1 gap-3"></div>
+    </section>
+
+    <!-- ══ STEP 2: Date & Time ══ -->
+    <section id="step-2" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">תאריך ושעה</h2>
+      <p id="js-step2-service-label" class="text-primary text-sm mb-5 font-semibold"></p>
+
+      <!-- Calendar card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-4 mb-4">
+        <!-- Month nav -->
+        <div class="flex items-center justify-between mb-3">
+          <button id="js-prev-month" aria-label="חודש קודם"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+          <h3 id="js-month-label" class="text-sm font-semibold text-text-main"></h3>
+          <button id="js-next-month" aria-label="חודש הבא"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Day headers (Sun–Sat in Hebrew) -->
+        <div id="js-day-headers" class="grid grid-cols-7 mb-1"></div>
+
+        <!-- Calendar loading skeleton -->
+        <div id="js-cal-loader" class="hidden grid grid-cols-7 gap-1">
+          <!-- 35 skeleton cells rendered by JS -->
+        </div>
+
+        <!-- Calendar grid -->
+        <div id="js-calendar" class="grid grid-cols-7 gap-1"></div>
+      </div>
+
+      <!-- Time slots -->
+      <div id="js-slots-wrap" class="hidden">
+        <h3 class="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">שעות פנויות</h3>
+        <div id="js-slots" class="grid grid-cols-3 gap-2"></div>
+      </div>
+      <p id="js-no-slots" class="hidden text-center py-6 text-text-muted text-sm leading-relaxed">
+        אין שעות פנויות בתאריך זה.<br>בחרי תאריך אחר 🗓
+      </p>
+    </section>
+
+    <!-- ══ STEP 3: Personal details ══ -->
+    <section id="step-3" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">פרטים אישיים</h2>
+      <p id="js-step3-summary" class="text-primary text-sm mb-5 font-semibold"></p>
+
+      <!-- Returning client banner -->
+      <div id="js-returning-banner"
+        class="hidden mb-4 bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
+        <span class="text-xl select-none">👋</span>
+        <div class="flex-1">
+          <p class="text-sm font-bold text-text-main">ברוכה השבה!</p>
+          <p id="js-returning-name" class="text-xs text-primary font-medium"></p>
+        </div>
+        <button id="js-not-me" class="text-xs text-text-muted underline shrink-0">לא אני</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label for="inp-name" class="block text-sm font-medium text-text-main mb-1.5">שם מלא</label>
+          <input id="inp-name" type="text" autocomplete="name" inputmode="text"
+            placeholder="למשל: נועה כהן"
+            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
+                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
+                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base">
+        </div>
+        <div>
+          <label for="inp-phone" class="block text-sm font-medium text-text-main mb-1.5">מספר טלפון</label>
+          <input id="inp-phone" type="tel" autocomplete="tel" inputmode="tel"
+            dir="ltr" maxlength="10" placeholder="05X-XXXXXXX"
+            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
+                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
+                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base tracking-wider">
+        </div>
+        <p class="text-xs text-text-muted font-light leading-relaxed">
+          לאחר המשך ישלח אליך קוד אימות ב-SMS לאישור ההזמנה.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ STEP 4: OTP Verification ══ -->
+    <section id="step-4" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">אימות מספר</h2>
+      <p id="js-otp-phone" class="text-primary text-sm mb-8 font-semibold"></p>
+
+      <!-- 6-digit OTP input (LTR direction for numbers) -->
+      <div dir="ltr" id="js-otp-inputs" class="flex justify-center gap-2 mb-6"></div>
+
+      <div id="js-otp-error"
+        class="hidden mb-4 text-center text-red-500 text-sm font-medium bg-red-50 rounded-xl py-2.5 px-4 border border-red-100">
+      </div>
+
+      <div class="text-center space-y-1">
+        <p class="text-text-muted text-sm">לא קיבלת SMS?</p>
+        <div class="flex items-center justify-center gap-2">
+          <button id="js-resend" disabled
+            class="text-primary font-semibold text-sm underline underline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
+            שלחי שוב
+          </button>
+          <span id="js-resend-timer" class="text-text-muted text-xs tabular-nums"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ STEP 5: Confirmation ══ -->
+    <section id="step-5" class="step-section hidden">
+      <div class="text-center py-6">
+        <!-- Animated checkmark -->
+        <div class="w-24 h-24 mx-auto mb-5">
+          <svg viewBox="0 0 100 100" fill="none" class="w-full h-full">
+            <circle cx="50" cy="50" r="47" fill="#F5ECF0" stroke="#DDC3A5" stroke-width="1.5"/>
+            <path class="check-path" d="M28 50 L44 66 L72 34"
+              stroke="#A67C8E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <h2 class="text-2xl font-bold text-text-main mb-2">הבקשה נשלחה!</h2>
+        <p class="text-text-muted text-sm font-light leading-relaxed mb-8 max-w-xs mx-auto">
+          הבקשה שלך ממתינה לאישור מייטל.<br>תקבלי SMS ברגע שהתור יאושר.
+        </p>
+
+        <!-- Summary card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-5 text-right mb-6">
+          <p class="text-[10px] font-semibold text-text-muted uppercase tracking-[.18em] mb-4">פרטי ההזמנה</p>
+          <div id="js-confirm-details" class="space-y-3"></div>
+          <div id="js-confirm-id" class="mt-4 pt-4 border-t border-secondary/20"></div>
+        </div>
+
+        <button id="js-book-again"
+          class="text-primary font-semibold text-sm underline underline-offset-2">
+          הזמני תור נוסף
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
+  <div id="js-nav"
+    class="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur-sm border-t border-secondary/30 p-4 z-40">
+    <div class="max-w-md mx-auto flex gap-3">
+      <button id="btn-back"
+        class="hidden flex-1 py-3.5 rounded-xl border-2 border-secondary text-text-main font-semibold text-sm
+               transition-all hover:border-primary hover:text-primary active:scale-95">
+        חזרה
+      </button>
+      <button id="btn-next" disabled
+        class="flex-1 btn-primary py-3.5 rounded-xl text-white font-semibold text-sm shadow-md">
+        המשך
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="js-toast" class="fixed top-20 inset-x-4 max-w-sm mx-auto z-[60] pointer-events-none"></div>
+
+  <script src="booking.js"></script>
+</body>
+</html>
