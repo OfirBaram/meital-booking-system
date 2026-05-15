@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -14,52 +14,18 @@ const CONFIG = {
 
 const SERVICES = [
   {
-    id: 'gel_basic',
-    name: "ג'ל בסיסי",
-    desc: "ג'ל חד-גוני, פרנץ' או ombre — ללא עיצוב מורכב",
+    id: 'gel_classic',
+    name: "לק ג'ל קלאסי",
+    desc: "ציפוי ג'ל מושלם — צבע מלא, פרנץ' או ombre לפי בחירה",
     duration: 90,
-    durationLabel: '1.5 שעות',
     icon: '✨',
   },
   {
-    id: 'gel_art',
-    name: "ג'ל + עיצוב",
-    desc: "ג'ל עם נייל-ארט — פרחים, גיאומטרי, גלייטר ועוד",
+    id: 'gel_feet',
+    name: "לק ג'ל + רגליים",
+    desc: "טיפול ג'ל מלא לידיים ולרגליים",
     duration: 120,
-    durationLabel: '2 שעות',
     icon: '🌸',
-  },
-  {
-    id: 'acrylic',
-    name: 'אקריל',
-    desc: 'בניית ציפורניים אקריל עם עיצוב לבחירה',
-    duration: 120,
-    durationLabel: '2 שעות',
-    icon: '💎',
-  },
-  {
-    id: 'pedicure_gel',
-    name: "פדיקור ג'ל",
-    desc: "טיפול רגליים מלא + ג'ל",
-    duration: 90,
-    durationLabel: '1.5 שעות',
-    icon: '🦶',
-  },
-  {
-    id: 'removal_redo',
-    name: "הסרה + ג'ל חדש",
-    desc: "הסרת ג'ל קיים + בנייה מחדש עם עיצוב",
-    duration: 90,
-    durationLabel: '1.5 שעות',
-    icon: '🔄',
-  },
-  {
-    id: 'full_set',
-    name: 'טיפול מלא',
-    desc: "מניקור + פדיקור + ג'ל ביד וברגל",
-    duration: 120,
-    durationLabel: '2 שעות',
-    icon: '👑',
   },
 ];
 
@@ -83,14 +49,14 @@ const STEP_LABELS = [
 
 const State = {
   step: 1,
-  service: null,          // SERVICES entry
-  date: null,             // 'YYYY-MM-DD'
-  time: null,             // 'HH:MM'
+  service: null,
+  date: null,
+  time: null,
   name: '',
   phone: '',
-  bookingId: null,        // UUID v4
-  calMonth: null,         // Date (1st of displayed month)
-  slots: {},              // { 'YYYY-MM-DD': ['HH:MM', ...] }
+  bookingId: null,
+  calMonth: null,
+  slots: {},
   loading: false,
 };
 
@@ -100,23 +66,16 @@ const State = {
 
 function uuid4() {
   if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  // RFC 4122 v4 fallback
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0;
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
 
-/**
- * Returns a timezone-tagged ISO 8601 timestamp for the GAS backend.
- * Israel Standard Time = UTC+2, Israel Daylight Time = UTC+3.
- * Production: backend should resolve DST via the IANA timezone name.
- */
 function toISO8601Jerusalem(dateStr, timeStr) {
   return {
     local: `${dateStr}T${timeStr}:00`,
     timezone: CONFIG.TIMEZONE,
-    // Static UTC+3 tag — backend must verify DST via Intl API or GAS Utilities.formatDate
     tagged: `${dateStr}T${timeStr}:00+03:00`,
   };
 }
@@ -215,14 +174,13 @@ async function apiVerifyAndBook(otp) {
           timestamp:   ts.tagged,
           timezone:    ts.timezone,
           duration:    State.service.duration,
-          status:      'Pending',          // → PENDING_LOCK set by GAS instantly
+          status:      'Pending',
         },
       }),
     });
     return r.json();
   }
 
-  // Development mock: OTP '000000' simulates wrong code
   await delay(750);
   if (otp === '000000') return { success: false, error: 'invalid_otp' };
   return { success: true, bookingId: State.bookingId, status: 'Pending' };
@@ -236,7 +194,8 @@ function mockSlots(year, month) {
 
   for (let d = 1; d <= days; d++) {
     const date = new Date(year, month - 1, d);
-    if (date < floor || date.getDay() === 6) continue; // past or Shabbat
+    const dow = date.getDay();
+    if (date < floor || dow === 5 || dow === 6) continue;
     const key = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const avail = BASE.filter(() => Math.random() > 0.38);
     if (avail.length) slots[key] = avail;
@@ -251,28 +210,42 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ═══════════════════════════════════════════════════
 
 function renderProgress() {
-  const stepsEl = document.getElementById('js-progress-steps');
-  const labelEl = document.getElementById('js-progress-label');
   const { step } = State;
+  const progEl = document.getElementById('js-progress');
+  if (step === 5) { progEl.classList.add('hidden'); return; }
+  progEl.classList.remove('hidden');
 
-  stepsEl.innerHTML = Array.from({ length: 4 }, (_, i) => {
-    const n = i + 1;
-    const done    = n < step;
-    const current = n === step;
-    const dotCls = done    ? 'bg-primary text-white'
-                 : current ? 'border-2 border-primary text-primary bg-primary/10'
-                 :           'bg-secondary/40 text-text-muted';
-    const lineCls = done ? 'bg-primary' : 'bg-secondary/30';
-    return `
-      <div class="flex items-center ${n < 4 ? 'flex-1' : ''}">
-        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${dotCls}">
-          ${done ? '✓' : n}
-        </div>
-        ${n < 4 ? `<div class="flex-1 h-0.5 mx-1 transition-all ${lineCls}"></div>` : ''}
-      </div>`;
-  }).join('');
+  let html = '';
+  STEP_LABELS.forEach((lbl, i) => {
+    const n = i + 1, done = n < step, curr = n === step;
+    html += '<div class="flex flex-col items-center shrink-0">';
+    if (done) {
+      html += `<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm transition-all">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+      </div>
+      <span class="text-[10px] font-medium text-primary/80 mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    } else if (curr) {
+      html += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-md shadow-primary/30 ring-[3px] ring-cream transition-all">
+        <span class="text-white font-bold text-[11px]">${n}</span>
+      </div>
+      <span class="text-[10px] font-semibold text-primary mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    } else {
+      html += `<div class="w-7 h-7 rounded-full border border-secondary/70 bg-white flex items-center justify-center transition-all">
+        <span class="text-[10px] font-medium text-text-muted/40">${n}</span>
+      </div>
+      <span class="text-[10px] font-medium text-text-muted/40 mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
+    }
+    html += '</div>';
+    if (i < STEP_LABELS.length - 1) {
+      html += `<div class="flex-1 h-[1.5px] mt-3.5 mx-1.5 transition-all duration-500 ${done ? 'bg-primary/50' : 'bg-secondary/50'}"></div>`;
+    }
+  });
 
-  labelEl.textContent = STEP_LABELS[step - 1] ?? '';
+  document.getElementById('js-progress-steps').innerHTML = html;
+  const labelEl = document.getElementById('js-progress-label');
+  if (labelEl) labelEl.textContent = '';
 }
 
 // ═══════════════════════════════════════════════════
@@ -285,17 +258,12 @@ function renderServices() {
       class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full"
       data-id="${s.id}"
     >
-      <div class="flex items-start justify-between gap-2">
+      <div class="flex items-start gap-3">
+        <span class="text-2xl mt-0.5" aria-hidden="true">${s.icon}</span>
         <div class="flex-1">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-xl" aria-hidden="true">${s.icon}</span>
-            <span class="font-semibold text-text-main text-[15px]">${s.name}</span>
-          </div>
-          <p class="text-text-muted text-xs font-light leading-relaxed pr-7">${s.desc}</p>
+          <div class="font-semibold text-text-main text-[15px] mb-1">${s.name}</div>
+          <p class="text-text-muted text-xs font-light leading-relaxed">${s.desc}</p>
         </div>
-        <span class="shrink-0 text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-          ${s.durationLabel}
-        </span>
       </div>
     </button>
   `).join('');
@@ -322,12 +290,12 @@ function renderDayHeaders() {
 function renderCalendar() {
   const { calMonth, slots, date: selDate } = State;
   const year  = calMonth.getFullYear();
-  const month = calMonth.getMonth(); // 0-indexed
+  const month = calMonth.getMonth();
   const floor = today0();
 
   document.getElementById('js-month-label').textContent = `${HE_MONTHS[month]} ${year}`;
 
-  const firstDow   = new Date(year, month, 1).getDay(); // 0=Sun
+  const firstDow   = new Date(year, month, 1).getDay();
   const daysInMon  = new Date(year, month + 1, 0).getDate();
 
   let html = '';
@@ -337,11 +305,13 @@ function renderCalendar() {
     const date = new Date(year, month, d);
     const key  = `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const past = date < floor;
-    const sat  = date.getDay() === 6;
+    const dow  = date.getDay();
+    const fri  = dow === 5;
+    const sat  = dow === 6;
     const has  = (slots[key] ?? []).length > 0;
     const sel  = selDate === key;
     const isToday = date.getTime() === floor.getTime();
-    const disabled = past || sat || !has;
+    const disabled = past || fri || sat || !has;
 
     const cls = [
       'cal-day',
@@ -354,7 +324,7 @@ function renderCalendar() {
       <div class="${cls}" data-date="${key}" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
-        ${has && !sel ? '<span class="dot-avail"></span>' : ''}
+        ${has && !disabled && !sel ? '<span class="dot-avail"></span>' : ''}
         ${sel ? '<span class="dot-avail" style="background:white"></span>' : ''}
       </div>`;
   }
@@ -390,11 +360,9 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  const dur = State.service?.duration ?? 90;
   slotsGrid.innerHTML = times.map(t => `
     <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}">
-      <div>${t}</div>
-      <div class="text-[10px] font-normal opacity-70">${addMinutes(t, dur)}</div>
+      <span class="font-semibold text-sm">${t}</span>
     </div>
   `).join('');
 }
@@ -478,7 +446,7 @@ function renderConfirmation() {
   const rows = [
     { label: 'שירות', value: `${State.service.icon} ${State.service.name}` },
     { label: 'תאריך', value: formatDateHe(State.date) },
-    { label: 'שעה',   value: `${State.time} – ${addMinutes(State.time, State.service.duration)}` },
+    { label: 'שעה',   value: State.time },
     { label: 'לקוחה', value: State.name },
     { label: 'טלפון', value: formatPhone(State.phone) },
   ];
@@ -495,7 +463,6 @@ function renderConfirmation() {
     <p class="text-[10px] font-mono text-text-muted/60 text-center mt-0.5 tracking-wider">${State.bookingId}</p>
   `;
 
-  // Hide bottom nav on confirmation screen
   document.getElementById('js-nav').classList.add('hidden');
 }
 
@@ -509,7 +476,6 @@ function showStep(n) {
     if (!el) return;
     el.classList.toggle('hidden', i !== n);
     if (i === n) {
-      // Re-trigger animation
       el.style.animation = 'none';
       void el.offsetHeight;
       el.style.animation = '';
@@ -545,18 +511,16 @@ function updateNav() {
 async function handleNext() {
   const { step } = State;
 
-  // ── Step 1 → 2 ──
   if (step === 1) {
     showStep(2);
     document.getElementById('js-step2-service-label').textContent =
-      `${State.service.icon} ${State.service.name} · ${State.service.durationLabel}`;
+      `${State.service.icon} ${State.service.name}`;
 
     const now = new Date();
     State.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     await loadMonthSlots(now.getFullYear(), now.getMonth() + 1);
   }
 
-  // ── Step 2 → 3 ──
   else if (step === 2) {
     showStep(3);
     document.getElementById('js-step3-summary').textContent =
@@ -576,7 +540,6 @@ async function handleNext() {
     }
   }
 
-  // ── Step 3 → 4 ──
   else if (step === 3) {
     State.name  = document.getElementById('inp-name').value.trim();
     State.phone = document.getElementById('inp-phone').value.replace(/\D/g,'');
@@ -598,7 +561,6 @@ async function handleNext() {
     }
   }
 
-  // ── Step 4 → 5 ──
   else if (step === 4) {
     await submitOTP(getOTP());
   }
@@ -634,8 +596,7 @@ async function submitOTP(otp) {
 }
 
 async function autoSubmitOTP() {
-  updateNav(); // enables the button
-  // Small debounce so user sees the last digit fill before submission kicks in
+  updateNav();
   await delay(200);
   const otp = getOTP();
   if (otp.length === CONFIG.OTP_LENGTH) await submitOTP(otp);
@@ -735,7 +696,6 @@ function wireEvents() {
   document.getElementById('btn-next').addEventListener('click', handleNext);
   document.getElementById('btn-back').addEventListener('click', handleBack);
 
-  // Calendar month navigation
   document.getElementById('js-prev-month').addEventListener('click', () => {
     const { calMonth } = State;
     const prev = new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1);
@@ -752,7 +712,6 @@ function wireEvents() {
     loadMonthSlots(next.getFullYear(), next.getMonth() + 1);
   });
 
-  // Calendar day click (delegated)
   document.getElementById('js-calendar').addEventListener('click', e => {
     const day = e.target.closest('[data-date]');
     if (!day || day.classList.contains('disabled')) return;
@@ -763,7 +722,6 @@ function wireEvents() {
     updateNav();
   });
 
-  // Time slot click (delegated)
   document.getElementById('js-slots').addEventListener('click', e => {
     const slot = e.target.closest('[data-time]');
     if (!slot) return;
@@ -772,7 +730,6 @@ function wireEvents() {
     updateNav();
   });
 
-  // OTP resend
   document.getElementById('js-resend').addEventListener('click', async () => {
     setLoading(true);
     const res = await apiSendOTP(State.phone);
@@ -785,7 +742,6 @@ function wireEvents() {
     }
   });
 
-  // "Not me" button in returning client banner
   document.getElementById('js-not-me').addEventListener('click', () => {
     LS.del('client');
     document.getElementById('inp-name').value  = '';
@@ -797,7 +753,6 @@ function wireEvents() {
     updateNav();
   });
 
-  // Book again (reset)
   document.getElementById('js-book-again').addEventListener('click', resetApp);
 }
 
@@ -824,7 +779,7 @@ function init() {
   renderServices();
   setupFormListeners();
   wireEvents();
-  console.info('[Meital Booking] v0.1.0 — UUID support:', typeof crypto?.randomUUID === 'function');
+  console.info("[מיטל שבע ברעם — לק ג'ל בוטק] v0.2.0 — UUID support:", typeof crypto?.randomUUID === 'function');
 }
 
 document.addEventListener('DOMContentLoaded', init);
