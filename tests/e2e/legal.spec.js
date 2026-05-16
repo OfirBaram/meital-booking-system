@@ -69,7 +69,7 @@ test.describe('Privacy modal', () => {
   test('clicking the backdrop closes the modal', async ({ page }) => {
     await page.locator('#js-open-privacy').click()
     await expect(page.locator('#js-modal')).not.toHaveClass(/hidden/)
-    await page.locator('#js-modal-backdrop').click()
+    await page.locator('#js-modal-backdrop').click({ position: { x: 5, y: 5 } })
     await expect(page.locator('#js-modal')).toHaveClass(/hidden/)
   })
 })
