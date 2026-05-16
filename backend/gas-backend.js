@@ -29,7 +29,7 @@ const CFG = {
   get HMAC_SECRET()   { return prop('HMAC_SECRET'); },
   get SS_ID()         { return prop('SPREADSHEET_ID'); },
   get CAL_ID()        { return prop('CALENDAR_ID'); },
-  get WEB_APP_URL()   { return prop('WEB_APP_URL'); },
+  get WEB_APP_URL()   { try { return ScriptApp.getService().getUrl(); } catch (_) { return prop('WEB_APP_URL'); } },
   get TIMEZONE()      { return PropertiesService.getScriptProperties().getProperty('TIMEZONE') || 'Asia/Jerusalem'; },
 };
 
