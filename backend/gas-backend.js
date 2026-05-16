@@ -304,15 +304,21 @@ function handleGetSlots(body) {
  * Body: { phone: '05XXXXXXXX' }
  */
 function handleSendOTP(body) {
+  Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
   const phone = normalizePhone(body.phone);
-  if (!phone) throw new Error('Invalid phone number');
+  Logger.log('[sendOTP] Normalized phone: "' + phone + '" (05X→+972 conversion applied if needed)');
+  if (!phone) {
+    throw new Error(
+      'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
+  }
 
   const otp   = generateOTP();
   const cache = CacheService.getScriptCache();
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
+  Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
-  Logger.log('[sendOTP] OTP sent to ' + phone);
+  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone);
   return { success: true };
 }
 
@@ -604,28 +610,44 @@ function syncCalendarToSlots() {
 // ═══════════════════════════════════════════════════════════════
 
 function sendSMS(to, body) {
+  Logger.log('[sendSMS] Sending to: ' + to + ' | from: ' + CFG.TWILIO_FROM);
+
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${CFG.TWILIO_SID}/Messages.json`;
-  const payload = {
-    To:   to,
-    From: CFG.TWILIO_FROM,
-    Body: body,
-  };
   const options = {
     method:  'post',
-    payload: payload,
+    payload: { To: to, From: CFG.TWILIO_FROM, Body: body },
     headers: {
       Authorization: 'Basic ' + Utilities.base64Encode(CFG.TWILIO_SID + ':' + CFG.TWILIO_TOKEN),
     },
     muteHttpExceptions: true,
   };
 
-  const resp = UrlFetchApp.fetch(url, options);
-  const code = resp.getResponseCode();
-  if (code < 200 || code >= 300) {
-    Logger.log('[sendSMS] Twilio error ' + code + ': ' + resp.getContentText());
-    throw new Error('Twilio SMS failed: HTTP ' + code);
+  let resp;
+  try {
+    resp = UrlFetchApp.fetch(url, options);
+  } catch (fetchErr) {
+    // Network-level failure (DNS, timeout, etc.)
+    Logger.log('[sendSMS] Network error: ' + fetchErr.message);
+    throw new Error('SMS network error: ' + fetchErr.message);
   }
-  Logger.log('[sendSMS] SMS sent to ' + to);
+
+  const code        = resp.getResponseCode();
+  const respText    = resp.getContentText();
+  Logger.log('[sendSMS] Twilio HTTP ' + code + ': ' + respText.slice(0, 500));
+
+  if (code < 200 || code >= 300) {
+    // Parse Twilio error JSON so the caller sees the human-readable message,
+    // not just the HTTP status code (e.g. 21614 = invalid To number).
+    let detail = 'HTTP ' + code;
+    try {
+      const tw = JSON.parse(respText);
+      detail = 'HTTP ' + code + ' | Twilio ' + tw.code + ': ' + tw.message;
+      if (tw.more_info) detail += ' — ' + tw.more_info;
+    } catch (_) { detail += ' | ' + respText.slice(0, 200); }
+    throw new Error('Twilio SMS failed: ' + detail);
+  }
+
+  Logger.log('[sendSMS] SMS sent OK to ' + to);
 }
 
 // ═══════════════════════════════════════════════════════════════
