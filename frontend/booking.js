@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════
 
 const CONFIG = {
-  API_BASE: 'https://script.google.com/macros/s/AKfycbxw0wqKzICQaJ20RgKVvKCn505scgo6uYwAoKkLGOsPqEtNJaZlsGBO9oknJAI7lf4lfw/exec',
+  API_BASE: 'https://script.google.com/macros/s/AKfycbzKLW_9y56PPie-Phnzseq3RlSwy9uIdnLgG4fvGtnTt21P4gcVCvaKe26SsMX1hGBfnQ/exec',
   HMAC_SECRET: 'Meital123',
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
