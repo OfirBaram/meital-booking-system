@@ -430,7 +430,11 @@ function handleVerifyAndBook(body) {
     if (phone !== QA_MOCK_PHONE) {
       sendSMS(CFG.ADMIN_PHONE, adminMsg);
     } else {
-      Logger.log('[verifyAndBook] MOCK MODE — skipping admin SMS for QA phone');
+      Logger.log('[verifyAndBook] MOCK MODE — admin SMS suppressed. Copy links from log:');
+      Logger.log('────────────────────────────────────────────────────');
+      Logger.log(adminMsg);
+      Logger.log('────────────────────────────────────────────────────');
+      Logger.log('[verifyAndBook] bookingId=' + bookingId + ' | adminToken=' + adminToken);
     }
 
     Logger.log('[verifyAndBook] Booking created: ' + bookingId);
@@ -925,6 +929,76 @@ function runInternalTests() {
  * Run once from the GAS editor to install the daily calendar-sync trigger.
  * Do NOT deploy this function as part of the web app.
  */
+/**
+ * Run from the GAS editor to generate admin Approve/Reject links for the
+ * most recent booking in Bookings_Log. Paste either URL in a browser to
+ * test the admin-approval flow without an SMS being sent.
+ */
+function simulateAdminSMS() {
+  Logger.log('');
+  Logger.log('══════════════ simulateAdminSMS START ══════════════');
+
+  const sh      = logSheet();
+  const lastRow = sh.getLastRow();
+
+  if (lastRow < 2) {
+    Logger.log('[simulateAdminSMS] Bookings_Log is empty — submit a booking first.');
+    return;
+  }
+
+  const data = sh.getRange(lastRow, 1, 1, 12).getValues()[0];
+
+  // Columns: A=UUID B=Name C=Phone D=Service E=ServiceName
+  //          F=Date G=Time H=Timestamp I=Duration J=Status K=CalEventId L=AdminToken
+  const bookingId   = String(data[0]).trim();
+  const name        = String(data[1]).trim();
+  const phone       = String(data[2]).trim();
+  const serviceName = String(data[4]).trim();
+  const status      = String(data[9]).trim();
+  const adminToken  = String(data[11]).trim();
+
+  // Date/Time cells may arrive as Date objects depending on Sheet column format
+  let date = data[5];
+  date = (date instanceof Date)
+    ? Utilities.formatDate(date, CFG.TIMEZONE, 'yyyy-MM-dd')
+    : String(date).trim();
+
+  let time = data[6];
+  time = (time instanceof Date)
+    ? Utilities.formatDate(time, CFG.TIMEZONE, 'HH:mm')
+    : String(time).trim();
+
+  Logger.log('[simulateAdminSMS] Row ' + lastRow + ':');
+  Logger.log('  bookingId:  ' + bookingId);
+  Logger.log('  name:       ' + name);
+  Logger.log('  phone:      ' + phone);
+  Logger.log('  service:    ' + serviceName);
+  Logger.log('  date/time:  ' + date + ' ' + time);
+  Logger.log('  status:     ' + status);
+  Logger.log('  adminToken: ' + adminToken);
+
+  if (!bookingId || !adminToken) {
+    Logger.log('[simulateAdminSMS] ERROR: bookingId or adminToken empty — check Bookings_Log columns A and L.');
+    return;
+  }
+
+  const approveUrl = buildAdminUrl('APPROVE', bookingId, adminToken);
+  const rejectUrl  = buildAdminUrl('REJECT',  bookingId, adminToken);
+
+  Logger.log('');
+  Logger.log('══════════════ ADMIN LINKS (paste in browser) ══════════════');
+  Logger.log('');
+  Logger.log('✅ APPROVE:');
+  Logger.log(approveUrl);
+  Logger.log('');
+  Logger.log('❌ REJECT:');
+  Logger.log(rejectUrl);
+  Logger.log('');
+  Logger.log('════════════════════════════════════════════════════════════');
+  Logger.log('[simulateAdminSMS] Open either URL in a browser to run the approval flow.');
+  Logger.log('[simulateAdminSMS] Expected: status in Bookings_Log changes to Approved/Rejected + Calendar event created.');
+  Logger.log('══════════════ simulateAdminSMS END ══════════════');
+}
 function installTriggers() {
   // Remove any existing syncCalendarToSlots triggers first
   ScriptApp.getProjectTriggers()

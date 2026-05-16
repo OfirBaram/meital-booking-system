@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Get-ChildItem -Force | ForEach-Object { $_.FullName })"
+      "PowerShell(Get-ChildItem -Force | ForEach-Object { $_.FullName })",
+      "Bash(git pull *)",
+      "Bash(git checkout *)"
     ]
   }
 }
