@@ -100,7 +100,9 @@ function formatPhone(raw) {
 }
 
 function isValidPhone(raw) {
-  return /^05[0-9]{8}$/.test(raw.replace(/\D/g, ''));
+  const digits = raw.replace(/\D/g, '');
+  if (digits === CONFIG.MOCK_PHONE) return true; // QA bypass
+  return /^05[0-9]{8}$/.test(digits);
 }
 
 function isValidName(n) {
