@@ -317,7 +317,13 @@ function handleSendOTP(body) {
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
-  sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
+  try {
+    sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
+  } catch (smsErr) {
+    Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
+    // Return debugInfo so the browser Console shows the exact Twilio reason.
+    return { success: false, error: smsErr.message, debugInfo: smsErr.debugInfo || {} };
+  }
   Logger.log('[sendOTP] SMS dispatched successfully to ' + phone);
   return { success: true };
 }
@@ -610,12 +616,16 @@ function syncCalendarToSlots() {
 // ═══════════════════════════════════════════════════════════════
 
 function sendSMS(to, body) {
-  Logger.log('[sendSMS] Sending to: ' + to + ' | from: ' + CFG.TWILIO_FROM);
+  // Log the EXACT values sent to Twilio — reveals whitespace/formatting issues
+  // that would not appear in a summary log line.
+  const fromNum = CFG.TWILIO_FROM;
+  Logger.log('[sendSMS] Payload → To: "' + to + '" | From: "' + fromNum +
+             '" | To.length: ' + to.length + ' | From.length: ' + fromNum.length);
 
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${CFG.TWILIO_SID}/Messages.json`;
   const options = {
     method:  'post',
-    payload: { To: to, From: CFG.TWILIO_FROM, Body: body },
+    payload: { To: to, From: fromNum, Body: body },
     headers: {
       Authorization: 'Basic ' + Utilities.base64Encode(CFG.TWILIO_SID + ':' + CFG.TWILIO_TOKEN),
     },
@@ -626,25 +636,29 @@ function sendSMS(to, body) {
   try {
     resp = UrlFetchApp.fetch(url, options);
   } catch (fetchErr) {
-    // Network-level failure (DNS, timeout, etc.)
     Logger.log('[sendSMS] Network error: ' + fetchErr.message);
-    throw new Error('SMS network error: ' + fetchErr.message);
+    const err = new Error('SMS network error: ' + fetchErr.message);
+    err.debugInfo = { stage: 'network', to, from: fromNum, message: fetchErr.message };
+    throw err;
   }
 
-  const code        = resp.getResponseCode();
-  const respText    = resp.getContentText();
+  const code     = resp.getResponseCode();
+  const respText = resp.getContentText();
   Logger.log('[sendSMS] Twilio HTTP ' + code + ': ' + respText.slice(0, 500));
 
   if (code < 200 || code >= 300) {
-    // Parse Twilio error JSON so the caller sees the human-readable message,
-    // not just the HTTP status code (e.g. 21614 = invalid To number).
-    let detail = 'HTTP ' + code;
+    let detail    = 'HTTP ' + code;
+    const dbg     = { stage: 'twilio', to, from: fromNum, httpStatus: code, raw: respText.slice(0, 500) };
     try {
       const tw = JSON.parse(respText);
-      detail = 'HTTP ' + code + ' | Twilio ' + tw.code + ': ' + tw.message;
-      if (tw.more_info) detail += ' — ' + tw.more_info;
+      detail          = 'HTTP ' + code + ' | Twilio ' + tw.code + ': ' + tw.message;
+      dbg.twilioCode    = tw.code;
+      dbg.twilioMessage = tw.message;
+      if (tw.more_info) { detail += ' — ' + tw.more_info; dbg.moreInfo = tw.more_info; }
     } catch (_) { detail += ' | ' + respText.slice(0, 200); }
-    throw new Error('Twilio SMS failed: ' + detail);
+    const err = new Error('Twilio SMS failed: ' + detail);
+    err.debugInfo = dbg;
+    throw err;
   }
 
   Logger.log('[sendSMS] SMS sent OK to ' + to);
@@ -808,6 +822,83 @@ function buildAdminConfirmPage(action, result) {
   <p>מזהה הזמנה: ${result.bookingId || ''}</p>
   <p>ניתן לסגור חלון זה.</p>
 </div></body></html>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INTERNAL TESTS  (run from GAS Editor — never deploy)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Unit-test suite for pure/logic functions.
+ * Run via GAS Editor → Run → runInternalTests → View Execution Log.
+ * No Twilio SMS is sent. No Sheet is written.
+ *
+ * Test cases:
+ *   1. normalizePhone: Israeli 05X formats (digits, dashes, spaces)
+ *   2. normalizePhone: E.164 and bare 972 prefix
+ *   3. normalizePhone: invalid inputs → null
+ *   4. generateOTP: correct length and digit-only
+ */
+function runInternalTests() {
+  let passed = 0, failed = 0;
+
+  function assert(label, actual, expected) {
+    const ok = (actual === expected);
+    Logger.log((ok ? '✅ PASS' : '❌ FAIL') + ' — ' + label +
+               (ok ? ' | got: "' + actual + '"'
+                   : ' | expected: "' + expected + '" | got: "' + actual + '"'));
+    ok ? passed++ : failed++;
+  }
+
+  Logger.log('══════════════ runInternalTests START ══════════════');
+
+  // ── normalizePhone: valid Israeli mobile numbers ──────────────────────────
+  Logger.log('\n[ normalizePhone — valid Israeli mobile ]');
+  assert('054 ten digits',           normalizePhone('0541234567'),    '+972541234567');
+  assert('050 ten digits',           normalizePhone('0501234567'),    '+972501234567');
+  assert('052 ten digits',           normalizePhone('0521234567'),    '+972521234567');
+  assert('dashes 050-123-4567',      normalizePhone('050-123-4567'), '+972501234567');
+  assert('spaces "050 123 4567"',    normalizePhone('050 123 4567'), '+972501234567');
+  assert('mixed "054-234 5678"',     normalizePhone('054-234 5678'), '+972542345678');
+
+  // ── normalizePhone: E.164 and bare 972 inputs ─────────────────────────────
+  Logger.log('\n[ normalizePhone — E.164 / 972 prefix ]');
+  assert('E.164 +972501234567',      normalizePhone('+972501234567'), '+972501234567');
+  assert('bare 972 (12 digits)',     normalizePhone('972501234567'),  '+972501234567');
+
+  // ── normalizePhone: invalid inputs → null ────────────────────────────────
+  Logger.log('\n[ normalizePhone — invalid inputs ]');
+  assert('landline 02',              normalizePhone('0212345678'),   null);
+  assert('landline 03',              normalizePhone('0312345678'),   null);
+  assert('too short 0501234',        normalizePhone('0501234'),      null);
+  assert('empty string',             normalizePhone(''),             null);
+  assert('null',                     normalizePhone(null),           null);
+  assert('letters only',             normalizePhone('abcdef'),       null);
+
+  // ── generateOTP: format validation ───────────────────────────────────────
+  Logger.log('\n[ generateOTP ]');
+  const otp = generateOTP();
+  assert('length is 6',              String(otp).length === 6   ? '6'    : String(otp).length, '6');
+  assert('digits only',              /^\d{6}$/.test(String(otp)) ? 'yes' : 'no', 'yes');
+  assert('value >= 100000',          parseInt(otp) >= 100000    ? 'yes' : 'no', 'yes');
+  assert('value <= 999999',          parseInt(otp) <= 999999    ? 'yes' : 'no', 'yes');
+
+  // ── normalizePhone consistency: same number via sendOTP path ─────────────
+  Logger.log('\n[ handleSendOTP phone path (no Twilio call) ]');
+  const cases = [
+    { input: '0541234567',    label: 'raw 054 format',   expected: '+972541234567' },
+    { input: '+972501234567', label: 'E.164 format',     expected: '+972501234567' },
+    { input: '050-123-4567',  label: 'dashes',           expected: '+972501234567' },
+    { input: '050 123 4567',  label: 'spaces',           expected: '+972501234567' },
+  ];
+  cases.forEach(tc => assert(tc.label, normalizePhone(tc.input), tc.expected));
+
+  Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
+  if (failed === 0) {
+    Logger.log('🎉 All tests passed!');
+  } else {
+    Logger.log('⚠️  ' + failed + ' test(s) FAILED — see ❌ lines above.');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
