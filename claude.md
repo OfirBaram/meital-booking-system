@@ -398,3 +398,75 @@ All three API functions (`apiGetSlots`, `apiSendOTP`, `apiVerifyAndBook`) now:
 - **DOM-efficient date selection**: `renderCalendar()` now checks `_calMonthKey` — same-month date picks patch `.selected` in-place instead of rebuilding all 35–42 `cal-day` nodes.
 - **Instant scroll**: `window.scrollTo({ behavior: 'smooth' })` changed to `'instant'` — no scroll animation latency on step transitions.
 - **Faster step animation**: `stepFadeIn` reduced from `.2s` to `.15s` — step panels appear 50 ms sooner.
+
+---
+
+## 14. Environment & Paths (AI Agent Protocol)
+
+### Absolute Project Path
+
+```
+C:\Users\DELL\Documents\GitHub\u200F\u200FOfirBaram\.git\meital-booking-system
+```
+
+> **Note:** The directory name contains two U+200F RIGHT-TO-LEFT MARK characters before `OfirBaram`. This causes path resolution to differ between tools:
+> - **Bash tool** — resolves correctly via `git rev-parse --show-toplevel`; use relative paths from there.
+> - **PowerShell** — can read/write files at the full absolute path above, but `git` commands fail due to the `.git` segment in the path being misinterpreted.
+> - **Python 3.12** — use `open(js_path, 'r', encoding='utf-8')` with the absolute path; works correctly from either Bash or PowerShell.
+
+### Runtime Constraints
+
+| Tool | Available | Notes |
+|------|-----------|-------|
+| Python 3.12 | ✅ Bash: `/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe` | Primary tool for file patching |
+| Python 3.12 | ✅ PowerShell: `python` | Available in PATH |
+| Node / NPM / npx | ❌ | **DO NOT attempt `npm`, `npx`, `node` commands** — not in PATH in either shell |
+| Vitest (local) | ❌ | No `node_modules`; tests run in GitHub Actions CI only |
+| Playwright (local) | ❌ | Same — CI only |
+| `gh` CLI | ❌ | Not installed |
+| Git (Bash) | ✅ | Works from Bash working directory via relative or `-C $(git rev-parse --show-toplevel)` |
+| Git (PowerShell) | ❌ | Fails with "not a git repository" due to `.git` in path |
+
+### Git Protocol
+
+Always run git commands via the **Bash tool** (not PowerShell):
+
+```bash
+# Correct — Bash tool CWD is the git root
+git status
+git add frontend/booking.js
+git commit -F "$tmpFile"
+git push origin feature/...
+
+# If CWD is uncertain, anchor explicitly
+git -C "$(git rev-parse --show-toplevel)" status
+```
+
+### File Patch Protocol (using `scripts/ai_tools.py`)
+
+For any change to `frontend/booking.js` or other JS/HTML files, use the Python patch utility:
+
+```bash
+PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
+$PYTHON scripts/ai_tools.py patch frontend/booking.js \
+  --old "old string" \
+  --new "new string"
+```
+
+Or write a one-off inline script:
+
+```bash
+$PYTHON << 'PYEOF'
+from ai_tools import patch_file, verify_contains
+patch_file('frontend/booking.js', old_str, new_str)
+verify_contains('frontend/booking.js', 'expected snippet')
+PYEOF
+```
+
+**Never use PowerShell for file writes** — EPERM errors occur intermittently.  
+**Never use `sed -i` for multi-line JS patches** — quoting breaks on backticks and template literals.
+
+### Editor Tool Workaround
+
+The built-in `Edit` tool fails on this repo path with "File has not been read yet" even after a successful `Read` due to path encoding. Use the Python patch utility instead.
+
