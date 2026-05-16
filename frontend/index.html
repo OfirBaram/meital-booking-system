@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
@@ -150,6 +150,13 @@
 
     /* ── Pulse dot (available indicator) ── */
     .dot-avail { width: 4px; height: 4px; border-radius: 50%; background: #A67C8E; margin-top: 2px; }
+
+    /* ── Legal Modal ── */
+    @keyframes modalSlideUp {
+      from { opacity: 0; transform: translateY(40px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    #js-modal:not(.hidden) #js-modal-panel { animation: modalSlideUp .28s cubic-bezier(.22,.68,0,1.2) both; }
   </style>
 </head>
 
@@ -317,7 +324,19 @@
     </section>
 
   </main>
-
+  <footer class="max-w-md mx-auto px-4 pt-5 pb-32 text-center border-t border-secondary/20">
+    <nav aria-label="קישורי מידע משפטי" class="flex justify-center gap-6">
+      <button id="js-open-privacy" type="button"
+        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
+        מדיניות פרטיות
+      </button>
+      <button id="js-open-accessibility" type="button"
+        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
+        הצהרת נגישות
+      </button>
+    </nav>
+    <p class="text-[10px] text-text-muted/40 mt-2 font-light">© 2025 מיטל שבע ברעם</p>
+  </footer>
   <!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
   <div id="js-nav"
     class="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur-sm border-t border-secondary/30 p-4 z-40">
@@ -336,6 +355,30 @@
 
   <!-- Toast container -->
   <div id="js-toast" class="fixed top-20 inset-x-4 max-w-sm mx-auto z-[60] pointer-events-none"></div>
+
+  <!-- ═══════════════════ LEGAL MODAL ═══════════════════ -->
+  <div id="js-modal" role="dialog" aria-modal="true" aria-labelledby="js-modal-title"
+    aria-hidden="true"
+    class="fixed inset-0 z-[70] items-end sm:items-center justify-center hidden">
+    <!-- Backdrop -->
+    <div id="js-modal-backdrop" class="absolute inset-0 bg-[#4A2E3A]/40 backdrop-blur-[2px]"></div>
+    <!-- Panel -->
+    <div id="js-modal-panel" tabindex="-1"
+      class="relative z-10 bg-white w-full max-w-[380px] mx-0 sm:mx-4 sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[70vh] flex flex-col">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-secondary/20 shrink-0">
+        <h2 id="js-modal-title" class="text-[15px] font-bold text-text-main"></h2>
+        <button id="js-modal-close" type="button" aria-label="סגירה"
+          class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-cream transition-colors">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="js-modal-body"
+        class="overflow-y-auto px-4 py-4 text-sm text-text-main leading-relaxed space-y-3 overscroll-contain">
+      </div>
+    </div>
+  </div>
 
   <script src="booking.js"></script>
 </body>
