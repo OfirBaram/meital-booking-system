@@ -688,6 +688,106 @@ function toast(msg, type = 'info') {
 }
 
 // ═══════════════════════════════════════════════════
+// LEGAL MODAL
+// ═══════════════════════════════════════════════════
+
+const LEGAL_CONTENT = {
+  privacy: {
+    title: 'מדיניות פרטיות',
+    html: `
+      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: מאי 2025</p>
+      <p>סטודיו <strong>מיטל שבע ברעם — לק ג'ל בוטק</strong> מחויב לשמירה על פרטיות לקוחותיו.</p>
+      <h3 class="font-semibold mt-3">מידע שנאסף</h3>
+      <p>האתר אוסף <strong>שם מלא ומספר טלפון בלבד</strong>, לצורך תיאום תורים. המידע אינו משמש למטרות שיווקיות ואינו מועבר לצדדים שלישיים — למעט שירות SMS (Twilio) לאימות זהות בתהליך ההזמנה.</p>
+      <h3 class="font-semibold mt-3">אחסון המידע</h3>
+      <p>פרטי ההזמנות נשמרים ב-Google Sheets מאובטח, הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
+      <h3 class="font-semibold mt-3">זכויות המשתמש</h3>
+      <p>ניתן לבקש עיון, תיקון או מחיקה של המידע האישי בכל עת בפנייה ישירה:</p>
+      <a href="mailto:meital@example.com" class="text-primary underline underline-offset-2">meital@example.com</a>
+    `,
+  },
+  accessibility: {
+    title: 'הצהרת נגישות',
+    html: `
+      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: מאי 2025</p>
+      <p>סטודיו <strong>מיטל שבע ברעם</strong> פועל להנגשת האתר בהתאם לחוק שוויון זכויות לאנשים עם מוגבלות ולתקן WCAG 2.1 ברמה AA.</p>
+      <h3 class="font-semibold mt-3">מאפיינים קיימים</h3>
+      <ul class="space-y-1.5 list-none">
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>ניווט מלא במקלדת ו-Tab</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תגי ARIA לכל הרכיבים האינטראקטיביים</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תמיכה בקוראי מסך (Screen Readers)</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>יחס ניגוד צבעים עומד בתקן AA</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>ממשק RTL מלא (עברית)</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תמיכה בהגדלת טקסט עד 200%</li>
+      </ul>
+      <h3 class="font-semibold mt-3">פנייה בנושא נגישות</h3>
+      <p>נתקלת בחסם? נשמח לסייע:</p>
+      <a href="mailto:meital@example.com" class="text-primary underline underline-offset-2">meital@example.com</a>
+    `,
+  },
+};
+
+let _modalTrigger = null;
+
+function openModal(key) {
+  const content = LEGAL_CONTENT[key];
+  if (!content) return;
+  document.getElementById('js-modal-title').textContent = content.title;
+  document.getElementById('js-modal-body').innerHTML   = content.html;
+  const modal = document.getElementById('js-modal');
+  modal.classList.remove('hidden');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('js-modal-close').focus(), 50);
+}
+
+function closeModal() {
+  const modal = document.getElementById('js-modal');
+  modal.classList.add('hidden');
+  modal.style.display = '';
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  if (_modalTrigger) { _modalTrigger.focus(); _modalTrigger = null; }
+}
+
+function isModalOpen() {
+  const el = document.getElementById('js-modal');
+  return el ? !el.classList.contains('hidden') : false;
+}
+
+function setupModalListeners() {
+  document.getElementById('js-modal-close').addEventListener('click', closeModal);
+  document.getElementById('js-modal-backdrop').addEventListener('click', closeModal);
+
+  document.getElementById('js-open-privacy').addEventListener('click', e => {
+    _modalTrigger = e.currentTarget;
+    openModal('privacy');
+  });
+  document.getElementById('js-open-accessibility').addEventListener('click', e => {
+    _modalTrigger = e.currentTarget;
+    openModal('accessibility');
+  });
+
+  // Esc closes modal
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && isModalOpen()) closeModal();
+  });
+
+  // Focus trap: cycle Tab within the modal panel
+  document.getElementById('js-modal').addEventListener('keydown', e => {
+    if (e.key !== 'Tab' || !isModalOpen()) return;
+    const panel     = document.getElementById('js-modal-panel');
+    const focusable = [...panel.querySelectorAll(
+      'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )];
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}
+// ═══════════════════════════════════════════════════
 // FORM VALIDATION (live)
 // ═══════════════════════════════════════════════════
 
@@ -804,6 +904,7 @@ function init() {
   renderServices();
   setupFormListeners();
   wireEvents();
+  setupModalListeners();
   console.info("[מיטל שבע ברעם — לק ג'ל בוטק] v0.2.0 — UUID support:", typeof crypto?.randomUUID === 'function');
 }
 

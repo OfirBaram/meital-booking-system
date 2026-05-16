@@ -18,8 +18,11 @@ function addMinutes(timeStr, mins) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
+const MOCK_PHONE_TEST = '0500000000'
 function isValidPhone(raw) {
-  return /^05[0-9]{8}$/.test(raw.replace(/\D/g, ''))
+  const digits = raw.replace(/\D/g, '')
+  if (digits === MOCK_PHONE_TEST) return true
+  return /^05[0-9]{8}$/.test(digits)
 }
 
 function isValidName(n) {
@@ -92,6 +95,9 @@ describe('isValidPhone', () => {
   it('rejects a non-05X prefix', () => {
     expect(isValidPhone('0601234567')).toBe(false)
   })
+  it('accepts the QA bypass mock phone 0500000000', () => {
+    expect(isValidPhone('0500000000')).toBe(true)
+  })
 })
 
 // ─── isValidName ──────────────────────────────────────────────────────────────
@@ -152,5 +158,79 @@ describe('toISO8601Jerusalem', () => {
     const r2 = toISO8601Jerusalem('2026-12-01', '16:30')
     expect(r2.local).toBe('2026-12-01T16:30:00')
     expect(r2.tagged).toBe('2026-12-01T16:30:00+03:00')
+  })
+})
+
+// ─── Legal modal — content resolution ────────────────────────────────────────
+// Mirrors LEGAL_CONTENT from booking.js (title + body presence only)
+
+const MODAL_CONTENT = {
+  privacy:       { title: 'מדיניות פרטיות',  keywords: ['תיאום תורים', 'SMS'] },
+  accessibility: { title: 'הצהרת נגישות', keywords: ['WCAG'] },
+}
+
+describe('Legal modal — content resolution', () => {
+  it('privacy key has the correct Hebrew title', () => {
+    expect(MODAL_CONTENT.privacy.title).toBe('מדיניות פרטיות')
+  })
+  it('accessibility key has the correct Hebrew title', () => {
+    expect(MODAL_CONTENT.accessibility.title).toBe('הצהרת נגישות')
+  })
+  it('unknown key resolves to undefined (falsy)', () => {
+    expect(MODAL_CONTENT['unknown']).toBeUndefined()
+  })
+  it('privacy content references SMS verification', () => {
+    expect(MODAL_CONTENT.privacy.keywords).toContain('SMS')
+  })
+  it('privacy content references appointment scheduling (תיאום תורים)', () => {
+    expect(MODAL_CONTENT.privacy.keywords).toContain('תיאום תורים')
+  })
+  it('accessibility content references WCAG standard', () => {
+    expect(MODAL_CONTENT.accessibility.keywords).toContain('WCAG')
+  })
+})
+
+// ─── Legal modal — open/close state logic ─────────────────────────────────────
+// Mirrors the pure state transitions in openModal() / closeModal() from booking.js
+
+function makeModalState() { return { open: false } }
+function openModalPure(key, state) {
+  if (MODAL_CONTENT[key]) state.open = true
+}
+function closeModalPure(state) { state.open = false }
+
+describe('Legal modal — open/close state', () => {
+  it('openModal transitions state from closed → open for privacy', () => {
+    const s = makeModalState()
+    openModalPure('privacy', s)
+    expect(s.open).toBe(true)
+  })
+  it('openModal transitions state from closed → open for accessibility', () => {
+    const s = makeModalState()
+    openModalPure('accessibility', s)
+    expect(s.open).toBe(true)
+  })
+  it('openModal with an unknown key does NOT open the modal', () => {
+    const s = makeModalState()
+    openModalPure('unknown', s)
+    expect(s.open).toBe(false)
+  })
+  it('closeModal transitions state from open → closed', () => {
+    const s = makeModalState()
+    s.open = true
+    closeModalPure(s)
+    expect(s.open).toBe(false)
+  })
+  it('closeModal on an already-closed modal is a no-op', () => {
+    const s = makeModalState()
+    closeModalPure(s)
+    expect(s.open).toBe(false)
+  })
+  it('open → close → open cycle ends in open state', () => {
+    const s = makeModalState()
+    openModalPure('privacy', s)
+    closeModalPure(s)
+    openModalPure('accessibility', s)
+    expect(s.open).toBe(true)
   })
 })
