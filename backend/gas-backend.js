@@ -30,12 +30,22 @@ const CFG = {
   get SS_ID()         { return prop('SPREADSHEET_ID'); },
   get CAL_ID()        { return prop('CALENDAR_ID'); },
   get WEB_APP_URL()   { return prop('WEB_APP_URL'); },
-  get TIMEZONE()      { return prop('TIMEZONE') || 'Asia/Jerusalem'; },
+  get TIMEZONE()      { return PropertiesService.getScriptProperties().getProperty('TIMEZONE') || 'Asia/Jerusalem'; },
 };
 
 function prop(key) {
+  if (key === undefined || key === null) {
+    throw new Error(
+      'prop() called with undefined key — a CFG getter is referencing an undefined variable.'
+    );
+  }
   const val = PropertiesService.getScriptProperties().getProperty(key);
-  if (!val) throw new Error(`Missing script property: ${key}`);
+  if (!val) {
+    throw new Error(
+      'Missing script property: "' + key + '"' +
+      ' — go to Project Settings → Script Properties and add it.'
+    );
+  }
   return val;
 }
 
