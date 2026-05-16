@@ -524,7 +524,11 @@ function processApproval(logSh, row, rowIdx, bookingId) {
     ``,
     `מחכה לך! 💅`,
   ].join('\n');
-  sendSMS(clientPhone, clientMsg);
+  if (clientPhone !== QA_MOCK_PHONE) {
+    sendSMS(clientPhone, clientMsg);
+  } else {
+    Logger.log('[processApproval] MOCK MODE — skipping client confirmation SMS');
+  }
 
   Logger.log('[adminAction] Approved: ' + bookingId);
   return { success: true, action: 'APPROVE', bookingId, calEventId };
@@ -548,7 +552,11 @@ function processRejection(logSh, row, rowIdx, bookingId) {
     `❌ לצערנו, הבקשה לתור ב-${date} שעה ${time} לא אושרה.`,
     `ניתן להזמין תור חלופי דרך האפליקציה.`,
   ].join('\n');
-  sendSMS(clientPhone, clientMsg);
+  if (clientPhone !== QA_MOCK_PHONE) {
+    sendSMS(clientPhone, clientMsg);
+  } else {
+    Logger.log('[processRejection] MOCK MODE — skipping client rejection SMS');
+  }
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
   return { success: true, action: 'REJECT', bookingId };
@@ -778,26 +786,56 @@ function formatPhone(e164) {
  * Returns { row, rowIndex } (rowIndex is 1-based) or null if not found.
  */
 function findSlotRow(date, time) {
+  const TZ   = 'Asia/Jerusalem';
   const sh   = slotsSheet();
   const data = sh.getDataRange().getValues();
+
+  Logger.log('[findSlotRow] Searching for date="' + date + '" time="' + time +
+             '" across ' + (data.length - 1) + ' data rows');
+
   for (let r = 1; r < data.length; r++) {
-    const rowDate  = formatSheetDate(data[r][SLOT_COL.DATE  - 1]);
-    const rowStart = String(data[r][SLOT_COL.START - 1]).trim();
+    const rawDate  = data[r][SLOT_COL.DATE  - 1];
+    const rawStart = data[r][SLOT_COL.START - 1];
+
+    // ── Date: Utilities.formatDate avoids UTC-midnight drift when cell is a Date ──
+    const rowDate = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd')
+      : String(rawDate).trim();
+
+    // ── BUG FIX: Sheets time columns arrive as Date objects (base date Jan 1 1900).
+    //    String(Date) → "Sat Dec 30 1899 10:00:00 GMT+..." — never matches "HH:MM".
+    //    Must use Utilities.formatDate to extract just the HH:mm part. ──
+    const rowStart = (rawStart instanceof Date)
+      ? Utilities.formatDate(rawStart, TZ, 'HH:mm')
+      : String(rawStart).trim();
+
+    Logger.log('[findSlotRow] r=' + r +
+               ' | date: "' + rowDate  + '" vs "' + date + '" → ' + (rowDate  === date  ? 'OK' : 'NO') +
+               ' | time: "' + rowStart + '" vs "' + time + '" → ' + (rowStart === time ? 'OK' : 'NO') +
+               (rawStart instanceof Date ? ' (Date→formatted)' : ' (string)'));
+
     if (rowDate === date && rowStart === time) {
+      Logger.log('[findSlotRow] ✅ MATCH at sheet row ' + (r + 1));
       return { row: data[r], rowIndex: r + 1 };
     }
   }
+
+  Logger.log('[findSlotRow] ❌ No match found for ' + date + ' ' + time);
   return null;
 }
 
 function updateSlotStatus(date, time, newStatus) {
+  Logger.log('[updateSlotStatus] Updating ' + date + ' ' + time + ' → "' + newStatus + '"');
   const found = findSlotRow(date, time);
   if (!found) {
-    Logger.log('[updateSlotStatus] Slot not found: ' + date + ' ' + time);
+    Logger.log('[updateSlotStatus] ❌ Slot not found — status NOT updated! Check date/time format in Weekly_Slots.');
     return;
   }
+  const prevStatus = String(found.row[SLOT_COL.STATUS - 1]).trim();
+  Logger.log('[updateSlotStatus] Row ' + found.rowIndex + ': "' + prevStatus + '" → "' + newStatus + '"');
   slotsSheet().getRange(found.rowIndex, SLOT_COL.STATUS).setValue(newStatus);
   SpreadsheetApp.flush();
+  Logger.log('[updateSlotStatus] ✅ Done');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -998,6 +1036,210 @@ function simulateAdminSMS() {
   Logger.log('[simulateAdminSMS] Open either URL in a browser to run the approval flow.');
   Logger.log('[simulateAdminSMS] Expected: status in Bookings_Log changes to Approved/Rejected + Calendar event created.');
   Logger.log('══════════════ simulateAdminSMS END ══════════════');
+}
+// ═══════════════════════════════════════════════════════════════
+// UNIT TESTS — run from GAS editor, no deployment needed
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Unit tests for pure functions: normalizePhone, signAdminToken, timingSafeEqual.
+ * Safe to run at any time — touches no Sheet, Calendar, or Twilio.
+ */
+function runBackendTests() {
+  let passed = 0, failed = 0;
+  function assert(label, actual, expected) {
+    const ok = (String(actual) === String(expected));
+    Logger.log((ok ? '✅ PASS' : '❌ FAIL') + ' — ' + label +
+               (ok ? ' | got: "' + actual + '"'
+                   : '\n    expected: "' + expected + '"\n    got:      "' + actual + '"'));
+    ok ? passed++ : failed++;
+  }
+
+  Logger.log('');
+  Logger.log('══════════════ runBackendTests START ══════════════');
+
+  // ── normalizePhone ────────────────────────────────────────────
+  Logger.log('\n[ normalizePhone ]');
+  assert('0541234567',        normalizePhone('0541234567'),    '+972541234567');
+  assert('0501234567',        normalizePhone('0501234567'),    '+972501234567');
+  assert('dashes 050-123-4567',  normalizePhone('050-123-4567'), '+972501234567');
+  assert('spaces 050 123 4567',  normalizePhone('050 123 4567'), '+972501234567');
+  assert('+972501234567 passthrough', normalizePhone('+972501234567'), '+972501234567');
+  assert('bare 972501234567', normalizePhone('972501234567'),  '+972501234567');
+  assert('landline 02 → null', normalizePhone('0212345678'),   null);
+  assert('too short → null',   normalizePhone('0501234'),      null);
+  assert('empty → null',       normalizePhone(''),             null);
+  assert('null → null',        normalizePhone(null),           null);
+
+  // ── signAdminToken + timingSafeEqual ─────────────────────────
+  Logger.log('\n[ signAdminToken + timingSafeEqual ]');
+  try {
+    const t1 = signAdminToken('test-booking-aaa');
+    const t2 = signAdminToken('test-booking-aaa');
+    const t3 = signAdminToken('test-booking-bbb');
+    assert('deterministic (same input → same token)', t1 === t2 ? 'yes' : 'no', 'yes');
+    assert('different input → different token',        t1 !== t3 ? 'yes' : 'no', 'yes');
+    assert('token length is 64 hex chars',             String(t1.length), '64');
+    assert('token is lowercase hex',                   /^[0-9a-f]{64}$/.test(t1) ? 'yes' : 'no', 'yes');
+    assert('timingSafeEqual: matching',                timingSafeEqual(t1, t2) ? 'yes' : 'no', 'yes');
+    assert('timingSafeEqual: non-matching',            timingSafeEqual(t1, t3) ? 'yes' : 'no', 'no');
+    assert('timingSafeEqual: length mismatch → false', timingSafeEqual('abc', 'ab') ? 'yes' : 'no', 'no');
+  } catch (e) {
+    Logger.log('⚠️  signAdminToken skipped: ' + e.message + ' (HMAC_SECRET property missing?)');
+    failed++;
+  }
+
+  Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
+  failed === 0 ? Logger.log('🎉 All tests passed!') : Logger.log('⚠️  ' + failed + ' test(s) FAILED');
+}
+
+/**
+ * End-to-end "golden path" integration test.
+ * Creates a fictional slot, runs verifyAndBook + adminAction APPROVE,
+ * asserts slot and log status at each step, then cleans up all test data.
+ *
+ * IMPORTANT: uses QA_MOCK_PHONE (0500000000) so NO Twilio SMS is sent.
+ * Run from the GAS editor — do NOT deploy as a web-app endpoint.
+ */
+function testFullBookingFlow() {
+  const TZ = 'Asia/Jerusalem';
+  let passed = 0, failed = 0;
+  function assert(label, actual, expected) {
+    const ok = (String(actual) === String(expected));
+    Logger.log((ok ? '✅ PASS' : '❌ FAIL') + ' — ' + label +
+               (ok ? ' | got: "' + actual + '"'
+                   : '\n    expected: "' + expected + '"\n    got:      "' + actual + '"'));
+    ok ? passed++ : failed++;
+  }
+
+  Logger.log('');
+  Logger.log('══════════════ testFullBookingFlow START ══════════════');
+
+  // Use a date far enough in the future that no real slot collision is likely
+  const testDay   = new Date(); testDay.setDate(testDay.getDate() + 60);
+  const testDate  = Utilities.formatDate(testDay, TZ, 'yyyy-MM-dd');
+  const testTime  = '08:00';
+  const testEnd   = '09:30';
+  const testId    = 'TEST-' + Utilities.formatDate(new Date(), TZ, 'HHmmss');
+
+  Logger.log('[testFlow] testDate=' + testDate + ' testTime=' + testTime + ' testId=' + testId);
+
+  const slotSh = slotsSheet();
+  const logSh  = logSheet();
+  let calEventId = null;
+
+  try {
+    // ── Step 1: insert a test slot ────────────────────────────────
+    Logger.log('\n[Step 1] Inserting test slot into Weekly_Slots...');
+    slotSh.appendRow([testDate, 'TEST', testTime, testEnd, 'Available']);
+    SpreadsheetApp.flush();
+    const slot1 = findSlotRow(testDate, testTime);
+    assert('1a: slot found in sheet',    slot1 !== null ? 'found' : 'not found', 'found');
+    assert('1b: slot status=Available',  slot1 ? String(slot1.row[SLOT_COL.STATUS - 1]).trim() : '', 'Available');
+
+    // ── Step 2: cache OTP + call handleVerifyAndBook ──────────────
+    Logger.log('\n[Step 2] Calling handleVerifyAndBook (mock phone, no SMS)...');
+    CacheService.getScriptCache().put('otp_' + QA_MOCK_PHONE, QA_MOCK_OTP, 60);
+    const vRes = handleVerifyAndBook({
+      otp: QA_MOCK_OTP,
+      booking: {
+        id: testId, name: 'AUTO-TEST', phone: '0500000000',
+        service: 'gel_classic', serviceName: "Test Service",
+        date: testDate, time: testTime,
+        timestamp: testDate + 'T' + testTime + ':00+03:00',
+        timezone: TZ, duration: 90, status: 'Pending',
+      },
+    });
+    Logger.log('[Step 2] Result: ' + JSON.stringify(vRes));
+    assert('2: verifyAndBook success', String(vRes.success), 'true');
+
+    // ── Step 3: slot must be Pending_Lock ─────────────────────────
+    Logger.log('\n[Step 3] Verifying slot → Pending_Lock...');
+    const slot2 = findSlotRow(testDate, testTime);
+    assert('3: slot status=Pending_Lock',
+      slot2 ? String(slot2.row[SLOT_COL.STATUS - 1]).trim() : 'missing', 'Pending_Lock');
+
+    // ── Step 4: booking must appear as Pending in Bookings_Log ───
+    Logger.log('\n[Step 4] Verifying booking row in Bookings_Log...');
+    const logData1 = logSh.getDataRange().getValues();
+    let bRow1 = null;
+    for (let r = 1; r < logData1.length; r++) {
+      if (String(logData1[r][LOG_COL.UUID - 1]).trim() === testId) { bRow1 = logData1[r]; break; }
+    }
+    assert('4a: booking found in log',   bRow1 !== null ? 'found' : 'not found', 'found');
+    assert('4b: booking status=Pending', bRow1 ? String(bRow1[LOG_COL.STATUS - 1]).trim() : '', 'Pending');
+
+    // ── Step 5: adminAction APPROVE ───────────────────────────────
+    Logger.log('\n[Step 5] Calling handleAdminAction APPROVE...');
+    const tok  = signAdminToken(testId);
+    const aRes = handleAdminAction({ action: 'APPROVE', token: tok, bookingId: testId });
+    Logger.log('[Step 5] Result: ' + JSON.stringify(aRes));
+    assert('5: adminAction APPROVE success', String(aRes.success), 'true');
+    calEventId = aRes.calEventId || null;
+
+    // ── Step 6: slot must be Booked (THE KEY ASSERTION) ──────────
+    Logger.log('\n[Step 6] Verifying slot → Booked (the slot-sync fix)...');
+    const slot3 = findSlotRow(testDate, testTime);
+    assert('6: slot status=Booked',
+      slot3 ? String(slot3.row[SLOT_COL.STATUS - 1]).trim() : 'missing', 'Booked');
+
+    // ── Step 7: booking must be Approved with a CalendarEventId ──
+    Logger.log('\n[Step 7] Verifying booking → Approved + CalendarEventId set...');
+    const logData2 = logSh.getDataRange().getValues();
+    let bRow2 = null;
+    for (let r = 1; r < logData2.length; r++) {
+      if (String(logData2[r][LOG_COL.UUID - 1]).trim() === testId) { bRow2 = logData2[r]; break; }
+    }
+    assert('7a: booking status=Approved',    bRow2 ? String(bRow2[LOG_COL.STATUS - 1]).trim() : '', 'Approved');
+    assert('7b: CalendarEventId is set',
+      (bRow2 && String(bRow2[LOG_COL.CAL_EVENT - 1]).trim().length > 0) ? 'yes' : 'no', 'yes');
+
+  } catch (e) {
+    Logger.log('💥 UNCAUGHT EXCEPTION: ' + e.message);
+    Logger.log(e.stack);
+    failed++;
+  } finally {
+    // ── Cleanup: remove test calendar event, log row, slot row ───
+    Logger.log('\n[Cleanup] Removing test data...');
+    try {
+      if (calEventId) {
+        const cal = CalendarApp.getCalendarById(CFG.CAL_ID);
+        const ev  = cal ? cal.getEventById(calEventId) : null;
+        if (ev) { ev.deleteEvent(); Logger.log('[Cleanup] Calendar event deleted: ' + calEventId); }
+      }
+
+      const logData = logSh.getDataRange().getValues();
+      for (let r = logData.length - 1; r >= 1; r--) {
+        if (String(logData[r][LOG_COL.UUID - 1]).trim() === testId) {
+          logSh.deleteRow(r + 1);
+          Logger.log('[Cleanup] Deleted log row ' + (r + 1));
+          break;
+        }
+      }
+
+      const TZ2      = 'Asia/Jerusalem';
+      const slotData = slotSh.getDataRange().getValues();
+      for (let r = slotData.length - 1; r >= 1; r--) {
+        const rd = slotData[r][SLOT_COL.DATE  - 1];
+        const rs = slotData[r][SLOT_COL.START - 1];
+        const d  = (rd instanceof Date) ? Utilities.formatDate(rd, TZ2, 'yyyy-MM-dd') : String(rd).trim();
+        const s  = (rs instanceof Date) ? Utilities.formatDate(rs, TZ2, 'HH:mm')     : String(rs).trim();
+        if (d === testDate && s === testTime) {
+          slotSh.deleteRow(r + 1);
+          Logger.log('[Cleanup] Deleted test slot row ' + (r + 1));
+          break;
+        }
+      }
+      SpreadsheetApp.flush();
+      Logger.log('[Cleanup] Done');
+    } catch (ce) {
+      Logger.log('[Cleanup] ERROR: ' + ce.message);
+    }
+  }
+
+  Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
+  failed === 0 ? Logger.log('🎉 Golden path PASSED!') : Logger.log('⚠️  ' + failed + ' step(s) FAILED — see ❌ above');
+  Logger.log('══════════════ testFullBookingFlow END ══════════════');
 }
 function installTriggers() {
   // Remove any existing syncCalendarToSlots triggers first
