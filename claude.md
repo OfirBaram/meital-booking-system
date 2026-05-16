@@ -380,3 +380,21 @@ All three API functions (`apiGetSlots`, `apiSendOTP`, `apiVerifyAndBook`) now:
 - **State fields**: added `prefetchedMonths` (Set) and `otpCooldownUntil` (number).
 - **Console.log cleanup**: removed all `[API]` debug logs from production code.
 - **Tests**: 9 new sanitize unit tests; 3 new E2E tests (pre-fetch call count, rate-limit block, reset clears cooldown).
+---
+
+## 13. Performance Rules (Perceived Speed)
+
+- **Always check `State.prefetchedMonths` before showing a loader.** If the month key `"${year}-${month}"` is present, call `renderCalendar()` directly — never `loadMonthSlots()` — so the calendar appears in the same event-loop tick as the button click.
+- **All UI transitions must complete within 150 ms.** The `stepFadeIn` animation is capped at `.15s ease-out`. Any new animation or CSS transition must stay at or below this threshold.
+- **Never call `renderCalendar()` for a date selection inside the same month.** The cache-aware implementation patches `.selected` in existing DOM nodes (`_calMonthKey` check). Only a month navigation should trigger a full rebuild.
+
+---
+
+### v0.6.0 — 2026-05-16 — Perceived Performance
+**Branch:** `feature/performance-security-final`
+
+#### Changes
+- **Zero-delay calendar**: `handleNext` step 1→2 calls `renderCalendar()` synchronously on cache hit instead of `await loadMonthSlots()`. Calendar appears instantly when data is pre-fetched.
+- **DOM-efficient date selection**: `renderCalendar()` now checks `_calMonthKey` — same-month date picks patch `.selected` in-place instead of rebuilding all 35–42 `cal-day` nodes.
+- **Instant scroll**: `window.scrollTo({ behavior: 'smooth' })` changed to `'instant'` — no scroll animation latency on step transitions.
+- **Faster step animation**: `stepFadeIn` reduced from `.2s` to `.15s` — step panels appear 50 ms sooner.

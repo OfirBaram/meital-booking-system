@@ -370,3 +370,44 @@ test.describe('Security — OTP send rate limiting', () => {
     await expect(page.locator('#js-toast')).not.toBeVisible()
   })
 })
+// ─── Performance — instant calendar on cache hit ──────────────────────────────
+
+test.describe('Performance — instant calendar render on cache hit', () => {
+  test('calendar has no skeleton cells when data is pre-fetched before step 2', async ({ page }) => {
+    await setupMocks(page)
+    await page.goto('/')
+
+    // Wait for pre-fetch to complete (mocked getSlots is instant)
+    await page.waitForTimeout(500)
+
+    // Navigate to step 2
+    await page.locator('.service-card').first().click()
+    await page.locator('#btn-next').click()
+    await expect(page.locator('#step-2')).toBeVisible()
+
+    // With cached data, skeleton cells should never appear
+    await expect(page.locator('.cal-day.animate-pulse')).toHaveCount(0)
+
+    // Available days are rendered immediately (tight timeout — no async load)
+    await expect(page.locator('.cal-day.avail').first()).toBeVisible({ timeout: 500 })
+  })
+
+  test('clicking a date does not rebuild the calendar DOM (selection patch only)', async ({ page }) => {
+    await setupMocks(page)
+    await page.goto('/')
+    await goToStep2(page)
+
+    // Get the count of cal-day elements before the click
+    const countBefore = await page.locator('.cal-day').count()
+
+    // Click the first available day
+    await page.locator('.cal-day.avail').first().click()
+
+    // Count should be identical — no DOM rebuild
+    const countAfter = await page.locator('.cal-day').count()
+    expect(countAfter).toBe(countBefore)
+
+    // The clicked day should now have the selected class
+    await expect(page.locator('.cal-day.selected')).toHaveCount(1)
+  })
+})

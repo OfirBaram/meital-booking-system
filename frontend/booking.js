@@ -303,16 +303,42 @@ function renderDayHeaders() {
     HE_DAYS_SHORT.map(d => `<div class="text-center text-[11px] font-medium text-text-muted py-1">${d}</div>`).join('');
 }
 
+let _calMonthKey = ''; // cache key: avoids full DOM rebuild on same-month date picks
+
 function renderCalendar() {
   const { calMonth, slots, date: selDate } = State;
   const year  = calMonth.getFullYear();
   const month = calMonth.getMonth();
   const floor = today0();
+  const monthKey = `${year}-${month}`;
 
   document.getElementById('js-month-label').textContent = `${HE_MONTHS[month]} ${year}`;
 
-  const firstDow   = new Date(year, month, 1).getDay();
-  const daysInMon  = new Date(year, month + 1, 0).getDate();
+  // Same month -- patch selection only, no DOM rebuild
+  if (_calMonthKey === monthKey) {
+    const calEl = document.getElementById('js-calendar');
+    calEl.querySelectorAll('.cal-day.selected').forEach(el => {
+      el.classList.remove('selected');
+      el.setAttribute('aria-pressed', 'false');
+      const dot = el.querySelector('.dot-avail');
+      if (dot) dot.removeAttribute('style');
+    });
+    if (selDate) {
+      const selEl = calEl.querySelector(`[data-date="${selDate}"]`);
+      if (selEl && !selEl.classList.contains('disabled')) {
+        selEl.classList.add('selected');
+        selEl.setAttribute('aria-pressed', 'true');
+        const dot = selEl.querySelector('.dot-avail');
+        if (dot) dot.style.background = 'white';
+      }
+    }
+    return;
+  }
+
+  // Month changed -- full rebuild
+  _calMonthKey = monthKey;
+  const firstDow  = new Date(year, month, 1).getDay();
+  const daysInMon = new Date(year, month + 1, 0).getDate();
 
   let html = '';
   for (let i = 0; i < firstDow; i++) html += '<div></div>';
@@ -515,7 +541,7 @@ function showStep(n) {
   State.step = n;
   renderProgress();
   updateNav();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function updateNav() {
@@ -543,13 +569,17 @@ async function handleNext() {
   const { step } = State;
 
   if (step === 1) {
+    const now = new Date();
+    State.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     showStep(2);
     document.getElementById('js-step2-service-label').textContent =
       `${State.service.icon} ${State.service.name}`;
-
-    const now = new Date();
-    State.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    await loadMonthSlots(now.getFullYear(), now.getMonth() + 1);
+    const year = now.getFullYear(), month = now.getMonth() + 1;
+    if (State.prefetchedMonths.has(`${year}-${month}`)) {
+      renderCalendar();
+    } else {
+      loadMonthSlots(year, month);
+    }
   }
 
   else if (step === 2) {

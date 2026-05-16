@@ -272,3 +272,66 @@ describe('sanitize', () => {
     expect(sanitize('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;')
   })
 })
+// ─── _calMonthKey cache logic ─────────────────────────────────────────────────
+// Mirrors the renderCalendar() early-return guard from frontend/booking.js
+
+function makeCalState(year, month, selDate = null) {
+  return { year, month, selDate }
+}
+
+function isMonthCached(cacheKey, state) {
+  return cacheKey === `${state.year}-${state.month}`
+}
+
+describe('renderCalendar — same-month cache guard', () => {
+  it('returns true when year and month match the cache key', () => {
+    const s = makeCalState(2026, 4) // month is 0-indexed (April)
+    expect(isMonthCached('2026-4', s)).toBe(true)
+  })
+  it('returns false when month changes (navigation forward)', () => {
+    const s = makeCalState(2026, 5)
+    expect(isMonthCached('2026-4', s)).toBe(false)
+  })
+  it('returns false when year changes', () => {
+    const s = makeCalState(2027, 4)
+    expect(isMonthCached('2026-4', s)).toBe(false)
+  })
+  it('cache key format matches `${year}-${month}` (not padded)', () => {
+    const s = makeCalState(2026, 0)
+    expect(isMonthCached('2026-0', s)).toBe(true)
+    expect(isMonthCached('2026-00', s)).toBe(false)
+  })
+  it('after a month change the new key replaces the old one', () => {
+    let cacheKey = '2026-4'
+    const s = makeCalState(2026, 5)
+    expect(isMonthCached(cacheKey, s)).toBe(false)
+    cacheKey = `${s.year}-${s.month}` // simulate _calMonthKey = monthKey
+    expect(isMonthCached(cacheKey, s)).toBe(true)
+  })
+})
+
+// ─── prefetchedMonths guard (isMonthPrefetched) ───────────────────────────────
+// Mirrors the State.prefetchedMonths.has() check in handleNext step 1
+
+function isMonthPrefetched(prefetchedMonths, year, month) {
+  return prefetchedMonths.has(`${year}-${month}`)
+}
+
+describe('handleNext step 1 — prefetch cache hit', () => {
+  it('detects a cached month', () => {
+    const set = new Set(['2026-5'])
+    expect(isMonthPrefetched(set, 2026, 5)).toBe(true)
+  })
+  it('detects a missing month (shows skeleton)', () => {
+    const set = new Set(['2026-4'])
+    expect(isMonthPrefetched(set, 2026, 5)).toBe(false)
+  })
+  it('empty set always misses', () => {
+    expect(isMonthPrefetched(new Set(), 2026, 5)).toBe(false)
+  })
+  it('set with multiple months hits the correct one', () => {
+    const set = new Set(['2026-3', '2026-4', '2026-5'])
+    expect(isMonthPrefetched(set, 2026, 4)).toBe(true)
+    expect(isMonthPrefetched(set, 2026, 6)).toBe(false)
+  })
+})
