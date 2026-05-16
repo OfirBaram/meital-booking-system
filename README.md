@@ -70,3 +70,48 @@ Common Twilio error codes:
 | `21614` | `To` number is not a mobile number |
 | `21608` | `To` number is not verified (trial account) |
 | `20003` | Authentication error — check `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` |
+---
+
+## Deployment — GitHub Pages
+
+The live booking page is served from the `deploy/github-pages` branch via GitHub Pages.
+
+### URL structure
+
+```
+https://ofirbaram.github.io/meital-booking-system/frontend/
+```
+
+*(Root `/` redirects automatically to `/frontend/`.)*
+
+### How to enable GitHub Pages
+
+1. Go to **Repository Settings → Pages**.
+2. Under **Source**, select **Deploy from a branch**.
+3. Choose branch **`deploy/github-pages`**, folder **`/ (root)`**.
+4. Click **Save** — GitHub will publish within ~1 minute.
+
+### What is deployed
+
+| File | Role |
+|------|------|
+| `index.html` (root) | Meta-refresh redirect → `/frontend/` |
+| `frontend/index.html` | Full booking wizard UI |
+| `frontend/booking.js` | All booking logic, state, API integration |
+| `frontend/favicon.svg` | Dust-rose monogram favicon |
+| `.nojekyll` | Disables Jekyll processing (required for Tailwind CDN to load) |
+
+### Updating the live site
+
+```bash
+git checkout deploy/github-pages
+# make changes
+git push origin deploy/github-pages
+```
+
+GitHub Pages redeploys automatically on every push to this branch.
+
+### Backend
+
+The frontend connects to a Google Apps Script web app via `CONFIG.API_BASE` in `booking.js`.  
+See `backend/gas-backend.js` and the [Deployment Checklist](CLAUDE.md#7-deployment-checklist) in `CLAUDE.md` for backend setup.
