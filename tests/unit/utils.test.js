@@ -234,3 +234,41 @@ describe('Legal modal — open/close state', () => {
     expect(s.open).toBe(true)
   })
 })
+
+// ─── sanitize (XSS escaping) ──────────────────────────────────────────────────
+// Mirrors sanitize() from frontend/booking.js
+
+const _ESC_T = { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }
+function sanitize(str) {
+  return String(str).replace(/[<>&"']/g, c => _ESC_T[c]).slice(0, 200)
+}
+
+describe('sanitize', () => {
+  it('escapes < and >', () => {
+    expect(sanitize('<script>')).toBe('&lt;script&gt;')
+  })
+  it('escapes ampersand', () => {
+    expect(sanitize('a & b')).toBe('a &amp; b')
+  })
+  it('escapes double quotes', () => {
+    expect(sanitize('"hello"')).toBe('&quot;hello&quot;')
+  })
+  it("escapes single quotes", () => {
+    expect(sanitize("it's fine")).toBe("it&#39;s fine")
+  })
+  it('passes clean Hebrew text unchanged', () => {
+    expect(sanitize('נועה כהן')).toBe('נועה כהן')
+  })
+  it('truncates strings longer than 200 chars', () => {
+    expect(sanitize('a'.repeat(300)).length).toBe(200)
+  })
+  it('coerces non-strings to string', () => {
+    expect(sanitize(123)).toBe('123')
+  })
+  it('leaves a clean phone number unchanged', () => {
+    expect(sanitize('050-1234567')).toBe('050-1234567')
+  })
+  it('neutralises a classic XSS payload', () => {
+    expect(sanitize('<img src=x onerror=alert(1)>')).toBe('&lt;img src=x onerror=alert(1)&gt;')
+  })
+})

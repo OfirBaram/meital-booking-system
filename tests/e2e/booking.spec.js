@@ -272,3 +272,101 @@ test.describe('Step 5 — Confirmation', () => {
     await expect(page.locator('.service-card.selected')).toHaveCount(0)
   })
 })
+
+
+// ─── Performance — instant calendar (pre-fetch) ───────────────────────────────
+
+test.describe('Performance — slot pre-fetch on page load', () => {
+  test('getSlots is called exactly once on load; step 2 uses cached data', async ({ page }) => {
+    let getSlotsCalls = 0
+
+    await page.route(GAS_GLOB, async (route, request) => {
+      if (request.method() === 'GET') {
+        getSlotsCalls++
+        const url   = new URL(request.url())
+        const year  = parseInt(url.searchParams.get('year'),  10)
+        const month = parseInt(url.searchParams.get('month'), 10)
+        return route.fulfill({
+          status:      200,
+          contentType: 'application/json',
+          body:        JSON.stringify(makeMockSlots(year, month)),
+        })
+      }
+      if (request.method() === 'POST') {
+        let body = {}
+        try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
+        if (body.action === 'sendOTP')
+          return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+      }
+      return route.continue()
+    })
+
+    await page.goto('/')
+    // Give pre-fetch time to complete
+    await page.waitForTimeout(800)
+    const callsAfterLoad = getSlotsCalls
+    expect(callsAfterLoad).toBe(1)
+
+    // Navigate to step 2
+    await page.locator('.service-card').first().click()
+    await page.locator('#btn-next').click()
+    await expect(page.locator('#step-2')).toBeVisible()
+
+    // Calendar should appear without an additional getSlots call
+    await expect(page.locator('.cal-day.avail').first()).toBeVisible({ timeout: 3_000 })
+    expect(getSlotsCalls).toBe(1)
+
+    // No skeleton cells should remain after render
+    await expect(page.locator('.cal-day.animate-pulse')).toHaveCount(0)
+  })
+})
+
+// ─── Security — OTP send rate limiting ────────────────────────────────────────
+
+test.describe('Security — OTP send rate limiting', () => {
+  test.beforeEach(async ({ page }) => {
+    await setupMocks(page)
+    await page.goto('/')
+  })
+
+  test('OTP send is blocked for 30 s after first successful send', async ({ page }) => {
+    await goToStep4(page) // fills form, sends OTP, lands on step 4
+
+    // Go back to step 3
+    await page.locator('#btn-back').click()
+    await expect(page.locator('#step-3')).toBeVisible()
+
+    // Try to re-send immediately — cooldown toast should appear
+    await page.locator('#btn-next').click()
+    await expect(page.locator('#js-toast')).toContainText('שניות', { timeout: 3_000 })
+
+    // Still on step 3 — NOT advanced to step 4
+    await expect(page.locator('#step-3')).toBeVisible()
+    await expect(page.locator('#step-4')).not.toBeVisible()
+  })
+
+  test('resetApp clears the OTP cooldown', async ({ page }) => {
+    await goToStep4(page)
+    await typeOTP(page, '123456')
+    await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
+
+    // Reset wizard
+    await page.locator('#js-book-again').click()
+    await expect(page.locator('#step-1')).toBeVisible()
+
+    // Go through steps again — OTP send should NOT be rate-limited
+    await page.locator('.service-card').first().click()
+    await page.locator('#btn-next').click()
+    await expect(page.locator('.cal-day.avail').first()).toBeVisible({ timeout: 8_000 })
+    await page.locator('.cal-day.avail').first().click()
+    await page.locator('.time-slot').first().click()
+    await page.locator('#btn-next').click()
+    await expect(page.locator('#step-3')).toBeVisible()
+    await page.locator('#inp-name').fill('נועה כהן')
+    await page.locator('#inp-phone').fill('0501234567')
+    await page.locator('#btn-next').click()
+    // Should advance to step 4 without showing cooldown toast
+    await expect(page.locator('#step-4')).toBeVisible({ timeout: 8_000 })
+    await expect(page.locator('#js-toast')).not.toBeVisible()
+  })
+})

@@ -61,6 +61,8 @@ const State = {
   calMonth: null,
   slots: {},
   loading: false,
+  prefetchedMonths: new Set(),
+  otpCooldownUntil: 0,
 };
 
 // ═══════════════════════════════════════════════════
@@ -109,6 +111,11 @@ function isValidName(n) {
   return n.trim().length >= 2;
 }
 
+const _ESC = { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' };
+function sanitize(str) {
+  return String(str).replace(/[<>&"']/g, c => _ESC[c]).slice(0, 200);
+}
+
 function today0() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -141,28 +148,23 @@ const LS = {
 async function apiGetSlots(year, month) {
   if (CONFIG.API_BASE) {
     const url = `${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`;
-    console.log('[API] GET', url);
     const r   = await fetch(url);
-    const raw = await r.text();
-    console.log('[API] getSlots', r.status, raw.slice(0, 400));
-    return JSON.parse(raw);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return JSON.parse(await r.text());
   }
   return mockSlots(year, month);
 }
 
 async function apiSendOTP(phone) {
   if (CONFIG.API_BASE) {
-    console.log('[API] POST sendOTP ->', CONFIG.API_BASE, '| phone:', phone);
-    const r   = await fetch(CONFIG.API_BASE, {
+    const r = await fetch(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
     });
-    const raw = await r.text();
-    console.log('[API] sendOTP', r.status, raw.slice(0, 400));
-    return JSON.parse(raw);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return JSON.parse(await r.text());
   }
-  console.info('[DEV] OTP would be sent to', phone);
   return { success: true };
 }
 
@@ -186,15 +188,13 @@ async function apiVerifyAndBook(otp) {
         status:      'Pending',
       },
     };
-    console.log('[API] POST verifyAndBook ->', CONFIG.API_BASE, '| otp:', otp, '| booking.id:', payload.booking.id);
-    const r   = await fetch(CONFIG.API_BASE, {
+    const r = await fetch(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload),
     });
-    const raw = await r.text();
-    console.log('[API] verifyAndBook', r.status, raw.slice(0, 400));
-    return JSON.parse(raw);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return JSON.parse(await r.text());
   }
 
   await delay(750);
@@ -348,14 +348,29 @@ function renderCalendar() {
   document.getElementById('js-calendar').innerHTML = html;
 }
 
+function renderCalendarSkeleton() {
+  document.getElementById('js-calendar').innerHTML =
+    Array.from({ length: 35 }, () =>
+      '<div class="cal-day disabled animate-pulse bg-secondary/30 rounded-lg"></div>'
+    ).join('');
+}
+
 async function loadMonthSlots(year, month) {
-  setLoading(true);
-  const res = await apiGetSlots(year, month);
-  setLoading(false);
-  if (res.success) {
-    State.slots = { ...State.slots, ...res.slots };
-    renderCalendar();
+  const key = `${year}-${month}`;
+  if (State.prefetchedMonths.has(key)) { renderCalendar(); return; }
+  renderCalendarSkeleton();
+  try {
+    const res = await apiGetSlots(year, month);
+    if (res.success) {
+      State.slots = { ...State.slots, ...res.slots };
+      State.prefetchedMonths.add(key);
+    } else {
+      toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
+    }
+  } catch {
+    toast('בעיית חיבור. נסי לרענן את הדף.', 'error');
   }
+  renderCalendar();
 }
 
 // ═══════════════════════════════════════════════════
@@ -460,11 +475,11 @@ function clearOTPInputs(markError = false) {
 
 function renderConfirmation() {
   const rows = [
-    { label: 'שירות', value: `${State.service.icon} ${State.service.name}` },
-    { label: 'תאריך', value: formatDateHe(State.date) },
-    { label: 'שעה',   value: State.time },
-    { label: 'לקוחה', value: State.name },
-    { label: 'טלפון', value: formatPhone(State.phone) },
+    { label: 'שירות', value: sanitize(`${State.service.icon} ${State.service.name}`) },
+    { label: 'תאריך', value: sanitize(formatDateHe(State.date)) },
+    { label: 'שעה',   value: sanitize(State.time) },
+    { label: 'לקוחה', value: sanitize(State.name) },
+    { label: 'טלפון', value: sanitize(formatPhone(State.phone)) },
   ];
 
   document.getElementById('js-confirm-details').innerHTML = rows.map(r => `
@@ -557,16 +572,30 @@ async function handleNext() {
   }
 
   else if (step === 3) {
+    const cooldownLeft = State.otpCooldownUntil - Date.now();
+    if (cooldownLeft > 0) {
+      toast(`ניתן לשלוח קוד שוב בעוד ${Math.ceil(cooldownLeft / 1000)} שניות.`, 'error');
+      return;
+    }
+
     State.name  = document.getElementById('inp-name').value.trim();
     State.phone = document.getElementById('inp-phone').value.replace(/\D/g,'');
     State.bookingId = uuid4();
     LS.set('client', { name: State.name, phone: State.phone });
 
     setLoading(true);
-    const res = await apiSendOTP(State.phone);
+    let res;
+    try {
+      res = await apiSendOTP(State.phone);
+    } catch {
+      setLoading(false);
+      toast('שגיאת חיבור. בדקי את החיבור לאינטרנט ונסי שוב.', 'error');
+      return;
+    }
     setLoading(false);
 
     if (res.success || !CONFIG.API_BASE) {
+      State.otpCooldownUntil = Date.now() + 30_000;
       showStep(4);
       document.getElementById('js-otp-phone').textContent =
         `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
@@ -606,7 +635,14 @@ function handleBack() {
 
 async function submitOTP(otp) {
   setLoading(true);
-  const res = await apiVerifyAndBook(otp);
+  let res;
+  try {
+    res = await apiVerifyAndBook(otp);
+  } catch {
+    setLoading(false);
+    toast('שגיאת חיבור. נסי שוב בעוד מספר שניות.', 'error');
+    return;
+  }
   setLoading(false);
 
   if (res.success) {
@@ -887,7 +923,8 @@ function resetApp() {
   State.time      = null;
   State.name      = '';
   State.phone     = '';
-  State.bookingId = null;
+  State.bookingId        = null;
+  State.otpCooldownUntil = 0;
 
   document.getElementById('js-nav').classList.remove('hidden');
   document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
@@ -898,6 +935,21 @@ function resetApp() {
 // INIT
 // ═══════════════════════════════════════════════════
 
+async function prefetchSlots() {
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const key   = `${year}-${month}`;
+  if (State.prefetchedMonths.has(key)) return;
+  try {
+    const res = await apiGetSlots(year, month);
+    if (res.success) {
+      State.slots = { ...State.slots, ...res.slots };
+      State.prefetchedMonths.add(key);
+    }
+  } catch { /* silent — calendar will load on demand */ }
+}
+
 function init() {
   renderProgress();
   renderDayHeaders();
@@ -905,7 +957,7 @@ function init() {
   setupFormListeners();
   wireEvents();
   setupModalListeners();
-  console.info("[מיטל שבע ברעם — לק ג'ל בוטק] v0.2.0 — UUID support:", typeof crypto?.randomUUID === 'function');
+  prefetchSlots();
 }
 
 document.addEventListener('DOMContentLoaded', init);
