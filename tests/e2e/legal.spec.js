@@ -38,6 +38,7 @@ test.describe('Privacy modal', () => {
     await expect(page.locator('#js-modal-title')).toHaveText('מדיניות פרטיות')
     await expect(page.locator('#js-modal-body')).toContainText('SMS')
     await expect(page.locator('#js-modal-body')).toContainText('תיאום תורים')
+    await expect(page.locator('#js-modal-body')).toContainText('meital_sheva7@hotmail.com')
   })
 
   test('close button is focused automatically after opening', async ({ page }) => {
@@ -86,6 +87,7 @@ test.describe('Accessibility modal', () => {
     await expect(page.locator('#js-modal')).not.toHaveClass(/hidden/)
     await expect(page.locator('#js-modal-title')).toHaveText('הצהרת נגישות')
     await expect(page.locator('#js-modal-body')).toContainText('WCAG')
+    await expect(page.locator('#js-modal-body')).toContainText('meital_sheva7@hotmail.com')
   })
 
   test('Escape key closes the accessibility modal', async ({ page }) => {

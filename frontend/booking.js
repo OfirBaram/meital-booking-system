@@ -703,7 +703,7 @@ const LEGAL_CONTENT = {
       <p>פרטי ההזמנות נשמרים ב-Google Sheets מאובטח, הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
       <h3 class="font-semibold mt-3">זכויות המשתמש</h3>
       <p>ניתן לבקש עיון, תיקון או מחיקה של המידע האישי בכל עת בפנייה ישירה:</p>
-      <a href="mailto:meital@example.com" class="text-primary underline underline-offset-2">meital@example.com</a>
+      <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
     `,
   },
   accessibility: {
@@ -722,7 +722,7 @@ const LEGAL_CONTENT = {
       </ul>
       <h3 class="font-semibold mt-3">פנייה בנושא נגישות</h3>
       <p>נתקלת בחסם? נשמח לסייע:</p>
-      <a href="mailto:meital@example.com" class="text-primary underline underline-offset-2">meital@example.com</a>
+      <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
     `,
   },
 };
