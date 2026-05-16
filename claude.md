@@ -401,6 +401,18 @@ All three API functions (`apiGetSlots`, `apiSendOTP`, `apiVerifyAndBook`) now:
 
 ---
 
+### v0.7.0 — 2026-05-16 — Admin Profile Image
+**Branch:** `feature/admin-profile-image`
+
+#### Changes
+- **Profile image in header**: Replaced the purple `מ` monogram circle with Meital's profile photo (`meital_profile_header.webp`).
+- **Assets added**: `frontend/meital_profile_header.webp` (128×128 px, ~4 KB) — primary; `frontend/meital_profile_header.png` (128×128 px, ~24 KB) — fallback.
+- **Retina-ready**: Image saved at 2× resolution (128 px) to display sharply at 64 px on retina screens.
+- **Graceful fallback**: If both WebP and PNG fail to load, the purple gradient `מ` monogram is revealed via CSS layering (`onerror` hides the `<picture>` element).
+- **Semantic HTML**: `<picture>` + `<source>` for WebP/PNG; `<img alt="...">` with `width`/`height` attributes; outer `<div>` carries `aria-label`.
+
+---
+
 ## 14. Environment & Paths (AI Agent Protocol)
 
 ### Absolute Project Path

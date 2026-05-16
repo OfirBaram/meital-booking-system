@@ -174,8 +174,18 @@
   <!-- ═══════════════════ HEADER ═══════════════════ -->
   <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-secondary/30 shadow-sm shadow-secondary/10">
     <div class="max-w-md mx-auto px-4 py-3 flex flex-col items-center">
-      <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-sm mb-1 select-none">
-        <span class="text-white font-bold text-lg leading-none">מ</span>
+      <div class="w-16 h-16 rounded-full shadow-sm mb-1 select-none relative overflow-hidden" aria-label="תמונת פרופיל מיטל שבע ברעם">
+        <div class="absolute inset-0 bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center" aria-hidden="true">
+          <span class="text-white font-bold text-xl leading-none">מ</span>
+        </div>
+        <picture>
+          <source srcset="meital_profile_header.webp" type="image/webp">
+          <img src="meital_profile_header.png"
+               alt="מיטל שבע ברעם"
+               width="64" height="64"
+               class="absolute inset-0 w-full h-full object-cover rounded-full"
+               onerror="this.closest('picture').style.display='none'">
+        </picture>
       </div>
       <h1 class="text-sm font-semibold text-text-main tracking-wide leading-tight">מיטל שבע ברעם</h1>
       <p class="text-[10px] text-text-muted font-light tracking-[.22em] uppercase">לק ג'ל בוטק</p>
