@@ -1,11 +1,12 @@
 'use strict';
 
+import APP_CONFIG from './config.js';
+
 // ═══════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════
 
 const CONFIG = {
-  API_BASE: 'https://script.google.com/macros/s/AKfycby1zv65Th8w2vEfd07n4SuVhAuXy-To-kOyE_0KA_4xJvq9-uvhYVGHPsKFR8fwrfKaxg/exec',
   HMAC_SECRET: 'Meital123',
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
@@ -161,8 +162,8 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 async function apiGetSlots(year, month) {
-  if (CONFIG.API_BASE) {
-    const url = `${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`;
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const url = `${APP_CONFIG.API_URL}?action=getSlots&year=${year}&month=${month}`;
     const r   = await fetchWithTimeout(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return JSON.parse(await r.text());
@@ -171,8 +172,8 @@ async function apiGetSlots(year, month) {
 }
 
 async function apiSendOTP(phone) {
-  if (CONFIG.API_BASE) {
-    const r = await fetchWithTimeout(CONFIG.API_BASE, {
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
@@ -185,7 +186,7 @@ async function apiSendOTP(phone) {
 
 async function apiVerifyAndBook(otp) {
   const ts = toISO8601Jerusalem(State.date, State.time);
-  if (CONFIG.API_BASE) {
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
     const payload = {
       action: 'verifyAndBook',
       otp,
@@ -203,7 +204,7 @@ async function apiVerifyAndBook(otp) {
         status:      'Pending',
       },
     };
-    const r = await fetchWithTimeout(CONFIG.API_BASE, {
+    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload),
@@ -647,7 +648,7 @@ async function handleNext() {
     }
     setLoading(false);
 
-    if (res.success || !CONFIG.API_BASE) {
+    if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       State.otpCooldownUntil = Date.now() + 30_000;
       showStep(4);
       document.getElementById('js-otp-phone').textContent =
@@ -948,7 +949,7 @@ function wireEvents() {
     setLoading(true);
     const res = await apiSendOTP(State.phone);
     setLoading(false);
-    if (res.success || !CONFIG.API_BASE) {
+    if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       clearOTPInputs();
       document.getElementById('js-otp-error').classList.add('hidden');
       startResendTimer();

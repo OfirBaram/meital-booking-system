@@ -14,8 +14,9 @@ import { test, expect } from '@playwright/test'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
-// Matches the GAS web-app URL pattern set in CONFIG.API_BASE
-const GAS_GLOB = 'https://script.google.com/macros/s/**'
+// Matches the GAS web-app URL pattern; TEST_GAS_URL is served via config.js route mock.
+const GAS_GLOB     = 'https://script.google.com/macros/s/**'
+const TEST_GAS_URL = 'https://script.google.com/macros/s/TEST_MOCK_ID/exec'
 
 /** Deterministic slots: first 4 BASE times for every non-Fri/Sat weekday >= today */
 function makeMockSlots(year, month) {
@@ -35,9 +36,22 @@ function makeMockSlots(year, month) {
 
 /**
  * Install route interception on the page BEFORE goto('/').
- * Logs every intercepted call so Playwright traces show the mock traffic.
+ * Intercepts config.js to inject IS_MOCK_MODE:false + TEST_GAS_URL so HTTP
+ * calls flow through GAS_GLOB; also mocks all GAS actions.
  */
 async function setupMocks(page) {
+  // Override config.js so the ES module uses IS_MOCK_MODE:false and a URL that
+  // matches GAS_GLOB, enabling Playwright route interception to work correctly.
+  await page.route('**/config.js', route =>
+    route.fulfill({
+      status:      200,
+      contentType: 'application/javascript',
+      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };
+export default APP_CONFIG;
+`,
+    })
+  )
+
   await page.route(GAS_GLOB, async (route, request) => {
     const method = request.method()
 
@@ -280,6 +294,16 @@ test.describe('Performance — slot pre-fetch on page load', () => {
   test('getSlots is called exactly once on load; step 2 uses cached data', async ({ page }) => {
     let getSlotsCalls = 0
 
+    await page.route('**/config.js', route =>
+      route.fulfill({
+        status:      200,
+        contentType: 'application/javascript',
+        body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };
+export default APP_CONFIG;
+`,
+      })
+    )
+
     await page.route(GAS_GLOB, async (route, request) => {
       if (request.method() === 'GET') {
         getSlotsCalls++
@@ -301,9 +325,15 @@ test.describe('Performance — slot pre-fetch on page load', () => {
       return route.continue()
     })
 
+    // Register waitForResponse BEFORE goto to avoid the race condition.
+    const prefetchDone = page.waitForResponse(
+      res => res.url().includes('getSlots') && res.status() === 200,
+      { timeout: 5_000 }
+    )
     await page.goto('/')
-    // Give pre-fetch time to complete
-    await page.waitForTimeout(800)
+    // Wait for the ES module to initialize (service cards rendered = init() ran).
+    await page.waitForSelector('.service-card')
+    await prefetchDone
     const callsAfterLoad = getSlotsCalls
     expect(callsAfterLoad).toBe(1)
 
