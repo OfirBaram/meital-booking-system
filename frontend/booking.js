@@ -702,6 +702,13 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
+  } else if (res.error === 'slot_not_available') {
+    // Slot was taken (or never existed) — clear selection and send user back to calendar.
+    toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
+    State.date = null;
+    State.time = null;
+    State.prefetchedMonths = new Set(); // force fresh slot data on next load
+    setTimeout(() => showStep(2), 2500);
   } else {
     document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
     document.getElementById('js-otp-error').classList.remove('hidden');

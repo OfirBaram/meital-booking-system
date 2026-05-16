@@ -49,6 +49,10 @@ function prop(key) {
   return val;
 }
 
+// Expected Spreadsheet ID — must match the SPREADSHEET_ID script property.
+// Run verifyConfig() from the GAS editor to confirm the property is correct.
+const EXPECTED_SS_ID = '1T9B1_4WUYS7Iq1UXyEfnG3LyI0_XapxPH1Q2X-6vVbQ';
+
 // ═══════════════════════════════════════════════════════════════
 // SHEET REFERENCES
 // ═══════════════════════════════════════════════════════════════
@@ -477,15 +481,25 @@ function handleVerifyAndBook(body) {
   }
 
   try {
-    // ── 3. Race-condition check: verify slot is still Available ──
+    // ── 3. Integrity gate — slot MUST exist in Weekly_Slots with status Available ──
+    // Rejects any booking that has no backing row in the slots DB ("floating booking" prevention).
+    if (CFG.SS_ID !== EXPECTED_SS_ID) {
+      Logger.log('[verifyAndBook] ABORT: SPREADSHEET_ID mismatch. Expected ' +
+                 EXPECTED_SS_ID + ', got ' + CFG.SS_ID);
+      return { success: false, error: 'configuration_error' };
+    }
+    Logger.log('[verifyAndBook] Integrity gate — checking slot: ' + booking.date + ' ' + booking.time);
     const slotRow = findSlotRow(booking.date, booking.time);
     if (!slotRow) {
-      return { success: false, error: 'slot_not_found' };
+      Logger.log('[verifyAndBook] REJECTED: slot not found in Weekly_Slots');
+      return { success: false, error: 'slot_not_available' };
     }
     const currentStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
     if (currentStatus !== 'Available') {
-      return { success: false, error: 'slot_unavailable' };
+      Logger.log('[verifyAndBook] REJECTED: slot status is "' + currentStatus + '" (not Available)');
+      return { success: false, error: 'slot_not_available' };
     }
+    Logger.log('[verifyAndBook] Integrity gate PASSED — slot confirmed Available at row ' + slotRow.rowIndex);
 
     // ── 4. Atomically mark slot as Pending_Lock ──
     slotsSheet().getRange(slotRow.rowIndex, SLOT_COL.STATUS).setValue('Pending_Lock');
@@ -1356,6 +1370,70 @@ function testFullBookingFlow() {
   failed === 0 ? Logger.log('🎉 Golden path PASSED!') : Logger.log('⚠️  ' + failed + ' step(s) FAILED — see ❌ above');
   Logger.log('══════════════ testFullBookingFlow END ══════════════');
 }
+/**
+ * Run once from the GAS editor to verify all script properties are configured
+ * correctly and the SPREADSHEET_ID matches the expected value.
+ * Safe to run at any time — reads only, no writes, no SMS, no Calendar.
+ */
+function verifyConfig() {
+  Logger.log('');
+  Logger.log('══════════════ verifyConfig START ══════════════');
+  let allOk = true;
+
+  // ── Spreadsheet ID ──
+  try {
+    const actual = CFG.SS_ID;
+    if (actual === EXPECTED_SS_ID) {
+      Logger.log('[verifyConfig] SPREADSHEET_ID: OK — ' + actual);
+    } else {
+      Logger.log('[verifyConfig] SPREADSHEET_ID MISMATCH');
+      Logger.log('  expected: ' + EXPECTED_SS_ID);
+      Logger.log('  actual:   ' + actual);
+      allOk = false;
+    }
+  } catch (e) {
+    Logger.log('[verifyConfig] SPREADSHEET_ID: MISSING — ' + e.message);
+    allOk = false;
+  }
+
+  // ── Required properties ──
+  const REQUIRED = [
+    'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID',
+  ];
+  REQUIRED.forEach(function(key) {
+    const val = PropertiesService.getScriptProperties().getProperty(key);
+    if (val) {
+      Logger.log('[verifyConfig] ' + key + ': OK');
+    } else {
+      Logger.log('[verifyConfig] ' + key + ': MISSING');
+      allOk = false;
+    }
+  });
+
+  // ── Sheet access ──
+  try {
+    const sh = slotsSheet();
+    Logger.log('[verifyConfig] Weekly_Slots: OK (lastRow=' + sh.getLastRow() + ')');
+  } catch (e) {
+    Logger.log('[verifyConfig] Weekly_Slots: ERROR — ' + e.message);
+    allOk = false;
+  }
+  try {
+    const sh = logSheet();
+    Logger.log('[verifyConfig] Bookings_Log: OK (lastRow=' + sh.getLastRow() + ')');
+  } catch (e) {
+    Logger.log('[verifyConfig] Bookings_Log: ERROR — ' + e.message);
+    allOk = false;
+  }
+
+  Logger.log('');
+  Logger.log(allOk
+    ? '[verifyConfig] All checks PASSED'
+    : '[verifyConfig] FAILED — fix issues above before taking live bookings');
+  Logger.log('══════════════ verifyConfig END ══════════════');
+}
+
 function installTriggers() {
   // Remove any existing syncCalendarToSlots triggers first
   ScriptApp.getProjectTriggers()
