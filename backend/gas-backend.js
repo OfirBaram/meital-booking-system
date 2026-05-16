@@ -55,8 +55,9 @@ function prop(key) {
  */
 
 const SHEETS = {
-  SLOTS: 'Weekly_Slots',
-  LOG:   'Bookings_Log',
+  SLOTS:   'Weekly_Slots',
+  LOG:     'Bookings_Log',
+  SMS_LOG: 'SMS_LOG',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
@@ -78,6 +79,47 @@ function logSheet() {
   const sh = ss().getSheetByName(SHEETS.LOG);
   if (!sh) throw new Error('Sheet not found: ' + SHEETS.LOG);
   return sh;
+}
+
+/**
+ * Returns the SMS_LOG sheet, creating it with a header row if it does not exist.
+ * Columns: Timestamp | To | Context | Status | Message | Detail
+ */
+function smsLogSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.SMS_LOG);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.SMS_LOG);
+    sh.appendRow(['Timestamp', 'To', 'Context', 'Status', 'Message', 'Detail']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:F1').setFontWeight('bold');
+    sh.setColumnWidth(5, 400); // Message column wider
+  }
+  return sh;
+}
+
+/**
+ * Appends one row to SMS_LOG.
+ * @param {string} to      - Recipient phone in E.164
+ * @param {string} context - e.g. 'OTP', 'AdminNotify', 'ClientApproval', 'ClientRejection'
+ * @param {string} status  - 'SENT' | 'MOCK' | 'ERROR'
+ * @param {string} message - SMS body
+ * @param {string} [detail] - Twilio SID on success, error message on failure
+ */
+function logSMS(to, context, status, message, detail) {
+  try {
+    smsLogSheet().appendRow([
+      new Date(),
+      to,
+      context,
+      status,
+      message.slice(0, 500), // truncate for cell safety
+      detail || '',
+    ]);
+  } catch (e) {
+    // Never let SMS_LOG failure break the main flow
+    Logger.log('[logSMS] Sheet write failed: ' + e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -330,6 +372,7 @@ function handleSendOTP(body) {
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   try {
+    sendSMS._context = 'OTP';
     sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
   } catch (smsErr) {
     Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
@@ -428,6 +471,7 @@ function handleVerifyAndBook(body) {
       `❌ דחייה: ${rejectUrl}`,
     ].join('\n');
     if (phone !== QA_MOCK_PHONE) {
+      sendSMS._context = 'AdminNotify';
       sendSMS(CFG.ADMIN_PHONE, adminMsg);
     } else {
       Logger.log('[verifyAndBook] MOCK MODE — admin SMS suppressed. Copy links from log:');
@@ -525,9 +569,11 @@ function processApproval(logSh, row, rowIdx, bookingId) {
     `מחכה לך! 💅`,
   ].join('\n');
   if (clientPhone !== QA_MOCK_PHONE) {
+    sendSMS._context = 'ClientApproval';
     sendSMS(clientPhone, clientMsg);
   } else {
-    Logger.log('[processApproval] MOCK MODE — skipping client confirmation SMS');
+    logSMS(clientPhone, 'ClientApproval', 'MOCK', clientMsg, 'QA mock — Twilio skipped');
+    Logger.log('[processApproval] MOCK MODE — SMS logged to SMS_LOG sheet (no Twilio call)');
   }
 
   Logger.log('[adminAction] Approved: ' + bookingId);
@@ -553,9 +599,11 @@ function processRejection(logSh, row, rowIdx, bookingId) {
     `ניתן להזמין תור חלופי דרך האפליקציה.`,
   ].join('\n');
   if (clientPhone !== QA_MOCK_PHONE) {
+    sendSMS._context = 'ClientRejection';
     sendSMS(clientPhone, clientMsg);
   } else {
-    Logger.log('[processRejection] MOCK MODE — skipping client rejection SMS');
+    logSMS(clientPhone, 'ClientRejection', 'MOCK', clientMsg, 'QA mock — Twilio skipped');
+    Logger.log('[processRejection] MOCK MODE — SMS logged to SMS_LOG sheet (no Twilio call)');
   }
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
@@ -650,6 +698,9 @@ function sendSMS(to, body) {
   Logger.log('[sendSMS] Payload → To: "' + to + '" | From: "' + fromNum +
              '" | To.length: ' + to.length + ' | From.length: ' + fromNum.length);
 
+  const _smsCtx = sendSMS._context || 'Unknown';
+  delete sendSMS._context;
+
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${CFG.TWILIO_SID}/Messages.json`;
   const options = {
     method:  'post',
@@ -665,6 +716,7 @@ function sendSMS(to, body) {
     resp = UrlFetchApp.fetch(url, options);
   } catch (fetchErr) {
     Logger.log('[sendSMS] Network error: ' + fetchErr.message);
+    logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
     const err = new Error('SMS network error: ' + fetchErr.message);
     err.debugInfo = { stage: 'network', to, from: fromNum, message: fetchErr.message };
     throw err;
@@ -684,12 +736,16 @@ function sendSMS(to, body) {
       dbg.twilioMessage = tw.message;
       if (tw.more_info) { detail += ' — ' + tw.more_info; dbg.moreInfo = tw.more_info; }
     } catch (_) { detail += ' | ' + respText.slice(0, 200); }
+    logSMS(to, _smsCtx, 'ERROR', body, detail);
     const err = new Error('Twilio SMS failed: ' + detail);
     err.debugInfo = dbg;
     throw err;
   }
 
-  Logger.log('[sendSMS] SMS sent OK to ' + to);
+  let sid = '';
+  try { sid = JSON.parse(respText).sid || ''; } catch (_) {}
+  logSMS(to, _smsCtx, 'SENT', body, sid);
+  Logger.log('[sendSMS] SMS sent OK to ' + to + ' | SID: ' + sid);
 }
 
 // ═══════════════════════════════════════════════════════════════
