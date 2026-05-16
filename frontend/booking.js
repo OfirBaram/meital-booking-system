@@ -9,6 +9,8 @@ const CONFIG = {
   HMAC_SECRET: 'Meital123',
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
+  MOCK_PHONE: '0500000000',  // QA bypass — fixed OTP, no Twilio
+  MOCK_OTP:   '123456',
   OTP_RESEND_SECS: 60,
   LS_PREFIX: 'meital_',
 };
@@ -568,6 +570,15 @@ async function handleNext() {
         `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
       renderOTPInputs();
       startResendTimer();
+      if (State.phone === CONFIG.MOCK_PHONE) {
+        setTimeout(() => {
+          const inputs = document.querySelectorAll('.otp-input');
+          CONFIG.MOCK_OTP.split('').forEach((d, i) => {
+            if (inputs[i]) { inputs[i].value = d; inputs[i].classList.add('filled'); }
+          });
+          autoSubmitOTP();
+        }, 500);
+      }
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }

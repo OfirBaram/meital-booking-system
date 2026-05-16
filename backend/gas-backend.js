@@ -303,6 +303,11 @@ function handleGetSlots(body) {
  * and sends it via Twilio SMS.
  * Body: { phone: '05XXXXXXXX' }
  */
+// QA bypass: 0500000000 normalises to QA_MOCK_PHONE.
+// Caches a fixed OTP and skips Twilio so tests never consume SMS quota.
+const QA_MOCK_PHONE = '+972500000000';
+const QA_MOCK_OTP   = '123456';
+
 function handleSendOTP(body) {
   Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
   const phone = normalizePhone(body.phone);
@@ -310,6 +315,13 @@ function handleSendOTP(body) {
   if (!phone) {
     throw new Error(
       'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
+  }
+
+  // Mock mode: fixed OTP, no Twilio call
+  if (phone === QA_MOCK_PHONE) {
+    Logger.log('[sendOTP] MOCK MODE — caching fixed OTP ' + QA_MOCK_OTP + ', skipping Twilio');
+    CacheService.getScriptCache().put('otp_' + phone, QA_MOCK_OTP, 300);
+    return { success: true };
   }
 
   const otp   = generateOTP();
@@ -415,7 +427,11 @@ function handleVerifyAndBook(body) {
       `✅ אישור: ${approveUrl}`,
       `❌ דחייה: ${rejectUrl}`,
     ].join('\n');
-    sendSMS(CFG.ADMIN_PHONE, adminMsg);
+    if (phone !== QA_MOCK_PHONE) {
+      sendSMS(CFG.ADMIN_PHONE, adminMsg);
+    } else {
+      Logger.log('[verifyAndBook] MOCK MODE — skipping admin SMS for QA phone');
+    }
 
     Logger.log('[verifyAndBook] Booking created: ' + bookingId);
     return { success: true, bookingId, status: 'Pending' };
