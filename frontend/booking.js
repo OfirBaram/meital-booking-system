@@ -136,20 +136,27 @@ const LS = {
 
 async function apiGetSlots(year, month) {
   if (CONFIG.API_BASE) {
-    const r = await fetch(`${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`);
-    return r.json();
+    const url = `${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`;
+    console.log('[API] GET', url);
+    const r   = await fetch(url);
+    const raw = await r.text();
+    console.log('[API] getSlots', r.status, raw.slice(0, 400));
+    return JSON.parse(raw);
   }
   return mockSlots(year, month);
 }
 
 async function apiSendOTP(phone) {
   if (CONFIG.API_BASE) {
-    const r = await fetch(CONFIG.API_BASE, {
+    console.log('[API] POST sendOTP ->', CONFIG.API_BASE, '| phone:', phone);
+    const r   = await fetch(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
     });
-    return r.json();
+    const raw = await r.text();
+    console.log('[API] sendOTP', r.status, raw.slice(0, 400));
+    return JSON.parse(raw);
   }
   console.info('[DEV] OTP would be sent to', phone);
   return { success: true };
@@ -158,28 +165,32 @@ async function apiSendOTP(phone) {
 async function apiVerifyAndBook(otp) {
   const ts = toISO8601Jerusalem(State.date, State.time);
   if (CONFIG.API_BASE) {
-    const r = await fetch(CONFIG.API_BASE, {
+    const payload = {
+      action: 'verifyAndBook',
+      otp,
+      booking: {
+        id:          State.bookingId,
+        name:        State.name,
+        phone:       State.phone,
+        service:     State.service.id,
+        serviceName: State.service.name,
+        date:        State.date,
+        time:        State.time,
+        timestamp:   ts.tagged,
+        timezone:    ts.timezone,
+        duration:    State.service.duration,
+        status:      'Pending',
+      },
+    };
+    console.log('[API] POST verifyAndBook ->', CONFIG.API_BASE, '| otp:', otp, '| booking.id:', payload.booking.id);
+    const r   = await fetch(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({
-        action: 'verifyAndBook',
-        otp,
-        booking: {
-          id:          State.bookingId,
-          name:        State.name,
-          phone:       State.phone,
-          service:     State.service.id,
-          serviceName: State.service.name,
-          date:        State.date,
-          time:        State.time,
-          timestamp:   ts.tagged,
-          timezone:    ts.timezone,
-          duration:    State.service.duration,
-          status:      'Pending',
-        },
-      }),
+      body: JSON.stringify(payload),
     });
-    return r.json();
+    const raw = await r.text();
+    console.log('[API] verifyAndBook', r.status, raw.slice(0, 400));
+    return JSON.parse(raw);
   }
 
   await delay(750);

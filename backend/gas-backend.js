@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Meital Boutique Booking — Google Apps Script Backend
  * =====================================================
  * Deploy as: Web App → Execute as: Me → Who has access: Anyone
@@ -126,13 +126,22 @@ function doGet(e) {
     const token     = e.parameter.token;
     const bookingId = e.parameter.id;
 
-    // getSlots is a natural GET — the frontend uses fetch() with query params
+    // getSlots: inner try-catch guarantees JSON is always returned, even on crash.
+    // Without this, GAS would fall through to the outer catch which returns HTML —
+    // the browser then fails to parse JSON and misreports it as a CORS error.
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
-      const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month });
-      return ContentService
-        .createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
+      try {
+        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month });
+        return ContentService
+          .createTextOutput(JSON.stringify(result))
+          .setMimeType(ContentService.MimeType.JSON);
+      } catch (slotsErr) {
+        Logger.log('[doGet/getSlots] CRASH: ' + slotsErr.message + '\n' + slotsErr.stack);
+        return ContentService
+          .createTextOutput(JSON.stringify({ success: false, error: slotsErr.message }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
 
     // Admin approve/reject — requires token + bookingId
