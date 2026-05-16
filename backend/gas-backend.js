@@ -224,6 +224,30 @@ function doGet(e) {
  *   2. Time cells arrive as Date objects (Jan 1 1900 HH:MM) — use Utilities.formatDate
  *   3. Short/empty rows would cause index-out-of-bounds — guarded explicitly
  */
+// Cache TTL for slot data (seconds).  10 min = fast reads, low staleness.
+const SLOTS_CACHE_TTL = 600;
+
+/** Returns the CacheService key for a given year/month. */
+function _slotsCacheKey(year, month) {
+  return 'slots_' + year + '_' + month;
+}
+
+/**
+ * Invalidates the cached slots for a given date string ('YYYY-MM-DD').
+ * Call this after any booking approval or rejection so the next getSlots
+ * request re-reads from the Sheet and sees the updated status.
+ */
+function invalidateSlotsCache(dateStr) {
+  try {
+    const parts = String(dateStr).split('-');
+    const key   = _slotsCacheKey(parseInt(parts[0], 10), parseInt(parts[1], 10));
+    CacheService.getScriptCache().remove(key);
+    Logger.log('[cache] Invalidated slots cache key: ' + key);
+  } catch (e) {
+    Logger.log('[cache] invalidateSlotsCache error: ' + e.message);
+  }
+}
+
 function handleGetSlots(body) {
   const TZ = 'Asia/Jerusalem';
 
@@ -235,6 +259,19 @@ function handleGetSlots(body) {
 
   if (!year || !month || year < 2020 || month < 1 || month > 12) {
     throw new Error('Invalid year/month. Got: year=' + body.year + ', month=' + body.month);
+  }
+
+  // ── Cache check (avoids Spreadsheet I/O on warm requests) ──
+  const cacheKey = _slotsCacheKey(year, month);
+  try {
+    const cached = CacheService.getScriptCache().get(cacheKey);
+    if (cached) {
+      Logger.log('[getSlots] CACHE HIT — returning cached slots for ' + cacheKey);
+      return { success: true, slots: JSON.parse(cached), fromCache: true };
+    }
+    Logger.log('[getSlots] CACHE MISS — reading from Spreadsheet');
+  } catch (cacheErr) {
+    Logger.log('[getSlots] Cache read error (non-fatal): ' + cacheErr.message);
   }
 
   // ── Sheet access ──
@@ -343,6 +380,15 @@ function handleGetSlots(body) {
   // Sort times within each day
   Object.keys(slots).forEach(k => slots[k].sort());
   Logger.log('[getSlots] DONE. Days with slots: ' + Object.keys(slots).length);
+
+  // ── Store in cache for future requests ──
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(slots), SLOTS_CACHE_TTL);
+    Logger.log('[getSlots] CACHED under key: ' + cacheKey + ' (TTL ' + SLOTS_CACHE_TTL + 's)');
+  } catch (cacheErr) {
+    Logger.log('[getSlots] Cache write error (non-fatal): ' + cacheErr.message);
+  }
+
   Logger.log('[getSlots] Result: ' + JSON.stringify(slots));
   return { success: true, slots };
 }
@@ -569,6 +615,8 @@ function processApproval(logSh, row, rowIdx, bookingId) {
 
   // ── Update Weekly_Slots: mark slot as Booked ──
   updateSlotStatus(date, time, 'Booked');
+  invalidateSlotsCache(date); // bust cache so next getSlots sees updated slot
+  invalidateSlotsCache(date); // bust cache so next getSlots reads fresh data
 
   // ── Notify client ──
   const clientMsg = [
@@ -602,6 +650,7 @@ function processRejection(logSh, row, rowIdx, bookingId) {
 
   // ── Release slot back to Available ──
   updateSlotStatus(date, time, 'Available');
+  invalidateSlotsCache(date); // bust cache so rejected slot reappears immediately
 
   // ── Notify client ──
   const clientMsg = [
