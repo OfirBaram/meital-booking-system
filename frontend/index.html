@@ -157,6 +157,12 @@
       to   { opacity: 1; transform: translateY(0); }
     }
     #js-modal:not(.hidden) #js-modal-panel { animation: modalSlideUp .28s cubic-bezier(.22,.68,0,1.2) both; }
+    @keyframes stepFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    [id^="step-"]:not(.hidden) { animation: stepFadeIn .15s ease-out both; }
+    .cal-day.animate-pulse { min-height: 2rem; }
   </style>
 </head>
 

@@ -297,3 +297,176 @@ When moving to a production Twilio account with no daily limit:
 - Footer with two trigger buttons; focus always restored to opener on close.
 - Modal sized at `max-w-[380px]` / `max-h-[70vh]`; `sm:my-8` ensures backdrop is Playwright-clickable.
 - 12 new unit tests (modal content + state); 14 new E2E tests in `tests/e2e/legal.spec.js`.
+
+
+---
+
+## 10. Application State Structure
+
+All mutable wizard state lives in the `State` object in `frontend/booking.js`.
+Never access DOM to read state — always read from `State`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `step` | `number` (1–5) | Current wizard step |
+| `service` | `object\|null` | Selected service from `SERVICES` array |
+| `date` | `string\|null` | Selected date `YYYY-MM-DD` |
+| `time` | `string\|null` | Selected time `HH:MM` |
+| `name` | `string` | Client name (trimmed) |
+| `phone` | `string` | Client phone (digits only, 10 chars) |
+| `bookingId` | `string\|null` | UUID v4 generated at step 3→4 transition |
+| `calMonth` | `Date\|null` | First-of-month Date for the displayed calendar |
+| `slots` | `object` | Map of `YYYY-MM-DD → string[]` (available times), accumulated across months |
+| `loading` | `boolean` | True while an API call is in-flight |
+| `prefetchedMonths` | `Set<string>` | Keys `"YYYY-M"` for months already fetched; prevents duplicate API calls |
+| `otpCooldownUntil` | `number` | `Date.now()` timestamp; OTP send is blocked until this passes (30 s rate limit) |
+
+**`resetApp()`** resets all fields EXCEPT `prefetchedMonths` and `slots` (cached slot data is reused across bookings).
+
+### State flow summary
+```
+Step 1 → 2: service set, calMonth set, loadMonthSlots() called (instant if prefetched)
+Step 2 → 3: date + time set
+Step 3 → 4: name + phone + bookingId set, otpCooldownUntil = now + 30s, OTP sent
+Step 4 → 5: OTP verified, booking written to GAS
+Step 5:      renderConfirmation() reads State for display
+```
+
+---
+
+## 11. Performance: Slot Pre-fetching
+
+`prefetchSlots()` is called fire-and-forget from `init()` at `DOMContentLoaded`.
+It fetches the current month's slots and stores them in `State.slots` and `State.prefetchedMonths`.
+
+When the user reaches step 2, `loadMonthSlots()` checks `State.prefetchedMonths`:
+- **Hit** → `renderCalendar()` immediately (zero perceived latency).
+- **Miss** → `renderCalendarSkeleton()` (35 animate-pulse cells) → fetch → `renderCalendar()`.
+
+Month navigation also uses the cache; subsequent visits to the same month are instant.
+
+---
+
+## 12. Security Additions (v0.5.0)
+
+### Input Sanitization
+`sanitize(str)` in `booking.js` escapes `< > & " '` to HTML entities and truncates to 200 chars.
+Applied to all user-provided values before they are written to `innerHTML` in `renderConfirmation()`.
+The name field is the primary XSS vector; all five confirmation rows are now sanitized.
+
+### OTP Rate Limiting
+`State.otpCooldownUntil` is set to `Date.now() + 30_000` on every successful OTP dispatch.
+`handleNext` step 3 checks this before calling `apiSendOTP`; if the cooldown has not elapsed, it shows a toast with the remaining seconds and returns early without calling the API.
+`resetApp()` resets `otpCooldownUntil = 0` so a fresh booking is never blocked.
+
+### API Error Hardening
+All three API functions (`apiGetSlots`, `apiSendOTP`, `apiVerifyAndBook`) now:
+1. Check `r.ok` and throw `Error("HTTP <status>")` on non-2xx.
+2. Are wrapped in `try/catch` at call sites (`loadMonthSlots`, `handleNext` step 3, `submitOTP`).
+3. Surface only friendly Hebrew toast messages — never raw error details or GAS stack traces.
+
+---
+
+### v0.5.0 — 2026-05-16 — Performance, Security & Robustness
+**Branch:** `feature/performance-security-final`
+
+#### Changes
+- **Instant calendar**: `prefetchSlots()` fires on `DOMContentLoaded`; calendar renders without loading delay.
+- **Skeleton loader**: `renderCalendarSkeleton()` shows 35 animate-pulse cells during any uncached month fetch.
+- **Step transitions**: `stepFadeIn` CSS keyframe on all `[id^="step-"]` elements for smooth 0.2 s fade-in.
+- **XSS protection**: `sanitize()` escapes all user-supplied values before `innerHTML` injection.
+- **OTP rate limit**: 30-second cooldown on OTP send; friendly countdown toast on re-attempt.
+- **API error hardening**: `try/catch` on all three API call sites; friendly Hebrew error toasts only.
+- **State fields**: added `prefetchedMonths` (Set) and `otpCooldownUntil` (number).
+- **Console.log cleanup**: removed all `[API]` debug logs from production code.
+- **Tests**: 9 new sanitize unit tests; 3 new E2E tests (pre-fetch call count, rate-limit block, reset clears cooldown).
+---
+
+## 13. Performance Rules (Perceived Speed)
+
+- **Always check `State.prefetchedMonths` before showing a loader.** If the month key `"${year}-${month}"` is present, call `renderCalendar()` directly — never `loadMonthSlots()` — so the calendar appears in the same event-loop tick as the button click.
+- **All UI transitions must complete within 150 ms.** The `stepFadeIn` animation is capped at `.15s ease-out`. Any new animation or CSS transition must stay at or below this threshold.
+- **Never call `renderCalendar()` for a date selection inside the same month.** The cache-aware implementation patches `.selected` in existing DOM nodes (`_calMonthKey` check). Only a month navigation should trigger a full rebuild.
+
+---
+
+### v0.6.0 — 2026-05-16 — Perceived Performance
+**Branch:** `feature/performance-security-final`
+
+#### Changes
+- **Zero-delay calendar**: `handleNext` step 1→2 calls `renderCalendar()` synchronously on cache hit instead of `await loadMonthSlots()`. Calendar appears instantly when data is pre-fetched.
+- **DOM-efficient date selection**: `renderCalendar()` now checks `_calMonthKey` — same-month date picks patch `.selected` in-place instead of rebuilding all 35–42 `cal-day` nodes.
+- **Instant scroll**: `window.scrollTo({ behavior: 'smooth' })` changed to `'instant'` — no scroll animation latency on step transitions.
+- **Faster step animation**: `stepFadeIn` reduced from `.2s` to `.15s` — step panels appear 50 ms sooner.
+
+---
+
+## 14. Environment & Paths (AI Agent Protocol)
+
+### Absolute Project Path
+
+```
+C:\Users\DELL\Documents\GitHub\u200F\u200FOfirBaram\.git\meital-booking-system
+```
+
+> **Note:** The directory name contains two U+200F RIGHT-TO-LEFT MARK characters before `OfirBaram`. This causes path resolution to differ between tools:
+> - **Bash tool** — resolves correctly via `git rev-parse --show-toplevel`; use relative paths from there.
+> - **PowerShell** — can read/write files at the full absolute path above, but `git` commands fail due to the `.git` segment in the path being misinterpreted.
+> - **Python 3.12** — use `open(js_path, 'r', encoding='utf-8')` with the absolute path; works correctly from either Bash or PowerShell.
+
+### Runtime Constraints
+
+| Tool | Available | Notes |
+|------|-----------|-------|
+| Python 3.12 | ✅ Bash: `/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe` | Primary tool for file patching |
+| Python 3.12 | ✅ PowerShell: `python` | Available in PATH |
+| Node / NPM / npx | ❌ | **DO NOT attempt `npm`, `npx`, `node` commands** — not in PATH in either shell |
+| Vitest (local) | ❌ | No `node_modules`; tests run in GitHub Actions CI only |
+| Playwright (local) | ❌ | Same — CI only |
+| `gh` CLI | ❌ | Not installed |
+| Git (Bash) | ✅ | Works from Bash working directory via relative or `-C $(git rev-parse --show-toplevel)` |
+| Git (PowerShell) | ❌ | Fails with "not a git repository" due to `.git` in path |
+
+### Git Protocol
+
+Always run git commands via the **Bash tool** (not PowerShell):
+
+```bash
+# Correct — Bash tool CWD is the git root
+git status
+git add frontend/booking.js
+git commit -F "$tmpFile"
+git push origin feature/...
+
+# If CWD is uncertain, anchor explicitly
+git -C "$(git rev-parse --show-toplevel)" status
+```
+
+### File Patch Protocol (using `scripts/ai_tools.py`)
+
+For any change to `frontend/booking.js` or other JS/HTML files, use the Python patch utility:
+
+```bash
+PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
+$PYTHON scripts/ai_tools.py patch frontend/booking.js \
+  --old "old string" \
+  --new "new string"
+```
+
+Or write a one-off inline script:
+
+```bash
+$PYTHON << 'PYEOF'
+from ai_tools import patch_file, verify_contains
+patch_file('frontend/booking.js', old_str, new_str)
+verify_contains('frontend/booking.js', 'expected snippet')
+PYEOF
+```
+
+**Never use PowerShell for file writes** — EPERM errors occur intermittently.  
+**Never use `sed -i` for multi-line JS patches** — quoting breaks on backticks and template literals.
+
+### Editor Tool Workaround
+
+The built-in `Edit` tool fails on this repo path with "File has not been read yet" even after a successful `Read` due to path encoding. Use the Python patch utility instead.
+
