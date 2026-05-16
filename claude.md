@@ -1,4 +1,4 @@
-﻿# 💅 Meital Boutique Booking - System Specification & Context
+# 💅 Meital Boutique Booking - System Specification & Context
 
 ## 1. High-Level Vision
 A premium, lightweight, and secure booking system for a boutique nail studio. 
@@ -191,3 +191,109 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 5. Click Approve → verify the client confirmation SMS arrives.
 6. Verify the Google Calendar event was created.
 7. Verify `Bookings_Log` shows `Approved` status and a Calendar Event ID.
+
+
+---
+
+## 8. Legal & Accessibility Layer
+
+### Overview
+A zero-dependency legal compliance layer added in `feature/legal-and-accessibility`.
+All content, modal logic, and event wiring live in `frontend/booking.js` and `frontend/index.html`.
+No third-party libraries are used.
+
+### Files Changed
+| File | What was added |
+|------|---------------|
+| `frontend/booking.js` | `LEGAL_CONTENT`, `openModal()`, `closeModal()`, `isModalOpen()`, `setupModalListeners()`, `_modalTrigger` variable |
+| `frontend/index.html` | `<footer>` with two trigger buttons, `#js-modal` dialog with backdrop + panel |
+| `tests/unit/utils.test.js` | 12 unit tests for content resolution and open/close state logic |
+| `tests/e2e/legal.spec.js` | 14 Playwright E2E tests: golden path, keyboard nav, backdrop, mobile regression |
+
+### LEGAL_CONTENT structure (`booking.js`)
+```js
+const LEGAL_CONTENT = {
+  privacy:       { title: 'מדיניות פרטיות',  html: '...' },
+  accessibility: { title: 'הצהרת נגישות', html: '...' },
+}
+```
+Both entries contain an `<a href="mailto:meital_sheva7@hotmail.com">` contact link.
+To update the content, edit the `html` string inside `LEGAL_CONTENT` — no HTML file changes needed.
+
+### Footer → Modal wiring
+The footer (`<footer>` after `</main>`) contains two `<button>` elements:
+- `#js-open-privacy` → calls `openModal('privacy')`
+- `#js-open-accessibility` → calls `openModal('accessibility')`
+
+`setupModalListeners()` is called from `init()` and attaches all listeners:
+- X button (`#js-modal-close`) → `closeModal()`
+- Backdrop (`#js-modal-backdrop`) → `closeModal()`
+- Document keydown `Escape` → `closeModal()` when modal is open
+- Focus trap: Tab / Shift+Tab cycles within `#js-modal-panel`
+
+`_modalTrigger` stores the button that opened the modal so focus can be restored on close (WCAG 2.1 SC 2.4.3).
+
+### Modal dimensions (as of v0.4.0)
+| Property | Value |
+|----------|-------|
+| Max width | `max-w-[380px]` |
+| Max height | `max-h-[70vh]` |
+| Desktop margin | `sm:mx-4 sm:my-8` (ensures backdrop is clickable above/below panel) |
+| Mobile shape | Bottom sheet (`items-end`, `rounded-t-3xl`, full width) |
+| Desktop shape | Centered dialog (`sm:items-center`, `sm:rounded-3xl`) |
+
+**Do not** revert `sm:my-8` — removing it causes the Playwright backdrop click test to fail because the panel covers the center of the backdrop on desktop viewports.
+
+---
+
+## 9. QA Mock Phone Bypass
+
+### Purpose
+Twilio has a 50-SMS/day limit on trial accounts. The mock phone allows a complete
+end-to-end booking flow (including admin approve/reject) without consuming Twilio quota.
+
+### How it works
+
+#### Backend (`backend/gas-backend.js`)
+```js
+const QA_MOCK_PHONE = '+972500000000';
+const QA_MOCK_OTP   = '123456';
+```
+- `handleSendOTP`: if `phone === QA_MOCK_PHONE`, cache OTP `123456` and **return early** — no Twilio call.
+- `handleVerifyAndBook`: skip `sendSMS()` for admin notification; instead **print the full admin SMS body** (including Approve/Reject URLs) to `Logger.log`.
+- `processApproval` / `processRejection`: skip client confirmation SMS.
+
+**`simulateAdminSMS()`** — a helper function in the GAS script that reads the last row of `Bookings_Log` and prints admin links to the execution log. Run from the GAS editor to get approve/reject URLs without a real booking.
+
+#### Frontend (`frontend/booking.js`)
+```js
+CONFIG.MOCK_PHONE = '0500000000'
+CONFIG.MOCK_OTP   = '123456'
+```
+- `isValidPhone`: explicitly returns `true` for `'0500000000'` before the regex check.
+- Step 3 → Step 4 transition: if `State.phone === CONFIG.MOCK_PHONE`, auto-fill OTP boxes with `'123456'` after 500 ms and call `autoSubmitOTP()`.
+
+### How to use for QA
+1. Enter phone `0500000000` in the booking form.
+2. The OTP boxes auto-fill and auto-submit — no SMS received.
+3. To test the admin flow, copy the Approve/Reject links from the GAS **Execution log**.
+4. Paste the link in a browser → booking transitions to `Approved`/`Rejected` in Sheets + Calendar.
+
+### Removing the mock (production hardening)
+When moving to a production Twilio account with no daily limit:
+1. Delete `QA_MOCK_PHONE` and `QA_MOCK_OTP` constants from `gas-backend.js`.
+2. Remove the three `if (phone === QA_MOCK_PHONE)` blocks.
+3. Remove `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, and the auto-fill block in `booking.js`.
+4. Revert the `isValidPhone` check to the original regex-only version.
+
+---
+
+### v0.4.0 — 2026-05-16 — Legal & Accessibility Layer
+**Branch:** `feature/legal-and-accessibility`
+
+#### Changes
+- Accessible modal (`role="dialog"`, `aria-modal`, focus trap, Esc/backdrop/X close, body scroll lock).
+- Hebrew `LEGAL_CONTENT` for Privacy Policy and Accessibility Statement.
+- Footer with two trigger buttons; focus always restored to opener on close.
+- Modal sized at `max-w-[380px]` / `max-h-[70vh]`; `sm:my-8` ensures backdrop is Playwright-clickable.
+- 12 new unit tests (modal content + state); 14 new E2E tests in `tests/e2e/legal.spec.js`.
