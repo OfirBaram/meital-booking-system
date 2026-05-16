@@ -226,6 +226,15 @@
 
         <!-- Calendar grid -->
         <div id="js-calendar" class="grid grid-cols-7 gap-1"></div>
+
+        <!-- Slot-fetch loading hint (shown only during uncached network fetch) -->
+        <div id="js-cal-loading" class="hidden mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
+          <svg class="spinner w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/>
+            <path fill="currentColor" opacity=".75" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+          </svg>
+          <span>טוענת זמינות… (עד 30 שניות)</span>
+        </div>
       </div>
 
       <!-- Time slots -->

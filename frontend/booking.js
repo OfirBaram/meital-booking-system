@@ -145,10 +145,25 @@ const LS = {
 // API LAYER  (stubs for GAS backend)
 // ═══════════════════════════════════════════════════
 
+const FETCH_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('הבקשה ארכה יותר מדי. נסי שוב.');
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 async function apiGetSlots(year, month) {
   if (CONFIG.API_BASE) {
     const url = `${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`;
-    const r   = await fetch(url);
+    const r   = await fetchWithTimeout(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return JSON.parse(await r.text());
   }
@@ -157,7 +172,7 @@ async function apiGetSlots(year, month) {
 
 async function apiSendOTP(phone) {
   if (CONFIG.API_BASE) {
-    const r = await fetch(CONFIG.API_BASE, {
+    const r = await fetchWithTimeout(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
@@ -188,7 +203,7 @@ async function apiVerifyAndBook(otp) {
         status:      'Pending',
       },
     };
-    const r = await fetch(CONFIG.API_BASE, {
+    const r = await fetchWithTimeout(CONFIG.API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload),
@@ -381,10 +396,16 @@ function renderCalendarSkeleton() {
     ).join('');
 }
 
+function _setCalendarLoading(on) {
+  const el = document.getElementById('js-cal-loading');
+  if (el) el.classList.toggle('hidden', !on);
+}
+
 async function loadMonthSlots(year, month) {
   const key = `${year}-${month}`;
   if (State.prefetchedMonths.has(key)) { renderCalendar(); return; }
   renderCalendarSkeleton();
+  _setCalendarLoading(true);
   try {
     const res = await apiGetSlots(year, month);
     if (res.success) {
@@ -393,8 +414,10 @@ async function loadMonthSlots(year, month) {
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
-  } catch {
-    toast('בעיית חיבור. נסי לרענן את הדף.', 'error');
+  } catch (e) {
+    toast(e.message.includes('ארכה') ? e.message : 'בעיית חיבור. נסי לרענן את הדף.', 'error');
+  } finally {
+    _setCalendarLoading(false);
   }
   renderCalendar();
 }
