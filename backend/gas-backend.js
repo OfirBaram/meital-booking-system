@@ -167,6 +167,7 @@ function doPost(e) {
       case 'adminAction':   return jsonOk(handleAdminAction(body));
       case 'listBookings':  return jsonOk(handleListBookings(body));
       case 'changeStatus':  return jsonOk(handleChangeStatus(body));
+      case 'createBooking': return jsonOk(handleCreateBooking(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -621,7 +622,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   const serviceName = String(row[LOG_COL.SERVICE_NAME - 1]).trim();
 
   // ── Create Google Calendar event ──
-  const calEventId = createCalendarEvent({
+  const calEventId = CalService.createEvent({
     date, time, duration, clientName, serviceName, bookingId,
   });
 
@@ -643,13 +644,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
     ``,
     `מחכה לך! 💅`,
   ].join('\n');
-  if (clientPhone !== QA_MOCK_PHONE) {
-    sendSMS._context = 'ClientApproval';
-    sendSMS(clientPhone, clientMsg);
-  } else {
-    logSMS(clientPhone, 'ClientApproval', 'MOCK', clientMsg, 'QA mock — Twilio skipped');
-    Logger.log('[processApproval] MOCK MODE — SMS logged to SMS_LOG sheet (no Twilio call)');
-  }
+  SmsService.send(clientPhone, clientMsg, 'ClientApproval');
 
   Logger.log('[adminAction] Approved: ' + bookingId);
   return { success: true, action: 'APPROVE', bookingId, calEventId };
@@ -674,13 +669,7 @@ function processRejection(logSh, row, rowIdx, bookingId) {
     `❌ לצערנו, הבקשה לתור ב-${date} שעה ${time} לא אושרה.`,
     `ניתן להזמין תור חלופי דרך האפליקציה.`,
   ].join('\n');
-  if (clientPhone !== QA_MOCK_PHONE) {
-    sendSMS._context = 'ClientRejection';
-    sendSMS(clientPhone, clientMsg);
-  } else {
-    logSMS(clientPhone, 'ClientRejection', 'MOCK', clientMsg, 'QA mock — Twilio skipped');
-    Logger.log('[processRejection] MOCK MODE — SMS logged to SMS_LOG sheet (no Twilio call)');
-  }
+  SmsService.send(clientPhone, clientMsg, 'ClientRejection');
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
   return { success: true, action: 'REJECT', bookingId };
@@ -1566,16 +1555,7 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
   const svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
   const calEventId = String(row[LOG_COL.CAL_EVENT    - 1] || '').trim();
 
-  if (calEventId) {
-    try {
-      const cal = CalendarApp.getCalendarById(CFG.CAL_ID);
-      const ev  = cal ? cal.getEventById(calEventId) : null;
-      if (ev) { ev.deleteEvent(); Logger.log('[processCancellation] Cal event deleted: ' + calEventId); }
-      else    { Logger.log('[processCancellation] Cal event not found: ' + calEventId); }
-    } catch (e) {
-      Logger.log('[processCancellation] Cal delete error: ' + e.message);
-    }
-  }
+  if (calEventId) CalService.deleteEvent(CFG.CAL_ID, calEventId);
 
   logSh.getRange(rowIdx, LOG_COL.STATUS).setValue('Cancelled');
   SpreadsheetApp.flush();
@@ -1588,14 +1568,150 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
     'ניתן לתאם תור חדש דרך האפליקציה.',
   ].join('\n');
 
-  if (phone !== QA_MOCK_PHONE) {
-    sendSMS._context = 'ClientCancellation';
-    sendSMS(phone, msg);
-  } else {
-    logSMS(phone, 'ClientCancellation', 'MOCK', msg, 'QA mock');
-    Logger.log('[processCancellation] MOCK MODE');
-  }
+  SmsService.send(phone, msg, 'ClientCancellation');
 
   Logger.log('[processCancellation] Cancelled: ' + bookingId);
   return { success: true, action: 'CANCEL', bookingId };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SERVICE INTERFACES  (IS_TEST_MODE = true → no Twilio / Calendar)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Flip to true in the GAS editor to run end-to-end test flows
+ * without touching real Twilio or Google Calendar.
+ * Flip back to false before every production deployment.
+ */
+const IS_TEST_MODE = false;
+
+const CalService = {
+  createEvent(params) {
+    if (IS_TEST_MODE) {
+      const id = 'MOCK_CAL_' + Date.now();
+      Logger.log('[CalService MOCK] createEvent id=' + id + ' params=' + JSON.stringify(params));
+      return id;
+    }
+    return createCalendarEvent(params);
+  },
+  deleteEvent(calId, eventId) {
+    if (IS_TEST_MODE) {
+      Logger.log('[CalService MOCK] deleteEvent id=' + eventId);
+      return true;
+    }
+    try {
+      const cal = CalendarApp.getCalendarById(calId);
+      const ev  = cal ? cal.getEventById(eventId) : null;
+      if (ev) { ev.deleteEvent(); Logger.log('[CalService] Deleted: ' + eventId); return true; }
+      Logger.log('[CalService] Event not found (already deleted?): ' + eventId);
+      return false;
+    } catch (e) {
+      Logger.log('[CalService] deleteEvent error: ' + e.message);
+      return false;
+    }
+  },
+};
+
+const SmsService = {
+  send(to, message, context) {
+    if (IS_TEST_MODE) {
+      Logger.log('[SmsService MOCK] ctx=' + context + ' to=' + to + ' | ' + message.slice(0, 80));
+      logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
+      return;
+    }
+    if (to === QA_MOCK_PHONE) {
+      logSMS(to, context, 'MOCK', message, 'QA mock phone');
+      Logger.log('[SmsService] QA phone — logged to SMS_LOG, no Twilio');
+      return;
+    }
+    sendSMS._context = context;
+    sendSMS(to, message);
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ACTION: createBooking  (admin/test — bypasses OTP requirement)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Creates a Pending booking directly from the admin dashboard or
+ * internal test page. Requires a valid ADMIN_TOKEN.
+ *
+ * Body: { token, name, phone, service, serviceName, date, time, duration? }
+ * The slot must exist in Weekly_Slots with status Available.
+ */
+function handleCreateBooking(body) {
+  Logger.log('[createBooking] Invoked — name=' + body.name +
+             ' date=' + body.date + ' time=' + body.time);
+
+  if (!validateAdmin(body.token)) {
+    Logger.log('[createBooking] REJECTED: unauthorized');
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+
+  const required = ['name', 'phone', 'service', 'serviceName', 'date', 'time'];
+  const missing  = required.filter(k => !body[k]);
+  if (missing.length) {
+    Logger.log('[createBooking] Missing fields: ' + missing.join(', '));
+    return { success: false, error: 'missing_fields', fields: missing };
+  }
+
+  const phone = normalizePhone(body.phone);
+  if (!phone) {
+    Logger.log('[createBooking] Invalid phone: ' + body.phone);
+    return { success: false, error: 'invalid_phone', raw: body.phone };
+  }
+
+  const dur  = parseInt(body.duration, 10) || 90;
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[createBooking] Lock timeout — slot contested');
+    return { success: false, error: 'slot_locked' };
+  }
+
+  try {
+    Logger.log('[createBooking] Checking slot: ' + body.date + ' ' + body.time);
+    const slotRow = findSlotRow(body.date, body.time);
+    if (!slotRow) {
+      Logger.log('[createBooking] REJECTED: slot not found in Weekly_Slots');
+      return { success: false, error: 'slot_not_found', date: body.date, time: body.time };
+    }
+
+    const slotStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
+    if (slotStatus !== 'Available') {
+      Logger.log('[createBooking] REJECTED: slot status = ' + slotStatus);
+      return { success: false, error: 'slot_not_available', currentStatus: slotStatus };
+    }
+
+    // Atomically lock slot
+    slotsSheet().getRange(slotRow.rowIndex, SLOT_COL.STATUS).setValue('Pending_Lock');
+    SpreadsheetApp.flush();
+    Logger.log('[createBooking] Slot locked: ' + body.date + ' ' + body.time);
+
+    const bookingId  = uuid4();
+    const adminToken = signAdminToken(bookingId);
+    const now        = nowISO();
+
+    logSheet().appendRow([
+      bookingId, body.name, phone,
+      body.service, body.serviceName,
+      body.date, body.time, now, dur,
+      'Pending', '', adminToken,
+    ]);
+    SpreadsheetApp.flush();
+    Logger.log('[createBooking] Row written — id=' + bookingId);
+
+    writeAuditLog('admin', 'CreateBooking', bookingId, '', 'Pending',
+                  body.name + ' | ' + body.date + ' ' + body.time);
+
+    return {
+      success: true, bookingId, status: 'Pending',
+      name: body.name, date: body.date, time: body.time,
+    };
+
+  } finally {
+    lock.releaseLock();
+  }
 }

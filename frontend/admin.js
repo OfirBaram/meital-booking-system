@@ -155,7 +155,9 @@ function updateStats() {
 }
 
 function visible() {
-  return S.filter === 'all' ? S.bookings : S.bookings.filter(b => b.status === S.filter);
+  if (S.filter === 'all')     return S.bookings;
+  if (S.filter === 'history') return S.bookings.filter(b => ['Rejected', 'Cancelled'].includes(b.status));
+  return S.bookings.filter(b => b.status === S.filter);
 }
 
 function render() {
