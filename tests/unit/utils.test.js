@@ -34,11 +34,24 @@ function formatPhone(raw) {
   return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3)}` : raw
 }
 
+function _jerusalemOffset(date) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Jerusalem',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(date)
+  const tz = (parts.find(p => p.type === 'timeZoneName') || {}).value || ''
+  const m  = tz.match(/GMT([+-])(\d+)/)
+  if (!m) return '+03:00'
+  return `${m[1]}${m[2].padStart(2, '0')}:00`
+}
+
 function toISO8601Jerusalem(dateStr, timeStr) {
+  const d      = new Date(`${dateStr}T${timeStr}:00`)
+  const offset = _jerusalemOffset(d)
   return {
     local:    `${dateStr}T${timeStr}:00`,
     timezone: 'Asia/Jerusalem',
-    tagged:   `${dateStr}T${timeStr}:00+03:00`,
+    tagged:   `${dateStr}T${timeStr}:00${offset}`,
   }
 }
 
@@ -148,16 +161,16 @@ describe('toISO8601Jerusalem', () => {
   it('sets the local datetime string', () => {
     expect(result.local).toBe('2026-05-15T09:00:00')
   })
-  it('tags the timestamp with static +03:00 Israel offset', () => {
+  it('tags summer timestamp with +03:00 (IDT)', () => {
     expect(result.tagged).toBe('2026-05-15T09:00:00+03:00')
   })
   it('includes the IANA timezone name for GAS DST resolution', () => {
     expect(result.timezone).toBe('Asia/Jerusalem')
   })
-  it('works for a different date and time', () => {
+  it('tags winter timestamp with +02:00 (IST)', () => {
     const r2 = toISO8601Jerusalem('2026-12-01', '16:30')
     expect(r2.local).toBe('2026-12-01T16:30:00')
-    expect(r2.tagged).toBe('2026-12-01T16:30:00+03:00')
+    expect(r2.tagged).toBe('2026-12-01T16:30:00+02:00')
   })
 })
 
