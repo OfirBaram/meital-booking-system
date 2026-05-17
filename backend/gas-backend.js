@@ -215,7 +215,14 @@ function doGet(e) {
     if (result.success) {
       return HtmlService.createHtmlOutput(buildAdminConfirmPage(action, result));
     }
-    return HtmlService.createHtmlOutput('<h2>שגיאה: ' + result.error + '</h2>');
+    const ERR_HE = {
+      invalid_token:    'קישור לא תקין או פג תוקף.',
+      booking_not_found:'הזמנה לא נמצאה.',
+      already_processed:'הזמנה זו כבר טופלה.',
+      lock_timeout:     'המערכת עמוסה. נסה שוב בעוד שניות ספורות.',
+    };
+    const msg = ERR_HE[result.error] || ('שגיאה: ' + result.error);
+    return HtmlService.createHtmlOutput('<h2>' + msg + '</h2>');
   } catch (err) {
     Logger.log('[doGet] Error: ' + err.message + '\n' + err.stack);
     return HtmlService.createHtmlOutput('<h2>שגיאה פנימית: ' + err.message + '</h2>');
