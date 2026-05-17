@@ -154,8 +154,26 @@ function updateStats() {
   document.getElementById('stat-total').textContent = S.bookings.length;
 }
 
+// A booking is "stale" once its appointment time is more than 48h in the past.
+function isStale(b) {
+  if (!b.date) return false;
+  const dt = new Date(b.date + 'T' + (b.time || '00:00') + ':00');
+  if (isNaN(dt.getTime())) return false;
+  return (Date.now() - dt.getTime()) > 48 * 60 * 60 * 1000;
+}
+
+function isFinished(b) {
+  return b.status === 'Rejected' || b.status === 'Cancelled';
+}
+
+// Active views hide finished + stale bookings to cut visual clutter;
+// the History tab is the full archive of everything they hide.
 function visible() {
-  return S.filter === 'all' ? S.bookings : S.bookings.filter(b => b.status === S.filter);
+  if (S.filter === 'history')
+    return S.bookings.filter(b => isFinished(b) || isStale(b));
+  if (S.filter === 'all')
+    return S.bookings.filter(b => !isFinished(b) && !isStale(b));
+  return S.bookings.filter(b => b.status === S.filter && !isStale(b));
 }
 
 function render() {
