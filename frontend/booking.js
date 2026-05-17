@@ -677,6 +677,9 @@ async function handleNext() {
           autoSubmitOTP();
         }, 500);
       }
+    } else if (res.error === 'rate_limited') {
+      const secs = res.retryAfterSecs || 30;
+      toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
@@ -981,6 +984,9 @@ function wireEvents() {
       document.getElementById('js-otp-error').classList.add('hidden');
       startResendTimer();
       toast('קוד חדש נשלח 📲');
+    } else if (res.error === 'rate_limited') {
+      const secs = res.retryAfterSecs || 30;
+      toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
