@@ -1683,7 +1683,7 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
  * without touching real Twilio or Google Calendar.
  * Flip back to false before every production deployment.
  */
-const IS_TEST_MODE = false;
+const IS_TEST_MODE = true;
 
 const CalService = {
   createEvent(params) {
