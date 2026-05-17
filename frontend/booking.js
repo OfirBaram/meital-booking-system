@@ -7,7 +7,6 @@ import APP_CONFIG from './config.js';
 // ═══════════════════════════════════════════════════
 
 const CONFIG = {
-  HMAC_SECRET: 'Meital123',
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
   MOCK_PHONE: '0500000000',  // QA bypass — fixed OTP, no Twilio
@@ -78,11 +77,25 @@ function uuid4() {
   });
 }
 
+function _jerusalemOffset(date) {
+  // Use Intl to resolve the real UTC offset for the given instant (DST-aware).
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Jerusalem',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(date);
+  const tz = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+  const m  = tz.match(/GMT([+-])(\d+)/);
+  if (!m) return '+03:00'; // safe fallback
+  return `${m[1]}${m[2].padStart(2, '0')}:00`;
+}
+
 function toISO8601Jerusalem(dateStr, timeStr) {
+  const d      = new Date(`${dateStr}T${timeStr}:00`);
+  const offset = _jerusalemOffset(d);
   return {
-    local: `${dateStr}T${timeStr}:00`,
+    local:    `${dateStr}T${timeStr}:00`,
     timezone: CONFIG.TIMEZONE,
-    tagged: `${dateStr}T${timeStr}:00+03:00`,
+    tagged:   `${dateStr}T${timeStr}:00${offset}`,
   };
 }
 
@@ -702,8 +715,8 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
-  } else if (res.error === 'slot_not_available') {
-    // Slot was taken (or never existed) — clear selection and send user back to calendar.
+  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked') {
+    // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
     State.date = null;
     State.time = null;
@@ -954,13 +967,22 @@ function wireEvents() {
 
   document.getElementById('js-resend').addEventListener('click', async () => {
     setLoading(true);
-    const res = await apiSendOTP(State.phone);
+    let res;
+    try {
+      res = await apiSendOTP(State.phone);
+    } catch {
+      setLoading(false);
+      toast('שגיאת חיבור בשליחת הקוד. נסי שוב.', 'error');
+      return;
+    }
     setLoading(false);
     if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       clearOTPInputs();
       document.getElementById('js-otp-error').classList.add('hidden');
       startResendTimer();
       toast('קוד חדש נשלח 📲');
+    } else {
+      toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
   });
 

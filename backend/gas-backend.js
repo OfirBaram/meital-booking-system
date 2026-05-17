@@ -215,7 +215,14 @@ function doGet(e) {
     if (result.success) {
       return HtmlService.createHtmlOutput(buildAdminConfirmPage(action, result));
     }
-    return HtmlService.createHtmlOutput('<h2>שגיאה: ' + result.error + '</h2>');
+    const ERR_HE = {
+      invalid_token:    'קישור לא תקין או פג תוקף.',
+      booking_not_found:'הזמנה לא נמצאה.',
+      already_processed:'הזמנה זו כבר טופלה.',
+      lock_timeout:     'המערכת עמוסה. נסה שוב בעוד שניות ספורות.',
+    };
+    const msg = ERR_HE[result.error] || ('שגיאה: ' + result.error);
+    return HtmlService.createHtmlOutput('<h2>' + msg + '</h2>');
   } catch (err) {
     Logger.log('[doGet] Error: ' + err.message + '\n' + err.stack);
     return HtmlService.createHtmlOutput('<h2>שגיאה פנימית: ' + err.message + '</h2>');
@@ -585,33 +592,47 @@ function handleAdminAction(body) {
     return { success: false, error: 'invalid_token' };
   }
 
-  // ── 2. Find booking row ──
-  const logSh  = logSheet();
-  const data   = logSh.getDataRange().getValues();
-  let bookingRow = null, bookingIdx = -1;
+  // ── 2. Acquire distributed lock — prevents duplicate-approval race between
+  //       the SMS link and Admin Dashboard acting on the same booking concurrently. ──
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[adminAction] Lock timeout for booking ' + bookingId);
+    return { success: false, error: 'lock_timeout' };
+  }
 
-  for (let r = 1; r < data.length; r++) {
-    if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
-      bookingRow = data[r];
-      bookingIdx = r + 1; // 1-indexed
-      break;
+  try {
+    // ── 3. Find booking row ──
+    const logSh  = logSheet();
+    const data   = logSh.getDataRange().getValues();
+    let bookingRow = null, bookingIdx = -1;
+
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+        bookingRow = data[r];
+        bookingIdx = r + 1; // 1-indexed
+        break;
+      }
     }
+
+    if (!bookingRow) return { success: false, error: 'booking_not_found' };
+
+    const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
+    if (currentStatus !== 'Pending') {
+      return { success: false, error: 'already_processed', currentStatus };
+    }
+
+    if (action === 'APPROVE') {
+      return processApproval(logSh, bookingRow, bookingIdx, bookingId);
+    } else if (action === 'REJECT') {
+      return processRejection(logSh, bookingRow, bookingIdx, bookingId);
+    }
+
+    throw new Error('Unknown adminAction: ' + action);
+  } finally {
+    lock.releaseLock();
   }
-
-  if (!bookingRow) return { success: false, error: 'booking_not_found' };
-
-  const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
-  if (currentStatus !== 'Pending') {
-    return { success: false, error: 'already_processed', currentStatus };
-  }
-
-  if (action === 'APPROVE') {
-    return processApproval(logSh, bookingRow, bookingIdx, bookingId);
-  } else if (action === 'REJECT') {
-    return processRejection(logSh, bookingRow, bookingIdx, bookingId);
-  }
-
-  throw new Error('Unknown adminAction: ' + action);
 }
 
 function processApproval(logSh, row, rowIdx, bookingId) {
@@ -634,8 +655,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
 
   // ── Update Weekly_Slots: mark slot as Booked ──
   updateSlotStatus(date, time, 'Booked');
-  invalidateSlotsCache(date); // bust cache so next getSlots sees updated slot
-  invalidateSlotsCache(date); // bust cache so next getSlots reads fresh data
+  invalidateSlotsCache(date);
 
   // ── Notify client ──
   const clientMsg = [
@@ -712,30 +732,80 @@ function createCalendarEvent({ date, time, duration, clientName, serviceName, bo
  * Blocks personal time in Weekly_Slots based on non-booking calendar events.
  * Intended to be run as a time-driven trigger (e.g., daily at 01:00).
  * Marks any slot overlapping a calendar event as 'Blocked'.
+ *
+ * Also performs two maintenance passes each run:
+ *   1. Orphaned Pending_Lock cleanup — resets any Pending_Lock slot with no
+ *      matching Pending booking row (guards against mid-booking GAS crashes).
+ *   2. TZ-safe date/time parsing via Utilities.formatDate (fixes UTC-midnight
+ *      drift that occurs when Sheets Date cells are read as JS Date objects).
+ *   3. Cache invalidation for every date whose slot status changed so clients
+ *      see the update within the next request rather than waiting up to 10 min.
  */
 function syncCalendarToSlots() {
-  const cal   = CalendarApp.getCalendarById(CFG.CAL_ID);
-  const sh    = slotsSheet();
-  const data  = sh.getDataRange().getValues();
-  const now   = new Date();
-  const end   = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day window
+  const TZ   = 'Asia/Jerusalem';
+  const cal  = CalendarApp.getCalendarById(CFG.CAL_ID);
+  const sh   = slotsSheet();
+  const data = sh.getDataRange().getValues();
+  const now  = new Date();
+  const end  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day window
 
-  const events = cal.getEvents(now, end);
+  const events       = cal.getEvents(now, end);
+  const changedDates = new Set();
+
+  // ── Pass 1: Orphaned Pending_Lock cleanup ─────────────────────────────────
+  // Build a key-set of date|time for all currently-Pending bookings.
+  // A slot in Pending_Lock with no matching row was orphaned by a GAS crash
+  // mid-booking and must be released so clients can book that slot again.
+  const logData    = logSheet().getDataRange().getValues();
+  const pendingKeys = new Set();
+  for (let r = 1; r < logData.length; r++) {
+    if (String(logData[r][LOG_COL.STATUS - 1]).trim() !== 'Pending') continue;
+    const ld = logData[r][LOG_COL.DATE - 1];
+    const lt = logData[r][LOG_COL.TIME - 1];
+    const ds = (ld instanceof Date) ? Utilities.formatDate(ld, TZ, 'yyyy-MM-dd') : String(ld).trim();
+    const ts = (lt instanceof Date) ? Utilities.formatDate(lt, TZ, 'HH:mm')     : String(lt).trim();
+    pendingKeys.add(ds + '|' + ts);
+  }
 
   for (let r = 1; r < data.length; r++) {
-    const row       = data[r];
-    const dateStr   = formatSheetDate(row[SLOT_COL.DATE - 1]);
-    const startStr  = String(row[SLOT_COL.START - 1]).trim();
-    const endStr    = String(row[SLOT_COL.END   - 1]).trim();
-    const status    = String(row[SLOT_COL.STATUS - 1]).trim();
+    if (String(data[r][SLOT_COL.STATUS - 1]).trim() !== 'Pending_Lock') continue;
+    const rd = data[r][SLOT_COL.DATE  - 1];
+    const rs = data[r][SLOT_COL.START - 1];
+    const ds = (rd instanceof Date) ? Utilities.formatDate(rd, TZ, 'yyyy-MM-dd') : String(rd).trim();
+    const ts = (rs instanceof Date) ? Utilities.formatDate(rs, TZ, 'HH:mm')     : String(rs).trim();
+    if (!pendingKeys.has(ds + '|' + ts)) {
+      sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Available');
+      changedDates.add(ds);
+      Logger.log('[syncCalendarToSlots] Orphaned Pending_Lock reset -> Available: ' + ds + ' ' + ts);
+    }
+  }
 
-    if (status === 'Booked' || !dateStr || !startStr) continue;
+  // ── Pass 2: Calendar overlap sync (TZ-safe parsing) ───────────────────────
+  for (let r = 1; r < data.length; r++) {
+    const row    = data[r];
+    const status = String(row[SLOT_COL.STATUS - 1]).trim();
+
+    if (status === 'Booked' || status === 'Pending_Lock') continue;
+
+    const rawDate  = row[SLOT_COL.DATE  - 1];
+    const rawStart = row[SLOT_COL.START - 1];
+    const rawEnd   = row[SLOT_COL.END   - 1];
+
+    // Utilities.formatDate prevents the UTC-midnight off-by-one that happens
+    // when Sheets returns Date cells and JS Date methods use the local timezone.
+    const dateStr  = (rawDate  instanceof Date) ? Utilities.formatDate(rawDate,  TZ, 'yyyy-MM-dd') : String(rawDate  || '').trim();
+    const startStr = (rawStart instanceof Date) ? Utilities.formatDate(rawStart, TZ, 'HH:mm')      : String(rawStart || '').trim();
+    const endStr   = (rawEnd   instanceof Date) ? Utilities.formatDate(rawEnd,   TZ, 'HH:mm')      : String(rawEnd   || '').trim();
+
+    if (!dateStr || !startStr) continue;
 
     const [yr, mo, da] = dateStr.split('-').map(Number);
     const [sh_, sm_]   = startStr.split(':').map(Number);
-    const [eh_, em_]   = endStr  .split(':').map(Number);
-    const slotStart = new Date(yr, mo - 1, da, sh_, sm_);
-    const slotEnd   = new Date(yr, mo - 1, da, eh_, em_);
+    const endParts     = endStr.split(':').map(Number);
+    const slotStart    = new Date(yr, mo - 1, da, sh_, sm_);
+    const slotEnd      = new Date(yr, mo - 1, da,
+      isNaN(endParts[0]) ? sh_ + 2 : endParts[0],
+      isNaN(endParts[1]) ? 0       : endParts[1]);
 
     const overlaps = events.some(ev =>
       ev.getStartTime() < slotEnd && ev.getEndTime() > slotStart
@@ -743,14 +813,20 @@ function syncCalendarToSlots() {
 
     if (overlaps && status === 'Available') {
       sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Blocked');
+      changedDates.add(dateStr);
     } else if (!overlaps && status === 'Blocked') {
-      // Re-open if personal event was deleted
       sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Available');
+      changedDates.add(dateStr);
     }
   }
 
   SpreadsheetApp.flush();
-  Logger.log('[syncCalendarToSlots] Sync complete');
+
+  // Bust the slot cache for every date that changed so the next getSlots
+  // request returns fresh data instead of stale cache (up to 10-min old).
+  changedDates.forEach(invalidateSlotsCache);
+
+  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + [...changedDates].join(', '));
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1522,26 +1598,40 @@ function handleChangeStatus(body) {
   if (!ALLOWED.includes(targetStatus)) {
     return { success: false, error: 'invalid targetStatus: ' + targetStatus };
   }
-  const sh   = logSheet();
-  const data = sh.getDataRange().getValues();
-  let bookingRow = null, bookingIdx = -1;
-  for (let r = 1; r < data.length; r++) {
-    if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
-      bookingRow = data[r]; bookingIdx = r + 1; break;
+
+  // ── Acquire lock — prevents concurrent SMS-link + dashboard race on same booking. ──
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[changeStatus] Lock timeout for booking ' + bookingId);
+    return { success: false, error: 'lock_timeout' };
+  }
+
+  try {
+    const sh   = logSheet();
+    const data = sh.getDataRange().getValues();
+    let bookingRow = null, bookingIdx = -1;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+        bookingRow = data[r]; bookingIdx = r + 1; break;
+      }
     }
+    if (!bookingRow) return { success: false, error: 'booking_not_found' };
+    const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
+    const VALID = { Pending: ['Approved', 'Rejected'], Approved: ['Cancelled'] };
+    if (!VALID[currentStatus] || !VALID[currentStatus].includes(targetStatus)) {
+      return { success: false, error: 'invalid_transition', from: currentStatus, to: targetStatus };
+    }
+    let result;
+    if (targetStatus === 'Approved')      result = processApproval(sh, bookingRow, bookingIdx, bookingId);
+    else if (targetStatus === 'Rejected') result = processRejection(sh, bookingRow, bookingIdx, bookingId);
+    else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId);
+    writeAuditLog('dashboard', targetStatus, bookingId, currentStatus, targetStatus, '');
+    return result;
+  } finally {
+    lock.releaseLock();
   }
-  if (!bookingRow) return { success: false, error: 'booking_not_found' };
-  const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
-  const VALID = { Pending: ['Approved', 'Rejected'], Approved: ['Cancelled'] };
-  if (!VALID[currentStatus] || !VALID[currentStatus].includes(targetStatus)) {
-    return { success: false, error: 'invalid_transition', from: currentStatus, to: targetStatus };
-  }
-  let result;
-  if (targetStatus === 'Approved')      result = processApproval(sh, bookingRow, bookingIdx, bookingId);
-  else if (targetStatus === 'Rejected') result = processRejection(sh, bookingRow, bookingIdx, bookingId);
-  else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId);
-  writeAuditLog('dashboard', targetStatus, bookingId, currentStatus, targetStatus, '');
-  return result;
 }
 
 function processCancellation(logSh, row, rowIdx, bookingId) {
@@ -1732,6 +1822,17 @@ function handleCreateBooking(body) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * doPost endpoint wrapper for runFullFlowTest.
+ * Requires ADMIN_TOKEN — cannot be triggered anonymously.
+ */
+function handleRunFlowTest(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  return runFullFlowTest();
 }
 
 // ===============================================================
