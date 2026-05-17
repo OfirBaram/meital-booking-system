@@ -3,8 +3,10 @@
 import APP_CONFIG from './config.js';
 
 // ── Config ───────────────────────────────────────────────────────
-const API      = APP_CONFIG.API_URL;
-const LS_TOKEN = 'meital_admin_token';
+const API         = APP_CONFIG.API_URL;
+const LS_TOKEN    = 'meital_admin_token';
+const LS_TS       = 'meital_admin_ts';
+const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 h
 
 // ── State ────────────────────────────────────────────────────────
 const S = {
@@ -65,6 +67,11 @@ function toast(msg, type = '') {
 }
 
 // ── Auth ──────────────────────────────────────────────────────────
+function sessionValid() {
+  const ts = parseInt(localStorage.getItem(LS_TS) || '0', 10);
+  return ts > 0 && (Date.now() - ts) < SESSION_TTL;
+}
+
 function showLogin() {
   document.getElementById('js-login').classList.remove('hidden');
   document.getElementById('js-dash').classList.add('hidden');
@@ -78,6 +85,7 @@ function showDash() {
 function logout() {
   S.token = '';
   localStorage.removeItem(LS_TOKEN);
+  localStorage.removeItem(LS_TS);
   showLogin();
   document.getElementById('js-token-input').value = '';
   document.getElementById('js-login-err').classList.add('hidden');
@@ -99,6 +107,7 @@ async function login() {
     const data = await apiCall('listBookings');
     if (!data.success) throw new Error(data.error || 'auth');
     localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_TS, String(Date.now()));
     S.bookings = data.bookings || [];
     showDash();
     hideSkeleton();
@@ -116,6 +125,7 @@ async function login() {
 
 // ── Load ──────────────────────────────────────────────────────────
 async function load(silent = false) {
+  if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
   try {
     const data = await apiCall('listBookings');
@@ -291,7 +301,7 @@ async function init() {
     btn.addEventListener('click', () => setFilter(btn.dataset.filter)));
   setFilter('all');
 
-  if (S.token) {
+  if (S.token && sessionValid()) {
     try {
       const data = await apiCall('listBookings');
       if (!data.success) throw new Error(data.error);
@@ -303,6 +313,8 @@ async function init() {
     } catch (_) {
       logout();
     }
+  } else if (S.token) {
+    logout(); // token present but session expired — clear and show login
   }
 
   startAutoRefresh();

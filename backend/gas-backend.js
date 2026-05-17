@@ -438,8 +438,17 @@ function handleSendOTP(body) {
     return { success: true };
   }
 
-  const otp   = generateOTP();
+  // Rate-limit: one real OTP request per phone per 30 seconds.
+  // Prevents a direct-API caller from draining the Twilio trial quota.
+  const rateLimitKey = 'otp_ratelimit_' + phone;
   const cache = CacheService.getScriptCache();
+  if (cache.get(rateLimitKey)) {
+    Logger.log('[sendOTP] Rate limit hit for ' + phone + ' — retry in 30 s');
+    return { success: false, error: 'rate_limited', retryAfterSecs: 30 };
+  }
+  cache.put(rateLimitKey, '1', 30); // block repeat for 30 s
+
+  const otp = generateOTP();
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
