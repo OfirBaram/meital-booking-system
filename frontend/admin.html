@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#FAF5F0">
+  <title>לוח הבקרה — מיטל שבע ברעם</title>
+
+  <script>
+    tailwind = {
+      config: {
+        theme: {
+          extend: {
+            colors: {
+              primary:      '#A67C8E',
+              'primary-dk': '#8B6175',
+              'primary-lt': '#C4A0B0',
+              secondary:    '#DDC3A5',
+              cream:        '#FAF5F0',
+              'text-main':  '#4A2E3A',
+              'text-muted': '#9B8090',
+            },
+            fontFamily: { heebo: ['Heebo', 'sans-serif'] },
+          },
+        },
+      },
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Heebo', sans-serif; background-color: #FAF5F0; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: #FAF5F0; }
+    ::-webkit-scrollbar-thumb { background: #DDC3A5; border-radius: 2px; }
+
+    @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .card-in { animation: cardIn 0.2s ease both; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { border: 2px solid rgba(166,124,142,0.2); border-top-color: #A67C8E; border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
+
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+    .toast-in { animation: toastIn 0.25s ease both; }
+  </style>
+</head>
+<body class="min-h-screen bg-cream">
+
+  <!-- ════════════ LOGIN OVERLAY ════════════ -->
+  <div id="js-login" class="fixed inset-0 z-50 bg-cream flex flex-col items-center justify-center px-6">
+    <div class="w-full max-w-sm">
+      <div class="text-center mb-8">
+        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-primary-lt mx-auto mb-4 flex items-center justify-center shadow-lg">
+          <span class="text-white font-black text-3xl leading-none">מ</span>
+        </div>
+        <h1 class="text-2xl font-black text-text-main">לוח הבקרה</h1>
+        <p class="text-text-muted text-sm mt-1">מיטל שבע ברעם — ניהול הזמנות</p>
+      </div>
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-secondary/30">
+        <label class="block text-xs font-semibold text-text-muted uppercase tracking-widest mb-2">קוד גישה</label>
+        <input id="js-token-input" type="password" placeholder="••••••••"
+          class="w-full border border-secondary/60 rounded-xl px-4 py-3 text-text-main text-base focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+          autocomplete="current-password">
+        <p id="js-login-err" class="text-red-500 text-xs mt-2 h-4 hidden">קוד גישה שגוי. נסה שוב.</p>
+        <button id="js-login-btn"
+          class="w-full mt-4 bg-primary text-white font-bold py-3 rounded-xl transition-all hover:bg-primary-dk active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[48px]">
+          כניסה
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ DASHBOARD ════════════ -->
+  <div id="js-dash" class="hidden min-h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-secondary/30 sticky top-0 z-40">
+      <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-lt flex items-center justify-center shrink-0">
+            <span class="text-white font-black text-sm leading-none">מ</span>
+          </div>
+          <div class="leading-tight">
+            <div class="text-sm font-bold text-text-main">לוח הבקרה</div>
+            <div class="text-xs text-text-muted">מיטל שבע ברעם</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button id="js-refresh-btn" title="רענן"
+            class="p-2.5 rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
+            <svg id="js-refresh-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </button>
+          <button id="js-logout-btn" title="יציאה"
+            class="p-2.5 rounded-xl text-text-muted hover:text-red-400 hover:bg-cream active:scale-95 transition-all">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-2xl mx-auto px-4 pt-5 pb-12">
+
+      <!-- Stats -->
+      <div class="grid grid-cols-3 gap-3 mb-5">
+        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
+          <div id="stat-pending" class="text-2xl font-black text-amber-500">—</div>
+          <div class="text-xs text-text-muted font-medium">ממתינות</div>
+        </div>
+        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
+          <div id="stat-today" class="text-2xl font-black text-primary">—</div>
+          <div class="text-xs text-text-muted font-medium">היום</div>
+        </div>
+        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
+          <div id="stat-total" class="text-2xl font-black text-text-main">—</div>
+          <div class="text-xs text-text-muted font-medium">סה"כ</div>
+        </div>
+      </div>
+
+      <!-- Filter pills -->
+      <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+        <button data-filter="all"       class="filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all">הכל</button>
+        <button data-filter="Pending"   class="filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all">ממתין</button>
+        <button data-filter="Approved"  class="filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all">מאושר</button>
+        <button data-filter="Rejected"  class="filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all">נדחה</button>
+        <button data-filter="Cancelled" class="filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all">בוטל</button>
+      </div>
+
+      <!-- Booking list -->
+      <div id="js-list">
+        <!-- Skeleton -->
+        <div id="js-skeleton" class="space-y-3">
+          <div class="bg-white rounded-2xl p-4 border border-secondary/20 animate-pulse">
+            <div class="flex justify-between mb-3">
+              <div class="h-4 bg-secondary/30 rounded w-32"></div>
+              <div class="h-5 bg-secondary/20 rounded-full w-16"></div>
+            </div>
+            <div class="h-3 bg-secondary/20 rounded w-40 mb-2"></div>
+            <div class="h-3 bg-secondary/20 rounded w-28"></div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-secondary/20 animate-pulse">
+            <div class="flex justify-between mb-3">
+              <div class="h-4 bg-secondary/30 rounded w-28"></div>
+              <div class="h-5 bg-secondary/20 rounded-full w-20"></div>
+            </div>
+            <div class="h-3 bg-secondary/20 rounded w-36 mb-2"></div>
+            <div class="h-3 bg-secondary/20 rounded w-24"></div>
+          </div>
+          <div class="bg-white rounded-2xl p-4 border border-secondary/20 animate-pulse">
+            <div class="flex justify-between mb-3">
+              <div class="h-4 bg-secondary/30 rounded w-36"></div>
+              <div class="h-5 bg-secondary/20 rounded-full w-14"></div>
+            </div>
+            <div class="h-3 bg-secondary/20 rounded w-44 mb-2"></div>
+            <div class="h-3 bg-secondary/20 rounded w-32"></div>
+          </div>
+        </div>
+
+        <!-- Cards (JS-rendered) -->
+        <div id="js-cards" class="space-y-3 hidden"></div>
+
+        <!-- Empty state -->
+        <div id="js-empty" class="hidden text-center py-14 text-text-muted">
+          <div class="text-4xl mb-3">💅</div>
+          <div class="text-sm font-medium">אין הזמנות להצגה</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast -->
+  <div id="js-toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none hidden">
+    <div class="text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl whitespace-nowrap bg-text-main text-white"></div>
+  </div>
+
+  <script type="module" src="./admin.js"></script>
+</body>
+</html>

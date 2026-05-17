@@ -72,6 +72,7 @@ const SHEETS = {
   SLOTS:   'Weekly_Slots',
   LOG:     'Bookings_Log',
   SMS_LOG: 'SMS_LOG',
+  AUDIT:   'Audit_Log',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
@@ -164,6 +165,8 @@ function doPost(e) {
       case 'sendOTP':       return jsonOk(handleSendOTP(body));
       case 'verifyAndBook': return jsonOk(handleVerifyAndBook(body));
       case 'adminAction':   return jsonOk(handleAdminAction(body));
+      case 'listBookings':  return jsonOk(handleListBookings(body));
+      case 'changeStatus':  return jsonOk(handleChangeStatus(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -1399,7 +1402,7 @@ function verifyConfig() {
   // ── Required properties ──
   const REQUIRED = [
     'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
-    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID',
+    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID', 'ADMIN_TOKEN',
   ];
   REQUIRED.forEach(function(key) {
     const val = PropertiesService.getScriptProperties().getProperty(key);
@@ -1447,4 +1450,152 @@ function installTriggers() {
     .create();
 
   Logger.log('[installTriggers] syncCalendarToSlots trigger installed.');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD API  (v3.0)
+// ═══════════════════════════════════════════════════════════════
+
+function validateAdmin(token) {
+  if (!token) return false;
+  const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!stored) throw new Error('ADMIN_TOKEN script property not set');
+  return timingSafeEqual(String(token), stored);
+}
+
+function auditSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.AUDIT);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.AUDIT);
+    sh.appendRow(['Timestamp', 'Admin', 'Action', 'BookingId', 'PrevStatus', 'NewStatus', 'Detail']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:G1').setFontWeight('bold');
+    sh.setColumnWidth(4, 280);
+    sh.setColumnWidth(7, 250);
+  }
+  return sh;
+}
+
+function writeAuditLog(admin, action, bookingId, prevStatus, newStatus, detail) {
+  try {
+    auditSheet().appendRow([
+      new Date(), admin || 'dashboard', action, bookingId,
+      prevStatus || '', newStatus || '', (detail || '').slice(0, 300),
+    ]);
+  } catch (e) {
+    Logger.log('[auditLog] Write failed: ' + e.message);
+  }
+}
+
+function handleListBookings(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const sh   = logSheet();
+  const data = sh.getDataRange().getValues();
+  const TZ   = 'Asia/Jerusalem';
+  const rows = [];
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row || row.length < 10) continue;
+    const rawDate = row[LOG_COL.DATE - 1];
+    const rawTime = row[LOG_COL.TIME - 1];
+    rows.push({
+      id:          String(row[LOG_COL.UUID         - 1] || '').trim(),
+      name:        String(row[LOG_COL.NAME         - 1] || '').trim(),
+      phone:       String(row[LOG_COL.PHONE        - 1] || '').trim(),
+      service:     String(row[LOG_COL.SERVICE      - 1] || '').trim(),
+      serviceName: String(row[LOG_COL.SERVICE_NAME - 1] || '').trim(),
+      date:        (rawDate instanceof Date) ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim(),
+      time:        (rawTime instanceof Date) ? Utilities.formatDate(rawTime, TZ, 'HH:mm')     : String(rawTime || '').trim(),
+      timestamp:   String(row[LOG_COL.TIMESTAMP    - 1] || '').trim(),
+      duration:    parseInt(row[LOG_COL.DURATION   - 1], 10) || 90,
+      status:      String(row[LOG_COL.STATUS       - 1] || '').trim(),
+      calEventId:  String(row[LOG_COL.CAL_EVENT    - 1] || '').trim(),
+    });
+  }
+  rows.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+  Logger.log('[listBookings] Returned ' + rows.length + ' bookings');
+  return { success: true, bookings: rows };
+}
+
+function handleChangeStatus(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const { bookingId, targetStatus } = body;
+  if (!bookingId || !targetStatus) {
+    return { success: false, error: 'bookingId and targetStatus are required' };
+  }
+  const ALLOWED = ['Approved', 'Rejected', 'Cancelled'];
+  if (!ALLOWED.includes(targetStatus)) {
+    return { success: false, error: 'invalid targetStatus: ' + targetStatus };
+  }
+  const sh   = logSheet();
+  const data = sh.getDataRange().getValues();
+  let bookingRow = null, bookingIdx = -1;
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+      bookingRow = data[r]; bookingIdx = r + 1; break;
+    }
+  }
+  if (!bookingRow) return { success: false, error: 'booking_not_found' };
+  const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
+  const VALID = { Pending: ['Approved', 'Rejected'], Approved: ['Cancelled'] };
+  if (!VALID[currentStatus] || !VALID[currentStatus].includes(targetStatus)) {
+    return { success: false, error: 'invalid_transition', from: currentStatus, to: targetStatus };
+  }
+  let result;
+  if (targetStatus === 'Approved')      result = processApproval(sh, bookingRow, bookingIdx, bookingId);
+  else if (targetStatus === 'Rejected') result = processRejection(sh, bookingRow, bookingIdx, bookingId);
+  else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId);
+  writeAuditLog('dashboard', targetStatus, bookingId, currentStatus, targetStatus, '');
+  return result;
+}
+
+function processCancellation(logSh, row, rowIdx, bookingId) {
+  const TZ_     = 'Asia/Jerusalem';
+  const rawDate = row[LOG_COL.DATE - 1];
+  const rawTime = row[LOG_COL.TIME - 1];
+  const date    = (rawDate instanceof Date)
+    ? Utilities.formatDate(rawDate, TZ_, 'yyyy-MM-dd') : String(rawDate || '').trim();
+  const time    = (rawTime instanceof Date)
+    ? Utilities.formatDate(rawTime, TZ_, 'HH:mm') : String(rawTime || '').trim();
+  const phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
+  const svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
+  const calEventId = String(row[LOG_COL.CAL_EVENT    - 1] || '').trim();
+
+  if (calEventId) {
+    try {
+      const cal = CalendarApp.getCalendarById(CFG.CAL_ID);
+      const ev  = cal ? cal.getEventById(calEventId) : null;
+      if (ev) { ev.deleteEvent(); Logger.log('[processCancellation] Cal event deleted: ' + calEventId); }
+      else    { Logger.log('[processCancellation] Cal event not found: ' + calEventId); }
+    } catch (e) {
+      Logger.log('[processCancellation] Cal delete error: ' + e.message);
+    }
+  }
+
+  logSh.getRange(rowIdx, LOG_COL.STATUS).setValue('Cancelled');
+  SpreadsheetApp.flush();
+  updateSlotStatus(date, time, 'Available');
+  invalidateSlotsCache(date);
+
+  const msg = [
+    '❌ התור שלך ב-' + date + ' בשעה ' + time + ' בוטל.',
+    'שירות: ' + svcName, '',
+    'ניתן לתאם תור חדש דרך האפליקציה.',
+  ].join('\n');
+
+  if (phone !== QA_MOCK_PHONE) {
+    sendSMS._context = 'ClientCancellation';
+    sendSMS(phone, msg);
+  } else {
+    logSMS(phone, 'ClientCancellation', 'MOCK', msg, 'QA mock');
+    Logger.log('[processCancellation] MOCK MODE');
+  }
+
+  Logger.log('[processCancellation] Cancelled: ' + bookingId);
+  return { success: true, action: 'CANCEL', bookingId };
 }
