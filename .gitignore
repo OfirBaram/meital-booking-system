@@ -141,3 +141,6 @@ playwright-report/
 test-results/
 .playwright/
 scripts/__pycache__/
+
+# Claude Code local settings
+.claude/
