@@ -77,11 +77,12 @@ var SupabaseService = (function () {
     insert: function (table, data, upsertKey) {
       var prefer = 'return=representation';
       var extra  = { 'Prefer': prefer };
+      var path   = '/rest/v1/' + table;
       if (upsertKey) {
-        extra['Prefer']      += ',resolution=merge-duplicates';
-        extra['On-Conflict']  = upsertKey;
+        extra['Prefer'] += ',resolution=merge-duplicates';
+        path += '?on_conflict=' + encodeURIComponent(upsertKey);
       }
-      return _call('POST', '/rest/v1/' + table, data, extra);
+      return _call('POST', path, data, extra);
     },
 
     /**
@@ -259,12 +260,24 @@ function handleGetSlotsV2(body) {
 
 function _sb_pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-// Return a Jerusalem-local YYYY-MM-DDTHH:MM:SS+HH:MM ISO string.
-// Probes DST offset via Utilities.formatDate (+02:00 winter / +03:00 summer).
+// Convert a Jerusalem-local date+time to a UTC ISO 8601 string (.toISOString()).
+// Uses Utilities.formatDate to probe the DST offset (+02:00 winter / +03:00 summer)
+// then subtracts the offset to get the true UTC milliseconds before calling toISOString().
+// This guarantees a format like '2026-05-24T06:00:00.000Z' that PostgreSQL always accepts.
 function _sb_localToUtcIso(dateYmd, timeHm) {
-  var noon = new Date(dateYmd + 'T12:00:00Z'); // noon UTC probes DST on this date
-  var offX = Utilities.formatDate(noon, 'Asia/Jerusalem', 'XXX'); // '+03:00' or '+02:00'
-  return dateYmd + 'T' + timeHm + ':00' + offX;
+  var noon = new Date(dateYmd + 'T12:00:00Z'); // probe DST offset on this specific date
+  var offStr = Utilities.formatDate(noon, 'Asia/Jerusalem', 'Z'); // '+0300' or '+0200'
+  var sign = offStr.charAt(0) === '-' ? -1 : 1;
+  var offsetMins = sign * (parseInt(offStr.slice(1, 3), 10) * 60 + parseInt(offStr.slice(3, 5), 10));
+  var hm = timeHm.split(':');
+  var utcMs = Date.UTC(
+    parseInt(dateYmd.slice(0, 4), 10),
+    parseInt(dateYmd.slice(5, 7), 10) - 1,
+    parseInt(dateYmd.slice(8, 10), 10),
+    parseInt(hm[0], 10),
+    parseInt(hm[1] || '0', 10)
+  ) - offsetMins * 60000;
+  return new Date(utcMs).toISOString();
 }
 
 // ─── handleSendOTPV2 ──────────────────────────────────────────────
@@ -523,10 +536,16 @@ function handleMigrateToSupabase(body) {
       var eTime  = _fmtTime(row[SLOT_COL.END   - 1]);
       var status = String(row[SLOT_COL.STATUS  - 1] || '').trim().toLowerCase();
       if (!date || !sTime) continue;
+      // Default end_time to start + 90 min when End_Time column is absent or equal to start
+      if (!eTime || eTime === sTime) {
+        var _hm = sTime.split(':');
+        var _mins = parseInt(_hm[0], 10) * 60 + parseInt(_hm[1], 10) + 90;
+        eTime = _sb_pad(Math.floor(_mins / 60) % 24) + ':' + _sb_pad(_mins % 60);
+      }
 
       var inserted = SupabaseService.insert('slots', {
         start_time:   _sb_localToUtcIso(date, sTime),
-        end_time:     _sb_localToUtcIso(date, eTime || sTime),
+        end_time:     _sb_localToUtcIso(date, eTime),
         status:       STATUS_MAP[status] || 'available',
         last_updated: new Date().toISOString(),
       });
@@ -556,12 +575,13 @@ function handleMigrateToSupabase(body) {
         'phone=eq.' + encodeURIComponent(bPhone) + '&select=id');
       if (!cRows || !cRows.length) continue;
 
-      // Resolve slot by date + time
-      var bDate = String(lrow[LOG_COL.DATE - 1] || '').trim();
-      var bTime = String(lrow[LOG_COL.TIME - 1] || '').trim();
+      // Resolve slot by date + time — use _isoDate/_fmtTime to handle GAS Date objects,
+      // then _sb_localToUtcIso so the filter matches UTC-stored start_times.
+      var bDate = _isoDate(lrow[LOG_COL.DATE - 1]);
+      var bTime = _fmtTime(lrow[LOG_COL.TIME - 1]);
+      var slotIso = _sb_localToUtcIso(bDate, bTime);
       var sRows = SupabaseService.select('slots',
-        'start_time=gte.' + bDate + 'T' + bTime + ':00' +
-        '&start_time=lt.'  + bDate + 'T' + bTime + ':59' +
+        'start_time=eq.' + encodeURIComponent(slotIso) +
         '&select=id&limit=1');
       if (!sRows || !sRows.length) continue;
 
