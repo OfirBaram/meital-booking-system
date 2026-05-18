@@ -315,7 +315,15 @@ function doPost(e) {
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
-      case 'runFlowTest':  return jsonOk(testFullBookingFlow());
+      case 'runFlowTest': {
+        try {
+          const flowResult = testFullBookingFlow();
+          return jsonOk(flowResult || { success: false, error: 'no_result' });
+        } catch (fe) {
+          Logger.log('[doPost] runFlowTest exception: ' + fe.message);
+          return jsonOk({ success: false, error: fe.message });
+        }
+      }
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -1595,6 +1603,8 @@ function testFullBookingFlow() {
   Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
   failed === 0 ? Logger.log('🎉 Golden path PASSED!') : Logger.log('⚠️  ' + failed + ' step(s) FAILED — see ❌ above');
   Logger.log('══════════════ testFullBookingFlow END ══════════════');
+
+  return { success: failed === 0, passed: passed, failed: failed };
 }
 /**
  * Run once from the GAS editor to verify all script properties are configured
