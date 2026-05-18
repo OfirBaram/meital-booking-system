@@ -441,3 +441,162 @@ test.describe('Performance — instant calendar render on cache hit', () => {
     await expect(page.locator('.cal-day.selected')).toHaveCount(1)
   })
 })
+
+// ─── API error hardening (Phase 3.1) ─────────────────────────────────────────
+//
+// Verifies that HTTP errors and GAS business-logic failures surface as
+// friendly Hebrew toast messages — never raw stack traces or JS exceptions.
+
+/**
+ * Like setupMocks but lets the caller inject per-action overrides.
+ * overrides: { sendOTP?: fn(route), verifyAndBook?: fn(route) }
+ */
+async function setupMocksWithOverrides(page, overrides = {}) {
+  await page.route('**/config.js', route =>
+    route.fulfill({
+      status:      200,
+      contentType: 'application/javascript',
+      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };\nexport default APP_CONFIG;\n`,
+    })
+  )
+
+  await page.route(GAS_GLOB, async (route, request) => {
+    const method = request.method()
+
+    if (method === 'GET') {
+      const url   = new URL(request.url())
+      const year  = parseInt(url.searchParams.get('year'),  10)
+      const month = parseInt(url.searchParams.get('month'), 10)
+      return route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify(makeMockSlots(year, month)),
+      })
+    }
+
+    if (method === 'POST') {
+      let body = {}
+      try { body = JSON.parse(request.postData()) } catch { }
+
+      if (body.action === 'sendOTP' && overrides.sendOTP)
+        return overrides.sendOTP(route)
+      if (body.action === 'verifyAndBook' && overrides.verifyAndBook)
+        return overrides.verifyAndBook(route)
+
+      // Defaults
+      if (body.action === 'sendOTP')
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+      if (body.action === 'verifyAndBook')
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+
+      return route.fulfill({ status: 400, body: '{}' })
+    }
+  })
+}
+
+test.describe('API error hardening — sendOTP', () => {
+  test('HTTP 500 on sendOTP shows a Hebrew connection-error toast and keeps step 3 visible', async ({ page }) => {
+    await setupMocksWithOverrides(page, {
+      sendOTP: route => route.fulfill({ status: 500, body: 'Internal Server Error' }),
+    })
+    await page.goto('/')
+    await goToStep3(page)
+
+    await page.locator('#inp-name').fill('נועה כהן')
+    await page.locator('#inp-phone').fill('0501234567')
+    await page.locator('#btn-next').click()
+
+    // Must stay on step 3 — not advance to step 4
+    await expect(page.locator('#step-3')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#step-4')).not.toBeVisible()
+
+    // Toast must contain Hebrew text (not a raw JS error)
+    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
+    const toastText = await page.locator('#js-toast').textContent()
+    expect(toastText).toMatch(/[\u0590-\u05FF]/) // at least one Hebrew character
+    expect(toastText).not.toContain('HTTP 500')
+    expect(toastText).not.toContain('Error')
+  })
+
+  test('GAS returns { success: false, error: rate_limited } — shows seconds-remaining toast', async ({ page }) => {
+    await setupMocksWithOverrides(page, {
+      sendOTP: route => route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify({ success: false, error: 'rate_limited', retryAfterSecs: 28 }),
+      }),
+    })
+    await page.goto('/')
+    await goToStep3(page)
+
+    await page.locator('#inp-name').fill('נועה כהן')
+    await page.locator('#inp-phone').fill('0501234567')
+    await page.locator('#btn-next').click()
+
+    await expect(page.locator('#step-3')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-toast')).toContainText('28', { timeout: 5_000 })
+    await expect(page.locator('#js-toast')).toContainText('שניות')
+  })
+})
+
+test.describe('API error hardening — verifyAndBook', () => {
+  test('HTTP 500 on verifyAndBook shows a Hebrew toast and keeps step 4 visible', async ({ page }) => {
+    await setupMocksWithOverrides(page, {
+      verifyAndBook: route => route.fulfill({ status: 500, body: 'Internal Server Error' }),
+    })
+    await page.goto('/')
+    await goToStep4(page)
+
+    await typeOTP(page, '123456')
+
+    // Must stay on step 4 — not advance to step 5
+    await expect(page.locator('#step-4')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#step-5')).not.toBeVisible()
+
+    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
+    const toastText = await page.locator('#js-toast').textContent()
+    expect(toastText).toMatch(/[\u0590-\u05FF]/)
+    expect(toastText).not.toContain('HTTP 500')
+    expect(toastText).not.toContain('Error')
+  })
+
+  test('slot_not_available error shows Hebrew slot-taken toast and sends user back to step 2', async ({ page }) => {
+    await setupMocksWithOverrides(page, {
+      verifyAndBook: route => route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify({ success: false, error: 'slot_not_available' }),
+      }),
+    })
+    await page.goto('/')
+    await goToStep4(page)
+
+    await typeOTP(page, '123456')
+
+    // Toast warns that the slot is gone
+    await expect(page.locator('#js-toast')).toContainText('לא זמין', { timeout: 5_000 })
+
+    // After 2.5 s the wizard redirects back to step 2
+    await expect(page.locator('#step-2')).toBeVisible({ timeout: 6_000 })
+    await expect(page.locator('#step-4')).not.toBeVisible()
+  })
+
+  test('invalid_otp error shows Hebrew otp-error element (not a toast)', async ({ page }) => {
+    // This is the normal wrong-OTP path — uses the inline #js-otp-error element
+    await setupMocksWithOverrides(page, {
+      verifyAndBook: route => route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify({ success: false, error: 'invalid_otp' }),
+      }),
+    })
+    await page.goto('/')
+    await goToStep4(page)
+
+    await typeOTP(page, '000000')
+
+    await expect(page.locator('#js-otp-error')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-otp-error')).toContainText('שגוי')
+    await expect(page.locator('#step-4')).toBeVisible()
+  })
+})
