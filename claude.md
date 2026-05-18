@@ -282,43 +282,23 @@ The footer (`<footer>` after `</main>`) contains two `<button>` elements:
 
 ## 9. QA Mock Phone Bypass
 
-### Purpose
-Twilio has a 50-SMS/day limit on trial accounts. The mock phone allows a complete
-end-to-end booking flow (including admin approve/reject) without consuming Twilio quota.
+> **Removed in Phase 3.5 (2026-05-18).** The mock phone bypass infrastructure was
+> surgically deleted as a production hardening step. It is no longer present in any
+> file. Do not re-add it.
 
-### How it works
+**What was removed:**
+- `QA_MOCK_PHONE` / `QA_MOCK_OTP` constants and three `if (phone === QA_MOCK_PHONE)` guard
+  blocks in `gas-backend.js` (`handleSendOTP`, `handleVerifyAndBook`, `SmsService.send`).
+- `simulateAdminSMS()` helper function from `gas-backend.js`.
+- `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, the `isValidPhone` bypass, and the OTP auto-fill
+  block in `frontend/booking.js`.
+- `IS_MOCK_MODE` flipped to `false` in `frontend/config.js`.
 
-#### Backend (`backend/gas-backend.js`)
-```js
-const QA_MOCK_PHONE = '+972500000000';
-const QA_MOCK_OTP   = '123456';
-```
-- `handleSendOTP`: if `phone === QA_MOCK_PHONE`, cache OTP `123456` and **return early** — no Twilio call.
-- `handleVerifyAndBook`: skip `sendSMS()` for admin notification; instead **print the full admin SMS body** (including Approve/Reject URLs) to `Logger.log`.
-- `processApproval` / `processRejection`: skip client confirmation SMS.
-
-**`simulateAdminSMS()`** — a helper function in the GAS script that reads the last row of `Bookings_Log` and prints admin links to the execution log. Run from the GAS editor to get approve/reject URLs without a real booking.
-
-#### Frontend (`frontend/booking.js`)
-```js
-CONFIG.MOCK_PHONE = '0500000000'
-CONFIG.MOCK_OTP   = '123456'
-```
-- `isValidPhone`: explicitly returns `true` for `'0500000000'` before the regex check.
-- Step 3 → Step 4 transition: if `State.phone === CONFIG.MOCK_PHONE`, auto-fill OTP boxes with `'123456'` after 500 ms and call `autoSubmitOTP()`.
-
-### How to use for QA
-1. Enter phone `0500000000` in the booking form.
-2. The OTP boxes auto-fill and auto-submit — no SMS received.
-3. To test the admin flow, copy the Approve/Reject links from the GAS **Execution log**.
-4. Paste the link in a browser → booking transitions to `Approved`/`Rejected` in Sheets + Calendar.
-
-### Removing the mock (production hardening)
-When moving to a production Twilio account with no daily limit:
-1. Delete `QA_MOCK_PHONE` and `QA_MOCK_OTP` constants from `gas-backend.js`.
-2. Remove the three `if (phone === QA_MOCK_PHONE)` blocks.
-3. Remove `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, and the auto-fill block in `booking.js`.
-4. Revert the `isValidPhone` check to the original regex-only version.
+**QA without the bypass:** Use `IS_TEST_MODE = true` in `gas-backend.js` (the default until
+Phase 6). All Twilio and Calendar calls are mocked at the service layer, so a complete
+booking flow can be exercised without consuming SMS quota or creating real calendar events.
+The `testFullBookingFlow()` GAS function uses an inline test OTP (`000001`) and the
+`IS_TEST_MODE` service mock — no special phone number needed.
 
 ---
 
@@ -666,3 +646,24 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
 #### Admin Dashboard — Business Pulse tab
 - **"בדיקת תקינות מערכת" card** — shows overall status emoji (✅/⚠️/❌) and a row per check; "בדוק עכשיו" button calls `runHealthCheck()`.
 - `runHealthCheck()` in `admin.js` — calls `healthCheck` action, renders emoji + label + detail per check; spinner during request.
+
+---
+
+### v1.3.0 — 2026-05-18 — Phase 5: QA Framework
+**Branch:** `feature/system-stabilization-v2`
+
+#### Unit tests (`tests/unit/utils.test.js`)
+- **Fixed stale `isValidPhone` mirror** — removed `MOCK_PHONE_TEST` bypass (deleted in Phase 3.5); updated test description.
+- **`smsQuotaStatus`** (6 tests) — mirrors the SMS quota threshold logic from `handleHealthCheck` and `checkSmsQuota`: ok < 70%, warn 70–89%, error ≥ 90%; includes DAILY_SMS_LIMIT=45 boundary assertion.
+- **OTP cooldown state** (7 tests) — pure functions `isCoolingDown` and `remainingSecs`; covers active/expired/zero/exact-boundary cases and ceiling rounding.
+- **`normalizePhone`** (6 tests) — E.164 conversion mirror of `normalizePhone()` in GAS; covers 05X prefix, hyphen stripping, already-972 input, and the former QA test phone.
+
+#### E2E tests (`tests/e2e/booking.spec.js`)
+- **`setupMocksWithOverrides(page, overrides)`** — new helper that injects per-action route overrides without copying the full mock setup.
+- **`sendOTP` hardening** (2 tests):
+  - HTTP 500 stays on step 3, shows Hebrew toast (no raw "HTTP 500" or JS error).
+  - `rate_limited` response shows seconds-remaining Hebrew toast.
+- **`verifyAndBook` hardening** (3 tests):
+  - HTTP 500 stays on step 4, shows Hebrew toast.
+  - `slot_not_available` shows slot-gone Hebrew toast then redirects to step 2 after 2.5 s.
+  - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).
