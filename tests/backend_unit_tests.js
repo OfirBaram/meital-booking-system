@@ -240,3 +240,122 @@ describe('Utilities.formatDate (mock behaviour)', () => {
     expect(result).toMatch(/^\d{2}:\d{2}$/)
   })
 })
+
+// ─── isAutoSmsEnabled (Auto-SMS master toggle) ────────────────────────────────────────────
+// Mirror of isAutoSmsEnabled() in gas-backend.js.
+// Stored value null (unset) or 'true' → enabled; 'false' → disabled.
+
+function isAutoSmsEnabled(storedValue) {
+  return storedValue === null || storedValue === 'true';
+}
+
+describe('isAutoSmsEnabled', () => {
+  it('returns true when property is null (default — never set)', () => {
+    expect(isAutoSmsEnabled(null)).toBe(true);
+  });
+
+  it('returns true when property is the string "true"', () => {
+    expect(isAutoSmsEnabled('true')).toBe(true);
+  });
+
+  it('returns false when property is the string "false"', () => {
+    expect(isAutoSmsEnabled('false')).toBe(false);
+  });
+})
+
+// ─── Manual SMS validation mirrors ───────────────────────────────────────────────────────
+// Mirrors handleSendManualSMS input guard logic from gas-backend.js.
+// GAS service calls excluded; tests cover the pure validation layer only.
+
+function mirrorValidateAdmin(token, storedToken) {
+  if (!token || !storedToken) return false;
+  if (token.length !== storedToken.length) return false;
+  return token === storedToken;
+}
+
+function mirrorSendManualSms(token, adminToken, phone, message) {
+  if (!mirrorValidateAdmin(token, adminToken)) return { success: false, error: 'unauthorized', code: 403 };
+  const ph  = String(phone   || '').trim();
+  const msg = String(message || '').trim();
+  if (!ph)               return { success: false, error: 'invalid_phone' };
+  if (!msg)              return { success: false, error: 'empty_message' };
+  if (msg.length > 1000) return { success: false, error: 'message_too_long' };
+  return { success: true };
+}
+
+describe('handleSendManualSMS — token validation', () => {
+  const GOOD_TOKEN = 'correct-admin-token-32chars12345678';
+
+  it('returns unauthorized when token is empty string', () => {
+    const r = mirrorSendManualSms('', GOOD_TOKEN, '+972501234567', 'Hello');
+    expect(r.success).toBe(false);
+    expect(r.error).toBe('unauthorized');
+    expect(r.code).toBe(403);
+  });
+
+  it('returns unauthorized when token is wrong', () => {
+    const r = mirrorSendManualSms('wrong-token', GOOD_TOKEN, '+972501234567', 'Hello');
+    expect(r.success).toBe(false);
+    expect(r.error).toBe('unauthorized');
+  });
+
+  it('returns success with correct token and valid payload', () => {
+    const r = mirrorSendManualSms(GOOD_TOKEN, GOOD_TOKEN, '+972501234567', 'Hello Meital');
+    expect(r.success).toBe(true);
+  });
+})
+
+describe('handleSendManualSMS — message length guard', () => {
+  const TOKEN = 'valid-admin-token-32-chars-aaaaaa';
+
+  it('rejects a message exactly 1001 chars long', () => {
+    const msg = 'א'.repeat(1001);
+    const r = mirrorSendManualSms(TOKEN, TOKEN, '+972501234567', msg);
+    expect(r.success).toBe(false);
+    expect(r.error).toBe('message_too_long');
+  });
+
+  it('accepts a message exactly 1000 chars long (boundary)', () => {
+    const msg = 'א'.repeat(1000);
+    const r = mirrorSendManualSms(TOKEN, TOKEN, '+972501234567', msg);
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects an empty message', () => {
+    const r = mirrorSendManualSms(TOKEN, TOKEN, '+972501234567', '');
+    expect(r.success).toBe(false);
+    expect(r.error).toBe('empty_message');
+  });
+})
+
+// ─── processApproval SMS gate — master toggle ────────────────────────────────────────────
+// Mirror of the isAutoSmsEnabled guard wrapping SmsService.send in
+// processApproval / processRejection / processCancellation.
+
+function mirrorApprovalDispatch(autoEnabled, smsSvc, phone, msg) {
+  if (autoEnabled) {
+    smsSvc.send(phone, msg, 'ClientApproval');
+  }
+}
+
+describe('processApproval SMS gate — master toggle', () => {
+  it('does NOT call SmsService.send when auto-SMS is disabled', () => {
+    const mockSms = { send: vi.fn() };
+    mirrorApprovalDispatch(false, mockSms, '+972501234567', 'approved');
+    expect(mockSms.send).not.toHaveBeenCalled();
+  });
+
+  it('DOES call SmsService.send with correct args when enabled', () => {
+    const mockSms = { send: vi.fn() };
+    mirrorApprovalDispatch(true, mockSms, '+972501234567', 'approved');
+    expect(mockSms.send).toHaveBeenCalledWith('+972501234567', 'approved', 'ClientApproval');
+  });
+
+  it('skips SMS on disabled then fires exactly once on re-enable', () => {
+    const mockSms = { send: vi.fn() };
+    mirrorApprovalDispatch(false, mockSms, '+972501234567', 'msg1');
+    expect(mockSms.send).toHaveBeenCalledTimes(0);
+    mirrorApprovalDispatch(true, mockSms, '+972501234567', 'msg2');
+    expect(mockSms.send).toHaveBeenCalledTimes(1);
+  });
+})

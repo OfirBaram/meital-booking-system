@@ -12,6 +12,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: ['feat-*']
 
 jobs:
   # ─── Job 1: Unit Tests ─────────────────────────────────────────────────────

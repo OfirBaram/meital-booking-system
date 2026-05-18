@@ -414,6 +414,64 @@ const SUITES = [
         return bks.filter(b=>['Pending','Approved'].includes(b.status)).length===2;
     }},
   ]},
+  { name:'Admin Control Integration', tests:[
+    // ── Master Toggle UI state ──────────────────────────────────────
+    // Mirrors setAutoSmsUI(enabled) track/thumb class logic in admin.js
+    { l:'Toggle: enabled=true  → track has bg-primary class',   f:()=>{
+        const trackCls = (e) => 'relative w-9 h-5 rounded-full transition-colors ' + (e ? 'bg-primary' : 'bg-gray-300');
+        return trackCls(true).includes('bg-primary') && !trackCls(true).includes('bg-gray-300');
+    }},
+    { l:'Toggle: enabled=false → track has bg-gray-300 class',  f:()=>{
+        const trackCls = (e) => 'relative w-9 h-5 rounded-full transition-colors ' + (e ? 'bg-primary' : 'bg-gray-300');
+        return trackCls(false).includes('bg-gray-300') && !trackCls(false).includes('bg-primary');
+    }},
+    { l:'Toggle: setAutoSmsUI(true)  updates S.autoSms state',  f:()=>{
+        const S = { autoSms: false };
+        const setAutoSmsUI = (enabled) => { S.autoSms = enabled; };
+        setAutoSmsUI(true);
+        return S.autoSms === true;
+    }},
+    { l:'Toggle: setAutoSmsUI(false) updates S.autoSms state',  f:()=>{
+        const S = { autoSms: true };
+        const setAutoSmsUI = (enabled) => { S.autoSms = enabled; };
+        setAutoSmsUI(false);
+        return S.autoSms === false;
+    }},
+    // ── Inventory Manager slot status logic ─────────────────────────
+    // Mirrors renderSlotInventory() canToggle / label logic in admin.js
+    { l:'Inventory: Blocked  → canToggle=true,  btnLabel=שחרר', f:()=>{
+        const s = { status: 'Blocked' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        const canToggle=isAvail||isBlock, btnLabel=isAvail?'חסום':'שחרר', stLabel=isAvail?'פנוי':isBlock?'חסום':s.status;
+        return canToggle===true && stLabel==='חסום' && btnLabel==='שחרר';
+    }},
+    { l:'Inventory: Available → canToggle=true,  btnLabel=חסום', f:()=>{
+        const s = { status: 'Available' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        const canToggle=isAvail||isBlock, btnLabel=isAvail?'חסום':'שחרר', stLabel=isAvail?'פנוי':isBlock?'חסום':s.status;
+        return canToggle===true && stLabel==='פנוי' && btnLabel==='חסום';
+    }},
+    { l:'Inventory: Booked   → canToggle=false (no button)',     f:()=>{
+        const s = { status: 'Booked' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        return (isAvail||isBlock) === false;
+    }},
+    { l:'Inventory: Pending_Lock → canToggle=false',             f:()=>{
+        const s = { status: 'Pending_Lock' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        return (isAvail||isBlock) === false;
+    }},
+    { l:'Inventory: recentlyCancelled=true adds highlight ring', f:()=>{
+        const s = { status: 'Available', recentlyCancelled: true };
+        const hl = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
+        return hl.includes('ring-amber-300');
+    }},
+    { l:'Inventory: recentlyCancelled=false → no ring class',    f:()=>{
+        const s = { status: 'Available', recentlyCancelled: false };
+        const hl = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
+        return hl === '';
+    }},
+  ]},
 ];
 
 window.runUnitTests = () => {

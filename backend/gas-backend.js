@@ -118,6 +118,7 @@ const ACTION = {
   SEND_REMINDER: 'תזכורת SMS',
   BACKUP:        'גיבוי נתונים',
   HEALTH:        'בדיקת תקינות',
+  MANUAL_SMS:    'SMS ידני',
 };
 
 function ss() {
@@ -334,6 +335,12 @@ function doPost(e) {
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
       case 'clearSlotsCache': return jsonOk(handleClearSlotsCache(body));
+      case 'getAutoSms':       return jsonOk(handleGetAutoSms(body));
+      case 'setAutoSms':       return jsonOk(handleSetAutoSms(body));
+      case 'sendManualSMS':    return jsonOk(handleSendManualSMS(body));
+      case 'getSmsLog':        return jsonOk(handleGetSmsLog(body));
+      case 'getSlotInventory': return jsonOk(handleGetSlotInventory(body));
+      case 'toggleSlotStatus': return jsonOk(handleToggleSlotStatus(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -861,7 +868,11 @@ function processApproval(logSh, row, rowIdx, bookingId) {
     ``,
     `מחכה לך! 💅`,
   ].join('\n');
-  SmsService.send(clientPhone, clientMsg, 'ClientApproval');
+  if (isAutoSmsEnabled()) {
+    SmsService.send(clientPhone, clientMsg, 'ClientApproval');
+  } else {
+    Logger.log('[processApproval] Auto-SMS disabled — skipping client notification');
+  }
 
   Logger.log('[adminAction] Approved: ' + bookingId);
   log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time + ' | calEvent:' + calEventId });
@@ -888,7 +899,11 @@ function processRejection(logSh, row, rowIdx, bookingId) {
     `❌ לצערנו, הבקשה לתור ב-${date} שעה ${time} לא אושרה.`,
     `ניתן להזמין תור חלופי דרך האפליקציה.`,
   ].join('\n');
-  SmsService.send(clientPhone, clientMsg, 'ClientRejection');
+  if (isAutoSmsEnabled()) {
+    SmsService.send(clientPhone, clientMsg, 'ClientRejection');
+  } else {
+    Logger.log('[processRejection] Auto-SMS disabled — skipping client notification');
+  }
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
   log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time });
@@ -1852,6 +1867,168 @@ function handleGetSystemInfo(body) {
 
 
 
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN POWER-TOOLS API  (feat-admin-control)
+// ═══════════════════════════════════════════════════════════════
+
+// ── Auto-SMS toggle ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true when AUTO_SMS_ENABLED is unset (default) or 'true'.
+ * Checked before every automated SMS send in processApproval /
+ * processRejection / processCancellation.
+ */
+function isAutoSmsEnabled() {
+  var val = PropertiesService.getScriptProperties().getProperty('AUTO_SMS_ENABLED');
+  return val === null || val === 'true';
+}
+
+function handleGetAutoSms(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  return { success: true, enabled: isAutoSmsEnabled() };
+}
+
+function handleSetAutoSms(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var enabled = body.enabled === true || body.enabled === 'true';
+  PropertiesService.getScriptProperties().setProperty('AUTO_SMS_ENABLED', enabled ? 'true' : 'false');
+  Logger.log('[setAutoSms] AUTO_SMS_ENABLED=' + enabled);
+  log(LOG_LEVEL.INFO, ACTION.MANUAL_SMS, 'הגדרת SMS אוטומטי שונתה: ' + (enabled ? 'מופעל' : 'כבוי'), {});
+  return { success: true, enabled: enabled };
+}
+
+// ── Manual SMS ───────────────────────────────────────────────────────────────
+
+/**
+ * Sends a single free-form SMS from the admin dashboard.
+ * Body: { token, phone, message }
+ * Security: requires valid ADMIN_TOKEN; phone normalised via normalizePhone().
+ */
+function handleSendManualSMS(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var phone   = normalizePhone(String(body.phone   || '').trim());
+  var message = String(body.message || '').trim();
+  if (!phone)              return { success: false, error: 'invalid_phone' };
+  if (!message)            return { success: false, error: 'empty_message' };
+  if (message.length > 1000) return { success: false, error: 'message_too_long' };
+  SmsService.send(phone, message, 'ManualAdmin');
+  log(LOG_LEVEL.INFO, ACTION.MANUAL_SMS, 'SMS ידני נשלח', { phone: phone, detail: message.slice(0, 100) });
+  return { success: true };
+}
+
+// ── SMS Audit Log ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns the last 50 SMS_LOG rows in reverse-chronological order.
+ * Columns: Timestamp | To | Context | Status | Message | Detail
+ */
+function handleGetSmsLog(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var sh   = smsLogSheet();
+  var data = sh.getDataRange().getValues();
+  var entries = [];
+  for (var r = data.length - 1; r >= 1 && entries.length < 50; r--) {
+    var row = data[r];
+    if (!row || row.length < 4) continue;
+    entries.push({
+      ts:      row[0] instanceof Date
+               ? Utilities.formatDate(row[0], 'Asia/Jerusalem', 'dd/MM/yyyy HH:mm')
+               : String(row[0] || ''),
+      to:      String(row[1] || ''),
+      context: String(row[2] || ''),
+      status:  String(row[3] || ''),
+      snippet: String(row[4] || '').slice(0, 80),
+    });
+  }
+  return { success: true, entries: entries };
+}
+
+// ── Slot Inventory ────────────────────────────────────────────────────────────
+
+/**
+ * Returns all Weekly_Slots rows for the next 62 days.
+ * Also flags slots whose time/date had a Cancelled booking in the last 7 days
+ * so the dashboard can highlight them for easy re-release.
+ */
+function handleGetSlotInventory(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+
+  var today     = _isoDate(new Date());
+  var future    = new Date(); future.setDate(future.getDate() + 62);
+  var futureStr = _isoDate(future);
+  var cutoff    = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  var cutoffStr = _isoDate(cutoff);
+
+  // Collect recently-cancelled slot keys
+  var cancelled = {};
+  var logData   = logSheet().getDataRange().getValues();
+  for (var lr = 1; lr < logData.length; lr++) {
+    var lrow    = logData[lr];
+    if (!lrow || lrow.length < 10) continue;
+    var ldate   = _isoDate(lrow[LOG_COL.DATE - 1]);
+    var ltime   = _fmtTime(lrow[LOG_COL.TIME - 1]);
+    var lstatus = String(lrow[LOG_COL.STATUS - 1] || '').trim();
+    if (lstatus === 'Cancelled' && ldate >= cutoffStr && ldate <= futureStr) {
+      cancelled[ldate + 'T' + ltime] = true;
+    }
+  }
+
+  // Collect slots in range
+  var slotData = slotsSheet().getDataRange().getValues();
+  var slots = [];
+  for (var r = 1; r < slotData.length; r++) {
+    var row    = slotData[r];
+    if (!row || row.length < 5) continue;
+    var date   = _isoDate(row[SLOT_COL.DATE   - 1]);
+    var time   = _fmtTime(row[SLOT_COL.START  - 1]);
+    var status = String(row[SLOT_COL.STATUS   - 1] || '').trim();
+    if (date < today || date > futureStr) continue;
+    slots.push({
+      date:              date,
+      time:              time,
+      status:            status,
+      recentlyCancelled: !!cancelled[date + 'T' + time],
+    });
+  }
+
+  return { success: true, slots: slots };
+}
+
+/**
+ * Toggles a single slot between Available and Blocked.
+ * Booked / Pending_Lock slots are left untouched (returns cannot_toggle).
+ * Body: { token, date (YYYY-MM-DD), time (HH:mm) }
+ */
+function handleToggleSlotStatus(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var date = String(body.date || '').trim();
+  var time = String(body.time || '').trim();
+  if (!date || !time) return { success: false, error: 'missing_params' };
+
+  var sh   = slotsSheet();
+  var data = sh.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    var row    = data[r];
+    var rDate  = _isoDate(row[SLOT_COL.DATE  - 1]);
+    var rTime  = _fmtTime(row[SLOT_COL.START - 1]);
+    var status = String(row[SLOT_COL.STATUS  - 1] || '').trim();
+    if (rDate !== date || rTime !== time) continue;
+
+    var newStatus;
+    if      (status === 'Available')                  newStatus = 'Blocked';
+    else if (status === 'Blocked' || status === 'Cancelled') newStatus = 'Available';
+    else    return { success: false, error: 'cannot_toggle', status: status };
+
+    sh.getRange(r + 1, SLOT_COL.STATUS).setValue(newStatus);
+    SpreadsheetApp.flush();
+    invalidateSlotsCache(date);
+    Logger.log('[toggleSlot] ' + date + ' ' + time + ': ' + status + ' -> ' + newStatus);
+    return { success: true, date: date, time: time, prevStatus: status, newStatus: newStatus };
+  }
+  return { success: false, error: 'slot_not_found', date: date, time: time };
+}
+
 function validateAdmin(token) {
   if (!token) return false;
   const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
@@ -1988,7 +2165,11 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
     'ניתן לתאם תור חדש דרך האפליקציה.',
   ].join('\n');
 
-  SmsService.send(phone, msg, 'ClientCancellation');
+  if (isAutoSmsEnabled()) {
+    SmsService.send(phone, msg, 'ClientCancellation');
+  } else {
+    Logger.log('[processCancellation] Auto-SMS disabled — skipping client notification');
+  }
 
   Logger.log('[processCancellation] Cancelled: ' + bookingId);
   return { success: true, action: 'CANCEL', bookingId };
