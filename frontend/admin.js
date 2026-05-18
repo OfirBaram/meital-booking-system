@@ -528,6 +528,35 @@ async function sendReminders() {
 
 // ── Auto-refresh (60 s) ───────────────────────────────────────────
 
+async function runHealthCheck() {
+  const btn  = document.getElementById('js-health-submit');
+  const list = document.getElementById('health-checks');
+  const icon = document.getElementById('health-overall');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> בודק...';
+  list.innerHTML = '<p class="text-text-muted text-xs">בודק...</p>';
+  icon.textContent = '';
+  try {
+    const data = await apiCall('healthCheck');
+    if (!data.success) throw new Error(data.error);
+    const EMOJI = { ok: '\u2705', warn: '\u26A0\uFE0F', error: '\u274C' };
+    icon.textContent = EMOJI[data.overall] || '';
+    list.innerHTML = (data.checks || []).map(c =>
+      '<div class="flex items-start gap-2">'
+      + '<span class="shrink-0">' + (EMOJI[c.status] || '?') + '</span>'
+      + '<span class="text-text-muted">' + c.label
+      + (c.detail ? ' <span class="text-text-body">— ' + c.detail + '</span>' : '')
+      + '</span></div>'
+    ).join('');
+  } catch (e) {
+    icon.textContent = '\u274C';
+    list.innerHTML = '<p class="text-red-500 text-xs">' + e.message + '</p>';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'בדוק עכשיו';
+  }
+}
+
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
@@ -575,6 +604,7 @@ async function init() {
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-block-submit').addEventListener('click', blockDates);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
+  document.getElementById('js-health-submit').addEventListener('click', runHealthCheck);
 
   // Session restore
   if (S.token && sessionValid()) {

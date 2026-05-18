@@ -283,6 +283,21 @@
           שלח תזכורות למחר
         </button>
       </div>
+
+      <!-- HEALTH MONITOR CARD (Phase 4) -->
+      <div class="card rounded-2xl p-4 shadow-sm border border-secondary/20 mb-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-bold text-base">בדיקת תקינות מערכת</h2>
+          <span id="health-overall" class="text-lg"></span>
+        </div>
+        <div id="health-checks" class="space-y-1.5 text-sm mb-3">
+          <p class="text-text-muted text-xs">לחץ כדי לבדוק...</p>
+        </div>
+        <button id="js-health-submit"
+          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
+          בדוק עכשיו
+        </button>
+      </div>
     </main>
 
     <!-- ════════ BOTTOM NAVIGATION ════════ -->

@@ -304,7 +304,7 @@ function doPost(e) {
       case 'listBookings':  return jsonOk(handleListBookings(body));
       case 'changeStatus':  return jsonOk(handleChangeStatus(body));
       case 'createBooking': return jsonOk(handleCreateBooking(body));
-      case 'runFlowTest':   return jsonOk(handleRunFlowTest(body));
+      case 'healthCheck':   return jsonOk(handleHealthCheck(body));
       case 'createBackup':  return jsonOk(handleCreateBackup(body));
       case 'getTemplate':   return jsonOk(handleGetTemplate(body));
       case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
@@ -2040,15 +2040,115 @@ function handleCreateBooking(body) {
   }
 }
 
-/**
- * doPost endpoint wrapper for runFullFlowTest.
- * Requires ADMIN_TOKEN — cannot be triggered anonymously.
- */
-function handleRunFlowTest(body) {
-  if (!validateAdmin(body.token)) {
-    return { success: false, error: 'unauthorized', code: 403 };
+// ═══════════════════════════════════════════════════════════════
+// SYSTEM HEALTH MONITOR  (Phase 4)
+// ═══════════════════════════════════════════════════════════════
+
+function handleHealthCheck(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var TZ = 'Asia/Jerusalem';
+  var checks = [];
+  function addCheck(name, label, fn) {
+    try {
+      var r = fn();
+      checks.push({ name: name, label: label, status: r.status, detail: r.detail || '' });
+    } catch (e) {
+      checks.push({ name: name, label: label, status: 'error', detail: e.message });
+    }
   }
-  return runFullFlowTest();
+
+  addCheck('properties', 'תכונות סקריפט', function() {
+    var REQUIRED = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+                    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID', 'ADMIN_TOKEN'];
+    var props   = PropertiesService.getScriptProperties();
+    var missing = REQUIRED.filter(function(k) { return !props.getProperty(k); });
+    return missing.length === 0
+      ? { status: 'ok',    detail: 'כל ' + REQUIRED.length + ' תכונות הוגדרו' }
+      : { status: 'error', detail: 'חסרות: ' + missing.join(', ') };
+  });
+
+  addCheck('sheets', 'גיליונות נדרשים', function() {
+    var spreadsheet = ss();
+    var names   = Object.values(SHEETS);
+    var missing = names.filter(function(n) { return !spreadsheet.getSheetByName(n); });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.length + ' גיליונות קיימים' }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('calendar', 'גישה ליומן', function() {
+    var cal = CalendarApp.getCalendarById(CFG.CAL_ID);
+    if (!cal) return { status: 'error', detail: 'יומן לא נמצא: ' + CFG.CAL_ID };
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE — יומן לא מתעדכן בפועל' }
+      : { status: 'ok',   detail: cal.getName() };
+  });
+
+  addCheck('testMode', 'מצב הפעלה', function() {
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE=true — SMS ויומן מדומים' }
+      : { status: 'ok',   detail: 'מצב ייצור — Twilio ויומן פעילים' };
+  });
+
+  addCheck('smsQuota', 'מכסת SMS היום', function() {
+    var count = getDailySmsCount();
+    var pct   = Math.round(count / DAILY_SMS_LIMIT * 100);
+    return { status: pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok',
+             detail: count + ' / ' + DAILY_SMS_LIMIT + ' SMS (' + pct + '%)' };
+  });
+
+  addCheck('recentErrors', 'שגיאות 24 שעות אחרונות', function() {
+    var sh = ss().getSheetByName(SHEETS.EXEC_LOG);
+    if (!sh) return { status: 'warn', detail: 'Execution_Log טרם נוצר' };
+    var data     = sh.getDataRange().getValues();
+    var cutoff   = Date.now() - 24 * 60 * 60 * 1000;
+    var errCount = 0;
+    for (var r = 1; r < data.length; r++) {
+      var ts = data[r][0];
+      if (ts instanceof Date && ts.getTime() >= cutoff &&
+          String(data[r][2]).indexOf('שגיאה') >= 0) errCount++;
+    }
+    return errCount === 0
+      ? { status: 'ok',                          detail: 'אין שגיאות' }
+      : { status: errCount > 5 ? 'error' : 'warn', detail: errCount + ' שגיאות' };
+  });
+
+  addCheck('triggers', 'טריגרים מותקנים', function() {
+    var names   = ScriptApp.getProjectTriggers().map(function(t) { return t.getHandlerFunction(); });
+    var missing = ['syncCalendarToSlots', 'sendDailyReminders'].filter(function(n) {
+      return names.indexOf(n) < 0;
+    });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.join(', ') }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('reminderLastRun', 'תזכורות — הרצה אחרונה', function() {
+    var lastRun = PropertiesService.getScriptProperties().getProperty('REMINDER_LAST_RUN') || '';
+    var today   = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    if (!lastRun) return { status: 'warn', detail: 'טרם הופעל' };
+    return lastRun === today
+      ? { status: 'ok',   detail: 'נשלח היום' }
+      : { status: 'warn', detail: 'נשלח ב-' + lastRun.replace(/-/g, '/') };
+  });
+
+  addCheck('pendingBookings', 'הזמנות ממתינות לאישור', function() {
+    var data    = logSheet().getDataRange().getValues();
+    var pending = 0;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.STATUS - 1]).trim() === 'Pending') pending++;
+    }
+    return pending === 0
+      ? { status: 'ok',   detail: 'אין ממתינות' }
+      : { status: 'warn', detail: pending + ' ממתינות לאישור' };
+  });
+
+  var nErr    = checks.filter(function(c) { return c.status === 'error'; }).length;
+  var nWarn   = checks.filter(function(c) { return c.status === 'warn';  }).length;
+  var overall = nErr > 0 ? 'error' : nWarn > 0 ? 'warn' : 'ok';
+  log(LOG_LEVEL.INFO, ACTION.HEALTH,
+      'בדיקת תקינות: ' + overall + ' (' + nErr + ' שגיאות, ' + nWarn + ' אזהרות)');
+  return { success: true, overall: overall, checks: checks };
 }
 
 // ═══════════════════════════════════════════════════════════════

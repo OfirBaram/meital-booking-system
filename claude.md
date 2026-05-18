@@ -643,3 +643,26 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
 
 #### Quota impact
 3 SMS per booking lifecycle + 1 reminder = 4 SMS/booking → **~12 bookings/day** on Twilio trial.
+
+---
+
+### v1.2.0 — 2026-05-18 — Phase 4: System Health Monitor
+**Branch:** `feature/system-stabilization-v2`
+
+#### GAS Backend
+- **`handleHealthCheck(body)`** — admin-authenticated; runs 9 non-destructive checks and returns `{ success, overall, checks[] }` where `overall` is `ok | warn | error`.
+  - `properties` — verifies all 7 required Script Properties are set.
+  - `sheets` — checks all required sheet tabs exist.
+  - `calendar` — verifies CalendarApp can locate the configured calendar; warns if IS_TEST_MODE.
+  - `testMode` — warns when IS_TEST_MODE=true (production reminder).
+  - `smsQuota` — reads `getDailySmsCount()` and flags warn at 70%, error at 90% of DAILY_SMS_LIMIT.
+  - `recentErrors` — scans Execution_Log for rows with "שגיאה" in the last 24 h; warn >0, error >5.
+  - `triggers` — checks both `syncCalendarToSlots` and `sendDailyReminders` are installed.
+  - `reminderLastRun` — reads REMINDER_LAST_RUN property; warns if not sent today.
+  - `pendingBookings` — counts Bookings_Log rows with status Pending; warns if any found.
+- Removed dead first `handleRunFlowTest()` definition (was unreachable, shadowed by line ~2069 version).
+- doPost `runFlowTest` case replaced with `healthCheck`.
+
+#### Admin Dashboard — Business Pulse tab
+- **"בדיקת תקינות מערכת" card** — shows overall status emoji (✅/⚠️/❌) and a row per check; "בדוק עכשיו" button calls `runHealthCheck()`.
+- `runHealthCheck()` in `admin.js` — calls `healthCheck` action, renders emoji + label + detail per check; spinner during request.
