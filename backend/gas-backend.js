@@ -279,6 +279,7 @@ function checkSmsQuota(context) {
 
 function doPost(e) {
   // Split try-catch: parse errors and handler errors logged separately
+  Logger.log('[doPost] RAW EVENT: ' + JSON.stringify(e));
   Logger.log('[doPost] Invoked');
 
   let body;
