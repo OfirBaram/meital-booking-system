@@ -71,6 +71,17 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | F | NewStatus | Status after action |
 | G | Detail | Free text (max 300 chars) |
 
+### Tab: `Execution_Log` (auto-created on first `log()` call)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | זמן | Timestamp (Date object) |
+| B | פעולה | ACTION constant (Hebrew) — e.g. "שליחת OTP" |
+| C | רמה | LOG_LEVEL constant — ✅ הצלחה / ⚠️ אזהרה / ❌ שגיאה / ℹ️ מידע |
+| D | טלפון | Client phone (E.164) if applicable |
+| E | ID הזמנה | Booking UUID if applicable |
+| F | תיאור | Human-readable Hebrew summary (visible to Meital) |
+| G | פרט טכני (דיבאג) | Technical detail string (hidden by default; Ofir unhides via Sheets) |
+
 ## 5. Development Guidelines
 - Mobile-First design.
 - Modular JavaScript.
@@ -167,6 +178,7 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | `WEB_APP_URL` | Deployed web app URL (filled after first deployment) |
 | `TIMEZONE` | `Asia/Jerusalem` |
 | `ADMIN_TOKEN` | Random 32+ char hex string for admin dashboard authentication (distinct from `HMAC_SECRET`) |
+| `DAILY_SMS_LIMIT` | *(optional)* Override the daily SMS quota cap (default: 45, leaving a 5-unit buffer below Twilio trial cap of 50) |
 
 #### Google Calendar Integration
 - **On APPROVE:** `createCalendarEvent()` creates a timed event, stores event ID in `Bookings_Log` col K.

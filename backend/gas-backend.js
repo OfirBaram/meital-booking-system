@@ -71,14 +71,34 @@ const EXPECTED_SS_ID = '1T9B1_4WUYS7Iq1UXyEfnG3LyI0_XapxPH1Q2X-6vVbQ';
 const SHEETS = {
   SLOTS:   'Weekly_Slots',
   LOG:     'Bookings_Log',
-  SMS_LOG: 'SMS_LOG',
-  AUDIT:   'Audit_Log',
+  SMS_LOG:  'SMS_LOG',
+  AUDIT:    'Audit_Log',
+  EXEC_LOG: 'Execution_Log',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
 const LOG_COL   = { UUID:1, NAME:2, PHONE:3, SERVICE:4, SERVICE_NAME:5,
                     DATE:6, TIME:7, TIMESTAMP:8, DURATION:9, STATUS:10,
                     CAL_EVENT:11, ADMIN_TOKEN:12 };
+
+const LOG_LEVEL = {
+  SUCCESS: '✅ הצלחה',
+  WARNING: '⚠️ אזהרה',
+  ERROR:   '❌ שגיאה',
+  INFO:    'ℹ️ מידע',
+};
+
+const ACTION = {
+  SEND_OTP:      'שליחת OTP',
+  VERIFY_BOOK:   'אימות והזמנה',
+  ADMIN_APPROVE: 'אישור הזמנה',
+  ADMIN_REJECT:  'דחיית הזמנה',
+  ADMIN_CANCEL:  'ביטול הזמנה',
+  CAL_SYNC:      'סנכרון יומן',
+  SEND_REMINDER: 'תזכורת SMS',
+  BACKUP:        'גיבוי נתונים',
+  HEALTH:        'בדיקת תקינות',
+};
 
 function ss() {
   return SpreadsheetApp.openById(CFG.SS_ID);
@@ -134,6 +154,121 @@ function logSMS(to, context, status, message, detail) {
   } catch (e) {
     // Never let SMS_LOG failure break the main flow
     Logger.log('[logSMS] Sheet write failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OBSERVABILITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Returns (creating if needed) the Execution_Log sheet with a frozen header row.
+ * Columns: Timestamp | Action | Level | Phone | BookingID | Message | Technical_Detail
+ */
+function execLogSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.EXEC_LOG);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.EXEC_LOG);
+    sh.appendRow(['זמן', 'פעולה', 'רמה', 'טלפון', 'ID הזמנה', 'תיאור', 'פרט טכני (דיבאג)']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:G1').setFontWeight('bold');
+    sh.setColumnWidth(1, 160); // Timestamp
+    sh.setColumnWidth(6, 300); // Message
+    sh.setColumnWidth(7, 400); // Technical_Detail
+    sh.hideColumns(7);          // hidden by default; Ofir can show via Sheets UI
+  }
+  return sh;
+}
+
+/**
+ * Appends one structured row to Execution_Log.
+ * @param {string} level     - LOG_LEVEL constant
+ * @param {string} action    - ACTION constant
+ * @param {string} message   - Human-readable Hebrew summary
+ * @param {object} [opts]    - Optional: { phone, bookingId, detail }
+ */
+function log(level, action, message, opts) {
+  opts = opts || {};
+  try {
+    execLogSheet().appendRow([
+      new Date(),
+      action,
+      level,
+      opts.phone     || '',
+      opts.bookingId || '',
+      message,
+      opts.detail    || '',
+    ]);
+  } catch (e) {
+    Logger.log('[log] Execution_Log write failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESILIENCE
+// ═══════════════════════════════════════════════════════════════
+
+const DAILY_SMS_LIMIT = 45; // leave 5-unit buffer below Twilio trial cap of 50
+
+/**
+ * Retries fn up to maxAttempts times with exponential back-off.
+ * @param {Function} fn
+ * @param {object}  [opts]
+ * @param {number}  [opts.maxAttempts=3]
+ * @param {number}  [opts.baseDelayMs=500]
+ * @returns {*} result of fn
+ */
+function withRetry(fn, opts) {
+  opts = opts || {};
+  var maxAttempts = opts.maxAttempts || 3;
+  var baseDelayMs = opts.baseDelayMs || 500;
+  var lastErr;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts) {
+        Utilities.sleep(baseDelayMs * Math.pow(2, attempt - 1));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Returns the number of SMS rows logged today in SMS_LOG.
+ * Counts rows where column A (Timestamp) falls within today (Asia/Jerusalem).
+ */
+function getDailySmsCount() {
+  var tz     = Session.getScriptTimeZone() || 'Asia/Jerusalem';
+  var today  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var sh     = smsLogSheet();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+  var timestamps = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  var count = 0;
+  for (var i = 0; i < timestamps.length; i++) {
+    var cell = timestamps[i][0];
+    if (cell instanceof Date) {
+      var cellDay = Utilities.formatDate(cell, tz, 'yyyy-MM-dd');
+      if (cellDay === today) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Throws if daily SMS quota is at or above DAILY_SMS_LIMIT.
+ * @param {string} context - caller label for the error message
+ */
+function checkSmsQuota(context) {
+  var count = getDailySmsCount();
+  if (count >= DAILY_SMS_LIMIT) {
+    var msg = 'מכסת SMS יומית הגעה ל-' + count + '/' + DAILY_SMS_LIMIT;
+    log(LOG_LEVEL.ERROR, context, msg);
+    throw new Error(msg);
   }
 }
 
@@ -424,9 +559,10 @@ const QA_MOCK_PHONE = '+972500000000';
 const QA_MOCK_OTP   = '123456';
 
 function handleSendOTP(body) {
+  var _t0 = Date.now();
   Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
-  const phone = normalizePhone(body.phone);
-  Logger.log('[sendOTP] Normalized phone: "' + phone + '" (05X→+972 conversion applied if needed)');
+  var phone = normalizePhone(body.phone);
+  Logger.log('[sendOTP] Normalized phone: "' + phone + '"');
   if (!phone) {
     throw new Error(
       'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
@@ -436,32 +572,44 @@ function handleSendOTP(body) {
   if (phone === QA_MOCK_PHONE) {
     Logger.log('[sendOTP] MOCK MODE — caching fixed OTP ' + QA_MOCK_OTP + ', skipping Twilio');
     CacheService.getScriptCache().put('otp_' + phone, QA_MOCK_OTP, 300);
+    log(LOG_LEVEL.INFO, ACTION.SEND_OTP, 'OTP מדומה נשלח (מצב QA)', { phone: phone });
     return { success: true };
   }
 
   // Rate-limit: one real OTP request per phone per 30 seconds.
-  // Prevents a direct-API caller from draining the Twilio trial quota.
-  const rateLimitKey = 'otp_ratelimit_' + phone;
-  const cache = CacheService.getScriptCache();
+  var rateLimitKey = 'otp_ratelimit_' + phone;
+  var cache = CacheService.getScriptCache();
   if (cache.get(rateLimitKey)) {
     Logger.log('[sendOTP] Rate limit hit for ' + phone + ' — retry in 30 s');
+    log(LOG_LEVEL.WARNING, ACTION.SEND_OTP, 'Rate limit — בקשת OTP חוזרת נחסמה', { phone: phone });
     return { success: false, error: 'rate_limited', retryAfterSecs: 30 };
   }
   cache.put(rateLimitKey, '1', 30); // block repeat for 30 s
 
-  const otp = generateOTP();
+  // Quota guard — refuse if daily SMS cap reached
+  try {
+    checkSmsQuota(ACTION.SEND_OTP);
+  } catch (quotaErr) {
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'מכסת SMS יומית מלאה — OTP לא נשלח', { phone: phone, detail: quotaErr.message });
+    return { success: false, error: 'sms_quota_exceeded' };
+  }
+
+  var otp = generateOTP();
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   try {
     sendSMS._context = 'OTP';
-    sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
+    sendSMS(phone, 'קוד האימות שלך להזמנת תור: ' + otp + '
+תקף ל-5 דקות.');
   } catch (smsErr) {
     Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
-    // Return debugInfo so the browser Console shows the exact Twilio reason.
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'שליחת SMS נכשלה', { phone: phone, detail: smsErr.message });
     return { success: false, error: smsErr.message, debugInfo: smsErr.debugInfo || {} };
   }
-  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone);
+  var elapsed = Date.now() - _t0;
+  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone + ' (' + elapsed + 'ms)');
+  log(LOG_LEVEL.SUCCESS, ACTION.SEND_OTP, 'OTP נשלח בהצלחה (' + elapsed + 'ms)', { phone: phone });
   return { success: true };
 }
 
@@ -479,10 +627,20 @@ function handleSendOTP(body) {
  * Race-condition guard: uses LockService + double-check of slot status.
  */
 function handleVerifyAndBook(body) {
+  var _t0 = Date.now();
   const { otp, booking } = body;
   if (!otp || !booking) throw new Error('otp and booking are required');
 
   const phone = normalizePhone(booking.phone);
+
+  // ── 0. Validation parity (mirrors frontend guards) ──
+  const ALLOWED_SERVICES = ['gel_classic', 'gel_feet'];
+  if (!booking.name || booking.name.trim().length < 2) {
+    return { success: false, error: 'invalid_name' };
+  }
+  if (!booking.service || !ALLOWED_SERVICES.includes(booking.service)) {
+    return { success: false, error: 'invalid_service' };
+  }
 
   // ── 1. Validate OTP ──
   const cache    = CacheService.getScriptCache();
@@ -514,11 +672,13 @@ function handleVerifyAndBook(body) {
     const slotRow = findSlotRow(booking.date, booking.time);
     if (!slotRow) {
       Logger.log('[verifyAndBook] REJECTED: slot not found in Weekly_Slots');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ לא נמצא ב-Weekly_Slots', { phone: phone, detail: booking.date + ' ' + booking.time });
       return { success: false, error: 'slot_not_available' };
     }
     const currentStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
     if (currentStatus !== 'Available') {
       Logger.log('[verifyAndBook] REJECTED: slot status is "' + currentStatus + '" (not Available)');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ אינו זמין — סטטוס: ' + currentStatus, { phone: phone, detail: booking.date + ' ' + booking.time });
       return { success: false, error: 'slot_not_available' };
     }
     Logger.log('[verifyAndBook] Integrity gate PASSED — slot confirmed Available at row ' + slotRow.rowIndex);
@@ -573,7 +733,9 @@ function handleVerifyAndBook(body) {
       Logger.log('[verifyAndBook] bookingId=' + bookingId + ' | adminToken=' + adminToken);
     }
 
-    Logger.log('[verifyAndBook] Booking created: ' + bookingId);
+    var elapsed = Date.now() - _t0;
+    Logger.log('[verifyAndBook] Booking created: ' + bookingId + ' (' + elapsed + 'ms)');
+    log(LOG_LEVEL.SUCCESS, ACTION.VERIFY_BOOK, 'הזמנה נוצרה בהצלחה (' + elapsed + 'ms)', { phone: phone, bookingId: bookingId, detail: booking.serviceName + ' | ' + booking.date + ' ' + booking.time });
     return { success: true, bookingId, status: 'Pending' };
 
   } finally {
@@ -678,6 +840,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientApproval');
 
   Logger.log('[adminAction] Approved: ' + bookingId);
+  log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time + ' | calEvent:' + calEventId });
   return { success: true, action: 'APPROVE', bookingId, calEventId };
 }
 
@@ -703,6 +866,7 @@ function processRejection(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientRejection');
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
+  log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time });
   return { success: true, action: 'REJECT', bookingId };
 }
 
@@ -752,6 +916,7 @@ function createCalendarEvent({ date, time, duration, clientName, serviceName, bo
  *      see the update within the next request rather than waiting up to 10 min.
  */
 function syncCalendarToSlots() {
+  const _syncStart = Date.now();
   const TZ   = 'Asia/Jerusalem';
   const cal  = CalendarApp.getCalendarById(CFG.CAL_ID);
   const sh   = slotsSheet();
@@ -836,7 +1001,14 @@ function syncCalendarToSlots() {
   // request returns fresh data instead of stale cache (up to 10-min old).
   changedDates.forEach(invalidateSlotsCache);
 
-  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + [...changedDates].join(', '));
+  var _syncElapsed = Date.now() - _syncStart;
+  var _changedList  = [...changedDates].join(', ') || '—';
+  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + _changedList + ' (' + _syncElapsed + 'ms)');
+  if (_syncElapsed > 5 * 60 * 1000) {
+    log(LOG_LEVEL.WARNING, ACTION.CAL_SYNC, 'סנכרון יומן ארך זמן רב (' + Math.round(_syncElapsed / 1000) + 's)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  } else {
+    log(LOG_LEVEL.SUCCESS, ACTION.CAL_SYNC, 'סנכרון יומן הושלם (' + _syncElapsed + 'ms)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
