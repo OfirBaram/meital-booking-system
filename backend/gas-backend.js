@@ -69,11 +69,12 @@ const EXPECTED_SS_ID = '1T9B1_4WUYS7Iq1UXyEfnG3LyI0_XapxPH1Q2X-6vVbQ';
  */
 
 const SHEETS = {
-  SLOTS:   'Weekly_Slots',
-  LOG:     'Bookings_Log',
+  SLOTS:    'Weekly_Slots',
+  LOG:      'Bookings_Log',
   SMS_LOG:  'SMS_LOG',
   AUDIT:    'Audit_Log',
   EXEC_LOG: 'Execution_Log',
+  TEMPLATE: 'Slot_Template',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
@@ -305,6 +306,10 @@ function doPost(e) {
       case 'createBooking': return jsonOk(handleCreateBooking(body));
       case 'runFlowTest':   return jsonOk(handleRunFlowTest(body));
       case 'createBackup':  return jsonOk(handleCreateBackup(body));
+      case 'getTemplate':   return jsonOk(handleGetTemplate(body));
+      case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
+      case 'generateSlots': return jsonOk(handleGenerateSlots(body));
+      case 'blockDates':    return jsonOk(handleBlockDates(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -2079,6 +2084,135 @@ function handleCreateBackup(body) {
     writeAuditLog('admin', 'CreateBackup', '', '', '', result.tabName);
   }
   return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SLOT TEMPLATE & SLOT GENERATOR  (admin Phase 2)
+// ═══════════════════════════════════════════════════════════════
+
+function templateSheet() {
+  var spreadsheet = ss();
+  var sh = spreadsheet.getSheetByName(SHEETS.TEMPLATE);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.TEMPLATE);
+    sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:D1').setFontWeight('bold');
+    var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    for (var d = 0; d < 7; d++) {
+      sh.appendRow([d, DAY_NAMES[d], '', d < 5 ? 'TRUE' : 'FALSE']);
+    }
+  }
+  return sh;
+}
+
+function handleGetTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var sh   = templateSheet();
+  var data = sh.getDataRange().getValues();
+  var rows = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var rawTimes = String(row[2] || '').trim();
+    rows.push({
+      dayOfWeek:  parseInt(row[0], 10),
+      dayName:    String(row[1] || '').trim(),
+      startTimes: rawTimes ? rawTimes.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [],
+      active:     String(row[3] || '').trim().toUpperCase() === 'TRUE',
+    });
+  }
+  return { success: true, template: rows };
+}
+
+function handleSaveTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!Array.isArray(body.template)) return { success: false, error: 'template array required' };
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var sh = templateSheet();
+  sh.clearContents();
+  sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+  for (var i = 0; i < body.template.length; i++) {
+    var entry = body.template[i];
+    var dow   = parseInt(entry.dayOfWeek, 10);
+    sh.appendRow([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'תבנית שעות עודכנה');
+  return { success: true };
+}
+
+function handleGenerateSlots(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ = 'Asia/Jerusalem';
+  var tmplData = handleGetTemplate(body);
+  if (!tmplData.success) return tmplData;
+  var template = tmplData.template;
+  var slotSh   = slotsSheet();
+  var existing = slotSh.getDataRange().getValues();
+  var existSet = {};
+  for (var r = 1; r < existing.length; r++) {
+    var ed = existing[r][SLOT_COL.DATE  - 1];
+    var es = existing[r][SLOT_COL.START - 1];
+    var ds = (ed instanceof Date) ? Utilities.formatDate(ed, TZ, 'yyyy-MM-dd') : String(ed || '').trim();
+    var ts = (es instanceof Date) ? Utilities.formatDate(es, TZ, 'HH:mm')     : String(es || '').trim();
+    if (ds && ts) existSet[ds + '|' + ts] = true;
+  }
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var cur   = new Date(body.startDate + 'T00:00:00');
+  var end   = new Date(body.endDate   + 'T00:00:00');
+  var added = 0;
+  while (cur <= end) {
+    var dow     = cur.getDay();
+    var dateStr = Utilities.formatDate(cur, TZ, 'yyyy-MM-dd');
+    var tmplRow = null;
+    for (var t = 0; t < template.length; t++) {
+      if (template[t].dayOfWeek === dow) { tmplRow = template[t]; break; }
+    }
+    if (tmplRow && tmplRow.active && tmplRow.startTimes.length > 0) {
+      for (var s = 0; s < tmplRow.startTimes.length; s++) {
+        var startTime = tmplRow.startTimes[s];
+        if (!existSet[dateStr + '|' + startTime]) {
+          var parts   = startTime.split(':').map(Number);
+          var endHr   = parts[0] + 2;
+          if (endHr >= 24) endHr = 23;
+          var endMin  = parts[1];
+          var endTime = (endHr < 10 ? '0' + endHr : String(endHr)) + ':' + (endMin < 10 ? '0' + endMin : String(endMin));
+          slotSh.appendRow([dateStr, DAY_NAMES[dow], startTime, endTime, 'Available']);
+          existSet[dateStr + '|' + startTime] = true;
+          added++;
+        }
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'נוצרו ' + added + ' חריצי זמן (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'GenerateSlots', '', '', '', added + ' slots for ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, added: added };
+}
+
+function handleBlockDates(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ      = 'Asia/Jerusalem';
+  var sh      = slotsSheet();
+  var data    = sh.getDataRange().getValues();
+  var blocked = 0;
+  for (var r = 1; r < data.length; r++) {
+    var rawDate = data[r][SLOT_COL.DATE   - 1];
+    var status  = String(data[r][SLOT_COL.STATUS - 1] || '').trim();
+    var dateStr = (rawDate instanceof Date) ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (!dateStr || status !== 'Available') continue;
+    if (dateStr >= body.startDate && dateStr <= body.endDate) {
+      sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Blocked');
+      blocked++;
+    }
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.INFO, ACTION.CAL_SYNC, 'חופשה: ' + blocked + ' חריצים נחסמו (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'BlockDates', '', '', '', blocked + ' slots blocked ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, blocked: blocked };
 }
 
 // ===============================================================

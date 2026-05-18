@@ -552,8 +552,8 @@ The built-in `Edit` tool fails on this repo path with "File has not been read ye
 
 | Rule | Frontend | Backend |
 |------|----------|---------|
-| Name min 2 chars | ✅ `isValidName()` | ❌ no check |
-| Service ID whitelist | ✅ implicit via `SERVICES` array | ❌ no check |
+| Name min 2 chars | ✅ `isValidName()` | ✅ added Phase 3.1 |
+| Service ID whitelist | ✅ implicit via `SERVICES` array | ✅ added Phase 3.1 |
 | Phone format (05X) | ✅ `isValidPhone()` regex | ✅ `normalizePhone()` covers this |
 
 ### syncCalendarToSlots Execution Time
@@ -578,3 +578,49 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
 ### Backup Utility Added (Phase 0.5)
 
 `createBackupSnapshot()` added to `gas-backend.js`. Creates a `_Backup_YYYYMMDD_HHmm` tab in the live spreadsheet with a full copy of `Weekly_Slots` and `Bookings_Log`. Callable from the admin dashboard via `action: createBackup` (requires `ADMIN_TOKEN`). Also callable directly from the GAS editor at any time.
+
+---
+
+### v1.0.0 — 2026-05-18 — Phase 3.1 + Phase 2 Admin Dashboard
+**Branch:** `feature/system-stabilization-v2`
+
+#### Phase 3.1 — Observability + Reliability (gas-backend.js)
+- **`Execution_Log` sheet** — auto-created on first `log()` call; column G hidden for Meital, visible to Ofir.
+- **`log(level, action, message, opts)`** — structured Hebrew logging to Execution_Log; never propagates failures.
+- **`withRetry(fn, opts)`** — exponential back-off helper (3 attempts, 500 ms base).
+- **`getDailySmsCount()` / `checkSmsQuota()`** — blocks OTP at 45 SMS/day (5-unit buffer below Twilio cap).
+- **`handleSendOTP`** — timing, quota guard, `log()` on all paths; string concat replaces template literal.
+- **`handleVerifyAndBook`** — validation parity (name ≥ 2 chars, service whitelist); `log()` on slot issues and success.
+- **`processApproval`** — `log(SUCCESS)` with calEventId.
+- **`processRejection`** — `log(INFO)` after slot release.
+- **`syncCalendarToSlots`** — timing guard: `log(WARNING)` if sync > 5 min; `log(SUCCESS)` otherwise.
+
+#### Phase 2 — Admin Dashboard v2 (admin.html + admin.js + gas-backend.js)
+
+##### New Sheets Tab
+| Tab | Auto-created | Description |
+|-----|-------------|-------------|
+| `Slot_Template` | On first `getTemplate` call | Weekly template: DayOfWeek, DayName, StartTimes, Active |
+
+##### New GAS Actions (all require `ADMIN_TOKEN`)
+| Action | Handler | Description |
+|--------|---------|-------------|
+| `getTemplate` | `handleGetTemplate()` | Returns Slot_Template as array of {dayOfWeek, dayName, startTimes[], active} |
+| `saveTemplate` | `handleSaveTemplate()` | Overwrites Slot_Template from client payload |
+| `generateSlots` | `handleGenerateSlots()` | Creates Weekly_Slots rows for a date range from the template (idempotent) |
+| `blockDates` | `handleBlockDates()` | Sets all Available slots in a date range to Blocked (vacation override) |
+
+##### Frontend — Admin Dashboard Redesign
+- **Bottom navigation bar** — 3 tabs: הזמנות / דופק עסקי / זמנים (mobile-safe-area aware).
+- **Tab 1 — הזמנות (Bookings):**
+  - All existing booking-management functionality preserved.
+  - **Daily Planner** — date-jump input above filter pills; clears on "נקה" or filter-pill click; shows all statuses for chosen date (bypasses stale/finished filters).
+- **Tab 2 — דופק עסקי (Business Pulse):**
+  - 4 KPI tiles: הזמנות השבוע / החודש / קרובות (7d) / בוטלו-נדחו.
+  - Service breakdown bar chart (computed client-side from `S.bookings`).
+  - Upcoming 8 bookings list (next 7 days, sorted chronologically).
+  - No extra API call — renders from already-loaded bookings.
+- **Tab 3 — ניהול זמנים (Slot Manager):**
+  - **Weekly Template editor** — one row per day (Sun–Sat); checkbox to activate day; text input for comma-separated HH:MM start times; Fri/Sat locked inactive.
+  - **Generate Slots** — date-range picker + "צור חריצים" button; shows count of created slots.
+  - **Vacation Override** — date-range picker + "חסום תאריכים" button with confirm dialog; shows count of blocked slots.
