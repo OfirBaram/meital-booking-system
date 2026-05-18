@@ -239,4 +239,27 @@ describe('Utilities.formatDate (mock behaviour)', () => {
     const result = Utilities.formatDate(DATE_OBJ, 'Asia/Jerusalem', 'HH:mm')
     expect(result).toMatch(/^\d{2}:\d{2}$/)
   })
+
+// ─── isAutoSmsEnabled (Auto-SMS master toggle) ────────────────────────────────
+// Mirror of isAutoSmsEnabled() in gas-backend.js.
+// Stored value null (unset) or 'true' → enabled; 'false' → disabled.
+
+function isAutoSmsEnabled(storedValue) {
+  return storedValue === null || storedValue === 'true';
+}
+
+describe('isAutoSmsEnabled', () => {
+  it('returns true when property is null (default — never set)', () => {
+    expect(isAutoSmsEnabled(null)).toBe(true);
+  });
+
+  it('returns true when property is the string "true"', () => {
+    expect(isAutoSmsEnabled('true')).toBe(true);
+  });
+
+  it('returns false when property is the string "false"', () => {
+    expect(isAutoSmsEnabled('false')).toBe(false);
+  });
+})
+
 })

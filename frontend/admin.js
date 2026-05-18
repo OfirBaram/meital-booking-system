@@ -16,6 +16,8 @@ const S = {
   dateJump: '',
   tab:      'bookings',
   template: [],
+  autoSms:  true,
+  _smsSendTarget: null,
 };
 
 // ── Display helpers ───────────────────────────────────────────────
@@ -163,7 +165,7 @@ function hideSkeleton() {
 // ── Tab navigation ────────────────────────────────────────────────
 function setTab(tab) {
   S.tab = tab;
-  ['bookings','pulse','slots'].forEach(t => {
+  ['bookings','pulse','slots','diary'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -175,6 +177,7 @@ function setTab(tab) {
   });
   if (tab === 'pulse')  renderPulse();
   if (tab === 'slots')  loadTemplate();
+  if (tab === 'diary')  { loadSlotInventory(); loadSmsLog(); }
 }
 
 // ── Render — Bookings tab ─────────────────────────────────────────
@@ -243,12 +246,17 @@ function buildCard(b) {
     btns = `
       <button data-action="Cancelled" data-id="${b.id}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">🚫 בטל</button>`;
   }
+  const smsBtn = `<button data-action="sms" data-id="${b.id}" data-phone="${esc(b.phone)}" data-name="${esc(b.name)}"
+    title="\u05e9\u05dc\u05d7 SMS \u05d9\u05d3\u05e0\u05d9" data-qa="btn-send-sms"
+    class="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+  </button>`;
   return `
 <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in" data-booking="${b.id}">
   <div class="flex items-start justify-between mb-1.5">
     <div><div class="font-bold text-sm text-text-main">${esc(b.name)}</div>
     <div class="text-xs text-text-muted mt-0.5">${esc(fmtPhone(b.phone))}</div></div>
-    ${badge}
+    <div class="flex items-center gap-1">${badge}${smsBtn}</div>
   </div>
   <div class="text-xs font-medium text-text-main mb-0.5">${esc(b.serviceName)}</div>
   <div class="text-xs text-text-muted mb-3">📅 ${date} &nbsp;·&nbsp; 🕐 ${esc(b.time)}</div>
@@ -269,6 +277,10 @@ async function onAction(e) {
   const btn    = e.currentTarget;
   const id     = btn.dataset.id;
   const target = btn.dataset.action;
+  if (target === 'sms') {
+    openSmsModal({ id, phone: btn.dataset.phone, name: btn.dataset.name });
+    return;
+  }
   if (!confirm(CONFIRM_MSG[target] || 'להמשיך?')) return;
 
   const card = btn.closest('[data-booking]');
@@ -526,7 +538,185 @@ async function sendReminders() {
   }
 }
 
-// ── Auto-refresh (60 s) ───────────────────────────────────────────
+/// ── Manual SMS modal ─────────────────────────────────────────────────────
+function openSmsModal(booking) {
+  S._smsSendTarget = booking;
+  document.getElementById('js-sms-recipient').textContent =
+    booking.name + ' (' + fmtPhone(booking.phone) + ')';
+  document.getElementById('js-sms-text').value =
+    'היי ' + booking.name + ', רציתי לעדכן ש…';
+  const sendBtn = document.getElementById('js-sms-send');
+  sendBtn.disabled = false;
+  sendBtn.textContent = 'שלח SMS';
+  document.getElementById('js-sms-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('js-sms-text').focus(), 50);
+}
+
+function closeSmsModal() {
+  document.getElementById('js-sms-modal').classList.add('hidden');
+  S._smsSendTarget = null;
+}
+
+async function sendManualSMS() {
+  if (!S._smsSendTarget) return;
+  const text = document.getElementById('js-sms-text').value.trim();
+  if (!text) { toast('ההודעה ריקה', 'err'); return; }
+  const btn = document.getElementById('js-sms-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="w-4 h-4 spinner"></span>';
+  try {
+    const data = await apiCall('sendManualSMS', {
+      phone:   S._smsSendTarget.phone,
+      message: text,
+    });
+    if (!data.success) throw new Error(data.error || 'error');
+    toast('SMS נשלח ✅', 'ok');
+    closeSmsModal();
+  } catch (e) {
+    toast('שגיאה בשליחת SMS', 'err');
+    btn.disabled = false;
+    btn.textContent = 'שלח SMS';
+  }
+}
+
+// ── Auto-SMS master toggle ──────────────────────────────────────────────
+async function loadAutoSmsToggle() {
+  try {
+    const data = await apiCall('getAutoSms');
+    if (data.success) setAutoSmsUI(data.enabled);
+  } catch (_) {}
+}
+
+function setAutoSmsUI(enabled) {
+  S.autoSms = enabled;
+  const track = document.getElementById('js-auto-sms-track');
+  const thumb = document.getElementById('js-auto-sms-thumb');
+  if (!track || !thumb) return;
+  track.className = 'relative w-9 h-5 rounded-full transition-colors '
+    + (enabled ? 'bg-primary' : 'bg-gray-300');
+  thumb.className = 'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform '
+    + (enabled ? 'left-[calc(100%-1.125rem)]' : 'left-0.5');
+}
+
+async function toggleAutoSms() {
+  const newVal = !S.autoSms;
+  setAutoSmsUI(newVal);
+  try {
+    const data = await apiCall('setAutoSms', { enabled: newVal });
+    if (!data.success) throw new Error(data.error);
+    toast(newVal ? 'SMS אוטומטי מופעל ✅' : 'SMS אוטומטי כבוי', newVal ? 'ok' : '');
+  } catch (e) {
+    setAutoSmsUI(!newVal);
+    toast('שגיאה בשמירת ההגדרה', 'err');
+  }
+}
+
+// ── Slot inventory ──────────────────────────────────────────────────────────────
+async function loadSlotInventory() {
+  const el = document.getElementById('js-diary-slots');
+  if (!el) return;
+  el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
+  try {
+    const data = await apiCall('getSlotInventory');
+    if (!data.success) throw new Error(data.error);
+    renderSlotInventory(data.slots || []);
+  } catch (e) {
+    el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
+  }
+}
+
+function renderSlotInventory(slots) {
+  const el = document.getElementById('js-diary-slots');
+  if (!slots.length) {
+    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין חריצים בתקופה הנבחרת</div>';
+    return;
+  }
+  const byDate = {};
+  slots.forEach(s => { if (!byDate[s.date]) byDate[s.date] = []; byDate[s.date].push(s); });
+  el.innerHTML = Object.entries(byDate)
+    .sort(([a], [b]) => a < b ? -1 : 1)
+    .map(([date, daySlots]) => {
+      const label = date.replace(/-/g, '/');
+      const rows = daySlots.map(s => {
+        const isAvail   = s.status === 'Available';
+        const isBlock   = s.status === 'Blocked';
+        const canToggle = isAvail || isBlock;
+        const hl        = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
+        const stCls     = isAvail ? 'text-green-600 bg-green-50' : isBlock ? 'text-gray-400 bg-gray-50' : 'text-text-muted bg-secondary/20';
+        const stLabel   = isAvail ? 'פנוי' : isBlock ? 'חסום' : esc(s.status);
+        const btnLabel  = isAvail ? 'חסום' : 'שחרר';
+        const btnCls    = isAvail ? 'bg-red-100 text-red-500 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200';
+        return '<div class="flex items-center justify-between py-2 border-b border-secondary/15 last:border-0' + hl + '" data-qa="slot-row">'
+          + '<div class="flex items-center gap-2">'
+          + (s.recentlyCancelled ? '<span title="בוטל לאחרונה">🔄</span>' : '')
+          + '<span class="text-sm font-medium text-text-main">' + esc(s.time) + '</span>'
+          + '<span class="text-xs px-2 py-0.5 rounded-full ' + stCls + '">' + stLabel + '</span></div>'
+          + (canToggle
+            ? '<button data-action="toggle-slot" data-date="' + esc(s.date) + '" data-time="' + esc(s.time) + '"'
+            + ' class="' + btnCls + ' text-xs font-bold px-3 py-1.5 rounded-xl transition-colors active:scale-95"'
+            + ' data-qa="btn-toggle-slot">' + btnLabel + '</button>'
+            : '')
+          + '</div>';
+      }).join('');
+      return '<div class="mb-3"><div class="text-xs font-bold text-text-muted mb-1">' + label + '</div>'
+        + '<div class="bg-secondary/10 rounded-xl px-3">' + rows + '</div></div>';
+    }).join('');
+  el.querySelectorAll('[data-action="toggle-slot"]').forEach(btn =>
+    btn.addEventListener('click', () => toggleSlot(btn.dataset.date, btn.dataset.time)));
+}
+
+async function toggleSlot(date, time) {
+  try {
+    const data = await apiCall('toggleSlotStatus', { date, time });
+    if (!data.success) {
+      if (data.error === 'cannot_toggle') {
+        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
+      }
+      throw new Error(data.error || 'error');
+    }
+    const lbl = data.newStatus === 'Available' ? 'שוחרר ✅' : 'חסום ✅';
+    toast(date.replace(/-/g, '/') + ' ' + time + ' — ' + lbl, 'ok');
+    await loadSlotInventory();
+  } catch (e) {
+    toast('שגיאה: ' + e.message, 'err');
+  }
+}
+
+// ── SMS communication log ────────────────────────────────────────────────
+async function loadSmsLog() {
+  const el = document.getElementById('js-sms-log');
+  if (!el) return;
+  el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
+  try {
+    const data = await apiCall('getSmsLog');
+    if (!data.success) throw new Error(data.error);
+    renderSmsLog(data.entries || []);
+  } catch (e) {
+    el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
+  }
+}
+
+function renderSmsLog(entries) {
+  const el = document.getElementById('js-sms-log');
+  if (!entries.length) {
+    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין רשומות</div>';
+    return;
+  }
+  el.innerHTML = entries.map(e => {
+    const icon = e.status === 'SENT' ? '✅' : e.status === 'MOCK' ? '🧪' : e.status === 'SKIPPED' ? '⏭️' : '❌';
+    return '<div class="flex items-start gap-2 py-2 border-b border-secondary/15 last:border-0" data-qa="log-entry">'
+      + '<span class="shrink-0 mt-0.5">' + icon + '</span>'
+      + '<div class="flex-1 min-w-0">'
+      + '<div class="flex items-center justify-between gap-2 mb-0.5">'
+      + '<span class="text-xs font-semibold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
+      + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
+      + '</div>'
+      + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
+      + '</div></div>';
+  }).join('');
+}
+
+/ ── Auto-refresh (60 s) ───────────────────────────────────────────
 
 async function runHealthCheck() {
   const btn  = document.getElementById('js-health-submit');
@@ -606,6 +796,19 @@ async function init() {
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
   document.getElementById('js-health-submit').addEventListener('click', runHealthCheck);
 
+  // Auto-SMS toggle
+  document.getElementById('js-auto-sms-btn').addEventListener('click', toggleAutoSms);
+
+  // SMS modal
+  document.getElementById('js-sms-close').addEventListener('click', closeSmsModal);
+  document.getElementById('js-sms-cancel').addEventListener('click', closeSmsModal);
+  document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
+  document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
+
+  // Diary tab
+  document.getElementById('js-diary-refresh').addEventListener('click', loadSlotInventory);
+  document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
+
   // Session restore
   if (S.token && sessionValid()) {
     try {
@@ -616,6 +819,7 @@ async function init() {
       hideSkeleton();
       render();
       updateStats();
+      loadAutoSmsToggle();
     } catch (_) {
       logout();
     }
