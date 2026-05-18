@@ -15,6 +15,7 @@ Before suggesting any code change, you MUST output a Stability Report in this ex
 | Tests cover this  | Yes / Partial (gaps: …) / No               |
 | Edge cases noted  | List at least 2 that could break this      |
 | Deploy step       | clasp push + deploy required? Yes / No     |
+| data-qa coverage  | UI change? List every new/removed element and its data-qa value |
 ```
 
 Do not skip the Stability Report even for one-line changes. If a change is risky,
@@ -30,6 +31,13 @@ say so explicitly in the Risk row and name the mitigation.
 - Frontend: Vanilla JS + Tailwind CSS, no build step
 - Tests: Vitest (CI only — no local `node`/`npx`)
 - Platform: Windows 11 + Git Bash; PowerShell cannot run git commands (U+200F in path)
+
+### UI Element Protocol (data-qa)
+- EVERY functional element (buttons, inputs, selects, status containers, dynamic cards/slots/rows) MUST have a `data-qa` attribute.
+- `data-qa` values must be kebab-case: `data-qa="btn-next"`, `data-qa="inp-phone"`, `data-qa="slot-btn"`.
+- All `document.querySelector` / `querySelectorAll` calls MUST use `[data-qa="..."]` selectors — never CSS class or ID selectors.
+- When adding a new functional element: add `data-qa` to the HTML/JS template AND add a `[data-qa="..."]` assertion to `tests/e2e/qa_guardrails.spec.js`.
+- The Stability Report `data-qa coverage` row is mandatory for any change that adds, removes, or renames a functional element.
 
 ### File Editing Protocol
 - NEVER use PowerShell `Set-Content` / `Out-File` for JS or HTML files — EPERM intermittent

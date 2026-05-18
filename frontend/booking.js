@@ -260,7 +260,7 @@ function renderProgress() {
   let html = '';
   STEP_LABELS.forEach((lbl, i) => {
     const n = i + 1, done = n < step, curr = n === step;
-    html += '<div class="flex flex-col items-center shrink-0">';
+    html += `<div class="flex flex-col items-center shrink-0" data-qa="step-indicator-${n}">`;
     if (done) {
       html += `<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm transition-all">
         <svg class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24">
@@ -298,7 +298,7 @@ function renderServices() {
   document.getElementById('js-services').innerHTML = SERVICES.map(s => `
     <button
       class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full"
-      data-id="${s.id}"
+      data-id="${s.id}" data-qa="card-service-${s.id}"
     >
       <div class="flex items-start gap-3">
         <span class="text-2xl mt-0.5" aria-hidden="true">${s.icon}</span>
@@ -314,7 +314,7 @@ function renderServices() {
     const btn = e.target.closest('[data-id]');
     if (!btn) return;
     State.service = SERVICES.find(s => s.id === btn.dataset.id);
-    document.querySelectorAll('.service-card').forEach(c =>
+    document.querySelectorAll('[data-qa^="card-service"]').forEach(c =>
       c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
     updateNav();
   });
@@ -389,7 +389,7 @@ function renderCalendar() {
     ].join(' ');
 
     html += `
-      <div class="${cls}" data-date="${key}" role="button" tabindex="${disabled ? -1 : 0}"
+      <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
         ${has && !disabled && !sel ? '<span class="dot-avail"></span>' : ''}
@@ -467,7 +467,7 @@ function renderSlots(dateKey) {
   slotsWrap.classList.remove('hidden');
 
   slotsGrid.innerHTML = times.map(t => `
-    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}">
+    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}" data-qa="slot-btn">
       <span class="font-semibold text-sm">${t}</span>
     </div>
   `).join('');
@@ -487,7 +487,7 @@ function renderOTPInputs() {
       pattern="[0-9]"
       maxlength="1"
       autocomplete="${i === 0 ? 'one-time-code' : 'off'}"
-      data-idx="${i}"
+      data-idx="${i}" data-qa="otp-digit"
       aria-label="ספרה ${i + 1}"
     >
   `).join('');
@@ -529,18 +529,18 @@ function renderOTPInputs() {
 }
 
 function getOTP() {
-  return Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
+  return Array.from(document.querySelectorAll('[data-qa="otp-digit"]')).map(i => i.value).join('');
 }
 
 function clearOTPInputs(markError = false) {
-  document.querySelectorAll('.otp-input').forEach(i => {
+  document.querySelectorAll('[data-qa="otp-digit"]').forEach(i => {
     i.value = '';
     i.classList.remove('filled');
     if (markError) i.classList.add('error');
   });
   setTimeout(() => {
-    document.querySelectorAll('.otp-input').forEach(i => i.classList.remove('error'));
-    document.querySelector('.otp-input[data-idx="0"]')?.focus();
+    document.querySelectorAll('[data-qa="otp-digit"]').forEach(i => i.classList.remove('error'));
+    document.querySelector('[data-qa="otp-digit"][data-idx="0"]')?.focus();
   }, 400);
 }
 
@@ -558,7 +558,7 @@ function renderConfirmation() {
   ];
 
   document.getElementById('js-confirm-details').innerHTML = rows.map(r => `
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between" data-qa="confirm-row">
       <span class="text-text-muted text-xs font-medium">${r.label}</span>
       <span class="text-text-main text-sm font-semibold">${r.value}</span>
     </div>
