@@ -1081,7 +1081,7 @@ function sendSMS(to, body) {
     resp = UrlFetchApp.fetch(url, options);
   } catch (fetchErr) {
     Logger.log('[sendSMS] Network error: ' + fetchErr.message);
-    logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
     const err = new Error('SMS network error: ' + fetchErr.message);
     err.debugInfo = { stage: 'network', to, from: fromNum, message: fetchErr.message };
     throw err;
@@ -1101,7 +1101,7 @@ function sendSMS(to, body) {
       dbg.twilioMessage = tw.message;
       if (tw.more_info) { detail += ' — ' + tw.more_info; dbg.moreInfo = tw.more_info; }
     } catch (_) { detail += ' | ' + respText.slice(0, 200); }
-    logSMS(to, _smsCtx, 'ERROR', body, detail);
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, detail);
     const err = new Error('Twilio SMS failed: ' + detail);
     err.debugInfo = dbg;
     throw err;
@@ -1109,7 +1109,7 @@ function sendSMS(to, body) {
 
   let sid = '';
   try { sid = JSON.parse(respText).sid || ''; } catch (_) {}
-  logSMS(to, _smsCtx, 'SENT', body, sid);
+  if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'SENT', body, sid);
   Logger.log('[sendSMS] SMS sent OK to ' + to + ' | SID: ' + sid);
 }
 
@@ -2229,12 +2229,20 @@ const SmsService = {
       }
       return;
     }
-    if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
-      CommunicationLogService.log({ recipient_phone: to, context: context,
-        status: 'SENT', message_body: message, detail: '' });
-    }
     sendSMS._context = context;
-    sendSMS(to, message);
+    try {
+      sendSMS(to, message);
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'SENT', message_body: message, detail: '' });
+      }
+    } catch (e) {
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'ERROR', message_body: message, detail: e.message });
+      }
+      throw e;
+    }
   },
 };
 

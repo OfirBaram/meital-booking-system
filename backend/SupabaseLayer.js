@@ -161,7 +161,10 @@ var SheetMirrorService = (function () {
       safe('updateSlotStatus', function () {
         var sh   = slotsSheet();
         var data = sh.getDataRange().getValues();
-        var targetPrefix = startTimeISO.slice(0, 16); // 'YYYY-MM-DDTHH:MM'
+        // Convert incoming ISO (may be UTC from Supabase) to Jerusalem local for matching
+        var dt = new Date(startTimeISO);
+        var targetPrefix = Utilities.formatDate(dt, 'Asia/Jerusalem', 'yyyy-MM-dd') + 'T' +
+                           Utilities.formatDate(dt, 'Asia/Jerusalem', 'HH:mm');
         for (var r = 1; r < data.length; r++) {
           var d = _isoDate(data[r][SLOT_COL.DATE  - 1]);
           var t = _fmtTime(data[r][SLOT_COL.START - 1]);
@@ -255,6 +258,14 @@ function handleGetSlotsV2(body) {
 }
 
 function _sb_pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// Return a Jerusalem-local YYYY-MM-DDTHH:MM:SS+HH:MM ISO string.
+// Probes DST offset via Utilities.formatDate (+02:00 winter / +03:00 summer).
+function _sb_localToUtcIso(dateYmd, timeHm) {
+  var noon = new Date(dateYmd + 'T12:00:00Z'); // noon UTC probes DST on this date
+  var offX = Utilities.formatDate(noon, 'Asia/Jerusalem', 'XXX'); // '+03:00' or '+02:00'
+  return dateYmd + 'T' + timeHm + ':00' + offX;
+}
 
 // ─── handleSendOTPV2 ──────────────────────────────────────────────
 function handleSendOTPV2(body) {
@@ -514,8 +525,8 @@ function handleMigrateToSupabase(body) {
       if (!date || !sTime) continue;
 
       var inserted = SupabaseService.insert('slots', {
-        start_time:   date + 'T' + sTime + ':00',
-        end_time:     date + 'T' + (eTime || sTime) + ':00',
+        start_time:   _sb_localToUtcIso(date, sTime),
+        end_time:     _sb_localToUtcIso(date, eTime || sTime),
         status:       STATUS_MAP[status] || 'available',
         last_updated: new Date().toISOString(),
       });
