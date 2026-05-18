@@ -144,3 +144,8 @@ scripts/__pycache__/
 
 # Claude Code local settings
 .claude/
+
+# clasp pull artifacts — Code.js is generated from gas-backend.js before each push
+backend/Code.js
+backend/Tests.js
+backend/Setup.gs.js

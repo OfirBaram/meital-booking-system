@@ -594,8 +594,7 @@ function handleSendOTP(body) {
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   try {
     sendSMS._context = 'OTP';
-    sendSMS(phone, 'קוד האימות שלך להזמנת תור: ' + otp + '
-תקף ל-5 דקות.');
+    sendSMS(phone, 'קוד האימות שלך להזמנת תור: ' + otp + '\nתקף ל-5 דקות.');
   } catch (smsErr) {
     Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
     log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'שליחת SMS נכשלה', { phone: phone, detail: smsErr.message });
