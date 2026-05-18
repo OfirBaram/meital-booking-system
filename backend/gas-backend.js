@@ -69,16 +69,37 @@ const EXPECTED_SS_ID = '1T9B1_4WUYS7Iq1UXyEfnG3LyI0_XapxPH1Q2X-6vVbQ';
  */
 
 const SHEETS = {
-  SLOTS:   'Weekly_Slots',
-  LOG:     'Bookings_Log',
-  SMS_LOG: 'SMS_LOG',
-  AUDIT:   'Audit_Log',
+  SLOTS:    'Weekly_Slots',
+  LOG:      'Bookings_Log',
+  SMS_LOG:  'SMS_LOG',
+  AUDIT:    'Audit_Log',
+  EXEC_LOG: 'Execution_Log',
+  TEMPLATE: 'Slot_Template',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
 const LOG_COL   = { UUID:1, NAME:2, PHONE:3, SERVICE:4, SERVICE_NAME:5,
                     DATE:6, TIME:7, TIMESTAMP:8, DURATION:9, STATUS:10,
                     CAL_EVENT:11, ADMIN_TOKEN:12 };
+
+const LOG_LEVEL = {
+  SUCCESS: '✅ הצלחה',
+  WARNING: '⚠️ אזהרה',
+  ERROR:   '❌ שגיאה',
+  INFO:    'ℹ️ מידע',
+};
+
+const ACTION = {
+  SEND_OTP:      'שליחת OTP',
+  VERIFY_BOOK:   'אימות והזמנה',
+  ADMIN_APPROVE: 'אישור הזמנה',
+  ADMIN_REJECT:  'דחיית הזמנה',
+  ADMIN_CANCEL:  'ביטול הזמנה',
+  CAL_SYNC:      'סנכרון יומן',
+  SEND_REMINDER: 'תזכורת SMS',
+  BACKUP:        'גיבוי נתונים',
+  HEALTH:        'בדיקת תקינות',
+};
 
 function ss() {
   return SpreadsheetApp.openById(CFG.SS_ID);
@@ -138,6 +159,121 @@ function logSMS(to, context, status, message, detail) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// OBSERVABILITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Returns (creating if needed) the Execution_Log sheet with a frozen header row.
+ * Columns: Timestamp | Action | Level | Phone | BookingID | Message | Technical_Detail
+ */
+function execLogSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.EXEC_LOG);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.EXEC_LOG);
+    sh.appendRow(['זמן', 'פעולה', 'רמה', 'טלפון', 'ID הזמנה', 'תיאור', 'פרט טכני (דיבאג)']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:G1').setFontWeight('bold');
+    sh.setColumnWidth(1, 160); // Timestamp
+    sh.setColumnWidth(6, 300); // Message
+    sh.setColumnWidth(7, 400); // Technical_Detail
+    sh.hideColumns(7);          // hidden by default; Ofir can show via Sheets UI
+  }
+  return sh;
+}
+
+/**
+ * Appends one structured row to Execution_Log.
+ * @param {string} level     - LOG_LEVEL constant
+ * @param {string} action    - ACTION constant
+ * @param {string} message   - Human-readable Hebrew summary
+ * @param {object} [opts]    - Optional: { phone, bookingId, detail }
+ */
+function log(level, action, message, opts) {
+  opts = opts || {};
+  try {
+    execLogSheet().appendRow([
+      new Date(),
+      action,
+      level,
+      opts.phone     || '',
+      opts.bookingId || '',
+      message,
+      opts.detail    || '',
+    ]);
+  } catch (e) {
+    Logger.log('[log] Execution_Log write failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESILIENCE
+// ═══════════════════════════════════════════════════════════════
+
+const DAILY_SMS_LIMIT = 45; // leave 5-unit buffer below Twilio trial cap of 50
+
+/**
+ * Retries fn up to maxAttempts times with exponential back-off.
+ * @param {Function} fn
+ * @param {object}  [opts]
+ * @param {number}  [opts.maxAttempts=3]
+ * @param {number}  [opts.baseDelayMs=500]
+ * @returns {*} result of fn
+ */
+function withRetry(fn, opts) {
+  opts = opts || {};
+  var maxAttempts = opts.maxAttempts || 3;
+  var baseDelayMs = opts.baseDelayMs || 500;
+  var lastErr;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts) {
+        Utilities.sleep(baseDelayMs * Math.pow(2, attempt - 1));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Returns the number of SMS rows logged today in SMS_LOG.
+ * Counts rows where column A (Timestamp) falls within today (Asia/Jerusalem).
+ */
+function getDailySmsCount() {
+  var tz     = Session.getScriptTimeZone() || 'Asia/Jerusalem';
+  var today  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var sh     = smsLogSheet();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+  var timestamps = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  var count = 0;
+  for (var i = 0; i < timestamps.length; i++) {
+    var cell = timestamps[i][0];
+    if (cell instanceof Date) {
+      var cellDay = Utilities.formatDate(cell, tz, 'yyyy-MM-dd');
+      if (cellDay === today) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Throws if daily SMS quota is at or above DAILY_SMS_LIMIT.
+ * @param {string} context - caller label for the error message
+ */
+function checkSmsQuota(context) {
+  var count = getDailySmsCount();
+  if (count >= DAILY_SMS_LIMIT) {
+    var msg = 'מכסת SMS יומית הגעה ל-' + count + '/' + DAILY_SMS_LIMIT;
+    log(LOG_LEVEL.ERROR, context, msg);
+    throw new Error(msg);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // HTTP ENTRY POINTS
 // ═══════════════════════════════════════════════════════════════
 
@@ -168,7 +304,14 @@ function doPost(e) {
       case 'listBookings':  return jsonOk(handleListBookings(body));
       case 'changeStatus':  return jsonOk(handleChangeStatus(body));
       case 'createBooking': return jsonOk(handleCreateBooking(body));
-      case 'runFlowTest':   return jsonOk(handleRunFlowTest(body));
+      case 'healthCheck':   return jsonOk(handleHealthCheck(body));
+      case 'createBackup':  return jsonOk(handleCreateBackup(body));
+      case 'getTemplate':   return jsonOk(handleGetTemplate(body));
+      case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
+      case 'generateSlots': return jsonOk(handleGenerateSlots(body));
+      case 'blockDates':    return jsonOk(handleBlockDates(body));
+      case 'sendReminders': return jsonOk(handleSendReminders(body));
+      case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -417,50 +560,50 @@ function handleGetSlots(body) {
  * and sends it via Twilio SMS.
  * Body: { phone: '05XXXXXXXX' }
  */
-// QA bypass: 0500000000 normalises to QA_MOCK_PHONE.
-// Caches a fixed OTP and skips Twilio so tests never consume SMS quota.
-const QA_MOCK_PHONE = '+972500000000';
-const QA_MOCK_OTP   = '123456';
-
 function handleSendOTP(body) {
+  var _t0 = Date.now();
   Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
-  const phone = normalizePhone(body.phone);
-  Logger.log('[sendOTP] Normalized phone: "' + phone + '" (05X→+972 conversion applied if needed)');
+  var phone = normalizePhone(body.phone);
+  Logger.log('[sendOTP] Normalized phone: "' + phone + '"');
   if (!phone) {
     throw new Error(
       'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
   }
 
-  // Mock mode: fixed OTP, no Twilio call
-  if (phone === QA_MOCK_PHONE) {
-    Logger.log('[sendOTP] MOCK MODE — caching fixed OTP ' + QA_MOCK_OTP + ', skipping Twilio');
-    CacheService.getScriptCache().put('otp_' + phone, QA_MOCK_OTP, 300);
-    return { success: true };
-  }
-
   // Rate-limit: one real OTP request per phone per 30 seconds.
-  // Prevents a direct-API caller from draining the Twilio trial quota.
-  const rateLimitKey = 'otp_ratelimit_' + phone;
-  const cache = CacheService.getScriptCache();
+  var rateLimitKey = 'otp_ratelimit_' + phone;
+  var cache = CacheService.getScriptCache();
   if (cache.get(rateLimitKey)) {
     Logger.log('[sendOTP] Rate limit hit for ' + phone + ' — retry in 30 s');
+    log(LOG_LEVEL.WARNING, ACTION.SEND_OTP, 'Rate limit — בקשת OTP חוזרת נחסמה', { phone: phone });
     return { success: false, error: 'rate_limited', retryAfterSecs: 30 };
   }
   cache.put(rateLimitKey, '1', 30); // block repeat for 30 s
 
-  const otp = generateOTP();
+  // Quota guard — refuse if daily SMS cap reached
+  try {
+    checkSmsQuota(ACTION.SEND_OTP);
+  } catch (quotaErr) {
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'מכסת SMS יומית מלאה — OTP לא נשלח', { phone: phone, detail: quotaErr.message });
+    return { success: false, error: 'sms_quota_exceeded' };
+  }
+
+  var otp = generateOTP();
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   try {
     sendSMS._context = 'OTP';
-    sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
+    sendSMS(phone, 'קוד האימות שלך להזמנת תור: ' + otp + '
+תקף ל-5 דקות.');
   } catch (smsErr) {
     Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
-    // Return debugInfo so the browser Console shows the exact Twilio reason.
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'שליחת SMS נכשלה', { phone: phone, detail: smsErr.message });
     return { success: false, error: smsErr.message, debugInfo: smsErr.debugInfo || {} };
   }
-  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone);
+  var elapsed = Date.now() - _t0;
+  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone + ' (' + elapsed + 'ms)');
+  log(LOG_LEVEL.SUCCESS, ACTION.SEND_OTP, 'OTP נשלח בהצלחה (' + elapsed + 'ms)', { phone: phone });
   return { success: true };
 }
 
@@ -478,10 +621,20 @@ function handleSendOTP(body) {
  * Race-condition guard: uses LockService + double-check of slot status.
  */
 function handleVerifyAndBook(body) {
+  var _t0 = Date.now();
   const { otp, booking } = body;
   if (!otp || !booking) throw new Error('otp and booking are required');
 
   const phone = normalizePhone(booking.phone);
+
+  // ── 0. Validation parity (mirrors frontend guards) ──
+  const ALLOWED_SERVICES = ['gel_classic', 'gel_feet'];
+  if (!booking.name || booking.name.trim().length < 2) {
+    return { success: false, error: 'invalid_name' };
+  }
+  if (!booking.service || !ALLOWED_SERVICES.includes(booking.service)) {
+    return { success: false, error: 'invalid_service' };
+  }
 
   // ── 1. Validate OTP ──
   const cache    = CacheService.getScriptCache();
@@ -513,11 +666,13 @@ function handleVerifyAndBook(body) {
     const slotRow = findSlotRow(booking.date, booking.time);
     if (!slotRow) {
       Logger.log('[verifyAndBook] REJECTED: slot not found in Weekly_Slots');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ לא נמצא ב-Weekly_Slots', { phone: phone, detail: booking.date + ' ' + booking.time });
       return { success: false, error: 'slot_not_available' };
     }
     const currentStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
     if (currentStatus !== 'Available') {
       Logger.log('[verifyAndBook] REJECTED: slot status is "' + currentStatus + '" (not Available)');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ אינו זמין — סטטוס: ' + currentStatus, { phone: phone, detail: booking.date + ' ' + booking.time });
       return { success: false, error: 'slot_not_available' };
     }
     Logger.log('[verifyAndBook] Integrity gate PASSED — slot confirmed Available at row ' + slotRow.rowIndex);
@@ -561,18 +716,12 @@ function handleVerifyAndBook(body) {
       `✅ אישור: ${approveUrl}`,
       `❌ דחייה: ${rejectUrl}`,
     ].join('\n');
-    if (phone !== QA_MOCK_PHONE) {
-      sendSMS._context = 'AdminNotify';
-      sendSMS(CFG.ADMIN_PHONE, adminMsg);
-    } else {
-      Logger.log('[verifyAndBook] MOCK MODE — admin SMS suppressed. Copy links from log:');
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log(adminMsg);
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log('[verifyAndBook] bookingId=' + bookingId + ' | adminToken=' + adminToken);
-    }
+    sendSMS._context = 'AdminNotify';
+    sendSMS(CFG.ADMIN_PHONE, adminMsg);
 
-    Logger.log('[verifyAndBook] Booking created: ' + bookingId);
+    var elapsed = Date.now() - _t0;
+    Logger.log('[verifyAndBook] Booking created: ' + bookingId + ' (' + elapsed + 'ms)');
+    log(LOG_LEVEL.SUCCESS, ACTION.VERIFY_BOOK, 'הזמנה נוצרה בהצלחה (' + elapsed + 'ms)', { phone: phone, bookingId: bookingId, detail: booking.serviceName + ' | ' + booking.date + ' ' + booking.time });
     return { success: true, bookingId, status: 'Pending' };
 
   } finally {
@@ -677,6 +826,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientApproval');
 
   Logger.log('[adminAction] Approved: ' + bookingId);
+  log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time + ' | calEvent:' + calEventId });
   return { success: true, action: 'APPROVE', bookingId, calEventId };
 }
 
@@ -702,6 +852,7 @@ function processRejection(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientRejection');
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
+  log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time });
   return { success: true, action: 'REJECT', bookingId };
 }
 
@@ -751,6 +902,7 @@ function createCalendarEvent({ date, time, duration, clientName, serviceName, bo
  *      see the update within the next request rather than waiting up to 10 min.
  */
 function syncCalendarToSlots() {
+  const _syncStart = Date.now();
   const TZ   = 'Asia/Jerusalem';
   const cal  = CalendarApp.getCalendarById(CFG.CAL_ID);
   const sh   = slotsSheet();
@@ -835,7 +987,14 @@ function syncCalendarToSlots() {
   // request returns fresh data instead of stale cache (up to 10-min old).
   changedDates.forEach(invalidateSlotsCache);
 
-  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + [...changedDates].join(', '));
+  var _syncElapsed = Date.now() - _syncStart;
+  var _changedList  = [...changedDates].join(', ') || '—';
+  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + _changedList + ' (' + _syncElapsed + 'ms)');
+  if (_syncElapsed > 5 * 60 * 1000) {
+    log(LOG_LEVEL.WARNING, ACTION.CAL_SYNC, 'סנכרון יומן ארך זמן רב (' + Math.round(_syncElapsed / 1000) + 's)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  } else {
+    log(LOG_LEVEL.SUCCESS, ACTION.CAL_SYNC, 'סנכרון יומן הושלם (' + _syncElapsed + 'ms)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1174,76 +1333,6 @@ function runInternalTests() {
  * Run once from the GAS editor to install the daily calendar-sync trigger.
  * Do NOT deploy this function as part of the web app.
  */
-/**
- * Run from the GAS editor to generate admin Approve/Reject links for the
- * most recent booking in Bookings_Log. Paste either URL in a browser to
- * test the admin-approval flow without an SMS being sent.
- */
-function simulateAdminSMS() {
-  Logger.log('');
-  Logger.log('══════════════ simulateAdminSMS START ══════════════');
-
-  const sh      = logSheet();
-  const lastRow = sh.getLastRow();
-
-  if (lastRow < 2) {
-    Logger.log('[simulateAdminSMS] Bookings_Log is empty — submit a booking first.');
-    return;
-  }
-
-  const data = sh.getRange(lastRow, 1, 1, 12).getValues()[0];
-
-  // Columns: A=UUID B=Name C=Phone D=Service E=ServiceName
-  //          F=Date G=Time H=Timestamp I=Duration J=Status K=CalEventId L=AdminToken
-  const bookingId   = String(data[0]).trim();
-  const name        = String(data[1]).trim();
-  const phone       = String(data[2]).trim();
-  const serviceName = String(data[4]).trim();
-  const status      = String(data[9]).trim();
-  const adminToken  = String(data[11]).trim();
-
-  // Date/Time cells may arrive as Date objects depending on Sheet column format
-  let date = data[5];
-  date = (date instanceof Date)
-    ? Utilities.formatDate(date, CFG.TIMEZONE, 'yyyy-MM-dd')
-    : String(date).trim();
-
-  let time = data[6];
-  time = (time instanceof Date)
-    ? Utilities.formatDate(time, CFG.TIMEZONE, 'HH:mm')
-    : String(time).trim();
-
-  Logger.log('[simulateAdminSMS] Row ' + lastRow + ':');
-  Logger.log('  bookingId:  ' + bookingId);
-  Logger.log('  name:       ' + name);
-  Logger.log('  phone:      ' + phone);
-  Logger.log('  service:    ' + serviceName);
-  Logger.log('  date/time:  ' + date + ' ' + time);
-  Logger.log('  status:     ' + status);
-  Logger.log('  adminToken: ' + adminToken);
-
-  if (!bookingId || !adminToken) {
-    Logger.log('[simulateAdminSMS] ERROR: bookingId or adminToken empty — check Bookings_Log columns A and L.');
-    return;
-  }
-
-  const approveUrl = buildAdminUrl('APPROVE', bookingId, adminToken);
-  const rejectUrl  = buildAdminUrl('REJECT',  bookingId, adminToken);
-
-  Logger.log('');
-  Logger.log('══════════════ ADMIN LINKS (paste in browser) ══════════════');
-  Logger.log('');
-  Logger.log('✅ APPROVE:');
-  Logger.log(approveUrl);
-  Logger.log('');
-  Logger.log('❌ REJECT:');
-  Logger.log(rejectUrl);
-  Logger.log('');
-  Logger.log('════════════════════════════════════════════════════════════');
-  Logger.log('[simulateAdminSMS] Open either URL in a browser to run the approval flow.');
-  Logger.log('[simulateAdminSMS] Expected: status in Bookings_Log changes to Approved/Rejected + Calendar event created.');
-  Logger.log('══════════════ simulateAdminSMS END ══════════════');
-}
 // ═══════════════════════════════════════════════════════════════
 // UNIT TESTS — run from GAS editor, no deployment needed
 // ═══════════════════════════════════════════════════════════════
@@ -1305,7 +1394,7 @@ function runBackendTests() {
  * Creates a fictional slot, runs verifyAndBook + adminAction APPROVE,
  * asserts slot and log status at each step, then cleans up all test data.
  *
- * IMPORTANT: uses QA_MOCK_PHONE (0500000000) so NO Twilio SMS is sent.
+ * IMPORTANT: uses phone 0500000000 — IS_TEST_MODE suppresses all Twilio/Calendar calls.
  * Run from the GAS editor — do NOT deploy as a web-app endpoint.
  */
 function testFullBookingFlow() {
@@ -1346,9 +1435,10 @@ function testFullBookingFlow() {
 
     // ── Step 2: cache OTP + call handleVerifyAndBook ──────────────
     Logger.log('\n[Step 2] Calling handleVerifyAndBook (mock phone, no SMS)...');
-    CacheService.getScriptCache().put('otp_' + QA_MOCK_PHONE, QA_MOCK_OTP, 60);
+    const TEST_OTP = '000001';
+    CacheService.getScriptCache().put('otp_+972500000000', TEST_OTP, 60);
     const vRes = handleVerifyAndBook({
-      otp: QA_MOCK_OTP,
+      otp: TEST_OTP,
       booking: {
         id: testId, name: 'AUTO-TEST', phone: '0500000000',
         service: 'gel_classic', serviceName: "Test Service",
@@ -1513,23 +1603,145 @@ function verifyConfig() {
 }
 
 function installTriggers() {
-  // Remove any existing syncCalendarToSlots triggers first
+  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'syncCalendarToSlots')
+    .filter(t => HANDLERS.includes(t.getHandlerFunction()))
     .forEach(t => ScriptApp.deleteTrigger(t));
 
   ScriptApp.newTrigger('syncCalendarToSlots')
-    .timeBased()
-    .everyDays(1)
-    .atHour(1)
-    .create();
+    .timeBased().everyDays(1).atHour(1).create();
+  Logger.log('[installTriggers] syncCalendarToSlots trigger installed (01:00 daily).');
 
-  Logger.log('[installTriggers] syncCalendarToSlots trigger installed.');
+  ScriptApp.newTrigger('sendDailyReminders')
+    .timeBased().everyDays(1).atHour(8).create();
+  Logger.log('[installTriggers] sendDailyReminders trigger installed (08:00 daily).');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 24H SMS REMINDERS  (Phase 3.2)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Sends a reminder SMS to every client with an Approved booking for tomorrow.
+ * Idempotent: PropertiesService key REMINDER_LAST_RUN prevents double-sends
+ * on the same calendar day even if the trigger fires twice.
+ * Called automatically at 08:00 by the time-based trigger installed by
+ * installTriggers(), or manually via the admin dashboard (handleSendReminders).
+ */
+function sendDailyReminders() {
+  var _t0   = Date.now();
+  var TZ    = 'Asia/Jerusalem';
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+
+  // Idempotency guard — skip if already ran today
+  var props   = PropertiesService.getScriptProperties();
+  var lastRun = props.getProperty('REMINDER_LAST_RUN') || '';
+  if (lastRun === today) {
+    Logger.log('[sendDailyReminders] Already ran today (' + today + '), skipping.');
+    return { skipped: true, reason: 'already_ran_today', date: today };
+  }
+
+  // Tomorrow's date string
+  var tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  var tomorrow = Utilities.formatDate(tomorrowDate, TZ, 'yyyy-MM-dd');
+  Logger.log('[sendDailyReminders] Looking for Approved bookings on ' + tomorrow);
+
+  // Read Bookings_Log
+  var sh   = logSheet();
+  var data = sh.getDataRange().getValues();
+  var sent = 0, skippedQuota = 0, errors = 0;
+
+  for (var r = 1; r < data.length; r++) {
+    var row    = data[r];
+    var status = String(row[LOG_COL.STATUS - 1] || '').trim();
+    if (status !== 'Approved') continue;
+
+    var rawDate = row[LOG_COL.DATE - 1];
+    var dateStr = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (dateStr !== tomorrow) continue;
+
+    var rawTime   = row[LOG_COL.TIME - 1];
+    var timeStr   = (rawTime instanceof Date)
+      ? Utilities.formatDate(rawTime, TZ, 'HH:mm') : String(rawTime || '').trim();
+    var phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
+    var name       = String(row[LOG_COL.NAME         - 1] || '').trim();
+    var svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
+    var bookingId  = String(row[LOG_COL.UUID         - 1] || '').trim();
+
+    if (!phone) { Logger.log('[sendDailyReminders] Missing phone at row ' + r); continue; }
+
+    // Quota guard — stop sending if limit reached
+    try {
+      checkSmsQuota(ACTION.SEND_REMINDER);
+    } catch (quotaErr) {
+      skippedQuota++;
+      Logger.log('[sendDailyReminders] Quota reached at row ' + r + ': ' + quotaErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'מכסת SMS מלאה — תזכורות נעצרו', { detail: 'שנשלחו: ' + sent });
+      break;
+    }
+
+    var msg = ('תזכורת: מחר יש לך תור! ' +
+      'שירות: ' + svcName + '. ' +
+      'תאריך: ' + tomorrow.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+      'לביטול יש לפנות למיטל.');
+
+    try {
+      SmsService.send(phone, msg, 'Reminder');
+      sent++;
+      log(LOG_LEVEL.SUCCESS, ACTION.SEND_REMINDER, 'תזכורת נשלחה ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: svcName + ' | ' + tomorrow + ' ' + timeStr });
+    } catch (smsErr) {
+      errors++;
+      Logger.log('[sendDailyReminders] SMS error for ' + phone + ': ' + smsErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'שגיאה בשליחת תזכורת ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: smsErr.message });
+    }
+  }
+
+  // Mark as done for today (skip if quota prevented all sends)
+  if (skippedQuota === 0) {
+    props.setProperty('REMINDER_LAST_RUN', today);
+  }
+
+  var elapsed = Date.now() - _t0;
+  var summary = 'תזכורות יומיות: שנשלחו ' + sent + ', שגיאות ' + errors + ', מכסה ' + skippedQuota + ' (' + elapsed + 'ms)';
+  Logger.log('[sendDailyReminders] ' + summary);
+  log(LOG_LEVEL.INFO, ACTION.SEND_REMINDER, summary, { detail: 'תאריך תור: ' + tomorrow });
+  return { success: true, sent: sent, errors: errors, skippedQuota: skippedQuota, date: tomorrow };
+}
+
+/**
+ * Admin-authenticated wrapper: allows manual trigger from the dashboard.
+ * Clears REMINDER_LAST_RUN so sendDailyReminders will run even if it already
+ * ran today — useful for re-sending after adding a late booking.
+ * Body: { token, force? } — set force: true to bypass today's idempotency guard.
+ */
+function handleSendReminders(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (body.force) {
+    PropertiesService.getScriptProperties().deleteProperty('REMINDER_LAST_RUN');
+    Logger.log('[handleSendReminders] force=true — REMINDER_LAST_RUN cleared');
+  }
+  var result = sendDailyReminders();
+  return Object.assign({ success: true }, result);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN DASHBOARD API  (v3.0)
 // ═══════════════════════════════════════════════════════════════
+
+function handleGetSystemInfo(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var props = PropertiesService.getScriptProperties();
+  return {
+    success: true,
+    reminderLastRun: props.getProperty('REMINDER_LAST_RUN') || null,
+  };
+}
+
+
 
 function validateAdmin(token) {
   if (!token) return false;
@@ -1719,11 +1931,6 @@ const SmsService = {
       logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
       return;
     }
-    if (to === QA_MOCK_PHONE) {
-      logSMS(to, context, 'MOCK', message, 'QA mock phone');
-      Logger.log('[SmsService] QA phone — logged to SMS_LOG, no Twilio');
-      return;
-    }
     sendSMS._context = context;
     sendSMS(to, message);
   },
@@ -1833,15 +2040,308 @@ function handleCreateBooking(body) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// SYSTEM HEALTH MONITOR  (Phase 4)
+// ═══════════════════════════════════════════════════════════════
+
+function handleHealthCheck(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var TZ = 'Asia/Jerusalem';
+  var checks = [];
+  function addCheck(name, label, fn) {
+    try {
+      var r = fn();
+      checks.push({ name: name, label: label, status: r.status, detail: r.detail || '' });
+    } catch (e) {
+      checks.push({ name: name, label: label, status: 'error', detail: e.message });
+    }
+  }
+
+  addCheck('properties', 'תכונות סקריפט', function() {
+    var REQUIRED = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+                    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID', 'ADMIN_TOKEN'];
+    var props   = PropertiesService.getScriptProperties();
+    var missing = REQUIRED.filter(function(k) { return !props.getProperty(k); });
+    return missing.length === 0
+      ? { status: 'ok',    detail: 'כל ' + REQUIRED.length + ' תכונות הוגדרו' }
+      : { status: 'error', detail: 'חסרות: ' + missing.join(', ') };
+  });
+
+  addCheck('sheets', 'גיליונות נדרשים', function() {
+    var spreadsheet = ss();
+    var names   = Object.values(SHEETS);
+    var missing = names.filter(function(n) { return !spreadsheet.getSheetByName(n); });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.length + ' גיליונות קיימים' }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('calendar', 'גישה ליומן', function() {
+    var cal = CalendarApp.getCalendarById(CFG.CAL_ID);
+    if (!cal) return { status: 'error', detail: 'יומן לא נמצא: ' + CFG.CAL_ID };
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE — יומן לא מתעדכן בפועל' }
+      : { status: 'ok',   detail: cal.getName() };
+  });
+
+  addCheck('testMode', 'מצב הפעלה', function() {
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE=true — SMS ויומן מדומים' }
+      : { status: 'ok',   detail: 'מצב ייצור — Twilio ויומן פעילים' };
+  });
+
+  addCheck('smsQuota', 'מכסת SMS היום', function() {
+    var count = getDailySmsCount();
+    var pct   = Math.round(count / DAILY_SMS_LIMIT * 100);
+    return { status: pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok',
+             detail: count + ' / ' + DAILY_SMS_LIMIT + ' SMS (' + pct + '%)' };
+  });
+
+  addCheck('recentErrors', 'שגיאות 24 שעות אחרונות', function() {
+    var sh = ss().getSheetByName(SHEETS.EXEC_LOG);
+    if (!sh) return { status: 'warn', detail: 'Execution_Log טרם נוצר' };
+    var data     = sh.getDataRange().getValues();
+    var cutoff   = Date.now() - 24 * 60 * 60 * 1000;
+    var errCount = 0;
+    for (var r = 1; r < data.length; r++) {
+      var ts = data[r][0];
+      if (ts instanceof Date && ts.getTime() >= cutoff &&
+          String(data[r][2]).indexOf('שגיאה') >= 0) errCount++;
+    }
+    return errCount === 0
+      ? { status: 'ok',                          detail: 'אין שגיאות' }
+      : { status: errCount > 5 ? 'error' : 'warn', detail: errCount + ' שגיאות' };
+  });
+
+  addCheck('triggers', 'טריגרים מותקנים', function() {
+    var names   = ScriptApp.getProjectTriggers().map(function(t) { return t.getHandlerFunction(); });
+    var missing = ['syncCalendarToSlots', 'sendDailyReminders'].filter(function(n) {
+      return names.indexOf(n) < 0;
+    });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.join(', ') }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('reminderLastRun', 'תזכורות — הרצה אחרונה', function() {
+    var lastRun = PropertiesService.getScriptProperties().getProperty('REMINDER_LAST_RUN') || '';
+    var today   = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    if (!lastRun) return { status: 'warn', detail: 'טרם הופעל' };
+    return lastRun === today
+      ? { status: 'ok',   detail: 'נשלח היום' }
+      : { status: 'warn', detail: 'נשלח ב-' + lastRun.replace(/-/g, '/') };
+  });
+
+  addCheck('pendingBookings', 'הזמנות ממתינות לאישור', function() {
+    var data    = logSheet().getDataRange().getValues();
+    var pending = 0;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.STATUS - 1]).trim() === 'Pending') pending++;
+    }
+    return pending === 0
+      ? { status: 'ok',   detail: 'אין ממתינות' }
+      : { status: 'warn', detail: pending + ' ממתינות לאישור' };
+  });
+
+  var nErr    = checks.filter(function(c) { return c.status === 'error'; }).length;
+  var nWarn   = checks.filter(function(c) { return c.status === 'warn';  }).length;
+  var overall = nErr > 0 ? 'error' : nWarn > 0 ? 'warn' : 'ok';
+  log(LOG_LEVEL.INFO, ACTION.HEALTH,
+      'בדיקת תקינות: ' + overall + ' (' + nErr + ' שגיאות, ' + nWarn + ' אזהרות)');
+  return { success: true, overall: overall, checks: checks };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKUP UTILITY
+// ═══════════════════════════════════════════════════════════════
+
 /**
- * doPost endpoint wrapper for runFullFlowTest.
- * Requires ADMIN_TOKEN — cannot be triggered anonymously.
+ * Creates a timestamped _Backup_YYYYMMDD_HHmm tab in the live spreadsheet.
+ * Copies all values (not formulas) from Weekly_Slots and Bookings_Log.
+ * Safe to run at any time — appends a new tab, never overwrites data.
+ * Returns { success, tabName, rowsCopied: { slots, bookings } }.
  */
-function handleRunFlowTest(body) {
+function createBackupSnapshot() {
+  const TZ        = 'Asia/Jerusalem';
+  const dateLabel = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmm');
+  const tabName   = '_Backup_' + dateLabel;
+  const spreadsheet = ss();
+
+  if (spreadsheet.getSheetByName(tabName)) {
+    Logger.log('[createBackupSnapshot] Tab already exists: ' + tabName);
+    return { success: false, error: 'backup_tab_exists', tabName: tabName };
+  }
+
+  const backupSh    = spreadsheet.insertSheet(tabName);
+  backupSh.setTabColor('#A67C8E');
+  const rowsCopied  = { slots: 0, bookings: 0 };
+
+  // Copy Weekly_Slots (including header row)
+  const slotData = slotsSheet().getDataRange().getValues();
+  if (slotData.length > 0) {
+    backupSh.getRange(1, 1, slotData.length, slotData[0].length).setValues(slotData);
+    rowsCopied.slots = slotData.length - 1;
+  }
+
+  // Leave one blank row as separator, then copy Bookings_Log
+  const logOffset = slotData.length + 2;
+  const logData   = logSheet().getDataRange().getValues();
+  if (logData.length > 0) {
+    backupSh.getRange(logOffset, 1, logData.length, logData[0].length).setValues(logData);
+    rowsCopied.bookings = logData.length - 1;
+  }
+
+  backupSh.setFrozenRows(1);
+  SpreadsheetApp.flush();
+
+  Logger.log('[createBackupSnapshot] Created: ' + tabName +
+             ' | slots=' + rowsCopied.slots + ' | bookings=' + rowsCopied.bookings);
+
+  return { success: true, tabName: tabName, rowsCopied: rowsCopied };
+}
+
+/**
+ * Admin-authenticated wrapper for createBackupSnapshot().
+ * Requires valid ADMIN_TOKEN. Writes to Audit_Log on success.
+ */
+function handleCreateBackup(body) {
   if (!validateAdmin(body.token)) {
     return { success: false, error: 'unauthorized', code: 403 };
   }
-  return runFullFlowTest();
+  const result = createBackupSnapshot();
+  if (result.success) {
+    writeAuditLog('admin', 'CreateBackup', '', '', '', result.tabName);
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SLOT TEMPLATE & SLOT GENERATOR  (admin Phase 2)
+// ═══════════════════════════════════════════════════════════════
+
+function templateSheet() {
+  var spreadsheet = ss();
+  var sh = spreadsheet.getSheetByName(SHEETS.TEMPLATE);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.TEMPLATE);
+    sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:D1').setFontWeight('bold');
+    var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    for (var d = 0; d < 7; d++) {
+      sh.appendRow([d, DAY_NAMES[d], '', d < 5 ? 'TRUE' : 'FALSE']);
+    }
+  }
+  return sh;
+}
+
+function handleGetTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var sh   = templateSheet();
+  var data = sh.getDataRange().getValues();
+  var rows = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var rawTimes = String(row[2] || '').trim();
+    rows.push({
+      dayOfWeek:  parseInt(row[0], 10),
+      dayName:    String(row[1] || '').trim(),
+      startTimes: rawTimes ? rawTimes.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [],
+      active:     String(row[3] || '').trim().toUpperCase() === 'TRUE',
+    });
+  }
+  return { success: true, template: rows };
+}
+
+function handleSaveTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!Array.isArray(body.template)) return { success: false, error: 'template array required' };
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var sh = templateSheet();
+  sh.clearContents();
+  sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+  for (var i = 0; i < body.template.length; i++) {
+    var entry = body.template[i];
+    var dow   = parseInt(entry.dayOfWeek, 10);
+    sh.appendRow([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'תבנית שעות עודכנה');
+  return { success: true };
+}
+
+function handleGenerateSlots(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ = 'Asia/Jerusalem';
+  var tmplData = handleGetTemplate(body);
+  if (!tmplData.success) return tmplData;
+  var template = tmplData.template;
+  var slotSh   = slotsSheet();
+  var existing = slotSh.getDataRange().getValues();
+  var existSet = {};
+  for (var r = 1; r < existing.length; r++) {
+    var ed = existing[r][SLOT_COL.DATE  - 1];
+    var es = existing[r][SLOT_COL.START - 1];
+    var ds = (ed instanceof Date) ? Utilities.formatDate(ed, TZ, 'yyyy-MM-dd') : String(ed || '').trim();
+    var ts = (es instanceof Date) ? Utilities.formatDate(es, TZ, 'HH:mm')     : String(es || '').trim();
+    if (ds && ts) existSet[ds + '|' + ts] = true;
+  }
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var cur   = new Date(body.startDate + 'T00:00:00');
+  var end   = new Date(body.endDate   + 'T00:00:00');
+  var added = 0;
+  while (cur <= end) {
+    var dow     = cur.getDay();
+    var dateStr = Utilities.formatDate(cur, TZ, 'yyyy-MM-dd');
+    var tmplRow = null;
+    for (var t = 0; t < template.length; t++) {
+      if (template[t].dayOfWeek === dow) { tmplRow = template[t]; break; }
+    }
+    if (tmplRow && tmplRow.active && tmplRow.startTimes.length > 0) {
+      for (var s = 0; s < tmplRow.startTimes.length; s++) {
+        var startTime = tmplRow.startTimes[s];
+        if (!existSet[dateStr + '|' + startTime]) {
+          var parts   = startTime.split(':').map(Number);
+          var endHr   = parts[0] + 2;
+          if (endHr >= 24) endHr = 23;
+          var endMin  = parts[1];
+          var endTime = (endHr < 10 ? '0' + endHr : String(endHr)) + ':' + (endMin < 10 ? '0' + endMin : String(endMin));
+          slotSh.appendRow([dateStr, DAY_NAMES[dow], startTime, endTime, 'Available']);
+          existSet[dateStr + '|' + startTime] = true;
+          added++;
+        }
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'נוצרו ' + added + ' חריצי זמן (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'GenerateSlots', '', '', '', added + ' slots for ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, added: added };
+}
+
+function handleBlockDates(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ      = 'Asia/Jerusalem';
+  var sh      = slotsSheet();
+  var data    = sh.getDataRange().getValues();
+  var blocked = 0;
+  for (var r = 1; r < data.length; r++) {
+    var rawDate = data[r][SLOT_COL.DATE   - 1];
+    var status  = String(data[r][SLOT_COL.STATUS - 1] || '').trim();
+    var dateStr = (rawDate instanceof Date) ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (!dateStr || status !== 'Available') continue;
+    if (dateStr >= body.startDate && dateStr <= body.endDate) {
+      sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Blocked');
+      blocked++;
+    }
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.INFO, ACTION.CAL_SYNC, 'חופשה: ' + blocked + ' חריצים נחסמו (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'BlockDates', '', '', '', blocked + ' slots blocked ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, blocked: blocked };
 }
 
 // ===============================================================

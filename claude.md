@@ -50,6 +50,38 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | K | CalendarEventId | Google Calendar event ID (set on approval) |
 | L | AdminToken | HMAC-SHA256 hex of UUID (for link validation) |
 
+### Tab: `SMS_LOG` (auto-created on first SMS)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | Timestamp | Date of send |
+| B | To | Recipient phone (E.164) |
+| C | Context | `OTP` / `AdminNotify` / `ClientApproval` / `ClientRejection` / `ClientCancellation` |
+| D | Status | `SENT` / `MOCK` / `ERROR` |
+| E | Message | SMS body (truncated at 500 chars) |
+| F | Detail | Twilio SID on success; error message on failure |
+
+### Tab: `Audit_Log` (auto-created on first admin action)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | Timestamp | Date of action |
+| B | Admin | `dashboard` or admin identifier |
+| C | Action | `CreateBooking` / `Approved` / `Rejected` / `Cancelled` / `CreateBackup` |
+| D | BookingId | UUID of affected booking |
+| E | PrevStatus | Status before action |
+| F | NewStatus | Status after action |
+| G | Detail | Free text (max 300 chars) |
+
+### Tab: `Execution_Log` (auto-created on first `log()` call)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | זמן | Timestamp (Date object) |
+| B | פעולה | ACTION constant (Hebrew) — e.g. "שליחת OTP" |
+| C | רמה | LOG_LEVEL constant — ✅ הצלחה / ⚠️ אזהרה / ❌ שגיאה / ℹ️ מידע |
+| D | טלפון | Client phone (E.164) if applicable |
+| E | ID הזמנה | Booking UUID if applicable |
+| F | תיאור | Human-readable Hebrew summary (visible to Meital) |
+| G | פרט טכני (דיבאג) | Technical detail string (hidden by default; Ofir unhides via Sheets) |
+
 ## 5. Development Guidelines
 - Mobile-First design.
 - Modular JavaScript.
@@ -145,6 +177,8 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | `CALENDAR_ID` | Google Calendar ID (`primary` or specific calendar email) |
 | `WEB_APP_URL` | Deployed web app URL (filled after first deployment) |
 | `TIMEZONE` | `Asia/Jerusalem` |
+| `ADMIN_TOKEN` | Random 32+ char hex string for admin dashboard authentication (distinct from `HMAC_SECRET`) |
+| `DAILY_SMS_LIMIT` | *(optional)* Override the daily SMS quota cap (default: 45, leaving a 5-unit buffer below Twilio trial cap of 50) |
 
 #### Google Calendar Integration
 - **On APPROVE:** `createCalendarEvent()` creates a timed event, stores event ID in `Bookings_Log` col K.
@@ -248,43 +282,23 @@ The footer (`<footer>` after `</main>`) contains two `<button>` elements:
 
 ## 9. QA Mock Phone Bypass
 
-### Purpose
-Twilio has a 50-SMS/day limit on trial accounts. The mock phone allows a complete
-end-to-end booking flow (including admin approve/reject) without consuming Twilio quota.
+> **Removed in Phase 3.5 (2026-05-18).** The mock phone bypass infrastructure was
+> surgically deleted as a production hardening step. It is no longer present in any
+> file. Do not re-add it.
 
-### How it works
+**What was removed:**
+- `QA_MOCK_PHONE` / `QA_MOCK_OTP` constants and three `if (phone === QA_MOCK_PHONE)` guard
+  blocks in `gas-backend.js` (`handleSendOTP`, `handleVerifyAndBook`, `SmsService.send`).
+- `simulateAdminSMS()` helper function from `gas-backend.js`.
+- `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, the `isValidPhone` bypass, and the OTP auto-fill
+  block in `frontend/booking.js`.
+- `IS_MOCK_MODE` flipped to `false` in `frontend/config.js`.
 
-#### Backend (`backend/gas-backend.js`)
-```js
-const QA_MOCK_PHONE = '+972500000000';
-const QA_MOCK_OTP   = '123456';
-```
-- `handleSendOTP`: if `phone === QA_MOCK_PHONE`, cache OTP `123456` and **return early** — no Twilio call.
-- `handleVerifyAndBook`: skip `sendSMS()` for admin notification; instead **print the full admin SMS body** (including Approve/Reject URLs) to `Logger.log`.
-- `processApproval` / `processRejection`: skip client confirmation SMS.
-
-**`simulateAdminSMS()`** — a helper function in the GAS script that reads the last row of `Bookings_Log` and prints admin links to the execution log. Run from the GAS editor to get approve/reject URLs without a real booking.
-
-#### Frontend (`frontend/booking.js`)
-```js
-CONFIG.MOCK_PHONE = '0500000000'
-CONFIG.MOCK_OTP   = '123456'
-```
-- `isValidPhone`: explicitly returns `true` for `'0500000000'` before the regex check.
-- Step 3 → Step 4 transition: if `State.phone === CONFIG.MOCK_PHONE`, auto-fill OTP boxes with `'123456'` after 500 ms and call `autoSubmitOTP()`.
-
-### How to use for QA
-1. Enter phone `0500000000` in the booking form.
-2. The OTP boxes auto-fill and auto-submit — no SMS received.
-3. To test the admin flow, copy the Approve/Reject links from the GAS **Execution log**.
-4. Paste the link in a browser → booking transitions to `Approved`/`Rejected` in Sheets + Calendar.
-
-### Removing the mock (production hardening)
-When moving to a production Twilio account with no daily limit:
-1. Delete `QA_MOCK_PHONE` and `QA_MOCK_OTP` constants from `gas-backend.js`.
-2. Remove the three `if (phone === QA_MOCK_PHONE)` blocks.
-3. Remove `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, and the auto-fill block in `booking.js`.
-4. Revert the `isValidPhone` check to the original regex-only version.
+**QA without the bypass:** Use `IS_TEST_MODE = true` in `gas-backend.js` (the default until
+Phase 6). All Twilio and Calendar calls are mocked at the service layer, so a complete
+booking flow can be exercised without consuming SMS quota or creating real calendar events.
+The `testFullBookingFlow()` GAS function uses an inline test OTP (`000001`) and the
+`IS_TEST_MODE` service mock — no special phone number needed.
 
 ---
 
@@ -482,3 +496,174 @@ PYEOF
 
 The built-in `Edit` tool fails on this repo path with "File has not been read yet" even after a successful `Read` due to path encoding. Use the Python patch utility instead.
 
+
+
+---
+
+## 15. Stabilization v2.0 — Audit Findings (Phase 1)
+
+**Branch:** `feature/system-stabilization-v2` | **Audit date:** 2026-05-18
+
+### Production-Blocking Flags (must flip before go-live)
+
+| File | Flag | Current | Production value |
+|------|------|---------|-----------------|
+| `backend/gas-backend.js` | `IS_TEST_MODE` | `true` | `false` |
+| `frontend/config.js` | `IS_MOCK_MODE` | `true` | `false` |
+
+`IS_TEST_MODE = true` causes `CalService` and `SmsService` to mock all Calendar and Twilio calls — no real events are created and no SMS is sent. This is intentional until production cut-over (Phase 6).
+
+### Dead Code
+
+| Location | Item | Reason |
+|----------|------|--------|
+| `gas-backend.js` line 1840 | `handleRunFlowTest()` (first definition) | Duplicate — immediately shadowed by the definition at line 2069 which adds the `IS_TEST_MODE` guard. The first definition is unreachable. |
+| `gas-backend.js` line 966 | `formatSheetDate(val)` | Defined but never called. All date formatting uses `Utilities.formatDate` inline. |
+
+### Undocumented Sheets (now added to Section 4)
+
+`SMS_LOG` and `Audit_Log` tabs are auto-created by GAS on first use. They existed in the code but were absent from the schema documentation.
+
+### Missing Script Property (now added to Section 6)
+
+`ADMIN_TOKEN` — a 32+ char hex string used by `validateAdmin()` for all admin dashboard API calls. Separate from `HMAC_SECRET` (which signs booking tokens). Must be set in Project Settings → Script Properties.
+
+### Validation Parity Gaps (target: Phase 3.3)
+
+| Rule | Frontend | Backend |
+|------|----------|---------|
+| Name min 2 chars | ✅ `isValidName()` | ✅ added Phase 3.1 |
+| Service ID whitelist | ✅ implicit via `SERVICES` array | ✅ added Phase 3.1 |
+| Phone format (05X) | ✅ `isValidPhone()` regex | ✅ `normalizePhone()` covers this |
+
+### syncCalendarToSlots Execution Time
+
+The trigger correctly queries a **30-day rolling window** (not unbounded). Execution time risk is LOW. No changes needed.
+
+### Verbose Logging
+
+`handleGetSlots` emits 5–10 `Logger.log` lines per Sheets row. At ~50 slots/month, a single `getSlots` call generates ~250 log lines. Acceptable for debugging; target replacement with the human-readable `Execution_Log` sheet in Phase 3.1 before production.
+
+### Quota Baseline (as of audit)
+
+| Quota | Limit (trial) | Per booking (full lifecycle) | Headroom |
+|-------|--------------|------------------------------|---------|
+| Twilio SMS/day | 50 | 3 SMS (OTP + admin + client confirm) | ~16 bookings/day |
+| GAS UrlFetch/day | 20,000 | 3 calls | Very high |
+| GAS execution time/run | 6 min | < 5s per handler | Very high |
+| Installed triggers | 20 | 1 (`syncCalendarToSlots`) | 19 remaining |
+
+**Critical:** Twilio trial limit (50 SMS/day) allows only ~16 full booking lifecycles per day. With 24h reminders active (Phase 3.2) this reduces to **~12 bookings/day** (3 SMS lifecycle + 1 reminder per booking). Must upgrade to paid Twilio before production (Phase 6 gate criterion).
+
+### Backup Utility Added (Phase 0.5)
+
+`createBackupSnapshot()` added to `gas-backend.js`. Creates a `_Backup_YYYYMMDD_HHmm` tab in the live spreadsheet with a full copy of `Weekly_Slots` and `Bookings_Log`. Callable from the admin dashboard via `action: createBackup` (requires `ADMIN_TOKEN`). Also callable directly from the GAS editor at any time.
+
+---
+
+### v1.0.0 — 2026-05-18 — Phase 3.1 + Phase 2 Admin Dashboard
+**Branch:** `feature/system-stabilization-v2`
+
+#### Phase 3.1 — Observability + Reliability (gas-backend.js)
+- **`Execution_Log` sheet** — auto-created on first `log()` call; column G hidden for Meital, visible to Ofir.
+- **`log(level, action, message, opts)`** — structured Hebrew logging to Execution_Log; never propagates failures.
+- **`withRetry(fn, opts)`** — exponential back-off helper (3 attempts, 500 ms base).
+- **`getDailySmsCount()` / `checkSmsQuota()`** — blocks OTP at 45 SMS/day (5-unit buffer below Twilio cap).
+- **`handleSendOTP`** — timing, quota guard, `log()` on all paths; string concat replaces template literal.
+- **`handleVerifyAndBook`** — validation parity (name ≥ 2 chars, service whitelist); `log()` on slot issues and success.
+- **`processApproval`** — `log(SUCCESS)` with calEventId.
+- **`processRejection`** — `log(INFO)` after slot release.
+- **`syncCalendarToSlots`** — timing guard: `log(WARNING)` if sync > 5 min; `log(SUCCESS)` otherwise.
+
+#### Phase 2 — Admin Dashboard v2 (admin.html + admin.js + gas-backend.js)
+
+##### New Sheets Tab
+| Tab | Auto-created | Description |
+|-----|-------------|-------------|
+| `Slot_Template` | On first `getTemplate` call | Weekly template: DayOfWeek, DayName, StartTimes, Active |
+
+##### New GAS Actions (all require `ADMIN_TOKEN`)
+| Action | Handler | Description |
+|--------|---------|-------------|
+| `getTemplate` | `handleGetTemplate()` | Returns Slot_Template as array of {dayOfWeek, dayName, startTimes[], active} |
+| `saveTemplate` | `handleSaveTemplate()` | Overwrites Slot_Template from client payload |
+| `generateSlots` | `handleGenerateSlots()` | Creates Weekly_Slots rows for a date range from the template (idempotent) |
+| `blockDates` | `handleBlockDates()` | Sets all Available slots in a date range to Blocked (vacation override) |
+
+##### Frontend — Admin Dashboard Redesign
+- **Bottom navigation bar** — 3 tabs: הזמנות / דופק עסקי / זמנים (mobile-safe-area aware).
+- **Tab 1 — הזמנות (Bookings):**
+  - All existing booking-management functionality preserved.
+  - **Daily Planner** — date-jump input above filter pills; clears on "נקה" or filter-pill click; shows all statuses for chosen date (bypasses stale/finished filters).
+- **Tab 2 — דופק עסקי (Business Pulse):**
+  - 4 KPI tiles: הזמנות השבוע / החודש / קרובות (7d) / בוטלו-נדחו.
+  - Service breakdown bar chart (computed client-side from `S.bookings`).
+  - Upcoming 8 bookings list (next 7 days, sorted chronologically).
+  - No extra API call — renders from already-loaded bookings.
+- **Tab 3 — ניהול זמנים (Slot Manager):**
+  - **Weekly Template editor** — one row per day (Sun–Sat); checkbox to activate day; text input for comma-separated HH:MM start times; Fri/Sat locked inactive.
+  - **Generate Slots** — date-range picker + "צור חריצים" button; shows count of created slots.
+  - **Vacation Override** — date-range picker + "חסום תאריכים" button with confirm dialog; shows count of blocked slots.
+
+---
+
+### v1.1.0 — 2026-05-18 — Phase 3.2: 24h SMS Reminders
+**Branch:** `feature/system-stabilization-v2`
+
+#### GAS Backend
+- **`sendDailyReminders()`** — queries Bookings_Log for Approved bookings where date = tomorrow; sends each client a Hebrew reminder SMS via `SmsService.send()` (honours `IS_TEST_MODE`). Per-send quota guard via `checkSmsQuota()` stops the batch cleanly if the daily cap is reached. Idempotent: `PropertiesService` key `REMINDER_LAST_RUN` (YYYY-MM-DD) prevents double-sends on the same day. If quota blocks mid-run, `REMINDER_LAST_RUN` is NOT written so the next trigger attempt can retry.
+- **`handleSendReminders(body)`** — admin-authenticated wrapper; `body.force: true` deletes `REMINDER_LAST_RUN` before calling, enabling a re-send after a late booking is added.
+- **`handleGetSystemInfo(body)`** — admin-authenticated; returns `{ reminderLastRun }` for dashboard display.
+- **`installTriggers()`** updated — now installs both `syncCalendarToSlots` (01:00 daily) and `sendDailyReminders` (08:00 daily). Old triggers for both functions are deleted before re-creating.
+- New doPost cases: `sendReminders`, `getSystemInfo`.
+
+#### Admin Dashboard — Slot Manager tab
+- **תזכורות יומיות card** — shows last-run date (fetched from `getSystemInfo` when the tab opens); "שלח גם אם כבר נשלח היום" force checkbox; "שלח תזכורות למחר" button that calls `handleSendReminders`.
+- Toast result: shows count of sent reminders or "כבר נשלח היום" if already ran without force.
+
+#### Quota impact
+3 SMS per booking lifecycle + 1 reminder = 4 SMS/booking → **~12 bookings/day** on Twilio trial.
+
+---
+
+### v1.2.0 — 2026-05-18 — Phase 4: System Health Monitor
+**Branch:** `feature/system-stabilization-v2`
+
+#### GAS Backend
+- **`handleHealthCheck(body)`** — admin-authenticated; runs 9 non-destructive checks and returns `{ success, overall, checks[] }` where `overall` is `ok | warn | error`.
+  - `properties` — verifies all 7 required Script Properties are set.
+  - `sheets` — checks all required sheet tabs exist.
+  - `calendar` — verifies CalendarApp can locate the configured calendar; warns if IS_TEST_MODE.
+  - `testMode` — warns when IS_TEST_MODE=true (production reminder).
+  - `smsQuota` — reads `getDailySmsCount()` and flags warn at 70%, error at 90% of DAILY_SMS_LIMIT.
+  - `recentErrors` — scans Execution_Log for rows with "שגיאה" in the last 24 h; warn >0, error >5.
+  - `triggers` — checks both `syncCalendarToSlots` and `sendDailyReminders` are installed.
+  - `reminderLastRun` — reads REMINDER_LAST_RUN property; warns if not sent today.
+  - `pendingBookings` — counts Bookings_Log rows with status Pending; warns if any found.
+- Removed dead first `handleRunFlowTest()` definition (was unreachable, shadowed by line ~2069 version).
+- doPost `runFlowTest` case replaced with `healthCheck`.
+
+#### Admin Dashboard — Business Pulse tab
+- **"בדיקת תקינות מערכת" card** — shows overall status emoji (✅/⚠️/❌) and a row per check; "בדוק עכשיו" button calls `runHealthCheck()`.
+- `runHealthCheck()` in `admin.js` — calls `healthCheck` action, renders emoji + label + detail per check; spinner during request.
+
+---
+
+### v1.3.0 — 2026-05-18 — Phase 5: QA Framework
+**Branch:** `feature/system-stabilization-v2`
+
+#### Unit tests (`tests/unit/utils.test.js`)
+- **Fixed stale `isValidPhone` mirror** — removed `MOCK_PHONE_TEST` bypass (deleted in Phase 3.5); updated test description.
+- **`smsQuotaStatus`** (6 tests) — mirrors the SMS quota threshold logic from `handleHealthCheck` and `checkSmsQuota`: ok < 70%, warn 70–89%, error ≥ 90%; includes DAILY_SMS_LIMIT=45 boundary assertion.
+- **OTP cooldown state** (7 tests) — pure functions `isCoolingDown` and `remainingSecs`; covers active/expired/zero/exact-boundary cases and ceiling rounding.
+- **`normalizePhone`** (6 tests) — E.164 conversion mirror of `normalizePhone()` in GAS; covers 05X prefix, hyphen stripping, already-972 input, and the former QA test phone.
+
+#### E2E tests (`tests/e2e/booking.spec.js`)
+- **`setupMocksWithOverrides(page, overrides)`** — new helper that injects per-action route overrides without copying the full mock setup.
+- **`sendOTP` hardening** (2 tests):
+  - HTTP 500 stays on step 3, shows Hebrew toast (no raw "HTTP 500" or JS error).
+  - `rate_limited` response shows seconds-remaining Hebrew toast.
+- **`verifyAndBook` hardening** (3 tests):
+  - HTTP 500 stays on step 4, shows Hebrew toast.
+  - `slot_not_available` shows slot-gone Hebrew toast then redirects to step 2 after 2.5 s.
+  - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).

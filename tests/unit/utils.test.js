@@ -18,10 +18,8 @@ function addMinutes(timeStr, mins) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-const MOCK_PHONE_TEST = '0500000000'
 function isValidPhone(raw) {
   const digits = raw.replace(/\D/g, '')
-  if (digits === MOCK_PHONE_TEST) return true
   return /^05[0-9]{8}$/.test(digits)
 }
 
@@ -108,7 +106,7 @@ describe('isValidPhone', () => {
   it('rejects a non-05X prefix', () => {
     expect(isValidPhone('0601234567')).toBe(false)
   })
-  it('accepts the QA bypass mock phone 0500000000', () => {
+  it('0500000000 is a valid 05X number via the standard regex', () => {
     expect(isValidPhone('0500000000')).toBe(true)
   })
 })
@@ -346,5 +344,110 @@ describe('handleNext step 1 — prefetch cache hit', () => {
     const set = new Set(['2026-3', '2026-4', '2026-5'])
     expect(isMonthPrefetched(set, 2026, 4)).toBe(true)
     expect(isMonthPrefetched(set, 2026, 6)).toBe(false)
+  })
+})
+
+// ─── smsQuotaStatus (Phase 3.1 / Phase 4 health check logic) ────────────────
+// Mirrors the threshold logic in handleHealthCheck's smsQuota check
+// and the getDailySmsCount guard used by checkSmsQuota() in gas-backend.js.
+
+function smsQuotaStatus(count, limit) {
+  const pct = Math.round(count / limit * 100)
+  return pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok'
+}
+
+describe('smsQuotaStatus', () => {
+  it('returns ok when quota usage is below 70%', () => {
+    expect(smsQuotaStatus(0,  45)).toBe('ok')
+    expect(smsQuotaStatus(20, 45)).toBe('ok')
+    expect(smsQuotaStatus(31, 45)).toBe('ok')  // 68% — just under warn threshold
+  })
+  it('returns warn at exactly 70%', () => {
+    expect(smsQuotaStatus(32, 45)).toBe('warn') // Math.round(32/45*100) = 71%
+    expect(smsQuotaStatus(27, 38)).toBe('warn') // Math.round(27/38*100) = 71%
+  })
+  it('returns warn between 70% and 89%', () => {
+    expect(smsQuotaStatus(36, 45)).toBe('warn') // 80%
+    expect(smsQuotaStatus(40, 45)).toBe('warn') // 89%
+  })
+  it('returns error at exactly 90%', () => {
+    expect(smsQuotaStatus(41, 45)).toBe('error') // Math.round(41/45*100) = 91%
+  })
+  it('returns error when count reaches or exceeds limit', () => {
+    expect(smsQuotaStatus(45, 45)).toBe('error') // 100%
+    expect(smsQuotaStatus(50, 45)).toBe('error') // 111%
+  })
+  it('DAILY_SMS_LIMIT=45 allows 31 sends before warn threshold', () => {
+    // Confirm the gap between the 5-unit buffer and the 70% warn floor
+    expect(smsQuotaStatus(31, 45)).toBe('ok')
+    expect(smsQuotaStatus(32, 45)).toBe('warn')
+  })
+})
+
+// ─── OTP cooldown pure state (Phase 3.1 / Phase 0.5) ─────────────────────────
+// Mirrors the State.otpCooldownUntil checks in handleNext (step 3) and
+// the resend-timer guard in booking.js.
+
+function isCoolingDown(cooldownUntil, now) { return cooldownUntil > now }
+function remainingSecs(cooldownUntil, now) { return Math.max(0, Math.ceil((cooldownUntil - now) / 1000)) }
+
+describe('OTP cooldown state', () => {
+  it('returns true when cooldown has not expired', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now + 30_000, now)).toBe(true)
+  })
+  it('returns false when cooldown has expired', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now - 1, now)).toBe(false)
+  })
+  it('returns false when cooldownUntil is 0 (initial state)', () => {
+    expect(isCoolingDown(0, 1_000_000)).toBe(false)
+  })
+  it('returns false when cooldown expires exactly now', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now, now)).toBe(false)
+  })
+  it('remainingSecs returns correct seconds when cooling down', () => {
+    const now = 1_000_000
+    expect(remainingSecs(now + 30_000, now)).toBe(30)
+    expect(remainingSecs(now + 15_500, now)).toBe(16) // ceil rounds up
+    expect(remainingSecs(now +  1_000, now)).toBe(1)
+  })
+  it('remainingSecs returns 0 when cooldown has already expired', () => {
+    const now = 1_000_000
+    expect(remainingSecs(now - 5_000, now)).toBe(0)
+    expect(remainingSecs(0, now)).toBe(0)
+  })
+})
+
+// ─── normalizePhone (E.164 conversion) ───────────────────────────────────────
+// Mirrors normalizePhone() from gas-backend.js — converts Israeli frontend
+// phone strings to E.164 before Twilio calls and OTP cache keying.
+
+function normalizePhone(raw) {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('972')) return '+' + digits
+  if (digits.startsWith('0'))  return '+972' + digits.slice(1)
+  return '+' + digits
+}
+
+describe('normalizePhone', () => {
+  it('converts an Israeli 05X number to E.164', () => {
+    expect(normalizePhone('0501234567')).toBe('+972501234567')
+  })
+  it('strips hyphens before converting', () => {
+    expect(normalizePhone('050-1234567')).toBe('+972501234567')
+  })
+  it('does not double-prefix a number already starting with 972', () => {
+    expect(normalizePhone('972501234567')).toBe('+972501234567')
+  })
+  it('handles 052 prefix', () => {
+    expect(normalizePhone('0521234567')).toBe('+972521234567')
+  })
+  it('handles 054 prefix', () => {
+    expect(normalizePhone('0541234567')).toBe('+972541234567')
+  })
+  it('the QA test phone normalises consistently', () => {
+    expect(normalizePhone('0500000000')).toBe('+972500000000')
   })
 })
