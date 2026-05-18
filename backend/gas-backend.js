@@ -314,6 +314,7 @@ function doPost(e) {
       case 'sendReminders': return jsonOk(handleSendReminders(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
+      case 'clearSlotsCache': return jsonOk(handleClearSlotsCache(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -348,7 +349,7 @@ function doGet(e) {
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
       try {
-        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month });
+        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -434,15 +435,20 @@ function handleGetSlots(body) {
 
   // ── Cache check (avoids Spreadsheet I/O on warm requests) ──
   const cacheKey = _slotsCacheKey(year, month);
-  try {
-    const cached = CacheService.getScriptCache().get(cacheKey);
-    if (cached) {
-      Logger.log('[getSlots] CACHE HIT — returning cached slots for ' + cacheKey);
-      return { success: true, slots: JSON.parse(cached), fromCache: true };
+  const noCache = body.noCache || body.no_cache;
+  if (noCache) {
+    Logger.log('[getSlots] noCache=true — bypassing cache, reading directly from sheet');
+  } else {
+    try {
+      const cached = CacheService.getScriptCache().get(cacheKey);
+      if (cached) {
+        Logger.log('[getSlots] CACHE HIT — returning cached slots for ' + cacheKey);
+        return { success: true, slots: JSON.parse(cached), fromCache: true };
+      }
+      Logger.log('[getSlots] CACHE MISS — reading from Spreadsheet');
+    } catch (cacheErr) {
+      Logger.log('[getSlots] Cache read error (non-fatal): ' + cacheErr.message);
     }
-    Logger.log('[getSlots] CACHE MISS — reading from Spreadsheet');
-  } catch (cacheErr) {
-    Logger.log('[getSlots] Cache read error (non-fatal): ' + cacheErr.message);
   }
 
   // ── Sheet access ──
@@ -490,6 +496,7 @@ function handleGetSlots(body) {
                ', startRaw=' + startRaw +
                ' (type=' + typeof startRaw + ', isDate=' + (startRaw instanceof Date) + ')' +
                ', status="' + status + '"');
+    Logger.log('[SERVER DEBUG] Row ' + r + ': Date=' + dateRaw + ' (type=' + (dateRaw instanceof Date ? 'Date' : typeof dateRaw) + '), Time=' + startRaw + ' (type=' + (startRaw instanceof Date ? 'Date' : typeof startRaw) + '), Status=' + status);
 
     // ── Skip non-available ──
     if (status !== 'Available') {
@@ -1412,6 +1419,20 @@ function runBackendTests() {
  *   "status"  (default) — returns IS_TEST_MODE flag and quota counters
  *   "quota"             — returns todays SMS count vs limit
  */
+function handleClearSlotsCache(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  const year  = parseInt(body.year  || new Date().getFullYear(), 10);
+  const month = parseInt(body.month || (new Date().getMonth() + 1), 10);
+  const key   = _slotsCacheKey(year, month);
+  try {
+    CacheService.getScriptCache().remove(key);
+    Logger.log('[clearSlotsCache] Removed cache key: ' + key);
+    return { success: true, cleared: key };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 function handleInjectMock(body) {
   if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
   var scenario = body.scenario || 'status';

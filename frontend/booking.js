@@ -398,6 +398,18 @@ function renderCalendar() {
   }
 
   document.getElementById('js-calendar').innerHTML = html;
+
+  // Empty-month notice
+  let _emptyEl = document.getElementById('js-cal-empty');
+  if (!_emptyEl) {
+    _emptyEl = document.createElement('p');
+    _emptyEl.id = 'js-cal-empty';
+    _emptyEl.className = 'mt-4 text-center text-sm text-text-muted';
+    _emptyEl.dir = 'rtl';
+    _emptyEl.textContent = 'אין תורים פנויים לחודש זה, נסי חודש אחר';
+    document.getElementById('js-cal-loading').insertAdjacentElement('beforebegin', _emptyEl);
+  }
+  _emptyEl.classList.toggle('hidden', html.includes('cal-day avail'));
 }
 
 function renderCalendarSkeleton() {
@@ -422,6 +434,9 @@ async function loadMonthSlots(year, month) {
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
+      const _slotCount = Object.values(res.slots || {}).reduce((n, a) => n + a.length, 0);
+      console.log('[DEBUG] Slots received: ' + _slotCount + ' for ' + year + '-' + month + ' | days: ' + JSON.stringify(Object.keys(res.slots || {})));
+      if (_slotCount === 0) console.log('[DEBUG] Slots received: 0');
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
