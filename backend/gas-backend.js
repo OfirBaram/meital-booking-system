@@ -313,6 +313,8 @@ function doPost(e) {
       case 'sendReminders': return jsonOk(handleSendReminders(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
+      case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
+      case 'runFlowTest':  return jsonOk(testFullBookingFlow());
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -2035,10 +2037,25 @@ function handleCreateBooking(body) {
 
   try {
     Logger.log('[createBooking] Checking slot: ' + body.date + ' ' + body.time);
-    const slotRow = findSlotRow(body.date, body.time);
+    var slotRow = findSlotRow(body.date, body.time);
     if (!slotRow) {
-      Logger.log('[createBooking] REJECTED: slot not found in Weekly_Slots');
-      return { success: false, error: 'slot_not_found', date: body.date, time: body.time };
+      if (!body.autoCreateSlot) {
+        Logger.log('[createBooking] REJECTED: slot not found in Weekly_Slots');
+        return { success: false, error: 'slot_not_found', date: body.date, time: body.time };
+      }
+      // QA/admin path: create the slot on-the-fly so test injections never fail
+      var DAY_NAMES = ['\u05e8\u05d0\u05e9\u05d5\u05df','\u05e9\u05e0\u05d9','\u05e9\u05dc\u05d9\u05e9\u05d9','\u05e8\u05d1\u05d9\u05e2\u05d9','\u05d7\u05de\u05d9\u05e9\u05d9','\u05e9\u05d9\u05e9\u05d9','\u05e9\u05d1\u05ea'];
+      var slotDate = new Date(body.date + 'T12:00:00');
+      var dayName  = DAY_NAMES[slotDate.getDay()];
+      var durMins  = parseInt(body.duration, 10) || 90;
+      var parts    = body.time.split(':').map(Number);
+      var endMins  = parts[0] * 60 + parts[1] + durMins;
+      var endTime  = ('0' + Math.floor(endMins / 60)).slice(-2) + ':' + ('0' + (endMins % 60)).slice(-2);
+      slotsSheet().appendRow([body.date, dayName, body.time, endTime, 'Available']);
+      SpreadsheetApp.flush();
+      Logger.log('[createBooking] Auto-created slot: ' + body.date + ' ' + body.time + '-' + endTime);
+      slotRow = findSlotRow(body.date, body.time);
+      if (!slotRow) return { success: false, error: 'slot_create_failed', date: body.date, time: body.time };
     }
 
     const slotStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();

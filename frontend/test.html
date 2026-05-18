@@ -233,7 +233,8 @@ window.injectBooking = async () => {
       serviceName: opt.dataset.name,
       date:        document.getElementById('f-date').value,
       time:        document.getElementById('f-time').value.trim(),
-      duration:    parseInt(opt.dataset.dur, 10),
+      duration:        parseInt(opt.dataset.dur, 10),
+      autoCreateSlot:  true,
     });
     const head = data.success
       ? '✅ תור נוצר!\nID: ' + data.bookingId + '\nסטטוס: ' + data.status +
