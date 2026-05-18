@@ -560,11 +560,6 @@ function handleGetSlots(body) {
  * and sends it via Twilio SMS.
  * Body: { phone: '05XXXXXXXX' }
  */
-// QA bypass: 0500000000 normalises to QA_MOCK_PHONE.
-// Caches a fixed OTP and skips Twilio so tests never consume SMS quota.
-const QA_MOCK_PHONE = '+972500000000';
-const QA_MOCK_OTP   = '123456';
-
 function handleSendOTP(body) {
   var _t0 = Date.now();
   Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
@@ -573,14 +568,6 @@ function handleSendOTP(body) {
   if (!phone) {
     throw new Error(
       'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
-  }
-
-  // Mock mode: fixed OTP, no Twilio call
-  if (phone === QA_MOCK_PHONE) {
-    Logger.log('[sendOTP] MOCK MODE — caching fixed OTP ' + QA_MOCK_OTP + ', skipping Twilio');
-    CacheService.getScriptCache().put('otp_' + phone, QA_MOCK_OTP, 300);
-    log(LOG_LEVEL.INFO, ACTION.SEND_OTP, 'OTP מדומה נשלח (מצב QA)', { phone: phone });
-    return { success: true };
   }
 
   // Rate-limit: one real OTP request per phone per 30 seconds.
@@ -729,16 +716,8 @@ function handleVerifyAndBook(body) {
       `✅ אישור: ${approveUrl}`,
       `❌ דחייה: ${rejectUrl}`,
     ].join('\n');
-    if (phone !== QA_MOCK_PHONE) {
-      sendSMS._context = 'AdminNotify';
-      sendSMS(CFG.ADMIN_PHONE, adminMsg);
-    } else {
-      Logger.log('[verifyAndBook] MOCK MODE — admin SMS suppressed. Copy links from log:');
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log(adminMsg);
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log('[verifyAndBook] bookingId=' + bookingId + ' | adminToken=' + adminToken);
-    }
+    sendSMS._context = 'AdminNotify';
+    sendSMS(CFG.ADMIN_PHONE, adminMsg);
 
     var elapsed = Date.now() - _t0;
     Logger.log('[verifyAndBook] Booking created: ' + bookingId + ' (' + elapsed + 'ms)');
@@ -1354,76 +1333,6 @@ function runInternalTests() {
  * Run once from the GAS editor to install the daily calendar-sync trigger.
  * Do NOT deploy this function as part of the web app.
  */
-/**
- * Run from the GAS editor to generate admin Approve/Reject links for the
- * most recent booking in Bookings_Log. Paste either URL in a browser to
- * test the admin-approval flow without an SMS being sent.
- */
-function simulateAdminSMS() {
-  Logger.log('');
-  Logger.log('══════════════ simulateAdminSMS START ══════════════');
-
-  const sh      = logSheet();
-  const lastRow = sh.getLastRow();
-
-  if (lastRow < 2) {
-    Logger.log('[simulateAdminSMS] Bookings_Log is empty — submit a booking first.');
-    return;
-  }
-
-  const data = sh.getRange(lastRow, 1, 1, 12).getValues()[0];
-
-  // Columns: A=UUID B=Name C=Phone D=Service E=ServiceName
-  //          F=Date G=Time H=Timestamp I=Duration J=Status K=CalEventId L=AdminToken
-  const bookingId   = String(data[0]).trim();
-  const name        = String(data[1]).trim();
-  const phone       = String(data[2]).trim();
-  const serviceName = String(data[4]).trim();
-  const status      = String(data[9]).trim();
-  const adminToken  = String(data[11]).trim();
-
-  // Date/Time cells may arrive as Date objects depending on Sheet column format
-  let date = data[5];
-  date = (date instanceof Date)
-    ? Utilities.formatDate(date, CFG.TIMEZONE, 'yyyy-MM-dd')
-    : String(date).trim();
-
-  let time = data[6];
-  time = (time instanceof Date)
-    ? Utilities.formatDate(time, CFG.TIMEZONE, 'HH:mm')
-    : String(time).trim();
-
-  Logger.log('[simulateAdminSMS] Row ' + lastRow + ':');
-  Logger.log('  bookingId:  ' + bookingId);
-  Logger.log('  name:       ' + name);
-  Logger.log('  phone:      ' + phone);
-  Logger.log('  service:    ' + serviceName);
-  Logger.log('  date/time:  ' + date + ' ' + time);
-  Logger.log('  status:     ' + status);
-  Logger.log('  adminToken: ' + adminToken);
-
-  if (!bookingId || !adminToken) {
-    Logger.log('[simulateAdminSMS] ERROR: bookingId or adminToken empty — check Bookings_Log columns A and L.');
-    return;
-  }
-
-  const approveUrl = buildAdminUrl('APPROVE', bookingId, adminToken);
-  const rejectUrl  = buildAdminUrl('REJECT',  bookingId, adminToken);
-
-  Logger.log('');
-  Logger.log('══════════════ ADMIN LINKS (paste in browser) ══════════════');
-  Logger.log('');
-  Logger.log('✅ APPROVE:');
-  Logger.log(approveUrl);
-  Logger.log('');
-  Logger.log('❌ REJECT:');
-  Logger.log(rejectUrl);
-  Logger.log('');
-  Logger.log('════════════════════════════════════════════════════════════');
-  Logger.log('[simulateAdminSMS] Open either URL in a browser to run the approval flow.');
-  Logger.log('[simulateAdminSMS] Expected: status in Bookings_Log changes to Approved/Rejected + Calendar event created.');
-  Logger.log('══════════════ simulateAdminSMS END ══════════════');
-}
 // ═══════════════════════════════════════════════════════════════
 // UNIT TESTS — run from GAS editor, no deployment needed
 // ═══════════════════════════════════════════════════════════════
@@ -1485,7 +1394,7 @@ function runBackendTests() {
  * Creates a fictional slot, runs verifyAndBook + adminAction APPROVE,
  * asserts slot and log status at each step, then cleans up all test data.
  *
- * IMPORTANT: uses QA_MOCK_PHONE (0500000000) so NO Twilio SMS is sent.
+ * IMPORTANT: uses phone 0500000000 — IS_TEST_MODE suppresses all Twilio/Calendar calls.
  * Run from the GAS editor — do NOT deploy as a web-app endpoint.
  */
 function testFullBookingFlow() {
@@ -1526,9 +1435,10 @@ function testFullBookingFlow() {
 
     // ── Step 2: cache OTP + call handleVerifyAndBook ──────────────
     Logger.log('\n[Step 2] Calling handleVerifyAndBook (mock phone, no SMS)...');
-    CacheService.getScriptCache().put('otp_' + QA_MOCK_PHONE, QA_MOCK_OTP, 60);
+    const TEST_OTP = '000001';
+    CacheService.getScriptCache().put('otp_+972500000000', TEST_OTP, 60);
     const vRes = handleVerifyAndBook({
-      otp: QA_MOCK_OTP,
+      otp: TEST_OTP,
       booking: {
         id: testId, name: 'AUTO-TEST', phone: '0500000000',
         service: 'gel_classic', serviceName: "Test Service",
@@ -2019,11 +1929,6 @@ const SmsService = {
     if (IS_TEST_MODE) {
       Logger.log('[SmsService MOCK] ctx=' + context + ' to=' + to + ' | ' + message.slice(0, 80));
       logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
-      return;
-    }
-    if (to === QA_MOCK_PHONE) {
-      logSMS(to, context, 'MOCK', message, 'QA mock phone');
-      Logger.log('[SmsService] QA phone — logged to SMS_LOG, no Twilio');
       return;
     }
     sendSMS._context = context;

@@ -9,8 +9,6 @@ import APP_CONFIG from './config.js';
 const CONFIG = {
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
-  MOCK_PHONE: '0500000000',  // QA bypass — fixed OTP, no Twilio
-  MOCK_OTP:   '123456',
   OTP_RESEND_SECS: 60,
   LS_PREFIX: 'meital_',
 };
@@ -117,7 +115,6 @@ function formatPhone(raw) {
 
 function isValidPhone(raw) {
   const digits = raw.replace(/\D/g, '');
-  if (digits === CONFIG.MOCK_PHONE) return true; // QA bypass
   return /^05[0-9]{8}$/.test(digits);
 }
 
@@ -668,15 +665,6 @@ async function handleNext() {
         `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
       renderOTPInputs();
       startResendTimer();
-      if (State.phone === CONFIG.MOCK_PHONE) {
-        setTimeout(() => {
-          const inputs = document.querySelectorAll('.otp-input');
-          CONFIG.MOCK_OTP.split('').forEach((d, i) => {
-            if (inputs[i]) { inputs[i].value = d; inputs[i].classList.add('filled'); }
-          });
-          autoSubmitOTP();
-        }, 500);
-      }
     } else if (res.error === 'rate_limited') {
       const secs = res.retryAfterSecs || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
