@@ -169,6 +169,7 @@ function doPost(e) {
       case 'changeStatus':  return jsonOk(handleChangeStatus(body));
       case 'createBooking': return jsonOk(handleCreateBooking(body));
       case 'runFlowTest':   return jsonOk(handleRunFlowTest(body));
+      case 'createBackup':  return jsonOk(handleCreateBackup(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -1842,6 +1843,70 @@ function handleRunFlowTest(body) {
     return { success: false, error: 'unauthorized', code: 403 };
   }
   return runFullFlowTest();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKUP UTILITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Creates a timestamped _Backup_YYYYMMDD_HHmm tab in the live spreadsheet.
+ * Copies all values (not formulas) from Weekly_Slots and Bookings_Log.
+ * Safe to run at any time — appends a new tab, never overwrites data.
+ * Returns { success, tabName, rowsCopied: { slots, bookings } }.
+ */
+function createBackupSnapshot() {
+  const TZ        = 'Asia/Jerusalem';
+  const dateLabel = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmm');
+  const tabName   = '_Backup_' + dateLabel;
+  const spreadsheet = ss();
+
+  if (spreadsheet.getSheetByName(tabName)) {
+    Logger.log('[createBackupSnapshot] Tab already exists: ' + tabName);
+    return { success: false, error: 'backup_tab_exists', tabName: tabName };
+  }
+
+  const backupSh    = spreadsheet.insertSheet(tabName);
+  backupSh.setTabColor('#A67C8E');
+  const rowsCopied  = { slots: 0, bookings: 0 };
+
+  // Copy Weekly_Slots (including header row)
+  const slotData = slotsSheet().getDataRange().getValues();
+  if (slotData.length > 0) {
+    backupSh.getRange(1, 1, slotData.length, slotData[0].length).setValues(slotData);
+    rowsCopied.slots = slotData.length - 1;
+  }
+
+  // Leave one blank row as separator, then copy Bookings_Log
+  const logOffset = slotData.length + 2;
+  const logData   = logSheet().getDataRange().getValues();
+  if (logData.length > 0) {
+    backupSh.getRange(logOffset, 1, logData.length, logData[0].length).setValues(logData);
+    rowsCopied.bookings = logData.length - 1;
+  }
+
+  backupSh.setFrozenRows(1);
+  SpreadsheetApp.flush();
+
+  Logger.log('[createBackupSnapshot] Created: ' + tabName +
+             ' | slots=' + rowsCopied.slots + ' | bookings=' + rowsCopied.bookings);
+
+  return { success: true, tabName: tabName, rowsCopied: rowsCopied };
+}
+
+/**
+ * Admin-authenticated wrapper for createBackupSnapshot().
+ * Requires valid ADMIN_TOKEN. Writes to Audit_Log on success.
+ */
+function handleCreateBackup(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const result = createBackupSnapshot();
+  if (result.success) {
+    writeAuditLog('admin', 'CreateBackup', '', '', '', result.tabName);
+  }
+  return result;
 }
 
 // ===============================================================

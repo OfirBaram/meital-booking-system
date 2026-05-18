@@ -50,6 +50,27 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | K | CalendarEventId | Google Calendar event ID (set on approval) |
 | L | AdminToken | HMAC-SHA256 hex of UUID (for link validation) |
 
+### Tab: `SMS_LOG` (auto-created on first SMS)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | Timestamp | Date of send |
+| B | To | Recipient phone (E.164) |
+| C | Context | `OTP` / `AdminNotify` / `ClientApproval` / `ClientRejection` / `ClientCancellation` |
+| D | Status | `SENT` / `MOCK` / `ERROR` |
+| E | Message | SMS body (truncated at 500 chars) |
+| F | Detail | Twilio SID on success; error message on failure |
+
+### Tab: `Audit_Log` (auto-created on first admin action)
+| Col | Header | Notes |
+|-----|--------|-------|
+| A | Timestamp | Date of action |
+| B | Admin | `dashboard` or admin identifier |
+| C | Action | `CreateBooking` / `Approved` / `Rejected` / `Cancelled` / `CreateBackup` |
+| D | BookingId | UUID of affected booking |
+| E | PrevStatus | Status before action |
+| F | NewStatus | Status after action |
+| G | Detail | Free text (max 300 chars) |
+
 ## 5. Development Guidelines
 - Mobile-First design.
 - Modular JavaScript.
@@ -145,6 +166,7 @@ Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
 | `CALENDAR_ID` | Google Calendar ID (`primary` or specific calendar email) |
 | `WEB_APP_URL` | Deployed web app URL (filled after first deployment) |
 | `TIMEZONE` | `Asia/Jerusalem` |
+| `ADMIN_TOKEN` | Random 32+ char hex string for admin dashboard authentication (distinct from `HMAC_SECRET`) |
 
 #### Google Calendar Integration
 - **On APPROVE:** `createCalendarEvent()` creates a timed event, stores event ID in `Bookings_Log` col K.
@@ -482,3 +504,65 @@ PYEOF
 
 The built-in `Edit` tool fails on this repo path with "File has not been read yet" even after a successful `Read` due to path encoding. Use the Python patch utility instead.
 
+
+
+---
+
+## 15. Stabilization v2.0 — Audit Findings (Phase 1)
+
+**Branch:** `feature/system-stabilization-v2` | **Audit date:** 2026-05-18
+
+### Production-Blocking Flags (must flip before go-live)
+
+| File | Flag | Current | Production value |
+|------|------|---------|-----------------|
+| `backend/gas-backend.js` | `IS_TEST_MODE` | `true` | `false` |
+| `frontend/config.js` | `IS_MOCK_MODE` | `true` | `false` |
+
+`IS_TEST_MODE = true` causes `CalService` and `SmsService` to mock all Calendar and Twilio calls — no real events are created and no SMS is sent. This is intentional until production cut-over (Phase 6).
+
+### Dead Code
+
+| Location | Item | Reason |
+|----------|------|--------|
+| `gas-backend.js` line 1840 | `handleRunFlowTest()` (first definition) | Duplicate — immediately shadowed by the definition at line 2069 which adds the `IS_TEST_MODE` guard. The first definition is unreachable. |
+| `gas-backend.js` line 966 | `formatSheetDate(val)` | Defined but never called. All date formatting uses `Utilities.formatDate` inline. |
+
+### Undocumented Sheets (now added to Section 4)
+
+`SMS_LOG` and `Audit_Log` tabs are auto-created by GAS on first use. They existed in the code but were absent from the schema documentation.
+
+### Missing Script Property (now added to Section 6)
+
+`ADMIN_TOKEN` — a 32+ char hex string used by `validateAdmin()` for all admin dashboard API calls. Separate from `HMAC_SECRET` (which signs booking tokens). Must be set in Project Settings → Script Properties.
+
+### Validation Parity Gaps (target: Phase 3.3)
+
+| Rule | Frontend | Backend |
+|------|----------|---------|
+| Name min 2 chars | ✅ `isValidName()` | ❌ no check |
+| Service ID whitelist | ✅ implicit via `SERVICES` array | ❌ no check |
+| Phone format (05X) | ✅ `isValidPhone()` regex | ✅ `normalizePhone()` covers this |
+
+### syncCalendarToSlots Execution Time
+
+The trigger correctly queries a **30-day rolling window** (not unbounded). Execution time risk is LOW. No changes needed.
+
+### Verbose Logging
+
+`handleGetSlots` emits 5–10 `Logger.log` lines per Sheets row. At ~50 slots/month, a single `getSlots` call generates ~250 log lines. Acceptable for debugging; target replacement with the human-readable `Execution_Log` sheet in Phase 3.1 before production.
+
+### Quota Baseline (as of audit)
+
+| Quota | Limit (trial) | Per booking (full lifecycle) | Headroom |
+|-------|--------------|------------------------------|---------|
+| Twilio SMS/day | 50 | 3 SMS (OTP + admin + client confirm) | ~16 bookings/day |
+| GAS UrlFetch/day | 20,000 | 3 calls | Very high |
+| GAS execution time/run | 6 min | < 5s per handler | Very high |
+| Installed triggers | 20 | 1 (`syncCalendarToSlots`) | 19 remaining |
+
+**Critical:** Twilio trial limit (50 SMS/day) allows only ~16 full booking lifecycles per day. Adding 24h reminders (Phase 3.2) reduces this to ~12 bookings/day. Must upgrade to paid Twilio before production (Phase 6 gate criterion).
+
+### Backup Utility Added (Phase 0.5)
+
+`createBackupSnapshot()` added to `gas-backend.js`. Creates a `_Backup_YYYYMMDD_HHmm` tab in the live spreadsheet with a full copy of `Weekly_Slots` and `Bookings_Log`. Callable from the admin dashboard via `action: createBackup` (requires `ADMIN_TOKEN`). Also callable directly from the GAS editor at any time.
