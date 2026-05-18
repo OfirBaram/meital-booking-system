@@ -91,20 +91,20 @@ const LOG_LEVEL = {
 
 /** Convert a Sheets date cell (Date obj or YYYY-MM-DD string) to dd/MM/yyyy for SMS display. */
 function _fmtDate(raw) {
-  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'dd/MM/yyyy');
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'dd/MM/yyyy');
   const m = String(raw || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? (m[3] + '/' + m[2] + '/' + m[1]) : String(raw || '').trim();
 }
 
 /** Convert a Sheets time cell (Date obj or HH:mm string) to HH:mm for SMS display. */
 function _fmtTime(raw) {
-  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'HH:mm');
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'HH:mm');
   return String(raw || '').trim();
 }
 
 /** Extract ISO yyyy-MM-dd from a Sheets date cell — used internally for sheet/calendar ops. */
 function _isoDate(raw) {
-  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'yyyy-MM-dd');
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'yyyy-MM-dd');
   return String(raw || '').trim();
 }
 
@@ -262,7 +262,7 @@ function withRetry(fn, opts) {
  * Counts rows where column A (Timestamp) falls within today (Asia/Jerusalem).
  */
 function getDailySmsCount() {
-  var tz     = Session.getScriptTimeZone() || 'Asia/Jerusalem';
+  var tz     = 'Asia/Jerusalem';
   var today  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var sh     = smsLogSheet();
   var lastRow = sh.getLastRow();
@@ -1152,9 +1152,8 @@ function uuid4() {
  * Uses GAS Utilities.formatDate with IANA timezone for correct DST resolution.
  */
 function nowISO() {
-  const tz   = CFG.TIMEZONE;
   const now  = new Date();
-  const fmt  = Utilities.formatDate(now, tz, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const fmt  = Utilities.formatDate(now, 'Asia/Jerusalem', "yyyy-MM-dd'T'HH:mm:ssXXX");
   return fmt;
 }
 
