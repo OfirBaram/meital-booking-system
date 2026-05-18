@@ -1390,6 +1390,21 @@ function runBackendTests() {
 }
 
 /**
+ * Run from the GAS editor to diagnose ADMIN_TOKEN auth failures.
+ * Prints the stored token length and first/last char codes to the log.
+ * Safe to leave in place — reads only, never writes.
+ */
+function debugAdminToken() {
+  const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!stored) { Logger.log('ADMIN_TOKEN: NOT SET'); return; }
+  Logger.log('ADMIN_TOKEN length    : ' + stored.length);
+  Logger.log('ADMIN_TOKEN trimmed   : ' + stored.trim().length + ' (after trim)');
+  Logger.log('First char code       : ' + stored.charCodeAt(0));
+  Logger.log('Last char code        : ' + stored.charCodeAt(stored.length - 1));
+  Logger.log('Whitespace detected   : ' + (stored !== stored.trim() ? 'YES — this is the bug' : 'none'));
+}
+
+/**
  * End-to-end "golden path" integration test.
  * Creates a fictional slot, runs verifyAndBook + adminAction APPROVE,
  * asserts slot and log status at each step, then cleans up all test data.
@@ -1747,7 +1762,7 @@ function validateAdmin(token) {
   if (!token) return false;
   const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
   if (!stored) throw new Error('ADMIN_TOKEN script property not set');
-  return timingSafeEqual(String(token), stored);
+  return timingSafeEqual(String(token).trim(), stored.trim());
 }
 
 function auditSheet() {
