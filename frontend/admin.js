@@ -538,7 +538,7 @@ async function sendReminders() {
   }
 }
 
-/// ── Manual SMS modal ─────────────────────────────────────────────────────
+// ── Manual SMS modal ─────────────────────────────────────────────────────
 function openSmsModal(booking) {
   S._smsSendTarget = booking;
   document.getElementById('js-sms-recipient').textContent =
@@ -716,7 +716,7 @@ function renderSmsLog(entries) {
   }).join('');
 }
 
-/ ── Auto-refresh (60 s) ───────────────────────────────────────────
+// ── Auto-refresh (60 s) ───────────────────────────────────────────
 
 async function runHealthCheck() {
   const btn  = document.getElementById('js-health-submit');
