@@ -1,3 +1,40 @@
+# WARNING: NEXT SESSION: PHASE 6 GO-LIVE
+
+> **Status:** IS_TEST_MODE = true. No real SMS or Calendar calls are made.
+> Complete all 4 steps below before declaring the system live.
+
+## Step 1 — Upgrade Twilio
+Log into twilio.com and upgrade from trial to a paid account.
+Confirm the Israeli sender number is active and can send to +972 numbers.
+
+## Step 2 — Flip IS_TEST_MODE
+In `backend/gas-backend.js` line ~1898, change:
+```js
+const IS_TEST_MODE = true;   // CHANGE THIS
+const IS_TEST_MODE = false;  // TO THIS
+```
+Commit on a new branch `feature/phase6-go-live`.
+
+## Step 3 — Deploy via clasp
+```bash
+clasp push                        # push updated gas-backend.js to GAS
+clasp deploy --description "v2 go-live"  # create a new versioned deployment
+```
+Then open the GAS editor and run `installTriggers()` once to register
+the 01:00 (`syncCalendarToSlots`) and 08:00 (`sendDailyReminders`) daily triggers.
+Update `WEB_APP_URL` in Script Properties if the deployment URL changed.
+
+## Step 4 — Live end-to-end smoke test
+1. Book with a real Israeli mobile number — verify the OTP SMS arrives.
+2. Verify the admin SMS arrives with Approve/Reject links.
+3. Click Approve — verify the client confirmation SMS arrives.
+4. Verify a Google Calendar event was created.
+5. Check `Bookings_Log`: status = `Approved`, CalendarEventId populated.
+6. Open Admin Dashboard → Business Pulse → run **בדיקת תקינות מערכת**.
+   All 9 checks must be green (testMode check will flip to OK once IS_TEST_MODE=false).
+
+---
+
 # 💅 Meital Boutique Booking - System Specification & Context
 
 ## 1. High-Level Vision
