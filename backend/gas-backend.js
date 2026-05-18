@@ -310,6 +310,8 @@ function doPost(e) {
       case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
       case 'generateSlots': return jsonOk(handleGenerateSlots(body));
       case 'blockDates':    return jsonOk(handleBlockDates(body));
+      case 'sendReminders': return jsonOk(handleSendReminders(body));
+      case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -1691,23 +1693,145 @@ function verifyConfig() {
 }
 
 function installTriggers() {
-  // Remove any existing syncCalendarToSlots triggers first
+  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'syncCalendarToSlots')
+    .filter(t => HANDLERS.includes(t.getHandlerFunction()))
     .forEach(t => ScriptApp.deleteTrigger(t));
 
   ScriptApp.newTrigger('syncCalendarToSlots')
-    .timeBased()
-    .everyDays(1)
-    .atHour(1)
-    .create();
+    .timeBased().everyDays(1).atHour(1).create();
+  Logger.log('[installTriggers] syncCalendarToSlots trigger installed (01:00 daily).');
 
-  Logger.log('[installTriggers] syncCalendarToSlots trigger installed.');
+  ScriptApp.newTrigger('sendDailyReminders')
+    .timeBased().everyDays(1).atHour(8).create();
+  Logger.log('[installTriggers] sendDailyReminders trigger installed (08:00 daily).');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 24H SMS REMINDERS  (Phase 3.2)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Sends a reminder SMS to every client with an Approved booking for tomorrow.
+ * Idempotent: PropertiesService key REMINDER_LAST_RUN prevents double-sends
+ * on the same calendar day even if the trigger fires twice.
+ * Called automatically at 08:00 by the time-based trigger installed by
+ * installTriggers(), or manually via the admin dashboard (handleSendReminders).
+ */
+function sendDailyReminders() {
+  var _t0   = Date.now();
+  var TZ    = 'Asia/Jerusalem';
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+
+  // Idempotency guard — skip if already ran today
+  var props   = PropertiesService.getScriptProperties();
+  var lastRun = props.getProperty('REMINDER_LAST_RUN') || '';
+  if (lastRun === today) {
+    Logger.log('[sendDailyReminders] Already ran today (' + today + '), skipping.');
+    return { skipped: true, reason: 'already_ran_today', date: today };
+  }
+
+  // Tomorrow's date string
+  var tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  var tomorrow = Utilities.formatDate(tomorrowDate, TZ, 'yyyy-MM-dd');
+  Logger.log('[sendDailyReminders] Looking for Approved bookings on ' + tomorrow);
+
+  // Read Bookings_Log
+  var sh   = logSheet();
+  var data = sh.getDataRange().getValues();
+  var sent = 0, skippedQuota = 0, errors = 0;
+
+  for (var r = 1; r < data.length; r++) {
+    var row    = data[r];
+    var status = String(row[LOG_COL.STATUS - 1] || '').trim();
+    if (status !== 'Approved') continue;
+
+    var rawDate = row[LOG_COL.DATE - 1];
+    var dateStr = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (dateStr !== tomorrow) continue;
+
+    var rawTime   = row[LOG_COL.TIME - 1];
+    var timeStr   = (rawTime instanceof Date)
+      ? Utilities.formatDate(rawTime, TZ, 'HH:mm') : String(rawTime || '').trim();
+    var phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
+    var name       = String(row[LOG_COL.NAME         - 1] || '').trim();
+    var svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
+    var bookingId  = String(row[LOG_COL.UUID         - 1] || '').trim();
+
+    if (!phone) { Logger.log('[sendDailyReminders] Missing phone at row ' + r); continue; }
+
+    // Quota guard — stop sending if limit reached
+    try {
+      checkSmsQuota(ACTION.SEND_REMINDER);
+    } catch (quotaErr) {
+      skippedQuota++;
+      Logger.log('[sendDailyReminders] Quota reached at row ' + r + ': ' + quotaErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'מכסת SMS מלאה — תזכורות נעצרו', { detail: 'שנשלחו: ' + sent });
+      break;
+    }
+
+    var msg = ('תזכורת: מחר יש לך תור! ' +
+      'שירות: ' + svcName + '. ' +
+      'תאריך: ' + tomorrow.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+      'לביטול יש לפנות למיטל.');
+
+    try {
+      SmsService.send(phone, msg, 'Reminder');
+      sent++;
+      log(LOG_LEVEL.SUCCESS, ACTION.SEND_REMINDER, 'תזכורת נשלחה ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: svcName + ' | ' + tomorrow + ' ' + timeStr });
+    } catch (smsErr) {
+      errors++;
+      Logger.log('[sendDailyReminders] SMS error for ' + phone + ': ' + smsErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'שגיאה בשליחת תזכורת ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: smsErr.message });
+    }
+  }
+
+  // Mark as done for today (skip if quota prevented all sends)
+  if (skippedQuota === 0) {
+    props.setProperty('REMINDER_LAST_RUN', today);
+  }
+
+  var elapsed = Date.now() - _t0;
+  var summary = 'תזכורות יומיות: שנשלחו ' + sent + ', שגיאות ' + errors + ', מכסה ' + skippedQuota + ' (' + elapsed + 'ms)';
+  Logger.log('[sendDailyReminders] ' + summary);
+  log(LOG_LEVEL.INFO, ACTION.SEND_REMINDER, summary, { detail: 'תאריך תור: ' + tomorrow });
+  return { success: true, sent: sent, errors: errors, skippedQuota: skippedQuota, date: tomorrow };
+}
+
+/**
+ * Admin-authenticated wrapper: allows manual trigger from the dashboard.
+ * Clears REMINDER_LAST_RUN so sendDailyReminders will run even if it already
+ * ran today — useful for re-sending after adding a late booking.
+ * Body: { token, force? } — set force: true to bypass today's idempotency guard.
+ */
+function handleSendReminders(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (body.force) {
+    PropertiesService.getScriptProperties().deleteProperty('REMINDER_LAST_RUN');
+    Logger.log('[handleSendReminders] force=true — REMINDER_LAST_RUN cleared');
+  }
+  var result = sendDailyReminders();
+  return Object.assign({ success: true }, result);
 }
 
 // ═══════════════════════════════════════════════════════════════
 // ADMIN DASHBOARD API  (v3.0)
 // ═══════════════════════════════════════════════════════════════
+
+function handleGetSystemInfo(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var props = PropertiesService.getScriptProperties();
+  return {
+    success: true,
+    reminderLastRun: props.getProperty('REMINDER_LAST_RUN') || null,
+  };
+}
+
+
 
 function validateAdmin(token) {
   if (!token) return false;

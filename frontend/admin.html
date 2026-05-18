@@ -246,7 +246,7 @@
       </div>
 
       <!-- Vacation Override -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
         <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">חסימת תאריכים — חופשה</div>
         <p class="text-xs text-text-muted mb-3">חוסם את כל החריצים הפנויים בטווח הנבחר.</p>
         <div class="flex gap-2 mb-3">
@@ -264,6 +264,23 @@
         <button id="js-block-submit"
           class="w-full bg-red-400 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
           חסום תאריכים
+        </button>
+      </div>
+
+      <!-- Daily Reminders -->
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תזכורות יומיות</div>
+          <span id="js-reminder-last" class="text-xs text-text-muted">טוען...</span>
+        </div>
+        <p class="text-xs text-text-muted mb-3">שולח SMS לכל לקוחה עם תור מחר. רץ אוטומטית ב-08:00.</p>
+        <label class="flex items-center gap-2 mb-3 cursor-pointer">
+          <input id="js-reminder-force" type="checkbox" class="accent-primary">
+          <span class="text-xs text-text-muted">שלח גם אם כבר נשלח היום</span>
+        </label>
+        <button id="js-reminder-submit"
+          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
+          שלח תזכורות למחר
         </button>
       </div>
     </main>

@@ -573,7 +573,7 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
 | GAS execution time/run | 6 min | < 5s per handler | Very high |
 | Installed triggers | 20 | 1 (`syncCalendarToSlots`) | 19 remaining |
 
-**Critical:** Twilio trial limit (50 SMS/day) allows only ~16 full booking lifecycles per day. Adding 24h reminders (Phase 3.2) reduces this to ~12 bookings/day. Must upgrade to paid Twilio before production (Phase 6 gate criterion).
+**Critical:** Twilio trial limit (50 SMS/day) allows only ~16 full booking lifecycles per day. With 24h reminders active (Phase 3.2) this reduces to **~12 bookings/day** (3 SMS lifecycle + 1 reminder per booking). Must upgrade to paid Twilio before production (Phase 6 gate criterion).
 
 ### Backup Utility Added (Phase 0.5)
 
@@ -624,3 +624,22 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
   - **Weekly Template editor** — one row per day (Sun–Sat); checkbox to activate day; text input for comma-separated HH:MM start times; Fri/Sat locked inactive.
   - **Generate Slots** — date-range picker + "צור חריצים" button; shows count of created slots.
   - **Vacation Override** — date-range picker + "חסום תאריכים" button with confirm dialog; shows count of blocked slots.
+
+---
+
+### v1.1.0 — 2026-05-18 — Phase 3.2: 24h SMS Reminders
+**Branch:** `feature/system-stabilization-v2`
+
+#### GAS Backend
+- **`sendDailyReminders()`** — queries Bookings_Log for Approved bookings where date = tomorrow; sends each client a Hebrew reminder SMS via `SmsService.send()` (honours `IS_TEST_MODE`). Per-send quota guard via `checkSmsQuota()` stops the batch cleanly if the daily cap is reached. Idempotent: `PropertiesService` key `REMINDER_LAST_RUN` (YYYY-MM-DD) prevents double-sends on the same day. If quota blocks mid-run, `REMINDER_LAST_RUN` is NOT written so the next trigger attempt can retry.
+- **`handleSendReminders(body)`** — admin-authenticated wrapper; `body.force: true` deletes `REMINDER_LAST_RUN` before calling, enabling a re-send after a late booking is added.
+- **`handleGetSystemInfo(body)`** — admin-authenticated; returns `{ reminderLastRun }` for dashboard display.
+- **`installTriggers()`** updated — now installs both `syncCalendarToSlots` (01:00 daily) and `sendDailyReminders` (08:00 daily). Old triggers for both functions are deleted before re-creating.
+- New doPost cases: `sendReminders`, `getSystemInfo`.
+
+#### Admin Dashboard — Slot Manager tab
+- **תזכורות יומיות card** — shows last-run date (fetched from `getSystemInfo` when the tab opens); "שלח גם אם כבר נשלח היום" force checkbox; "שלח תזכורות למחר" button that calls `handleSendReminders`.
+- Toast result: shows count of sent reminders or "כבר נשלח היום" if already ran without force.
+
+#### Quota impact
+3 SMS per booking lifecycle + 1 reminder = 4 SMS/booking → **~12 bookings/day** on Twilio trial.

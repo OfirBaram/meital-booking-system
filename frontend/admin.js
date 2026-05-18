@@ -373,6 +373,7 @@ async function loadTemplate() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
   document.getElementById('js-save-template').disabled = true;
+  loadSystemInfo();
   try {
     const data = await apiCall('getTemplate');
     if (!data.success) throw new Error(data.error);
@@ -490,7 +491,43 @@ async function blockDates() {
   }
 }
 
+// ── Reminders ─────────────────────────────────────────────────────
+async function loadSystemInfo() {
+  try {
+    const data = await apiCall('getSystemInfo');
+    const el   = document.getElementById('js-reminder-last');
+    if (data.success && data.reminderLastRun) {
+      el.textContent = 'נשלח לאחרונה: ' + data.reminderLastRun.replace(/-/g, '/');
+    } else if (data.success) {
+      el.textContent = 'טרם נשלח';
+    }
+  } catch (_) {}
+}
+
+async function sendReminders() {
+  const force = document.getElementById('js-reminder-force').checked;
+  const btn   = document.getElementById('js-reminder-submit');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> שולח...';
+  try {
+    const data = await apiCall('sendReminders', { force });
+    if (!data.success) throw new Error(data.error);
+    if (data.skipped) {
+      toast('כבר נשלח היום — סמן "שלח גם אם כבר נשלח" לשליחה חוזרת', '');
+    } else {
+      toast('נשלחו ' + data.sent + ' תזכורות ✅', 'ok');
+    }
+    await loadSystemInfo();
+  } catch (e) {
+    toast('שגיאה: ' + e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'שלח תזכורות למחר';
+  }
+}
+
 // ── Auto-refresh (60 s) ───────────────────────────────────────────
+
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
@@ -537,6 +574,7 @@ async function init() {
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-block-submit').addEventListener('click', blockDates);
+  document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
 
   // Session restore
   if (S.token && sessionValid()) {
