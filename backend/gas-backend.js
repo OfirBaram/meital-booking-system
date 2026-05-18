@@ -89,6 +89,25 @@ const LOG_LEVEL = {
   INFO:    'ℹ️ מידע',
 };
 
+/** Convert a Sheets date cell (Date obj or YYYY-MM-DD string) to dd/MM/yyyy for SMS display. */
+function _fmtDate(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'dd/MM/yyyy');
+  const m = String(raw || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : String(raw || '').trim();
+}
+
+/** Convert a Sheets time cell (Date obj or HH:mm string) to HH:mm for SMS display. */
+function _fmtTime(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'HH:mm');
+  return String(raw || '').trim();
+}
+
+/** Extract ISO yyyy-MM-dd from a Sheets date cell — used internally for sheet/calendar ops. */
+function _isoDate(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, CFG.TZ, 'yyyy-MM-dd');
+  return String(raw || '').trim();
+}
+
 const ACTION = {
   SEND_OTP:      'שליחת OTP',
   VERIFY_BOOK:   'אימות והזמנה',
@@ -729,7 +748,7 @@ function handleVerifyAndBook(body) {
       `שם: ${booking.name}`,
       `טלפון: ${formatPhone(phone)}`,
       `שירות: ${booking.serviceName}`,
-      `תאריך: ${booking.date} בשעה ${booking.time}`,
+      'תאריך: ' + _fmtDate(booking.date) + ' בשעה ' + booking.time,
       ``,
       `✅ אישור: ${approveUrl}`,
       `❌ דחייה: ${rejectUrl}`,
@@ -812,8 +831,9 @@ function handleAdminAction(body) {
 }
 
 function processApproval(logSh, row, rowIdx, bookingId) {
-  const date        = String(row[LOG_COL.DATE - 1]).trim();
-  const time        = String(row[LOG_COL.TIME - 1]).trim();
+  const dateIso     = _isoDate(row[LOG_COL.DATE - 1]);
+  const date        = _fmtDate(row[LOG_COL.DATE - 1]);
+  const time        = _fmtTime(row[LOG_COL.TIME - 1]);
   const duration    = parseInt(row[LOG_COL.DURATION - 1], 10) || 90;
   const clientName  = String(row[LOG_COL.NAME - 1]).trim();
   const clientPhone = normalizePhone(String(row[LOG_COL.PHONE - 1]).trim());
@@ -821,7 +841,7 @@ function processApproval(logSh, row, rowIdx, bookingId) {
 
   // ── Create Google Calendar event ──
   const calEventId = CalService.createEvent({
-    date, time, duration, clientName, serviceName, bookingId,
+    date: dateIso, time, duration, clientName, serviceName, bookingId,
   });
 
   // ── Update Bookings_Log: status → Approved, store calendar event ID ──
@@ -830,8 +850,8 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   SpreadsheetApp.flush();
 
   // ── Update Weekly_Slots: mark slot as Booked ──
-  updateSlotStatus(date, time, 'Booked');
-  invalidateSlotsCache(date);
+  updateSlotStatus(dateIso, time, 'Booked');
+  invalidateSlotsCache(dateIso);
 
   // ── Notify client ──
   const clientMsg = [
@@ -844,13 +864,14 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientApproval');
 
   Logger.log('[adminAction] Approved: ' + bookingId);
-  log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time + ' | calEvent:' + calEventId });
+  log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time + ' | calEvent:' + calEventId });
   return { success: true, action: 'APPROVE', bookingId, calEventId };
 }
 
 function processRejection(logSh, row, rowIdx, bookingId) {
-  const date        = String(row[LOG_COL.DATE - 1]).trim();
-  const time        = String(row[LOG_COL.TIME - 1]).trim();
+  const dateIso     = _isoDate(row[LOG_COL.DATE - 1]);
+  const date        = _fmtDate(row[LOG_COL.DATE - 1]);
+  const time        = _fmtTime(row[LOG_COL.TIME - 1]);
   const clientPhone = normalizePhone(String(row[LOG_COL.PHONE - 1]).trim());
   const serviceName = String(row[LOG_COL.SERVICE_NAME - 1]).trim();
 
@@ -859,8 +880,8 @@ function processRejection(logSh, row, rowIdx, bookingId) {
   SpreadsheetApp.flush();
 
   // ── Release slot back to Available ──
-  updateSlotStatus(date, time, 'Available');
-  invalidateSlotsCache(date); // bust cache so rejected slot reappears immediately
+  updateSlotStatus(dateIso, time, 'Available');
+  invalidateSlotsCache(dateIso); // bust cache so rejected slot reappears immediately
 
   // ── Notify client ──
   const clientMsg = [
@@ -870,7 +891,7 @@ function processRejection(logSh, row, rowIdx, bookingId) {
   SmsService.send(clientPhone, clientMsg, 'ClientRejection');
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
-  log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + date + ' ' + time });
+  log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time });
   return { success: true, action: 'REJECT', bookingId };
 }
 
@@ -1948,10 +1969,9 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
   const TZ_     = 'Asia/Jerusalem';
   const rawDate = row[LOG_COL.DATE - 1];
   const rawTime = row[LOG_COL.TIME - 1];
-  const date    = (rawDate instanceof Date)
-    ? Utilities.formatDate(rawDate, TZ_, 'yyyy-MM-dd') : String(rawDate || '').trim();
-  const time    = (rawTime instanceof Date)
-    ? Utilities.formatDate(rawTime, TZ_, 'HH:mm') : String(rawTime || '').trim();
+  const dateIso = _isoDate(rawDate);
+  const date    = _fmtDate(rawDate);
+  const time    = _fmtTime(rawTime);
   const phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
   const svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
   const calEventId = String(row[LOG_COL.CAL_EVENT    - 1] || '').trim();
@@ -1960,8 +1980,8 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
 
   logSh.getRange(rowIdx, LOG_COL.STATUS).setValue('Cancelled');
   SpreadsheetApp.flush();
-  updateSlotStatus(date, time, 'Available');
-  invalidateSlotsCache(date);
+  updateSlotStatus(dateIso, time, 'Available');
+  invalidateSlotsCache(dateIso);
 
   const msg = [
     '❌ התור שלך ב-' + date + ' בשעה ' + time + ' בוטל.',
