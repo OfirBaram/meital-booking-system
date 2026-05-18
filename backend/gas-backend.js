@@ -312,6 +312,7 @@ function doPost(e) {
       case 'blockDates':    return jsonOk(handleBlockDates(body));
       case 'sendReminders': return jsonOk(handleSendReminders(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
+      case 'injectMock':   return jsonOk(handleInjectMock(body));
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -1386,6 +1387,46 @@ function runBackendTests() {
 
   Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
   failed === 0 ? Logger.log('🎉 All tests passed!') : Logger.log('⚠️  ' + failed + ' test(s) FAILED');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// QA / TEST UTILITIES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * QA Console endpoint — returns current IS_TEST_MODE state and
+ * optionally injects a named test scenario into the live system.
+ *
+ * body.scenario (optional):
+ *   "status"  (default) — returns IS_TEST_MODE flag and quota counters
+ *   "quota"             — returns todays SMS count vs limit
+ */
+function handleInjectMock(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var scenario = body.scenario || 'status';
+
+  if (scenario === 'status') {
+    return {
+      success:      true,
+      IS_TEST_MODE: IS_TEST_MODE,
+      mode:         IS_TEST_MODE ? 'test' : 'production',
+      message:      IS_TEST_MODE
+        ? 'IS_TEST_MODE=true — Twilio and Calendar calls are mocked'
+        : 'IS_TEST_MODE=false — system is LIVE',
+    };
+  }
+
+  if (scenario === 'quota') {
+    var count = getDailySmsCount();
+    return {
+      success:    true,
+      smsSentToday: count,
+      smsLimit:   DAILY_SMS_LIMIT,
+      remaining:  Math.max(0, DAILY_SMS_LIMIT - count),
+    };
+  }
+
+  return { success: false, error: 'Unknown scenario: ' + scenario };
 }
 
 /**
