@@ -318,10 +318,10 @@ function doPost(e) {
 
   try {
     switch (body.action) {
-      case 'getSlots':      return jsonOk(handleGetSlots(body));
-      case 'sendOTP':       return jsonOk(handleSendOTP(body));
-      case 'verifyAndBook': return jsonOk(handleVerifyAndBook(body));
-      case 'adminAction':   return jsonOk(handleAdminAction(body));
+      case 'getSlots':      return jsonOk(IS_SUPABASE_ENABLED ? handleGetSlotsV2(body)      : handleGetSlots(body));
+      case 'sendOTP':       return jsonOk(IS_SUPABASE_ENABLED ? handleSendOTPV2(body)       : handleSendOTP(body));
+      case 'verifyAndBook': return jsonOk(IS_SUPABASE_ENABLED ? handleVerifyAndBookV2(body) : handleVerifyAndBook(body));
+      case 'adminAction':   return jsonOk(IS_SUPABASE_ENABLED ? handleAdminActionV2(body)   : handleAdminAction(body));
       case 'listBookings':  return jsonOk(handleListBookings(body));
       case 'changeStatus':  return jsonOk(handleChangeStatus(body));
       case 'createBooking': return jsonOk(handleCreateBooking(body));
@@ -341,6 +341,7 @@ function doPost(e) {
       case 'getSmsLog':        return jsonOk(handleGetSmsLog(body));
       case 'getSlotInventory': return jsonOk(handleGetSlotInventory(body));
       case 'toggleSlotStatus': return jsonOk(handleToggleSlotStatus(body));
+      case 'migrateToSupabase': return jsonOk(handleMigrateToSupabase(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -1080,7 +1081,7 @@ function sendSMS(to, body) {
     resp = UrlFetchApp.fetch(url, options);
   } catch (fetchErr) {
     Logger.log('[sendSMS] Network error: ' + fetchErr.message);
-    logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
     const err = new Error('SMS network error: ' + fetchErr.message);
     err.debugInfo = { stage: 'network', to, from: fromNum, message: fetchErr.message };
     throw err;
@@ -1100,7 +1101,7 @@ function sendSMS(to, body) {
       dbg.twilioMessage = tw.message;
       if (tw.more_info) { detail += ' — ' + tw.more_info; dbg.moreInfo = tw.more_info; }
     } catch (_) { detail += ' | ' + respText.slice(0, 200); }
-    logSMS(to, _smsCtx, 'ERROR', body, detail);
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, detail);
     const err = new Error('Twilio SMS failed: ' + detail);
     err.debugInfo = dbg;
     throw err;
@@ -1108,7 +1109,7 @@ function sendSMS(to, body) {
 
   let sid = '';
   try { sid = JSON.parse(respText).sid || ''; } catch (_) {}
-  logSMS(to, _smsCtx, 'SENT', body, sid);
+  if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'SENT', body, sid);
   Logger.log('[sendSMS] SMS sent OK to ' + to + ' | SID: ' + sid);
 }
 
@@ -2185,6 +2186,9 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
  * Flip back to false before every production deployment.
  */
 const IS_TEST_MODE = false;
+// Set to true once SUPABASE_URL + SUPABASE_KEY are configured in Script Properties.
+// When true, getSlots / sendOTP / verifyAndBook / adminAction route through SupabaseLayer.js.
+const IS_SUPABASE_ENABLED = false;
 
 const CalService = {
   createEvent(params) {
@@ -2217,11 +2221,28 @@ const SmsService = {
   send(to, message, context) {
     if (IS_TEST_MODE) {
       Logger.log('[SmsService MOCK] ctx=' + context + ' to=' + to + ' | ' + message.slice(0, 80));
-      logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'MOCK', message_body: message, detail: 'IS_TEST_MODE' });
+      } else {
+        logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
+      }
       return;
     }
     sendSMS._context = context;
-    sendSMS(to, message);
+    try {
+      sendSMS(to, message);
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'SENT', message_body: message, detail: '' });
+      }
+    } catch (e) {
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'ERROR', message_body: message, detail: e.message });
+      }
+      throw e;
+    }
   },
 };
 
