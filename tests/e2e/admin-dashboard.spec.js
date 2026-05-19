@@ -213,3 +213,138 @@ test.describe('Admin dashboard — graceful degradation', () => {
     expect(bodyText.trim().length).toBeGreaterThan(10)
   })
 })
+
+// ─── 5. Client management — card render, history, error handling ─────────────
+//
+// Motivation: the clients tab was previously exercised only with an EMPTY
+// clients array, so buildClientCard / loadClientHistory / renderClientHistory —
+// the exact render path that carried the line-1076 SyntaxError — had zero
+// behavioural coverage.  These tests load real client data and walk the path.
+
+/** Two real clients so the clients tab renders actual cards. */
+const MOCK_CLIENTS_FULL = {
+  success: true,
+  clients: [
+    { id: 'c-1', phone: '0501234567', full_name: 'דנה כהן',
+      created_at: '2099-01-15T10:00:00+02:00' },
+    { id: 'c-2', phone: '0529876543', full_name: 'רונית לוי',
+      created_at: '2099-03-20T10:00:00+03:00' },
+  ],
+}
+
+/** Client history with one Approved + one Pending appointment. */
+const MOCK_CLIENT_HISTORY = {
+  success: true,
+  client:  { phone: '0501234567', full_name: 'דנה כהן' },
+  appointments: [
+    { id: 'a-1', date: '2099-12-01', time: '10:00', status: 'Approved',
+      treatment_name: "לק ג'ל קלאסי" },
+    { id: 'a-2', date: '2099-12-15', time: '14:00', status: 'Pending',
+      admin_token: 'tok-pending-abc', treatment_name: "לק ג'ל רגליים" },
+  ],
+}
+
+/** Fulfil a route with a JSON body. */
+const jsonRoute = (data) => (route) =>
+  route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
+
+test.describe('Admin dashboard — client management', () => {
+  test('clients tab renders client cards from real data', async ({ page }) => {
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {
+      adminGetClients: jsonRoute(MOCK_CLIENTS_FULL),
+    })
+    await page.goto('/admin.html')
+    await doLogin(page)
+
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+
+    // #js-clients-list is guaranteed by admin.html; each client → one child div
+    const cards = page.locator('#js-clients-list > div')
+    await expect(cards).toHaveCount(2, { timeout: 5_000 })
+    await expect(page.locator('#js-clients-list')).toContainText('דנה כהן')
+    await expect(page.locator('#js-clients-list')).toContainText('רונית לוי')
+
+    expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+
+  test('clicking a client card opens the history panel with appointments', async ({ page }) => {
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {
+      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+    })
+    await page.goto('/admin.html')
+    await doLogin(page)
+
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+    await page.locator('#js-clients-list > div').first().click()
+
+    // History panel replaces the list
+    await expect(page.locator('#js-client-history')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-clients-list')).toBeHidden()
+
+    // Header populated + both appointment rows rendered
+    await expect(page.locator('#js-history-name')).toHaveText('דנה כהן')
+    await expect(page.locator('[data-appt-row]')).toHaveCount(2)
+
+    expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+
+  test('client history error (client_not_found) shows a message, not a crash', async ({ page }) => {
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {
+      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      adminGetClientHistory: jsonRoute({ success: false, error: 'client_not_found' }),
+    })
+    await page.goto('/admin.html')
+    await doLogin(page)
+
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+    await page.locator('#js-clients-list > div').first().click()
+
+    // Panel still switches; the list area shows a friendly error, not a blank screen
+    await expect(page.locator('#js-client-history')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-history-list')).toContainText('שגיאה')
+
+    // A handled error must NOT trip the crash banner or surface as a pageerror
+    await expect(page.locator('#js-crash-banner')).toBeHidden()
+    expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+
+  test('regression — client flow does not break login or the 5 nav tabs', async ({ page }) => {
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {
+      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+    })
+    await page.goto('/admin.html')
+
+    // Login still works
+    await doLogin(page)
+    await expect(page.locator('#js-dash')).toBeVisible()
+
+    // Walk the client-management feature end to end
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+    await page.locator('#js-clients-list > div').first().click()
+    await expect(page.locator('#js-client-history')).toBeVisible({ timeout: 5_000 })
+
+    // All 5 nav tabs are still present and switchable afterwards
+    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+      const navTab = page.locator('[data-qa="nav-tab-' + tab + '"]')
+      await expect(navTab, 'nav tab "' + tab + '" missing after client flow').toBeVisible()
+      await navTab.click()
+      await page.waitForTimeout(300)
+    }
+
+    expect(jsErrors, 'JS errors during regression: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+})
