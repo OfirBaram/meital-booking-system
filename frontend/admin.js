@@ -1192,4 +1192,12 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
   }
 }
 
+// Inline onclick="" attributes in generated HTML resolve against global scope.
+// admin.js is loaded as an ES module (<script type="module">), so its top-level
+// functions are NOT attached to window — expose the ones referenced from markup.
+window.toggleDiarySlot         = toggleDiarySlot;
+window.deleteDiarySlot         = deleteDiarySlot;
+window.loadClientHistory       = loadClientHistory;
+window._processHistoryDecision = _processHistoryDecision;
+
 document.addEventListener('DOMContentLoaded', init);
