@@ -1073,7 +1073,7 @@ function renderClientList(clients) {
     return (
       '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in ' +
            'cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]" ' +
-           'onclick="loadClientHistory('' + esc(c.phone) + '')">' +
+           'onclick="loadClientHistory(\'' + esc(c.phone) + '\')">' +
         '<div class="flex items-center justify-between">' +
           '<div>' +
             '<div class="font-bold text-sm text-text-main">' + esc(c.full_name || '(ללא שם)') + '</div>' +
