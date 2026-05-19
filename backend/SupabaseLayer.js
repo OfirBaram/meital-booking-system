@@ -625,3 +625,211 @@ function _sb_verifyHmac(str, token, secret) {
     return diff === 0;
   } catch (_) { return false; }
 }
+
+
+// ══════════════════════════════════════════════════════════════════
+// ADMIN HANDLER FUNCTIONS  (Supabase-native; require ADMIN_TOKEN)
+// All 6 functions bypass IS_SUPABASE_ENABLED — they always use
+// SupabaseService directly.  Authentication: validateAdmin(body.token).
+// ══════════════════════════════════════════════════════════════════
+
+// ─── handleAdminGetSlotsV2 ───────────────────────────────────────
+// Returns all slots (any status) for a Jerusalem-local date range.
+// Input: { token, dateFrom:'YYYY-MM-DD', dateTo:'YYYY-MM-DD' }
+function handleAdminGetSlotsV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var dateFrom = String(body.dateFrom || '').trim();
+  var dateTo   = String(body.dateTo   || '').trim();
+  if (!dateFrom || !dateTo) return { success: false, error: 'missing_params' };
+
+  var fromUtc = _sb_localToUtcIso(dateFrom, '00:00');
+  var toUtc   = _sb_localToUtcIso(dateTo,   '23:59');
+
+  var rows = SupabaseService.select('slots',
+    'start_time=gte.' + fromUtc +
+    '&start_time=lte.' + toUtc +
+    '&order=start_time.asc' +
+    '&select=id,start_time,end_time,status');
+
+  if (!rows) return { success: false, error: 'supabase_unavailable' };
+
+  var TZ = 'Asia/Jerusalem';
+  var slots = rows.map(function (row) {
+    var dt = new Date(row.start_time);
+    return {
+      id:     row.id,
+      date:   Utilities.formatDate(dt, TZ, 'yyyy-MM-dd'),
+      time:   Utilities.formatDate(dt, TZ, 'HH:mm'),
+      status: row.status,
+    };
+  });
+
+  return { success: true, slots: slots };
+}
+
+// ─── handleAdminAddSlotV2 ────────────────────────────────────────
+// Adds a single available slot.  Idempotent: ON CONFLICT(start_time).
+// Input: { token, date:'YYYY-MM-DD', time:'HH:MM' }
+function handleAdminAddSlotV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var date = String(body.date || '').trim();
+  var time = String(body.time || '').trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) {
+    return { success: false, error: 'invalid_params' };
+  }
+
+  var startUtc = _sb_localToUtcIso(date, time);
+  var endUtc   = new Date(new Date(startUtc).getTime() + 120 * 60 * 1000).toISOString();
+
+  var inserted = SupabaseService.insert('slots', {
+    start_time:   startUtc,
+    end_time:     endUtc,
+    status:       'available',
+    last_updated: new Date().toISOString(),
+  }, 'start_time');
+
+  if (!inserted || !inserted[0]) return { success: false, error: 'insert_failed' };
+
+  return {
+    success: true,
+    slot: { id: inserted[0].id, date: date, time: time, status: 'available' },
+  };
+}
+
+// ─── handleAdminDeleteSlotV2 ─────────────────────────────────────
+// Deletes a slot by id.  Refuses if status is 'booked' or 'pending'.
+// Input: { token, slotId }
+function handleAdminDeleteSlotV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var id = parseInt(body.slotId, 10);
+  if (!id) return { success: false, error: 'missing_params' };
+
+  var rows = SupabaseService.select('slots', 'id=eq.' + id + '&select=id,status');
+  if (!rows || !rows.length) return { success: false, error: 'slot_not_found' };
+  var slot = rows[0];
+
+  if (slot.status === 'booked' || slot.status === 'pending') {
+    return { success: false, error: 'cannot_delete_active', status: slot.status };
+  }
+
+  var result = SupabaseService.delete('slots', 'id=eq.' + id);
+  if (result === null) return { success: false, error: 'delete_blocked_by_fk' };
+
+  return { success: true, slotId: id };
+}
+
+// ─── handleAdminToggleSlotV2 ─────────────────────────────────────
+// Toggles a slot between 'available' and 'locked'.
+// Input: { token, slotId }
+function handleAdminToggleSlotV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var id = parseInt(body.slotId, 10);
+  if (!id) return { success: false, error: 'missing_params' };
+
+  var rows = SupabaseService.select('slots', 'id=eq.' + id + '&select=id,status');
+  if (!rows || !rows.length) return { success: false, error: 'slot_not_found' };
+  var status = rows[0].status;
+
+  var newStatus;
+  if      (status === 'available') newStatus = 'locked';
+  else if (status === 'locked')    newStatus = 'available';
+  else return { success: false, error: 'cannot_toggle', status: status };
+
+  SupabaseService.update('slots', 'id=eq.' + id, {
+    status:       newStatus,
+    last_updated: new Date().toISOString(),
+  });
+
+  return { success: true, slotId: id, prevStatus: status, newStatus: newStatus };
+}
+
+// ─── handleAdminGetClientsV2 ─────────────────────────────────────
+// Returns up to 50 clients, optionally filtered by name/phone (ilike).
+// Input: { token, search:'' }
+function handleAdminGetClientsV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var search = String(body.search || '').trim();
+  var q;
+  if (search.length >= 2) {
+    var enc = encodeURIComponent(search);
+    q = 'or=(full_name.ilike.*' + enc + '*,phone.ilike.*' + enc + '*)' +
+        '&order=created_at.desc&limit=50&select=id,phone,full_name,created_at';
+  } else {
+    q = 'order=created_at.desc&limit=50&select=id,phone,full_name,created_at';
+  }
+
+  var rows = SupabaseService.select('clients', q);
+  if (!rows) return { success: false, error: 'supabase_unavailable' };
+
+  return { success: true, clients: rows };
+}
+
+// ─── handleAdminGetClientHistoryV2 ──────────────────────────────
+// Returns a client profile + all appointments with slot times.
+// Slot data is batch-fetched in ONE query to avoid N+1 HTTP calls.
+// admin_token included per appointment for approve/reject via adminAction.
+// Input: { token, clientPhone }
+function handleAdminGetClientHistoryV2(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
+
+  var phone = normalizePhone(String(body.clientPhone || '').trim());
+  if (!phone) return { success: false, error: 'invalid_phone' };
+
+  var clientRows = SupabaseService.select('clients',
+    'phone=eq.' + encodeURIComponent(phone) +
+    '&select=id,phone,full_name,created_at');
+  if (!clientRows || !clientRows.length) return { success: false, error: 'client_not_found' };
+  var client = clientRows[0];
+
+  var appts = SupabaseService.select('appointments',
+    'client_id=eq.' + client.id +
+    '&select=id,treatment_name,status,admin_token,calendar_event_id,created_at,slot_id,duration_min' +
+    '&order=created_at.desc');
+  if (!appts) appts = [];
+
+  // Batch-fetch all slot start_times in ONE query (no N+1)
+  var slotsMap = {};
+  var slotIds  = appts
+    .map(function (a) { return a.slot_id; })
+    .filter(function (id) { return !!id; });
+
+  if (slotIds.length > 0) {
+    var slotRows = SupabaseService.select('slots',
+      'id=in.(' + slotIds.join(',') + ')&select=id,start_time');
+    if (slotRows) {
+      slotRows.forEach(function (s) { slotsMap[s.id] = s; });
+    }
+  }
+
+  var TZ = 'Asia/Jerusalem';
+  var appointments = appts.map(function (a) {
+    var slot = slotsMap[a.slot_id];
+    var dt   = slot ? new Date(slot.start_time) : null;
+    return {
+      id:                a.id,
+      treatment_name:    a.treatment_name,
+      status:            a.status,
+      admin_token:       a.admin_token,
+      calendar_event_id: a.calendar_event_id || null,
+      created_at:        a.created_at,
+      date: dt ? Utilities.formatDate(dt, TZ, 'yyyy-MM-dd') : null,
+      time: dt ? Utilities.formatDate(dt, TZ, 'HH:mm')      : null,
+    };
+  });
+
+  return {
+    success: true,
+    client: {
+      phone:      client.phone,
+      full_name:  client.full_name,
+      created_at: client.created_at,
+    },
+    appointments: appointments,
+  };
+}
