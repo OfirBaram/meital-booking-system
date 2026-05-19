@@ -684,12 +684,23 @@ function handleAdminAddSlotV2(body) {
   var startUtc = _sb_localToUtcIso(date, time);
   var endUtc   = new Date(new Date(startUtc).getTime() + 120 * 60 * 1000).toISOString();
 
+  // Check before insert — merge-duplicates would reset status on booked/pending slots
+  var existing = SupabaseService.select('slots',
+    'start_time=eq.' + encodeURIComponent(startUtc) + '&select=id,status&limit=1');
+  if (existing && existing.length > 0) {
+    return {
+      success: true,
+      already_exists: true,
+      slot: { id: existing[0].id, date: date, time: time, status: existing[0].status },
+    };
+  }
+
   var inserted = SupabaseService.insert('slots', {
     start_time:   startUtc,
     end_time:     endUtc,
     status:       'available',
     last_updated: new Date().toISOString(),
-  }, 'start_time');
+  });
 
   if (!inserted || !inserted[0]) return { success: false, error: 'insert_failed' };
 

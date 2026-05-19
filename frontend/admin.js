@@ -1021,11 +1021,15 @@ async function addDiarySlot() {
   try {
     const r = await apiCall('adminAddSlot', { date, time });
     if (!r.success) throw new Error(r.error);
-    toast('החריץ נוסף בהצלחה ✓', 'ok');
-    // Reload if the new slot falls within the current view range
-    const fromVal = document.getElementById('js-diary-from') ? document.getElementById('js-diary-from').value : '';
-    const toVal   = document.getElementById('js-diary-to')   ? document.getElementById('js-diary-to').value   : '';
-    if (fromVal && toVal && date >= fromVal && date <= toVal) await loadDiarySlots();
+    if (r.already_exists) {
+      toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
+    } else {
+      toast('החריץ נוסף בהצלחה ✓', 'ok');
+      // Reload if the new slot falls within the current view range
+      const fromVal = document.getElementById('js-diary-from') ? document.getElementById('js-diary-from').value : '';
+      const toVal   = document.getElementById('js-diary-to')   ? document.getElementById('js-diary-to').value   : '';
+      if (fromVal && toVal && date >= fromVal && date <= toVal) await loadDiarySlots();
+    }
   } catch (e) {
     toast('שגיאה בהוספת החריץ', 'err');
   } finally {
