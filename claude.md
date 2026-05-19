@@ -704,3 +704,53 @@ The trigger correctly queries a **30-day rolling window** (not unbounded). Execu
   - HTTP 500 stays on step 4, shows Hebrew toast.
   - `slot_not_available` shows slot-gone Hebrew toast then redirects to step 2 after 2.5 s.
   - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).
+
+---
+
+## 16. Frontend Deployment Gate — Mandatory Rule
+
+> **This rule exists because a `SyntaxError: Unexpected string` in `admin.js` caused
+> a complete white screen on the admin dashboard in production while all backend
+> GAS tests passed green. Backend tests do not exercise the browser JS parser.**
+
+### Rule: Zero-Console-Error Gate
+
+**No Frontend commit or push may be merged or deployed unless the following
+check passes locally:**
+
+```bash
+npx playwright test tests/e2e/admin-dashboard.spec.js --headed
+```
+
+All tests must be green, in particular:
+
+| Test | What it guards |
+|------|---------------|
+| `admin.html loads without any JS console errors` | Any SyntaxError / ReferenceError in admin.js |
+| `login panel is visible immediately — no white screen` | Page renders something visible on load |
+| `switching to each tab does not throw a JS exception` | Runtime errors in tab-init code |
+
+### Rule: No Adjacent String Literals in onclick HTML Generation
+
+When building HTML strings with inline `onclick` handlers in JavaScript, **never**
+place two string literals next to each other without a `+` operator between them.
+
+```js
+// ❌ WRONG — SyntaxError: Unexpected string
+'onclick="fn(' + id + ','' + val + '')"'
+
+// ✅ CORRECT — use \' to escape single quotes inside single-quoted strings
+'onclick="fn(' + id + ',\'' + val + '\')"'
+```
+
+This pattern arises specifically when the onclick JS argument must be a
+single-quoted string (e.g., a status value passed to a toggle handler).
+The `\'` escape works in all browsers and avoids the adjacent-literal parse error.
+
+### Rule: window.onerror Must Be Present in admin.html
+
+`admin.html` must always contain a `window.onerror` handler as the **first**
+`<script>` in `<head>`. This handler renders a branded Hebrew error banner
+(`#js-crash-banner`) instead of a blank white screen if any JS file fails to
+load or parse. Do not remove or relocate this handler.
+  - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).

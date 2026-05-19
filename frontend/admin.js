@@ -937,7 +937,7 @@ function renderDiarySlots(slots) {
             '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>' +
           '</div>' +
           '<div class="flex items-center gap-1">' +
-            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ",'" + s.status + "')" ' +
+            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ',\'' + s.status + ')" ' +
               (canAct ? '' : 'disabled ') +
               'class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">' +
               toggleIcon +
@@ -1128,12 +1128,12 @@ function renderClientHistory(appointments) {
     const actionBtns = isPending
       ? '<div class="flex gap-2 mt-2">' +
           '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision('' + esc(a.id) + '','' + esc(a.admin_token) + '','Approved')" ' +
+            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Approved\')" ' +
             'class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
             '✅ אשר' +
           '</button>' +
           '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision('' + esc(a.id) + '','' + esc(a.admin_token) + '','Rejected')" ' +
+            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Rejected\')" ' +
             'class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
             '❌ דחה' +
           '</button>' +
