@@ -937,7 +937,7 @@ function renderDiarySlots(slots) {
             '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>' +
           '</div>' +
           '<div class="flex items-center gap-1">' +
-            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ','' + s.status + '')" ' +
+            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ",'" + s.status + "')" ' +
               (canAct ? '' : 'disabled ') +
               'class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">' +
               toggleIcon +
@@ -981,7 +981,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
     if (entry) entry.status = r.newStatus;
     // update onclick attribute to reflect new status
     if (row) row.querySelector('[data-action-btn]').setAttribute('onclick',
-      'toggleDiarySlot(' + slotId + ','' + r.newStatus + '')');
+      "toggleDiarySlot(" + slotId + ",'" + r.newStatus + "')");
   } catch (e) {
     // Revert
     renderDiarySlots(S.diarySlots);
