@@ -342,6 +342,12 @@ function doPost(e) {
       case 'getSlotInventory': return jsonOk(handleGetSlotInventory(body));
       case 'toggleSlotStatus': return jsonOk(handleToggleSlotStatus(body));
       case 'migrateToSupabase': return jsonOk(handleMigrateToSupabase(body));
+      case 'adminGetSlots':         return jsonOk(handleAdminGetSlotsV2(body));
+      case 'adminAddSlot':          return jsonOk(handleAdminAddSlotV2(body));
+      case 'adminDeleteSlot':       return jsonOk(handleAdminDeleteSlotV2(body));
+      case 'adminToggleSlot':       return jsonOk(handleAdminToggleSlotV2(body));
+      case 'adminGetClients':       return jsonOk(handleAdminGetClientsV2(body));
+      case 'adminGetClientHistory': return jsonOk(handleAdminGetClientHistoryV2(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -2188,7 +2194,7 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
 const IS_TEST_MODE = false;
 // Set to true once SUPABASE_URL + SUPABASE_KEY are configured in Script Properties.
 // When true, getSlots / sendOTP / verifyAndBook / adminAction route through SupabaseLayer.js.
-const IS_SUPABASE_ENABLED = false;
+const IS_SUPABASE_ENABLED = true;
 
 const CalService = {
   createEvent(params) {
