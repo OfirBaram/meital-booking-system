@@ -891,7 +891,7 @@ function renderDiarySlots(slots) {
             '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>' +
           '</div>' +
           '<div class="flex items-center gap-1">' +
-            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ',\'' + s.status + ')" ' +
+            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ',\'' + s.status + '\')" ' +
               (canAct ? '' : 'disabled ') +
               'class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">' +
               toggleIcon +
@@ -935,9 +935,9 @@ async function toggleDiarySlot(slotId, currentStatus) {
       }
       throw new Error(r.error || 'error');
     }
-    const lbl = data.newStatus === 'Available' ? 'שוחרר ✅' : 'חסום ✅';
-    toast(date.replace(/-/g, '/') + ' ' + time + ' — ' + lbl, 'ok');
-    await loadSlotInventory();
+    const lbl = newStatus === 'locked' ? 'חסום ✅' : 'שוחרר ✅';
+    toast('חריץ עודכן — ' + lbl, 'ok');
+    await loadDiarySlots();
   } catch (e) {
     renderDiarySlots(S.diarySlots);
     toast('שגיאה בשינוי הסטטוס', 'err');
