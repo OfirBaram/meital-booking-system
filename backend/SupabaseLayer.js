@@ -844,3 +844,144 @@ function handleAdminGetClientHistoryV2(body) {
     appointments: appointments,
   };
 }
+
+// ─── sendDailyRemindersV2 ─────────────────────────────────────────
+// Supabase-backed daily reminder. Queries appointments+slots+clients
+// directly — never reads Google Sheets (Sheets is best-effort mirror only).
+// Returns the same shape as sendDailyReminders():
+//   { success, sent, errors, skippedQuota, date }  — on success/quota
+//   { skipped, reason, date }                       — if already ran today
+//   null                                            — if Supabase unavailable
+//                                                     (caller must fall back)
+function sendDailyRemindersV2() {
+  var _t0 = Date.now();
+  var TZ  = 'Asia/Jerusalem';
+  var now = new Date();
+  var today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+
+  // Idempotency guard — shared with Sheets path via same property key
+  var props   = PropertiesService.getScriptProperties();
+  var lastRun = props.getProperty('REMINDER_LAST_RUN') || '';
+  if (lastRun === today) {
+    Logger.log('[sendDailyRemindersV2] Already ran today (' + today + '), skipping.');
+    return { skipped: true, reason: 'already_ran_today', date: today };
+  }
+
+  var tomorrowDate = new Date(now);
+  tomorrowDate.setDate(now.getDate() + 1);
+  var tomorrowStr = Utilities.formatDate(tomorrowDate, TZ, 'yyyy-MM-dd');
+  Logger.log('[sendDailyRemindersV2] Looking for Approved appointments on ' + tomorrowStr);
+
+  // Build a UTC pre-filter window that safely covers tomorrowStr in Jerusalem
+  // regardless of DST (Jerusalem = UTC+2 winter / UTC+3 summer).
+  // A slot at midnight Jerusalem could be as early as 21:00 UTC the prior day;
+  // a slot at 23:59 Jerusalem could be as late as 21:59 UTC that same calendar day.
+  // Window: [tomorrowStr-1 day at 20:00 UTC, tomorrowStr at 22:00 UTC]
+  var parts    = tomorrowStr.split('-').map(Number); // [yyyy, mm, dd]
+  var rangeGte = new Date(Date.UTC(parts[0], parts[1]-1, parts[2]-1, 20, 0, 0, 0)).toISOString();
+  var rangeLt  = new Date(Date.UTC(parts[0], parts[1]-1, parts[2],   22, 0, 0, 0)).toISOString();
+
+  // 1. Slots within the UTC window
+  var slotRows = SupabaseService.select('slots',
+    'start_time=gte.' + encodeURIComponent(rangeGte) +
+    '&start_time=lt.'  + encodeURIComponent(rangeLt) +
+    '&select=id,start_time');
+  if (!slotRows) {
+    Logger.log('[sendDailyRemindersV2] Supabase slots query failed — caller will fall back to Sheets.');
+    return null;
+  }
+
+  // Post-filter: keep only slots whose Jerusalem-local date is exactly tomorrow
+  var tomorrowSlots = slotRows.filter(function (s) {
+    return Utilities.formatDate(new Date(s.start_time), TZ, 'yyyy-MM-dd') === tomorrowStr;
+  });
+
+  if (tomorrowSlots.length === 0) {
+    Logger.log('[sendDailyRemindersV2] No slots for ' + tomorrowStr + ' — nothing to remind.');
+    props.setProperty('REMINDER_LAST_RUN', today);
+    return { success: true, sent: 0, errors: 0, skippedQuota: 0, date: tomorrowStr };
+  }
+
+  // Build id -> start_time map for later SMS text
+  var slotsMap   = {};
+  var slotIdList = tomorrowSlots.map(function (s) { slotsMap[s.id] = s.start_time; return s.id; });
+
+  // 2. Approved appointments for these slots (single query, no N+1)
+  var appts = SupabaseService.select('appointments',
+    'slot_id=in.(' + slotIdList.join(',') + ')' +
+    '&status=eq.approved' +
+    '&select=id,treatment_name,slot_id,client_id');
+  if (!appts) {
+    Logger.log('[sendDailyRemindersV2] Supabase appointments query failed — caller will fall back to Sheets.');
+    return null;
+  }
+
+  if (appts.length === 0) {
+    Logger.log('[sendDailyRemindersV2] No approved appointments for ' + tomorrowStr + '.');
+    props.setProperty('REMINDER_LAST_RUN', today);
+    return { success: true, sent: 0, errors: 0, skippedQuota: 0, date: tomorrowStr };
+  }
+
+  // 3. Batch-fetch client data (single query, no N+1)
+  var clientIdList = appts.map(function (a) { return a.client_id; });
+  var clientRows   = SupabaseService.select('clients',
+    'id=in.(' + clientIdList.join(',') + ')&select=id,phone,full_name');
+  if (!clientRows) {
+    Logger.log('[sendDailyRemindersV2] Supabase clients query failed — caller will fall back to Sheets.');
+    return null;
+  }
+  var clientsMap = {};
+  clientRows.forEach(function (c) { clientsMap[c.id] = c; });
+
+  // 4. Send reminder SMS to each client
+  var sent = 0, skippedQuota = 0, errors = 0;
+
+  for (var i = 0; i < appts.length; i++) {
+    var appt   = appts[i];
+    var client = clientsMap[appt.client_id];
+    if (!client || !client.phone) {
+      Logger.log('[sendDailyRemindersV2] Missing client data for appointment ' + appt.id);
+      continue;
+    }
+
+    var timeStr = Utilities.formatDate(new Date(slotsMap[appt.slot_id]), TZ, 'HH:mm');
+
+    try {
+      checkSmsQuota(ACTION.SEND_REMINDER);
+    } catch (quotaErr) {
+      skippedQuota++;
+      Logger.log('[sendDailyRemindersV2] Quota reached: ' + quotaErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'מכסת SMS מלאה — תזכורות נעצרו', { detail: 'שנשלחו: ' + sent });
+      break;
+    }
+
+    var msg = ('תזכורת: מחר יש לך תור! ' +
+      'שירות: ' + appt.treatment_name + '. ' +
+      'תאריך: ' + tomorrowStr.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+      'לביטול יש לפנות למיטל.');
+
+    try {
+      SmsService.send(client.phone, msg, 'Reminder');
+      sent++;
+      log(LOG_LEVEL.SUCCESS, ACTION.SEND_REMINDER, 'תזכורת נשלחה ל-' + client.full_name,
+          { phone: client.phone, bookingId: appt.id,
+            detail: appt.treatment_name + ' | ' + tomorrowStr + ' ' + timeStr });
+    } catch (smsErr) {
+      errors++;
+      Logger.log('[sendDailyRemindersV2] SMS error for ' + client.phone + ': ' + smsErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'שגיאה בשליחת תזכורת ל-' + client.full_name,
+          { phone: client.phone, bookingId: appt.id, detail: smsErr.message });
+    }
+  }
+
+  if (skippedQuota === 0) {
+    props.setProperty('REMINDER_LAST_RUN', today);
+  }
+
+  var elapsed = Date.now() - _t0;
+  var summary = 'תזכורות יומיות (Supabase): שנשלחו ' + sent + ', שגיאות ' + errors + ', מכסה ' + skippedQuota + ' (' + elapsed + 'ms)';
+  Logger.log('[sendDailyRemindersV2] ' + summary);
+  log(LOG_LEVEL.INFO, ACTION.SEND_REMINDER, summary, { detail: 'תאריך תור: ' + tomorrowStr });
+
+  return { success: true, sent: sent, errors: errors, skippedQuota: skippedQuota, date: tomorrowStr };
+}

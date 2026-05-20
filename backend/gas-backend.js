@@ -1754,12 +1754,21 @@ function installTriggers() {
 
 /**
  * Sends a reminder SMS to every client with an Approved booking for tomorrow.
- * Idempotent: PropertiesService key REMINDER_LAST_RUN prevents double-sends
- * on the same calendar day even if the trigger fires twice.
- * Called automatically at 08:00 by the time-based trigger installed by
- * installTriggers(), or manually via the admin dashboard (handleSendReminders).
+ * Routes to sendDailyRemindersV2() (Supabase) when IS_SUPABASE_ENABLED=true,
+ * falling back to _sendDailyRemindersSheets() if Supabase is unavailable.
+ * Idempotent: PropertiesService key REMINDER_LAST_RUN prevents double-sends.
+ * Called at 08:00 daily by the time trigger, or manually via the dashboard.
  */
 function sendDailyReminders() {
+  if (IS_SUPABASE_ENABLED) {
+    var v2result = sendDailyRemindersV2();
+    if (v2result !== null) return v2result;
+    Logger.log('[sendDailyReminders] V2 unavailable — falling back to Sheets path.');
+  }
+  return _sendDailyRemindersSheets();
+}
+
+function _sendDailyRemindersSheets() {
   var _t0   = Date.now();
   var TZ    = 'Asia/Jerusalem';
   var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');

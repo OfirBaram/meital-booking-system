@@ -451,3 +451,94 @@ describe('normalizePhone', () => {
     expect(normalizePhone('0500000000')).toBe('+972500000000')
   })
 })
+
+// ─── sendDailyRemindersV2: UTC window computation ─────────────────────────────
+// Mirrors the rangeGte/rangeLt logic from sendDailyRemindersV2 in SupabaseLayer.js.
+// Jerusalem = UTC+2 (winter) / UTC+3 (DST summer).
+// A slot at midnight Jerusalem (earliest) lands at 21:00 UTC the previous day (+3).
+// A slot at 23:59 Jerusalem (latest) lands at 21:59 UTC that day (+2).
+// Window must be [tomorrowStr-1 day @ 20:00 UTC, tomorrowStr @ 22:00 UTC].
+
+function tomorrowUtcWindow(tomorrowStr) {
+  const parts = tomorrowStr.split('-').map(Number)
+  return {
+    gte: new Date(Date.UTC(parts[0], parts[1]-1, parts[2]-1, 20, 0, 0, 0)).toISOString(),
+    lt:  new Date(Date.UTC(parts[0], parts[1]-1, parts[2],   22, 0, 0, 0)).toISOString(),
+  }
+}
+
+describe('sendDailyRemindersV2 — UTC window', () => {
+  it('gte is 20:00 UTC of the day before tomorrowStr', () => {
+    const { gte } = tomorrowUtcWindow('2026-05-21')
+    expect(gte).toBe('2026-05-20T20:00:00.000Z')
+  })
+
+  it('lt is 22:00 UTC of tomorrowStr itself', () => {
+    const { lt } = tomorrowUtcWindow('2026-05-21')
+    expect(lt).toBe('2026-05-21T22:00:00.000Z')
+  })
+
+  it('a slot at midnight Jerusalem DST (21:00 UTC prior day) is inside the window', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-05-21')
+    const midnightDST = '2026-05-20T21:00:00.000Z' // 00:00 Jerusalem +3
+    expect(midnightDST >= gte && midnightDST < lt).toBe(true)
+  })
+
+  it('a slot at 23:59 Jerusalem winter (21:59 UTC same day) is inside the window', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-05-21')
+    const lastSlot = '2026-05-21T21:59:00.000Z' // 23:59 Jerusalem +2
+    expect(lastSlot >= gte && lastSlot < lt).toBe(true)
+  })
+
+  it('a slot one second before the window (prior day 19:59:59 UTC) is excluded', () => {
+    const { gte } = tomorrowUtcWindow('2026-05-21')
+    const tooEarly = '2026-05-20T19:59:59.000Z'
+    expect(tooEarly >= gte).toBe(false)
+  })
+
+  it('a slot at 22:00 UTC of tomorrowStr (= midnight Jerusalem +2 next day) is excluded', () => {
+    const { lt } = tomorrowUtcWindow('2026-05-21')
+    const tooLate = '2026-05-21T22:00:00.000Z'
+    expect(tooLate < lt).toBe(false)
+  })
+
+  it('works correctly across a month boundary', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-06-01')
+    expect(gte).toBe('2026-05-31T20:00:00.000Z')
+    expect(lt).toBe('2026-06-01T22:00:00.000Z')
+  })
+})
+
+// ─── sendDailyRemindersV2: reminder message format ────────────────────────────
+// Mirrors the msg string built inside sendDailyRemindersV2.
+
+function buildReminderMsg(treatmentName, tomorrowStr, timeStr) {
+  return ('תזכורת: מחר יש לך תור! ' +
+    'שירות: ' + treatmentName + '. ' +
+    'תאריך: ' + tomorrowStr.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+    'לביטול יש לפנות למיטל.')
+}
+
+describe('sendDailyRemindersV2 — reminder message', () => {
+  it('contains the treatment name', () => {
+    const msg = buildReminderMsg("לק ג'ל קלאסי", '2026-05-21', '10:30')
+    expect(msg).toContain("לק ג'ל קלאסי")
+  })
+
+  it('converts date dashes to slashes', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '10:30')
+    expect(msg).toContain('2026/05/21')
+    expect(msg).not.toContain('2026-05-21')
+  })
+
+  it('contains the time', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '14:00')
+    expect(msg).toContain('14:00')
+  })
+
+  it('contains the cancellation instruction', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '10:00')
+    expect(msg).toContain('לביטול יש לפנות למיטל')
+  })
+})
+
