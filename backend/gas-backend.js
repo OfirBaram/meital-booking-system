@@ -455,6 +455,7 @@ function invalidateSlotsCache(dateStr) {
 
 function handleGetSlots(body) {
   const TZ = 'Asia/Jerusalem';
+  var _tSlots = Date.now();
 
   Logger.log('[getSlots] START — body: ' + JSON.stringify(body));
 
@@ -500,8 +501,9 @@ function handleGetSlots(body) {
     return { success: true, slots: {} };
   }
 
+  var _tRead = Date.now();
   const data = sh.getDataRange().getValues();
-  Logger.log('[getSlots] getDataRange rows=' + data.length + ', cols=' + (data[0] ? data[0].length : 0));
+  Logger.log('[PERF][getSlots] sheet.getDataRange()=' + (Date.now() - _tRead) + 'ms, rows=' + data.length + ', cols=' + (data[0] ? data[0].length : 0));
   Logger.log('[getSlots] Header: ' + JSON.stringify(data[0]));
 
   const slots = {};
@@ -590,7 +592,7 @@ function handleGetSlots(body) {
 
   // Sort times within each day
   Object.keys(slots).forEach(k => slots[k].sort());
-  Logger.log('[getSlots] DONE. Days with slots: ' + Object.keys(slots).length);
+  Logger.log('[PERF][getSlots] loop+sort done=' + (Date.now() - _tSlots) + 'ms total, days=' + Object.keys(slots).length);
 
   // ── Store in cache for future requests ──
   try {
@@ -2047,9 +2049,12 @@ function handleToggleSlotStatus(body) {
 
 function validateAdmin(token) {
   if (!token) return false;
+  var _tVA = Date.now();
   const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
   if (!stored) throw new Error('ADMIN_TOKEN script property not set');
-  return timingSafeEqual(String(token).trim(), stored.trim());
+  var ok = timingSafeEqual(String(token).trim(), stored.trim());
+  Logger.log('[PERF][validateAdmin] ' + (Date.now() - _tVA) + 'ms');
+  return ok;
 }
 
 function auditSheet() {
@@ -2078,11 +2083,14 @@ function writeAuditLog(admin, action, bookingId, prevStatus, newStatus, detail) 
 }
 
 function handleListBookings(body) {
+  var _tLB = Date.now();
   if (!validateAdmin(body.token)) {
     return { success: false, error: 'unauthorized', code: 403 };
   }
   const sh   = logSheet();
+  var _tLBRead = Date.now();
   const data = sh.getDataRange().getValues();
+  Logger.log('[PERF][listBookings] sheet.getDataRange()=' + (Date.now() - _tLBRead) + 'ms, rows=' + data.length);
   const TZ   = 'Asia/Jerusalem';
   const rows = [];
   for (let r = 1; r < data.length; r++) {
@@ -2105,7 +2113,7 @@ function handleListBookings(body) {
     });
   }
   rows.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
-  Logger.log('[listBookings] Returned ' + rows.length + ' bookings');
+  Logger.log('[PERF][listBookings] total=' + (Date.now() - _tLB) + 'ms, rows=' + rows.length);
   return { success: true, bookings: rows };
 }
 

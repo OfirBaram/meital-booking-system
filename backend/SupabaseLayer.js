@@ -46,9 +46,11 @@ var SupabaseService = (function () {
       opts.payload = JSON.stringify(payload);
     }
     try {
+      var _tFetch = Date.now();
       var res  = UrlFetchApp.fetch(p.url + path, opts);
       var code = res.getResponseCode();
       var body = res.getContentText('UTF-8');
+      Logger.log('[PERF][Supabase] ' + method + ' ' + path.split('?')[0] + ' HTTP=' + code + ' ' + (Date.now() - _tFetch) + 'ms');
       if (code >= 400) {
         Logger.log('[Supabase] ' + method + ' ' + path + ' → HTTP ' + code + ': ' + body.slice(0, 300));
         return null;
@@ -228,6 +230,7 @@ var CommunicationLogService = (function () {
 
 // ─── handleGetSlotsV2 ─────────────────────────────────────────────
 function handleGetSlotsV2(body) {
+  var _tV2 = Date.now();
   var year  = parseInt(body.year,  10) || new Date().getFullYear();
   var month = parseInt(body.month, 10) || (new Date().getMonth() + 1);
 
@@ -235,12 +238,14 @@ function handleGetSlotsV2(body) {
   var lastDay = new Date(year, month, 0).getDate();
   var to      = year + '-' + _sb_pad(month) + '-' + _sb_pad(lastDay) + 'T23:59:59+00:00';
 
+  var _tSBSelect = Date.now();
   var rows = SupabaseService.select('slots',
     'start_time=gte.' + from +
     '&start_time=lte.' + to +
     '&status=eq.available' +
     '&order=start_time.asc' +
     '&select=id,start_time');
+  Logger.log('[PERF][getSlotsV2] Supabase select=' + (Date.now() - _tSBSelect) + 'ms, rows=' + (rows ? rows.length : 'null'));
 
   if (!rows) return { success: false, error: 'supabase_unavailable' };
 
@@ -255,6 +260,7 @@ function handleGetSlotsV2(body) {
     grouped[date].push(time);
   });
 
+  Logger.log('[PERF][getSlotsV2] total=' + (Date.now() - _tV2) + 'ms');
   return { success: true, slots: grouped };
 }
 
