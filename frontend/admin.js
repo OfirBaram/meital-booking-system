@@ -2,15 +2,13 @@
 
 import APP_CONFIG from './config.js';
 
-// ── Config ───────────────────────────────────────────────────────
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
 const LS_TS       = 'meital_admin_ts';
 const SESSION_TTL = 24 * 60 * 60 * 1000;
 
-// ── State ────────────────────────────────────────────────────────
 const S = {
-  token:    localStorage.getItem(LS_TOKEN) || '',
+  token:          localStorage.getItem(LS_TOKEN) || '',
   bookings: [],
   filter:   'all',
   dateJump: '',
@@ -18,15 +16,14 @@ const S = {
   template: [],
   autoSms:  true,
   _smsSendTarget: null,
-  diarySlots:        [],   // [{ id, date, time, status }] — Supabase slots for diary view
-  clients:           [],   // [{ id, phone, full_name, created_at }]
-  clientHistory:     null, // { client:{...}, appointments:[...] }
+  diarySlots:        [],
+  clients:           [],
+  clientHistory:     null,
   clientSearch:      '',
   _clientSearchTimer: null,
 };
 
-// ── Display helpers ───────────────────────────────────────────────
-const LABELS    = {
+const LABELS  = {
   Pending:'ממתין',   Approved:'מאושר',  Rejected:'נדחה',   Cancelled:'בוטל',
   pending:'ממתין',   approved:'מאושר',  rejected:'נדחה',   cancelled:'בוטל',
 };
@@ -60,18 +57,18 @@ function fmtPhone(p) {
   return local.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
 }
 
-// ── API ───────────────────────────────────────────────────────────
 async function apiCall(action, extra = {}) {
+  const payload = { action, token: S.token, ...extra };
+  console.log('Sending to API:', payload);
   const r = await fetch(API, {
     method:  'POST',
-    body:    JSON.stringify({ action, token: S.token, ...extra }),
-    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(payload),
+    headers: { 'Content-Type': 'application/json' },
   });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 
-// ── Toast ─────────────────────────────────────────────────────────
 let _toastTmr;
 function toast(msg, type = '') {
   const wrap  = document.getElementById('js-toast');
@@ -92,7 +89,6 @@ function toast(msg, type = '') {
   }, 3200);
 }
 
-// ── Auth ──────────────────────────────────────────────────────────
 function sessionValid() {
   const ts = parseInt(localStorage.getItem(LS_TS) || '0', 10);
   return ts > 0 && (Date.now() - ts) < SESSION_TTL;
@@ -149,7 +145,6 @@ async function login() {
   }
 }
 
-// ── Load ──────────────────────────────────────────────────────────
 async function load(silent = false) {
   if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
@@ -181,7 +176,6 @@ function hideSkeleton() {
   document.getElementById('js-cards').classList.remove('hidden');
 }
 
-// ── Tab navigation ────────────────────────────────────────────────
 function setTab(tab) {
   S.tab = tab;
   ['bookings','pulse','slots','diary','clients'].forEach(t => {
@@ -197,7 +191,6 @@ function setTab(tab) {
   if (tab === 'pulse')  renderPulse();
   if (tab === 'slots')  loadTemplate();
   if (tab === 'diary')  {
-    // Auto-load diary with default 14-day window on first open
     const fromEl = document.getElementById('js-diary-from');
     const toEl   = document.getElementById('js-diary-to');
     if (fromEl && !fromEl.value) {
@@ -212,7 +205,6 @@ function setTab(tab) {
   if (tab === 'clients' && S.clients.length === 0) loadClients('');
 }
 
-// ── Render — Bookings tab ─────────────────────────────────────────
 function updateStats() {
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('stat-pending').textContent =
@@ -236,10 +228,9 @@ function isFinished(b) {
 function visible() {
   let rows = S.bookings;
 
-  // Date-jump filter (Daily Planner)
   if (S.dateJump) {
     rows = rows.filter(b => b.date === S.dateJump);
-    return rows; // show all statuses for the chosen date
+    return rows;
   }
 
   if (S.filter === 'history')
@@ -296,7 +287,6 @@ function buildCard(b) {
 </div>`;
 }
 
-// ── Action handler ────────────────────────────────────────────────
 const CONFIRM_MSG = {
   Approved: 'לאשר את ההזמנה?',
   Rejected: 'לדחות את ההזמנה?',
@@ -331,7 +321,6 @@ async function onAction(e) {
   }
 }
 
-// ── Filter pills ──────────────────────────────────────────────────
 function setFilter(f) {
   S.filter   = f;
   S.dateJump = '';
@@ -346,20 +335,16 @@ function setFilter(f) {
   render();
 }
 
-// ── Business Pulse ────────────────────────────────────────────────
 function renderPulse() {
   const now   = new Date();
   const today = now.toISOString().slice(0, 10);
 
-  // ISO week start (Sunday)
   const dow       = now.getDay();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow);
-  const weekKey   = weekStart.toISOString().slice(0, 10);
+  const weekKey  = weekStart.toISOString().slice(0, 10);
 
-  // Month boundaries
-  const monthKey  = today.slice(0, 7); // YYYY-MM
+  const monthKey  = today.slice(0, 7);
 
-  // 7-day window
   const in7Days   = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
 
   const weekCount     = S.bookings.filter(b => b.date >= weekKey && b.date <= today && b.status !== 'Rejected' && b.status !== 'Cancelled').length;
@@ -367,12 +352,11 @@ function renderPulse() {
   const upcomingCount = S.bookings.filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status)).length;
   const cancelCount   = S.bookings.filter(b => b.status === 'Rejected' || b.status === 'Cancelled').length;
 
-  document.getElementById('pulse-week').textContent      = weekCount;
+  document.getElementById('pulse-week').textContent       = weekCount;
   document.getElementById('pulse-month').textContent     = monthCount;
   document.getElementById('pulse-upcoming').textContent  = upcomingCount;
   document.getElementById('pulse-cancelled').textContent = cancelCount;
 
-  // Service breakdown
   const svcCount = {};
   S.bookings.forEach(b => {
     if (b.status === 'Rejected' || b.status === 'Cancelled') return;
@@ -394,7 +378,6 @@ function renderPulse() {
     </div>`;
   }).join('') || '<p class="text-xs text-text-muted">אין נתונים</p>';
 
-  // Upcoming list
   const upcoming = S.bookings
     .filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status))
     .sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1)
@@ -412,7 +395,6 @@ function renderPulse() {
         </div>`).join('');
 }
 
-// ── Slot Manager — Template ───────────────────────────────────────
 async function loadTemplate() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
@@ -434,14 +416,13 @@ async function loadTemplate() {
 
 function renderTemplate() {
   const container = document.getElementById('js-template-rows');
-  // Only show Sun-Thu (0-4) by default; Fri/Sat shown but pre-disabled
   container.innerHTML = S.template.map((row, i) => {
     const timesStr = (row.startTimes || []).join(', ');
     return `
 <div class="flex items-center gap-2 py-2 border-b border-secondary/15 last:border-0">
   <label class="flex items-center gap-1.5 shrink-0 w-20">
     <input type="checkbox" data-tmpl-idx="${i}" class="tmpl-active accent-primary"
-      ${row.active ? 'checked' : ''} ${row.dayOfWeek >= 5 ? 'disabled' : ''}>
+       ${row.active ? 'checked' : ''} ${row.dayOfWeek >= 5 ? 'disabled' : ''}>
     <span class="text-xs font-semibold text-text-main">${esc(row.dayName)}</span>
   </label>
   <input type="text" data-tmpl-times="${i}" placeholder="09:00, 11:00, 14:00"
@@ -451,7 +432,6 @@ function renderTemplate() {
 </div>`;
   }).join('');
 
-  // Toggle times input when checkbox changes
   container.querySelectorAll('.tmpl-active').forEach(cb => {
     cb.addEventListener('change', () => {
       const idx   = parseInt(cb.dataset.tmplIdx, 10);
@@ -489,7 +469,6 @@ async function saveTemplate() {
   }
 }
 
-// ── Slot Manager — Generate & Block ──────────────────────────────
 async function generateSlots() {
   const startDate = document.getElementById('js-gen-start').value;
   const endDate   = document.getElementById('js-gen-end').value;
@@ -535,7 +514,6 @@ async function blockDates() {
   }
 }
 
-// ── Reminders ─────────────────────────────────────────────────────
 async function loadSystemInfo() {
   try {
     const data = await apiCall('getSystemInfo');
@@ -570,7 +548,6 @@ async function sendReminders() {
   }
 }
 
-// ── Manual SMS modal ─────────────────────────────────────────────────────
 function openSmsModal(booking) {
   S._smsSendTarget = booking;
   document.getElementById('js-sms-recipient').textContent =
@@ -611,7 +588,6 @@ async function sendManualSMS() {
   }
 }
 
-// ── Auto-SMS master toggle ──────────────────────────────────────────────
 async function loadAutoSmsToggle() {
   try {
     const data = await apiCall('getAutoSms');
@@ -643,7 +619,6 @@ async function toggleAutoSms() {
   }
 }
 
-// ── Slot inventory ──────────────────────────────────────────────────────────────
 async function loadSlotInventory() {
   const el = document.getElementById('js-diary-slots');
   if (!el) return;
@@ -714,7 +689,6 @@ async function toggleSlot(date, time) {
   }
 }
 
-// ── SMS communication log ────────────────────────────────────────────────
 async function loadSmsLog() {
   const el = document.getElementById('js-sms-log');
   if (!el) return;
@@ -747,8 +721,6 @@ function renderSmsLog(entries) {
       + '</div></div>';
   }).join('');
 }
-
-// ── Auto-refresh (60 s) ───────────────────────────────────────────
 
 async function runHealthCheck() {
   const btn  = document.getElementById('js-health-submit');
@@ -783,16 +755,13 @@ function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
 
-// ── Init ──────────────────────────────────────────────────────────
 async function init() {
-  // Auth listeners
   document.getElementById('js-login-btn').addEventListener('click', login);
   document.getElementById('js-token-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') login();
   });
   document.getElementById('js-logout-btn').addEventListener('click', logout);
 
-  // Refresh
   document.getElementById('js-refresh-btn').addEventListener('click', async () => {
     const icon = document.getElementById('js-refresh-icon');
     icon.style.animation = 'spin 0.6s linear infinite';
@@ -801,12 +770,10 @@ async function init() {
     setTimeout(() => { icon.style.animation = ''; }, 800);
   });
 
-  // Filter pills
   document.querySelectorAll('.filter-pill').forEach(btn =>
     btn.addEventListener('click', () => setFilter(btn.dataset.filter)));
   setFilter('all');
 
-  // Daily planner date jump
   document.getElementById('js-date-jump').addEventListener('change', e => {
     S.dateJump = e.target.value;
     render();
@@ -817,32 +784,26 @@ async function init() {
     render();
   });
 
-  // Bottom nav tabs
   document.querySelectorAll('.nav-tab').forEach(btn =>
     btn.addEventListener('click', () => setTab(btn.dataset.tab)));
 
-  // Slot manager
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-block-submit').addEventListener('click', blockDates);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
   document.getElementById('js-health-submit').addEventListener('click', runHealthCheck);
 
-  // Auto-SMS toggle
   document.getElementById('js-auto-sms-btn').addEventListener('click', toggleAutoSms);
 
-  // SMS modal
   document.getElementById('js-sms-close').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-cancel').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
 
-  // Diary tab — slot manager
   document.getElementById('js-diary-load').addEventListener('click', loadDiarySlots);
   document.getElementById('js-add-slot-btn').addEventListener('click', addDiarySlot);
   document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
 
-  // Clients tab
   document.getElementById('js-client-search-btn').addEventListener('click', () =>
     loadClients(document.getElementById('js-client-search').value.trim()));
   document.getElementById('js-client-search').addEventListener('keydown', e => {
@@ -859,7 +820,6 @@ async function init() {
     document.getElementById('js-clients-list').classList.remove('hidden');
   });
 
-  // Session restore
   if (S.token && sessionValid()) {
     try {
       const data = await apiCall('listBookings', { token: S.token });
@@ -879,9 +839,6 @@ async function init() {
 
   startAutoRefresh();
 }
-
-
-// ── Diary Tab — Slot Manager ──────────────────────────────────────
 
 async function loadDiarySlots() {
   const fromEl = document.getElementById('js-diary-from');
@@ -912,7 +869,6 @@ function renderDiarySlots(slots) {
     return;
   }
 
-  // Group by date
   const byDate = {};
   slots.forEach(s => {
     if (!byDate[s.date]) byDate[s.date] = [];
@@ -920,7 +876,7 @@ function renderDiarySlots(slots) {
   });
 
   const html = Object.keys(byDate).map(date => {
-    const d      = new Date(date + 'T12:00:00');
+    const d        = new Date(date + 'T12:00:00');
     const dayName = 'יום ' + DAY_NAMES_HE[d.getDay()];
     const parts   = date.split('-');
     const heDate  = parts[2] + '/' + parts[1] + '/' + parts[0];
@@ -963,7 +919,6 @@ function renderDiarySlots(slots) {
 
 async function toggleDiarySlot(slotId, currentStatus) {
   const newStatus = currentStatus === 'available' ? 'locked' : 'available';
-  // Optimistic update
   const row = document.querySelector('[data-slot-id="' + slotId + '"]');
   if (row) {
     const badge = row.querySelector('[data-status-badge]');
@@ -976,14 +931,16 @@ async function toggleDiarySlot(slotId, currentStatus) {
   }
   try {
     const r = await apiCall('adminToggleSlot', { slotId });
-    if (!r.success) throw new Error(r.error);
-    const entry = S.diarySlots.find(s => s.id === slotId);
-    if (entry) entry.status = r.newStatus;
-    // update onclick attribute to reflect new status
-    if (row) row.querySelector('[data-action-btn]').setAttribute('onclick',
-      "toggleDiarySlot(" + slotId + ",'" + r.newStatus + "')");
+    if (!r.success) {
+      if (r.error === 'cannot_toggle') {
+        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
+      }
+      throw new Error(r.error || 'error');
+    }
+    const lbl = data.newStatus === 'Available' ? 'שוחרר ✅' : 'חסום ✅';
+    toast(date.replace(/-/g, '/') + ' ' + time + ' — ' + lbl, 'ok');
+    await loadSlotInventory();
   } catch (e) {
-    // Revert
     renderDiarySlots(S.diarySlots);
     toast('שגיאה בשינוי הסטטוס', 'err');
   }
@@ -1025,7 +982,6 @@ async function addDiarySlot() {
       toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
     } else {
       toast('החריץ נוסף בהצלחה ✓', 'ok');
-      // Reload if the new slot falls within the current view range
       const fromVal = document.getElementById('js-diary-from') ? document.getElementById('js-diary-from').value : '';
       const toVal   = document.getElementById('js-diary-to')   ? document.getElementById('js-diary-to').value   : '';
       if (fromVal && toVal && date >= fromVal && date <= toVal) await loadDiarySlots();
@@ -1036,8 +992,6 @@ async function addDiarySlot() {
     if (btn) { btn.disabled = false; btn.textContent = '+ הוסף חריץ'; }
   }
 }
-
-// ── Clients Tab ───────────────────────────────────────────────────
 
 async function loadClients(search) {
   S.clientSearch = search || '';
@@ -1072,8 +1026,8 @@ function renderClientList(clients) {
       : '';
     return (
       '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in ' +
-           'cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]" ' +
-           'onclick="loadClientHistory(\'' + esc(c.phone) + '\')">' +
+             'cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]" ' +
+             'onclick="loadClientHistory(\'' + esc(c.phone) + '\')">' +
         '<div class="flex items-center justify-between">' +
           '<div>' +
             '<div class="font-bold text-sm text-text-main">' + esc(c.full_name || '(ללא שם)') + '</div>' +
@@ -1087,7 +1041,6 @@ function renderClientList(clients) {
 }
 
 async function loadClientHistory(phone) {
-  // Switch to history panel
   const listPanel    = document.getElementById('js-clients-list');
   const histPanel    = document.getElementById('js-client-history');
   const histList     = document.getElementById('js-history-list');
@@ -1156,8 +1109,6 @@ function renderClientHistory(appointments) {
 }
 
 async function _processHistoryDecision(bookingId, adminToken, decision) {
-  // Use 'adminAction' (handleAdminActionV2) with the appointment HMAC token.
-  // changeStatus cannot find Supabase appointments — it reads Sheets only.
   const btns = document.querySelectorAll('[data-appt-id="' + bookingId + '"]');
   btns.forEach(b => { b.disabled = true; });
 
@@ -1170,7 +1121,6 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
       return;
     }
     toast(decision === 'Approved' ? 'ההזמנה אושרה ✓' : 'ההזמנה נדחתה', 'ok');
-    // Optimistic status update in DOM
     const newStatus   = decision === 'Approved' ? 'approved' : 'rejected';
     const statusLabel = LABELS[newStatus];
     const statusCls   = STATUS_CLS[newStatus];
@@ -1181,7 +1131,6 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
       if (badge) { badge.textContent = statusLabel; badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ' + statusCls; }
       row.querySelectorAll('[data-action-btn]').forEach(b => b.remove());
     });
-    // Sync in-memory state
     if (S.clientHistory && S.clientHistory.appointments) {
       const appt = S.clientHistory.appointments.find(a => a.id === bookingId);
       if (appt) appt.status = newStatus;
@@ -1192,9 +1141,6 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
   }
 }
 
-// Inline onclick="" attributes in generated HTML resolve against global scope.
-// admin.js is loaded as an ES module (<script type="module">), so its top-level
-// functions are NOT attached to window — expose the ones referenced from markup.
 window.toggleDiarySlot         = toggleDiarySlot;
 window.deleteDiarySlot         = deleteDiarySlot;
 window.loadClientHistory       = loadClientHistory;
