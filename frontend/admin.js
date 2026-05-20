@@ -1,6 +1,12 @@
 'use strict';
 
 import APP_CONFIG from './config.js';
+import {
+  esc, fmtPhone,
+  LABELS, STATUS_CLS, SERVICE_NAME, DAY_NAMES_HE, SB_STATUS_LABEL, SB_STATUS_CLS,
+  buildCard,
+  renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog, renderSlotInventory,
+} from './admin-render.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -22,40 +28,6 @@ const S = {
   clientSearch:      '',
   _clientSearchTimer: null,
 };
-
-const LABELS  = {
-  Pending:'ממתין',   Approved:'מאושר',  Rejected:'נדחה',   Cancelled:'בוטל',
-  pending:'ממתין',   approved:'מאושר',  rejected:'נדחה',   cancelled:'בוטל',
-};
-const STATUS_CLS = {
-  Pending:   'bg-amber-100 text-amber-700',
-  Approved:  'bg-green-100 text-green-700',
-  Rejected:  'bg-red-100 text-red-600',
-  Cancelled: 'bg-gray-100 text-gray-400',
-  pending:   'bg-amber-100 text-amber-700',
-  approved:  'bg-green-100 text-green-700',
-  rejected:  'bg-red-100 text-red-600',
-  cancelled: 'bg-gray-100 text-gray-400',
-};
-const SERVICE_NAME = { gel_classic: "לק ג'ל קלאסי", gel_feet: "לק ג'ל רגליים" };
-const DAY_NAMES_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-const SB_STATUS_LABEL = { available:'פנוי', locked:'נעול', booked:'מוזמן', pending:'ממתין' };
-const SB_STATUS_CLS   = {
-  available: 'bg-green-100 text-green-700',
-  locked:    'bg-gray-100 text-gray-500',
-  booked:    'bg-rose-100 text-rose-600',
-  pending:   'bg-amber-100 text-amber-700',
-};
-
-function esc(s) {
-  return String(s || '').replace(/[&<>"']/g,
-    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function fmtPhone(p) {
-  const local = String(p || '').replace('+972', '0');
-  return local.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-}
 
 async function apiCall(action, extra = {}) {
   const r = await fetch(API, {
@@ -253,36 +225,6 @@ function render() {
   cards.innerHTML = rows.map(buildCard).join('');
   cards.classList.remove('hidden');
   cards.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', onAction));
-}
-
-function buildCard(b) {
-  const badge = `<span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_CLS[b.status] || 'bg-gray-100 text-gray-500'}">${LABELS[b.status] || b.status}</span>`;
-  const date  = (b.date || '').replace(/-/g, '/');
-  let btns = '';
-  if (b.status === 'Pending') {
-    btns = `
-      <button data-action="Approved"  data-id="${b.id}" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">✅ אשר</button>
-      <button data-action="Rejected"  data-id="${b.id}" class="flex-1 bg-red-400  hover:bg-red-500  text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">❌ דחה</button>`;
-  } else if (b.status === 'Approved') {
-    btns = `
-      <button data-action="Cancelled" data-id="${b.id}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">🚫 בטל</button>`;
-  }
-  const smsBtn = `<button data-action="sms" data-id="${b.id}" data-phone="${esc(b.phone)}" data-name="${esc(b.name)}"
-    title="\u05e9\u05dc\u05d7 SMS \u05d9\u05d3\u05e0\u05d9" data-qa="btn-send-sms"
-    class="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-  </button>`;
-  return `
-<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in" data-booking="${b.id}">
-  <div class="flex items-start justify-between mb-1.5">
-    <div><div class="font-bold text-sm text-text-main">${esc(b.name)}</div>
-    <div class="text-xs text-text-muted mt-0.5">${esc(fmtPhone(b.phone))}</div></div>
-    <div class="flex items-center gap-1">${badge}${smsBtn}</div>
-  </div>
-  <div class="text-xs font-medium text-text-main mb-0.5">${esc(b.serviceName)}</div>
-  <div class="text-xs text-text-muted mb-3">📅 ${date} &nbsp;·&nbsp; 🕐 ${esc(b.time)}</div>
-  ${btns ? `<div class="flex gap-2">${btns}</div>` : ''}
-</div>`;
 }
 
 const CONFIRM_MSG = {
@@ -624,50 +566,10 @@ async function loadSlotInventory() {
   try {
     const data = await apiCall('getSlotInventory');
     if (!data.success) throw new Error(data.error);
-    renderSlotInventory(data.slots || []);
+    renderSlotInventory(data.slots || [], el, { onToggle: toggleSlot });
   } catch (e) {
     el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
   }
-}
-
-function renderSlotInventory(slots) {
-  const el = document.getElementById('js-diary-slots');
-  if (!slots.length) {
-    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין חריצים בתקופה הנבחרת</div>';
-    return;
-  }
-  const byDate = {};
-  slots.forEach(s => { if (!byDate[s.date]) byDate[s.date] = []; byDate[s.date].push(s); });
-  el.innerHTML = Object.entries(byDate)
-    .sort(([a], [b]) => a < b ? -1 : 1)
-    .map(([date, daySlots]) => {
-      const label = date.replace(/-/g, '/');
-      const rows = daySlots.map(s => {
-        const isAvail   = s.status === 'Available';
-        const isBlock   = s.status === 'Blocked';
-        const canToggle = isAvail || isBlock;
-        const hl        = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
-        const stCls     = isAvail ? 'text-green-600 bg-green-50' : isBlock ? 'text-gray-400 bg-gray-50' : 'text-text-muted bg-secondary/20';
-        const stLabel   = isAvail ? 'פנוי' : isBlock ? 'חסום' : esc(s.status);
-        const btnLabel  = isAvail ? 'חסום' : 'שחרר';
-        const btnCls    = isAvail ? 'bg-red-100 text-red-500 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200';
-        return '<div class="flex items-center justify-between py-2 border-b border-secondary/15 last:border-0' + hl + '" data-qa="slot-row">'
-          + '<div class="flex items-center gap-2">'
-          + (s.recentlyCancelled ? '<span title="בוטל לאחרונה">🔄</span>' : '')
-          + '<span class="text-sm font-medium text-text-main">' + esc(s.time) + '</span>'
-          + '<span class="text-xs px-2 py-0.5 rounded-full ' + stCls + '">' + stLabel + '</span></div>'
-          + (canToggle
-            ? '<button data-action="toggle-slot" data-date="' + esc(s.date) + '" data-time="' + esc(s.time) + '"'
-            + ' class="' + btnCls + ' text-xs font-bold px-3 py-1.5 rounded-xl transition-colors active:scale-95"'
-            + ' data-qa="btn-toggle-slot">' + btnLabel + '</button>'
-            : '')
-          + '</div>';
-      }).join('');
-      return '<div class="mb-3"><div class="text-xs font-bold text-text-muted mb-1">' + label + '</div>'
-        + '<div class="bg-secondary/10 rounded-xl px-3">' + rows + '</div></div>';
-    }).join('');
-  el.querySelectorAll('[data-action="toggle-slot"]').forEach(btn =>
-    btn.addEventListener('click', () => toggleSlot(btn.dataset.date, btn.dataset.time)));
 }
 
 async function toggleSlot(date, time) {
@@ -694,30 +596,10 @@ async function loadSmsLog() {
   try {
     const data = await apiCall('getSmsLog');
     if (!data.success) throw new Error(data.error);
-    renderSmsLog(data.entries || []);
+    renderSmsLog(data.entries || [], el);
   } catch (e) {
     el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
   }
-}
-
-function renderSmsLog(entries) {
-  const el = document.getElementById('js-sms-log');
-  if (!entries.length) {
-    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין רשומות</div>';
-    return;
-  }
-  el.innerHTML = entries.map(e => {
-    const icon = e.status === 'SENT' ? '✅' : e.status === 'MOCK' ? '🧪' : e.status === 'SKIPPED' ? '⏭️' : '❌';
-    return '<div class="flex items-start gap-2 py-2 border-b border-secondary/15 last:border-0" data-qa="log-entry">'
-      + '<span class="shrink-0 mt-0.5">' + icon + '</span>'
-      + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-center justify-between gap-2 mb-0.5">'
-      + '<span class="text-xs font-semibold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
-      + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
-      + '</div>'
-      + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
-      + '</div></div>';
-  }).join('');
 }
 
 async function runHealthCheck() {
@@ -851,68 +733,12 @@ async function loadDiarySlots() {
     const r = await apiCall('adminGetSlots', { dateFrom: from, dateTo: to });
     if (!r.success) throw new Error(r.error);
     S.diarySlots = r.slots;
-    renderDiarySlots(r.slots);
+    renderDiarySlots(r.slots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
   } catch (e) {
     toast('שגיאה בטעינת החריצים', 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'טען חריצים'; }
   }
-}
-
-function renderDiarySlots(slots) {
-  const container = document.getElementById('js-diary-slots');
-  if (!container) return;
-  if (!slots || !slots.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין חריצים בטווח זה</div>';
-    return;
-  }
-
-  const byDate = {};
-  slots.forEach(s => {
-    if (!byDate[s.date]) byDate[s.date] = [];
-    byDate[s.date].push(s);
-  });
-
-  const html = Object.keys(byDate).map(date => {
-    const d        = new Date(date + 'T12:00:00');
-    const dayName = 'יום ' + DAY_NAMES_HE[d.getDay()];
-    const parts   = date.split('-');
-    const heDate  = parts[2] + '/' + parts[1] + '/' + parts[0];
-
-    const rows = byDate[date].map(s => {
-      const canAct = s.status !== 'booked' && s.status !== 'pending';
-      const toggleIcon = s.status === 'locked' ? '🔓' : '🔒';
-      const badgeCls   = SB_STATUS_CLS[s.status]   || 'bg-gray-100 text-gray-500';
-      const badgeLabel = SB_STATUS_LABEL[s.status] || s.status;
-      return (
-        '<div data-slot-id="' + s.id + '" class="flex items-center justify-between py-2 border-b border-secondary/20 last:border-0">' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="font-semibold text-sm text-text-main">' + esc(s.time) + '</span>' +
-            '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>' +
-          '</div>' +
-          '<div class="flex items-center gap-1">' +
-            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ',\'' + s.status + '\')" ' +
-              (canAct ? '' : 'disabled ') +
-              'class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">' +
-              toggleIcon +
-            '</button>' +
-            '<button data-action-btn onclick="deleteDiarySlot(' + s.id + ')" ' +
-              (canAct ? '' : 'disabled ') +
-              'class="text-base p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">🗑</button>' +
-          '</div>' +
-        '</div>'
-      );
-    }).join('');
-
-    return (
-      '<div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4 card-in">' +
-        '<div class="text-xs font-bold text-text-muted mb-2">' + dayName + ', ' + heDate + '</div>' +
-        rows +
-      '</div>'
-    );
-  }).join('');
-
-  container.innerHTML = html;
 }
 
 async function toggleDiarySlot(slotId, currentStatus) {
@@ -939,7 +765,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
     toast('חריץ עודכן — ' + lbl, 'ok');
     await loadDiarySlots();
   } catch (e) {
-    renderDiarySlots(S.diarySlots);
+    renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
     toast('שגיאה בשינוי הסטטוס', 'err');
   }
 }
@@ -954,7 +780,7 @@ async function deleteDiarySlot(slotId) {
       return;
     }
     S.diarySlots = S.diarySlots.filter(s => s.id !== slotId);
-    renderDiarySlots(S.diarySlots);
+    renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
     toast('החריץ נמחק ✓', 'ok');
   } catch (e) {
     toast('שגיאה במחיקת החריץ', 'err');
@@ -1000,42 +826,11 @@ async function loadClients(search) {
     const r = await apiCall('adminGetClients', { search: S.clientSearch });
     if (!r.success) throw new Error(r.error);
     S.clients = r.clients;
-    renderClientList(r.clients);
+    renderClientList(r.clients, container, { onSelect: loadClientHistory });
   } catch (e) {
     toast('שגיאה בטעינת לקוחות', 'err');
     container.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
-}
-
-function renderClientList(clients) {
-  const container = document.getElementById('js-clients-list');
-  if (!container) return;
-  if (!clients || !clients.length) {
-    container.innerHTML =
-      '<div class="text-center py-14 text-text-muted">' +
-        '<div class="text-3xl mb-2">🔍</div>' +
-        '<div class="text-sm">לא נמצאו לקוחות</div>' +
-      '</div>';
-    return;
-  }
-  container.innerHTML = clients.map(c => {
-    const joined = c.created_at
-      ? new Date(c.created_at).toLocaleDateString('he-IL', { month: '2-digit', year: 'numeric' })
-      : '';
-    return (
-      '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in ' +
-             'cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]" ' +
-             'onclick="loadClientHistory(\'' + esc(c.phone) + '\')">' +
-        '<div class="flex items-center justify-between">' +
-          '<div>' +
-            '<div class="font-bold text-sm text-text-main">' + esc(c.full_name || '(ללא שם)') + '</div>' +
-            '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(c.phone)) + '</div>' +
-          '</div>' +
-          '<div class="text-xs text-text-muted">' + esc(joined) + '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join('');
 }
 
 async function loadClientHistory(phone) {
@@ -1055,55 +850,11 @@ async function loadClientHistory(phone) {
     const phoneEl = document.getElementById('js-history-phone');
     if (nameEl)  nameEl.textContent  = r.client.full_name || '(ללא שם)';
     if (phoneEl) phoneEl.textContent = fmtPhone(r.client.phone);
-    renderClientHistory(r.appointments);
+    renderClientHistory(r.appointments, histList, { onDecision: _processHistoryDecision });
   } catch (e) {
     toast('שגיאה בטעינת היסטוריה', 'err');
     if (histList) histList.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
-}
-
-function renderClientHistory(appointments) {
-  const container = document.getElementById('js-history-list');
-  if (!container) return;
-  if (!appointments || !appointments.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין הזמנות קודמות</div>';
-    return;
-  }
-  container.innerHTML = appointments.map(a => {
-    const statusLabel = LABELS[a.status]   || a.status;
-    const statusCls   = STATUS_CLS[a.status] || 'bg-gray-100 text-gray-400';
-    const dateParts   = a.date ? a.date.split('-') : [];
-    const heDate      = dateParts.length === 3 ? dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0] : '—';
-    const isPending   = a.status === 'pending' || a.status === 'Pending';
-
-    const actionBtns = isPending
-      ? '<div class="flex gap-2 mt-2">' +
-          '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Approved\')" ' +
-            'class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
-            '✅ אשר' +
-          '</button>' +
-          '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Rejected\')" ' +
-            'class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
-            '❌ דחה' +
-          '</button>' +
-        '</div>'
-      : '';
-
-    return (
-      '<div data-appt-row class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in">' +
-        '<div class="flex items-start justify-between mb-1">' +
-          '<div>' +
-            '<div class="font-bold text-sm text-text-main">' + esc(heDate) + ' בשעה ' + esc(a.time || '—') + '</div>' +
-            '<div class="text-xs text-text-muted mt-0.5">' + esc(a.treatment_name || '') + '</div>' +
-          '</div>' +
-          '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ' + statusCls + '">' + statusLabel + '</span>' +
-        '</div>' +
-        actionBtns +
-      '</div>'
-    );
-  }).join('');
 }
 
 async function _processHistoryDecision(bookingId, adminToken, decision) {
@@ -1139,9 +890,5 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
   }
 }
 
-window.toggleDiarySlot         = toggleDiarySlot;
-window.deleteDiarySlot         = deleteDiarySlot;
-window.loadClientHistory       = loadClientHistory;
-window._processHistoryDecision = _processHistoryDecision;
 
 document.addEventListener('DOMContentLoaded', init);
