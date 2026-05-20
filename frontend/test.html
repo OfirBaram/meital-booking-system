@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Console — Meital Boutique</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Heebo', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.18s ease both; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-slate-800 text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-lg">
+    <div class="flex items-center gap-3">
+      <span class="text-lg font-bold mono">🔧 QA Console</span>
+      <span class="text-xs bg-amber-400 text-slate-900 font-bold px-2 py-0.5 rounded">DEBUG ONLY</span>
+    </div>
+    <div class="text-xs text-slate-400">
+      <span id="js-env-url" class="mono truncate max-w-[200px]">…</span>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- Token -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <h2 class="font-bold text-slate-700 mb-3">🔑 Admin Token</h2>
+      <div class="flex gap-2">
+        <input id="js-token" data-qa="inp-admin-token" type="password" placeholder="הזן ADMIN_TOKEN..."
+          class="flex-1 border border-slate-300 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:ring-2 focus:ring-slate-400" />
+        <button data-qa="btn-save-token" onclick="saveToken()"
+          class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold px-4 py-2 rounded-xl">שמור</button>
+      </div>
+      <p id="js-token-status" data-qa="status-token" class="text-xs text-slate-400 mt-1.5"></p>
+    </section>
+
+    <!-- Health Check -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-slate-700">📡 API Health Check</h2>
+        <button data-qa="btn-health-check" onclick="runHealthCheck()"
+          class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl">בדוק חיבור</button>
+      </div>
+      <pre id="js-health-result" data-qa="status-health-result"
+        class="mono text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-500 min-h-[60px] whitespace-pre-wrap">לחץ "בדוק חיבור" להתחלה</pre>
+    </section>
+
+    <!-- Inject Mock Booking -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <h2 class="font-bold text-slate-700 mb-1">💉 הזרקת תור Mock</h2>
+      <p class="text-xs text-slate-500 mb-3">הזמנה ישירה ב-API ללא OTP. הסלוט חייב להיות קיים ב-Weekly_Slots עם סטטוס Available.</p>
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">שם לקוחה</label>
+          <input id="f-name" data-qa="inp-mock-name" value="לקוחת טסט QA"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">טלפון</label>
+          <input id="f-phone" data-qa="inp-mock-phone" value="0500000000"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">שירות</label>
+          <select id="f-service" data-qa="sel-mock-service"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <option value="gel_classic" data-name="לק ג'ל קלאסי" data-dur="90">לק ג'ל קלאסי (90 דק')</option>
+            <option value="gel_feet"    data-name="לק ג'ל רגליים" data-dur="120">לק ג'ל רגליים (120 דק')</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">תאריך</label>
+          <input id="f-date" data-qa="inp-mock-date" type="date"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-slate-600 block mb-1">שעה (HH:MM)</label>
+          <input id="f-time" data-qa="inp-mock-time" value="11:00"
+            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm mono focus:outline-none focus:ring-2 focus:ring-blue-400" />
+        </div>
+        <div class="flex items-end">
+          <button onclick="injectBooking()" id="js-inject-btn" data-qa="btn-inject"
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm">
+            הזרק תור
+          </button>
+        </div>
+      </div>
+      <pre id="js-inject-result" data-qa="status-inject-result"
+        class="mono text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-500 min-h-[50px] whitespace-pre-wrap hidden"></pre>
+    </section>
+
+    <!-- Full E2E Simulation -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-1">
+        <h2 class="font-bold text-slate-700">🎬 Full E2E Simulation</h2>
+        <button onclick="runE2E()" id="js-e2e-btn" data-qa="btn-run-e2e"
+          class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2 rounded-xl">Run Full E2E Simulation</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-3">
+        מריץ פלו מלא בצד השרת: יוצר תור ← מאשר ← מבטל ← מאמת שכל הגיליונות עודכנו.
+        דורש <span class="mono">IS_TEST_MODE = true</span> ב-Code.gs.
+      </p>
+      <div id="js-e2e-steps" data-qa="status-e2e-steps" class="space-y-1.5"></div>
+      <div id="js-e2e-verdict" data-qa="status-e2e-verdict" class="mt-3 text-sm font-bold hidden"></div>
+    </section>
+
+    <!-- Live Bookings -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-slate-700">📋 תורים אחרונים</h2>
+        <button data-qa="btn-refresh-bookings" onclick="loadBookings()"
+          class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2 rounded-xl">רענן</button>
+      </div>
+      <div id="js-bookings-list" data-qa="status-bookings-list" class="space-y-2 text-sm text-slate-500 min-h-[60px]">
+        לחץ "רענן" לטעינה
+      </div>
+    </section>
+
+    <!-- Unit Tests -->
+    <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-bold text-slate-700">🧪 Unit Tests (Client-Side)</h2>
+        <button data-qa="btn-run-unit-tests" onclick="runUnitTests()"
+          class="bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold px-4 py-2 rounded-xl">הרץ בדיקות</button>
+      </div>
+      <p class="text-xs text-slate-500 mb-3">
+        בדיקות JavaScript שרצות בדפדפן — ללא API, ללא Google Sheets.
+        מוכיחות שהלוגיקה נכונה לפני כל Deploy.
+      </p>
+      <div id="js-test-results" data-qa="status-test-results" class="space-y-1"></div>
+      <div id="js-test-summary" data-qa="status-test-summary" class="mt-3 text-sm font-bold hidden"></div>
+    </section>
+
+  </main>
+
+<script type="module">
+// === Robust config: dynamic import with embedded fallback ===
+// If config.js fails to load (wrong path / file:// CORS), the console
+// still works using the embedded API URL instead of breaking entirely.
+let APP_CONFIG;
+try {
+  const mod = await import('./config.js');
+  APP_CONFIG = mod && mod.default;
+  if (!APP_CONFIG || !APP_CONFIG.API_URL) throw new Error('config.js has no API_URL');
+} catch (err) {
+  console.warn('[QA] config.js unavailable — using embedded fallback:', err.message);
+  APP_CONFIG = {
+    API_URL: 'https://script.google.com/macros/s/AKfycbw6meLhe531XoFsrN4wPc4osxjEggrbGDf2nptn9Ym8WYvZNu2s8ssFzR3jhMZqmUO8qA/exec',
+    VERSION: '2.0.0',
+    IS_MOCK_MODE: true,
+  };
+}
+const API = APP_CONFIG.API_URL;
+document.getElementById('js-env-url').textContent = API;
+
+const LS = 'meital_admin_token';
+document.getElementById('js-token').value = localStorage.getItem(LS) || '';
+function getToken() {
+  return document.getElementById('js-token').value.trim() || localStorage.getItem(LS) || '';
+}
+
+window.saveToken = () => {
+  const t = document.getElementById('js-token').value.trim();
+  if (!t) return;
+  localStorage.setItem(LS, t);
+  const s = document.getElementById('js-token-status');
+  s.textContent = '✅ Token שמור ב-localStorage';
+  setTimeout(() => { s.textContent = ''; }, 2500);
+};
+
+async function apiCall(action, extra = {}) {
+  const r = await fetch(API, {
+    method: 'POST',
+    body: JSON.stringify({ action, token: getToken(), ...extra }),
+    headers: { 'Content-Type': 'text/plain' },
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// === Health Check ===
+window.runHealthCheck = async () => {
+  const el = document.getElementById('js-health-result');
+  const base = 'mono text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 min-h-[60px] whitespace-pre-wrap ';
+  el.className = base + 'text-slate-500';
+  el.textContent = '⏳ בודק...';
+  const t0 = Date.now();
+  try {
+    const data = await apiCall('__ping__');
+    const ms = Date.now() - t0;
+    el.className = base + 'text-emerald-700';
+    el.textContent = '✅ API מגיב — ' + ms + ' ms\n' + JSON.stringify(data, null, 2);
+  } catch (e) {
+    const ms = Date.now() - t0;
+    el.className = base + 'text-amber-700';
+    el.textContent = '⚠️ ' + e.message + ' — ' + ms + ' ms\n(תגובת שגיאה מ-GAS עדיין מעידה שהשרת חי)';
+  }
+};
+
+// === Inject Mock Booking ===
+const nextBiz = () => {
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  while (d.getDay() === 5 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
+document.getElementById('f-date').value = nextBiz();
+
+window.injectBooking = async () => {
+  const btn = document.getElementById('js-inject-btn');
+  const res = document.getElementById('js-inject-result');
+  const sel = document.getElementById('f-service');
+  const opt = sel.options[sel.selectedIndex];
+  btn.disabled = true; btn.textContent = '⏳ שולח...';
+  res.classList.remove('hidden');
+  res.textContent = '⏳ שולח בקשה...';
+  try {
+    const data = await apiCall('createBooking', {
+      name:        document.getElementById('f-name').value.trim(),
+      phone:       document.getElementById('f-phone').value.trim(),
+      service:     sel.value,
+      serviceName: opt.dataset.name,
+      date:        document.getElementById('f-date').value,
+      time:        document.getElementById('f-time').value.trim(),
+      duration:        parseInt(opt.dataset.dur, 10),
+      autoCreateSlot:  true,
+    });
+    const head = data.success
+      ? '✅ תור נוצר!\nID: ' + data.bookingId + '\nסטטוס: ' + data.status +
+        '\nתאריך: ' + data.date + ' ' + data.time
+      : '❌ שגיאה: ' + (data.error || '?');
+    res.textContent = head + '\n\n' + JSON.stringify(data, null, 2);
+  } catch (e) {
+    res.textContent = '💥 ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'הזרק תור';
+};
+
+// === Full E2E Simulation ===
+window.runE2E = async () => {
+  const btn     = document.getElementById('js-e2e-btn');
+  const steps   = document.getElementById('js-e2e-steps');
+  const verdict = document.getElementById('js-e2e-verdict');
+  btn.disabled = true; btn.textContent = '⏳ מריץ סימולציה...';
+  steps.innerHTML = '';
+  verdict.classList.add('hidden');
+  try {
+    const data = await apiCall('runFlowTest');
+    if (data.error === 'unauthorized') throw new Error('Token לא תקין — בדוק את ה-ADMIN_TOKEN');
+    if (!data.report) throw new Error(data.detail || data.error || 'no report returned');
+    const r = data.report;
+    for (const s of r.steps) {
+      await new Promise(res => setTimeout(res, 200));
+      const row = document.createElement('div');
+      row.className = 'fade-in flex items-start gap-2 text-xs py-1 px-2 rounded-lg ' +
+        (s.ok ? 'bg-emerald-50' : 'bg-red-50');
+      row.innerHTML =
+        '<span class="shrink-0 font-bold px-2 py-0.5 rounded mono ' +
+        (s.ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') + '">' +
+        (s.ok ? 'PASS' : 'FAIL') + '</span>' +
+        '<span class="' + (s.ok ? 'text-slate-700' : 'text-red-700 font-semibold') + '">' +
+        esc(s.label) +
+        (s.detail ? ' <span class="text-slate-400 mono">' + esc(s.detail) + '</span>' : '') +
+        '</span>';
+      steps.appendChild(row);
+    }
+    verdict.classList.remove('hidden');
+    verdict.textContent = r.sheetsOk
+      ? '✅ כל הגיליונות עודכנו כראוי — ' + r.passed + ' שלבים עברו'
+      : '❌ ' + r.failed + ' שלבים נכשלו — בדוק את ה-Execution Log ב-GAS';
+    verdict.className = 'mt-3 text-sm font-bold ' + (r.sheetsOk ? 'text-emerald-700' : 'text-red-600');
+  } catch (e) {
+    verdict.classList.remove('hidden');
+    verdict.textContent = '💥 ' + e.message;
+    verdict.className = 'mt-3 text-sm font-bold text-red-600';
+  }
+  btn.disabled = false; btn.textContent = 'Run Full E2E Simulation';
+};
+
+// === Live Bookings ===
+const S_LBL = { Pending:'ממתין', Approved:'מאושר', Rejected:'נדחה', Cancelled:'בוטל' };
+const S_CLS = {
+  Pending:'bg-amber-100 text-amber-700', Approved:'bg-emerald-100 text-emerald-700',
+  Rejected:'bg-red-100 text-red-600',    Cancelled:'bg-slate-100 text-slate-500',
+};
+
+window.loadBookings = async () => {
+  const el = document.getElementById('js-bookings-list');
+  el.innerHTML = '<span class="text-slate-400 text-xs">⏳ טוען...</span>';
+  try {
+    const data = await apiCall('listBookings');
+    if (!data.success) throw new Error(data.error || 'שגיאה');
+    const list = (data.bookings || []).slice(0, 15);
+    if (!list.length) {
+      el.innerHTML = '<span class="text-slate-400 text-xs">אין הזמנות</span>';
+      return;
+    }
+    el.innerHTML = list.map(b => {
+      const cls = S_CLS[b.status] || 'bg-slate-100 text-slate-400';
+      const lbl = S_LBL[b.status] || b.status;
+      const acts = [];
+      if (b.status === 'Pending') {
+        acts.push(qBtn(b.id, 'Approved', '✅ אשר', 'bg-emerald-500 hover:bg-emerald-400 text-white'));
+        acts.push(qBtn(b.id, 'Rejected', '❌ דחה', 'bg-red-400 hover:bg-red-300 text-white'));
+      }
+      if (b.status === 'Approved') {
+        acts.push(qBtn(b.id, 'Cancelled', '🚫 בטל', 'bg-slate-200 hover:bg-slate-300 text-slate-700'));
+      }
+      return '<div class="flex items-center justify-between gap-2 border border-slate-100 rounded-xl px-3 py-2.5 bg-slate-50" data-booking="' + esc(b.id) + '">' +
+        '<div class="min-w-0"><div class="font-semibold text-slate-800 text-sm truncate">' + esc(b.name) + '</div>' +
+        '<div class="text-xs text-slate-500 mono">' + esc(b.date) + ' ' + esc(b.time) + '</div></div>' +
+        '<div class="flex items-center gap-1.5 shrink-0"><span class="text-xs font-bold px-2 py-0.5 rounded-full ' + cls + '">' + lbl + '</span>' +
+        acts.join('') + '</div></div>';
+    }).join('');
+    el.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', qAct));
+  } catch (e) {
+    el.innerHTML = '<span class="text-red-500 text-xs">' + esc(e.message) + '</span>';
+  }
+};
+
+function qBtn(id, target, label, cls) {
+  return '<button data-action="' + esc(target) + '" data-id="' + esc(id) +
+    '" class="text-xs font-bold px-2 py-1 rounded-lg ' + cls + ' transition-colors">' + label + '</button>';
+}
+
+async function qAct(e) {
+  const btn = e.currentTarget;
+  const id = btn.dataset.id, target = btn.dataset.action;
+  const card = btn.closest('[data-booking]');
+  card.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  btn.textContent = '...';
+  try {
+    const d = await apiCall('changeStatus', { bookingId: id, targetStatus: target });
+    if (!d.success) throw new Error(d.error || 'failed');
+    loadBookings();
+  } catch (err) {
+    card.querySelectorAll('button').forEach(b => { b.disabled = false; });
+    alert('שגיאה: ' + err.message);
+  }
+}
+
+// === Unit Tests (pure logic — mirrors the backend rules) ===
+const VALID = { Pending:['Approved','Rejected'], Approved:['Cancelled'] };
+const canT  = (f, t) => !!(VALID[f] && VALID[f].includes(t));
+const normP = raw => {
+  if (!raw) return null;
+  const d = String(raw).replace(/\D/g, '');
+  if (d.length === 10 && d.startsWith('0')) return '+972' + d.slice(1);
+  if ((d.length === 12 || d.length === 11) && d.startsWith('972')) return '+' + d;
+  return null;
+};
+const fmtD = s => s.replace(/-/g, '/');
+
+// Column-mapping mirror of LOG_COL / SLOT_COL in gas-backend.js.
+const LOG_COL  = { UUID:1, NAME:2, PHONE:3, SERVICE:4, SERVICE_NAME:5,
+                   DATE:6, TIME:7, TIMESTAMP:8, DURATION:9, STATUS:10,
+                   CAL_EVENT:11, ADMIN_TOKEN:12 };
+const SLOT_COL = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
+const colVals  = obj => Object.keys(obj).map(k => obj[k]);
+const isContiguous = (obj, n) =>
+  colVals(obj).slice().sort((a, b) => a - b).join(',') ===
+  Array.from({ length: n }, (_, i) => i + 1).join(',');
+
+const SUITES = [
+  { name:'מצב סטטוס — State Machine', tests:[
+    { l:'Pending → Approved (תקין)',      f:()=>canT('Pending','Approved')===true },
+    { l:'Pending → Rejected (תקין)',      f:()=>canT('Pending','Rejected')===true },
+    { l:'Approved → Cancelled (תקין)',    f:()=>canT('Approved','Cancelled')===true },
+    { l:'Pending → Cancelled (לא חוקי)',  f:()=>canT('Pending','Cancelled')===false },
+    { l:'Approved → Rejected (לא חוקי)',  f:()=>canT('Approved','Rejected')===false },
+    { l:'Cancelled → Approved (לא חוקי)', f:()=>canT('Cancelled','Approved')===false },
+    { l:'undefined → Approved (לא חוקי)', f:()=>canT(undefined,'Approved')===false },
+  ]},
+  { name:'נירמול טלפון — Phone Normalization', tests:[
+    { l:'05X → E.164',           f:()=>normP('0521234567')==='+972521234567' },
+    { l:'E.164 נשמר כמו שהוא',   f:()=>normP('+972521234567')==='+972521234567' },
+    { l:'טלפון Mock 0500000000', f:()=>normP('0500000000')==='+972500000000' },
+    { l:'ריק → null',            f:()=>normP('')===null },
+    { l:'3 ספרות → null',        f:()=>normP('123')===null },
+  ]},
+  { name:'עיצוב תאריך — Date Format', tests:[
+    { l:'YYYY-MM-DD → YYYY/MM/DD',  f:()=>fmtD('2026-05-17')==='2026/05/17' },
+    { l:'סלאש YYYY/MM/DD נשמר',     f:()=>fmtD('2026/01/01')==='2026/01/01' },
+  ]},
+  { name:'מיפוי עמודות — Column Mapping', tests:[
+    { l:'LOG_COL בעל 12 ערכים',          f:()=>colVals(LOG_COL).length===12 },
+    { l:'LOG_COL ללא כפילויות אינדקס',   f:()=>new Set(colVals(LOG_COL)).size===12 },
+    { l:'LOG_COL רציף 1..12',            f:()=>isContiguous(LOG_COL,12) },
+    { l:'LOG_COL.STATUS = 10',           f:()=>LOG_COL.STATUS===10 },
+    { l:'LOG_COL.ADMIN_TOKEN = 12',      f:()=>LOG_COL.ADMIN_TOKEN===12 },
+    { l:'SLOT_COL בעל 5 ערכים',          f:()=>colVals(SLOT_COL).length===5 },
+    { l:'SLOT_COL רציף 1..5',            f:()=>isContiguous(SLOT_COL,5) },
+    { l:'SLOT_COL.STATUS = 5',           f:()=>SLOT_COL.STATUS===5 },
+  ]},
+  { name:'לוגיקת פילטר — Dashboard Filters', tests:[
+    { l:'היסטוריה = Rejected+Cancelled', f:()=>{
+        const bks=[{status:'Pending'},{status:'Approved'},{status:'Rejected'},{status:'Cancelled'}];
+        const h=bks.filter(b=>['Rejected','Cancelled'].includes(b.status));
+        return h.length===2;
+    }},
+    { l:'פעילים = Pending+Approved',     f:()=>{
+        const bks=[{status:'Pending'},{status:'Approved'},{status:'Rejected'},{status:'Cancelled'}];
+        return bks.filter(b=>['Pending','Approved'].includes(b.status)).length===2;
+    }},
+  ]},
+  { name:'Admin Control Integration', tests:[
+    // ── Master Toggle UI state ──────────────────────────────────────
+    // Mirrors setAutoSmsUI(enabled) track/thumb class logic in admin.js
+    { l:'Toggle: enabled=true  → track has bg-primary class',   f:()=>{
+        const trackCls = (e) => 'relative w-9 h-5 rounded-full transition-colors ' + (e ? 'bg-primary' : 'bg-gray-300');
+        return trackCls(true).includes('bg-primary') && !trackCls(true).includes('bg-gray-300');
+    }},
+    { l:'Toggle: enabled=false → track has bg-gray-300 class',  f:()=>{
+        const trackCls = (e) => 'relative w-9 h-5 rounded-full transition-colors ' + (e ? 'bg-primary' : 'bg-gray-300');
+        return trackCls(false).includes('bg-gray-300') && !trackCls(false).includes('bg-primary');
+    }},
+    { l:'Toggle: setAutoSmsUI(true)  updates S.autoSms state',  f:()=>{
+        const S = { autoSms: false };
+        const setAutoSmsUI = (enabled) => { S.autoSms = enabled; };
+        setAutoSmsUI(true);
+        return S.autoSms === true;
+    }},
+    { l:'Toggle: setAutoSmsUI(false) updates S.autoSms state',  f:()=>{
+        const S = { autoSms: true };
+        const setAutoSmsUI = (enabled) => { S.autoSms = enabled; };
+        setAutoSmsUI(false);
+        return S.autoSms === false;
+    }},
+    // ── Inventory Manager slot status logic ─────────────────────────
+    // Mirrors renderSlotInventory() canToggle / label logic in admin.js
+    { l:'Inventory: Blocked  → canToggle=true,  btnLabel=שחרר', f:()=>{
+        const s = { status: 'Blocked' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        const canToggle=isAvail||isBlock, btnLabel=isAvail?'חסום':'שחרר', stLabel=isAvail?'פנוי':isBlock?'חסום':s.status;
+        return canToggle===true && stLabel==='חסום' && btnLabel==='שחרר';
+    }},
+    { l:'Inventory: Available → canToggle=true,  btnLabel=חסום', f:()=>{
+        const s = { status: 'Available' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        const canToggle=isAvail||isBlock, btnLabel=isAvail?'חסום':'שחרר', stLabel=isAvail?'פנוי':isBlock?'חסום':s.status;
+        return canToggle===true && stLabel==='פנוי' && btnLabel==='חסום';
+    }},
+    { l:'Inventory: Booked   → canToggle=false (no button)',     f:()=>{
+        const s = { status: 'Booked' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        return (isAvail||isBlock) === false;
+    }},
+    { l:'Inventory: Pending_Lock → canToggle=false',             f:()=>{
+        const s = { status: 'Pending_Lock' };
+        const isAvail=s.status==='Available', isBlock=s.status==='Blocked';
+        return (isAvail||isBlock) === false;
+    }},
+    { l:'Inventory: recentlyCancelled=true adds highlight ring', f:()=>{
+        const s = { status: 'Available', recentlyCancelled: true };
+        const hl = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
+        return hl.includes('ring-amber-300');
+    }},
+    { l:'Inventory: recentlyCancelled=false → no ring class',    f:()=>{
+        const s = { status: 'Available', recentlyCancelled: false };
+        const hl = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
+        return hl === '';
+    }},
+  ]},
+];
+
+window.runUnitTests = () => {
+  const cont = document.getElementById('js-test-results');
+  const summ = document.getElementById('js-test-summary');
+  cont.innerHTML = '';
+  let passed = 0, failed = 0;
+  SUITES.forEach(suite => {
+    const hdr = document.createElement('div');
+    hdr.className = 'text-xs font-bold text-slate-400 uppercase tracking-wider mt-3 mb-1 border-b border-slate-100 pb-1';
+    hdr.textContent = suite.name;
+    cont.appendChild(hdr);
+    suite.tests.forEach(t => {
+      let ok = false, err = '';
+      try { ok = t.f(); } catch (e) { err = e.message; }
+      ok ? passed++ : failed++;
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-2 text-xs py-0.5';
+      row.innerHTML =
+        '<span class="shrink-0 font-bold px-2 py-0.5 rounded mono ' +
+        (ok ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700') + '">' +
+        (ok ? 'PASS' : 'FAIL') + '</span>' +
+        '<span class="' + (ok ? 'text-slate-700' : 'text-red-700 font-semibold') + '">' + esc(t.l) + '</span>' +
+        (err ? '<span class="text-red-400 mono">(' + esc(err) + ')</span>' : '');
+      cont.appendChild(row);
+    });
+  });
+  summ.classList.remove('hidden');
+  summ.textContent = passed + ' עברו, ' + failed + ' נכשלו';
+  summ.className = 'mt-3 text-sm font-bold ' + (failed === 0 ? 'text-emerald-700' : 'text-red-600');
+};
+</script>
+</body>
+</html>

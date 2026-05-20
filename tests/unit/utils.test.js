@@ -18,10 +18,8 @@ function addMinutes(timeStr, mins) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-const MOCK_PHONE_TEST = '0500000000'
 function isValidPhone(raw) {
   const digits = raw.replace(/\D/g, '')
-  if (digits === MOCK_PHONE_TEST) return true
   return /^05[0-9]{8}$/.test(digits)
 }
 
@@ -34,11 +32,24 @@ function formatPhone(raw) {
   return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3)}` : raw
 }
 
+function _jerusalemOffset(date) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Jerusalem',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(date)
+  const tz = (parts.find(p => p.type === 'timeZoneName') || {}).value || ''
+  const m  = tz.match(/GMT([+-])(\d+)/)
+  if (!m) return '+03:00'
+  return `${m[1]}${m[2].padStart(2, '0')}:00`
+}
+
 function toISO8601Jerusalem(dateStr, timeStr) {
+  const d      = new Date(`${dateStr}T${timeStr}:00`)
+  const offset = _jerusalemOffset(d)
   return {
     local:    `${dateStr}T${timeStr}:00`,
     timezone: 'Asia/Jerusalem',
-    tagged:   `${dateStr}T${timeStr}:00+03:00`,
+    tagged:   `${dateStr}T${timeStr}:00${offset}`,
   }
 }
 
@@ -95,7 +106,7 @@ describe('isValidPhone', () => {
   it('rejects a non-05X prefix', () => {
     expect(isValidPhone('0601234567')).toBe(false)
   })
-  it('accepts the QA bypass mock phone 0500000000', () => {
+  it('0500000000 is a valid 05X number via the standard regex', () => {
     expect(isValidPhone('0500000000')).toBe(true)
   })
 })
@@ -148,16 +159,16 @@ describe('toISO8601Jerusalem', () => {
   it('sets the local datetime string', () => {
     expect(result.local).toBe('2026-05-15T09:00:00')
   })
-  it('tags the timestamp with static +03:00 Israel offset', () => {
+  it('tags summer timestamp with +03:00 (IDT)', () => {
     expect(result.tagged).toBe('2026-05-15T09:00:00+03:00')
   })
   it('includes the IANA timezone name for GAS DST resolution', () => {
     expect(result.timezone).toBe('Asia/Jerusalem')
   })
-  it('works for a different date and time', () => {
+  it('tags winter timestamp with +02:00 (IST)', () => {
     const r2 = toISO8601Jerusalem('2026-12-01', '16:30')
     expect(r2.local).toBe('2026-12-01T16:30:00')
-    expect(r2.tagged).toBe('2026-12-01T16:30:00+03:00')
+    expect(r2.tagged).toBe('2026-12-01T16:30:00+02:00')
   })
 })
 
@@ -335,3 +346,199 @@ describe('handleNext step 1 — prefetch cache hit', () => {
     expect(isMonthPrefetched(set, 2026, 6)).toBe(false)
   })
 })
+
+// ─── smsQuotaStatus (Phase 3.1 / Phase 4 health check logic) ────────────────
+// Mirrors the threshold logic in handleHealthCheck's smsQuota check
+// and the getDailySmsCount guard used by checkSmsQuota() in gas-backend.js.
+
+function smsQuotaStatus(count, limit) {
+  const pct = Math.round(count / limit * 100)
+  return pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok'
+}
+
+describe('smsQuotaStatus', () => {
+  it('returns ok when quota usage is below 70%', () => {
+    expect(smsQuotaStatus(0,  45)).toBe('ok')
+    expect(smsQuotaStatus(20, 45)).toBe('ok')
+    expect(smsQuotaStatus(31, 45)).toBe('ok')  // 68% — just under warn threshold
+  })
+  it('returns warn at exactly 70%', () => {
+    expect(smsQuotaStatus(32, 45)).toBe('warn') // Math.round(32/45*100) = 71%
+    expect(smsQuotaStatus(27, 38)).toBe('warn') // Math.round(27/38*100) = 71%
+  })
+  it('returns warn between 70% and 89%', () => {
+    expect(smsQuotaStatus(36, 45)).toBe('warn') // 80%
+    expect(smsQuotaStatus(40, 45)).toBe('warn') // 89%
+  })
+  it('returns error at exactly 90%', () => {
+    expect(smsQuotaStatus(41, 45)).toBe('error') // Math.round(41/45*100) = 91%
+  })
+  it('returns error when count reaches or exceeds limit', () => {
+    expect(smsQuotaStatus(45, 45)).toBe('error') // 100%
+    expect(smsQuotaStatus(50, 45)).toBe('error') // 111%
+  })
+  it('DAILY_SMS_LIMIT=45 allows 31 sends before warn threshold', () => {
+    // Confirm the gap between the 5-unit buffer and the 70% warn floor
+    expect(smsQuotaStatus(31, 45)).toBe('ok')
+    expect(smsQuotaStatus(32, 45)).toBe('warn')
+  })
+})
+
+// ─── OTP cooldown pure state (Phase 3.1 / Phase 0.5) ─────────────────────────
+// Mirrors the State.otpCooldownUntil checks in handleNext (step 3) and
+// the resend-timer guard in booking.js.
+
+function isCoolingDown(cooldownUntil, now) { return cooldownUntil > now }
+function remainingSecs(cooldownUntil, now) { return Math.max(0, Math.ceil((cooldownUntil - now) / 1000)) }
+
+describe('OTP cooldown state', () => {
+  it('returns true when cooldown has not expired', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now + 30_000, now)).toBe(true)
+  })
+  it('returns false when cooldown has expired', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now - 1, now)).toBe(false)
+  })
+  it('returns false when cooldownUntil is 0 (initial state)', () => {
+    expect(isCoolingDown(0, 1_000_000)).toBe(false)
+  })
+  it('returns false when cooldown expires exactly now', () => {
+    const now = 1_000_000
+    expect(isCoolingDown(now, now)).toBe(false)
+  })
+  it('remainingSecs returns correct seconds when cooling down', () => {
+    const now = 1_000_000
+    expect(remainingSecs(now + 30_000, now)).toBe(30)
+    expect(remainingSecs(now + 15_500, now)).toBe(16) // ceil rounds up
+    expect(remainingSecs(now +  1_000, now)).toBe(1)
+  })
+  it('remainingSecs returns 0 when cooldown has already expired', () => {
+    const now = 1_000_000
+    expect(remainingSecs(now - 5_000, now)).toBe(0)
+    expect(remainingSecs(0, now)).toBe(0)
+  })
+})
+
+// ─── normalizePhone (E.164 conversion) ───────────────────────────────────────
+// Mirrors normalizePhone() from gas-backend.js — converts Israeli frontend
+// phone strings to E.164 before Twilio calls and OTP cache keying.
+
+function normalizePhone(raw) {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.startsWith('972')) return '+' + digits
+  if (digits.startsWith('0'))  return '+972' + digits.slice(1)
+  return '+' + digits
+}
+
+describe('normalizePhone', () => {
+  it('converts an Israeli 05X number to E.164', () => {
+    expect(normalizePhone('0501234567')).toBe('+972501234567')
+  })
+  it('strips hyphens before converting', () => {
+    expect(normalizePhone('050-1234567')).toBe('+972501234567')
+  })
+  it('does not double-prefix a number already starting with 972', () => {
+    expect(normalizePhone('972501234567')).toBe('+972501234567')
+  })
+  it('handles 052 prefix', () => {
+    expect(normalizePhone('0521234567')).toBe('+972521234567')
+  })
+  it('handles 054 prefix', () => {
+    expect(normalizePhone('0541234567')).toBe('+972541234567')
+  })
+  it('the QA test phone normalises consistently', () => {
+    expect(normalizePhone('0500000000')).toBe('+972500000000')
+  })
+})
+
+// ─── sendDailyRemindersV2: UTC window computation ─────────────────────────────
+// Mirrors the rangeGte/rangeLt logic from sendDailyRemindersV2 in SupabaseLayer.js.
+// Jerusalem = UTC+2 (winter) / UTC+3 (DST summer).
+// A slot at midnight Jerusalem (earliest) lands at 21:00 UTC the previous day (+3).
+// A slot at 23:59 Jerusalem (latest) lands at 21:59 UTC that day (+2).
+// Window must be [tomorrowStr-1 day @ 20:00 UTC, tomorrowStr @ 22:00 UTC].
+
+function tomorrowUtcWindow(tomorrowStr) {
+  const parts = tomorrowStr.split('-').map(Number)
+  return {
+    gte: new Date(Date.UTC(parts[0], parts[1]-1, parts[2]-1, 20, 0, 0, 0)).toISOString(),
+    lt:  new Date(Date.UTC(parts[0], parts[1]-1, parts[2],   22, 0, 0, 0)).toISOString(),
+  }
+}
+
+describe('sendDailyRemindersV2 — UTC window', () => {
+  it('gte is 20:00 UTC of the day before tomorrowStr', () => {
+    const { gte } = tomorrowUtcWindow('2026-05-21')
+    expect(gte).toBe('2026-05-20T20:00:00.000Z')
+  })
+
+  it('lt is 22:00 UTC of tomorrowStr itself', () => {
+    const { lt } = tomorrowUtcWindow('2026-05-21')
+    expect(lt).toBe('2026-05-21T22:00:00.000Z')
+  })
+
+  it('a slot at midnight Jerusalem DST (21:00 UTC prior day) is inside the window', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-05-21')
+    const midnightDST = '2026-05-20T21:00:00.000Z' // 00:00 Jerusalem +3
+    expect(midnightDST >= gte && midnightDST < lt).toBe(true)
+  })
+
+  it('a slot at 23:59 Jerusalem winter (21:59 UTC same day) is inside the window', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-05-21')
+    const lastSlot = '2026-05-21T21:59:00.000Z' // 23:59 Jerusalem +2
+    expect(lastSlot >= gte && lastSlot < lt).toBe(true)
+  })
+
+  it('a slot one second before the window (prior day 19:59:59 UTC) is excluded', () => {
+    const { gte } = tomorrowUtcWindow('2026-05-21')
+    const tooEarly = '2026-05-20T19:59:59.000Z'
+    expect(tooEarly >= gte).toBe(false)
+  })
+
+  it('a slot at 22:00 UTC of tomorrowStr (= midnight Jerusalem +2 next day) is excluded', () => {
+    const { lt } = tomorrowUtcWindow('2026-05-21')
+    const tooLate = '2026-05-21T22:00:00.000Z'
+    expect(tooLate < lt).toBe(false)
+  })
+
+  it('works correctly across a month boundary', () => {
+    const { gte, lt } = tomorrowUtcWindow('2026-06-01')
+    expect(gte).toBe('2026-05-31T20:00:00.000Z')
+    expect(lt).toBe('2026-06-01T22:00:00.000Z')
+  })
+})
+
+// ─── sendDailyRemindersV2: reminder message format ────────────────────────────
+// Mirrors the msg string built inside sendDailyRemindersV2.
+
+function buildReminderMsg(treatmentName, tomorrowStr, timeStr) {
+  return ('תזכורת: מחר יש לך תור! ' +
+    'שירות: ' + treatmentName + '. ' +
+    'תאריך: ' + tomorrowStr.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+    'לביטול יש לפנות למיטל.')
+}
+
+describe('sendDailyRemindersV2 — reminder message', () => {
+  it('contains the treatment name', () => {
+    const msg = buildReminderMsg("לק ג'ל קלאסי", '2026-05-21', '10:30')
+    expect(msg).toContain("לק ג'ל קלאסי")
+  })
+
+  it('converts date dashes to slashes', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '10:30')
+    expect(msg).toContain('2026/05/21')
+    expect(msg).not.toContain('2026-05-21')
+  })
+
+  it('contains the time', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '14:00')
+    expect(msg).toContain('14:00')
+  })
+
+  it('contains the cancellation instruction', () => {
+    const msg = buildReminderMsg('test', '2026-05-21', '10:00')
+    expect(msg).toContain('לביטול יש לפנות למיטל')
+  })
+})
+

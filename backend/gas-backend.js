@@ -29,15 +29,29 @@ const CFG = {
   get HMAC_SECRET()   { return prop('HMAC_SECRET'); },
   get SS_ID()         { return prop('SPREADSHEET_ID'); },
   get CAL_ID()        { return prop('CALENDAR_ID'); },
-  get WEB_APP_URL()   { return prop('WEB_APP_URL'); },
-  get TIMEZONE()      { return prop('TIMEZONE') || 'Asia/Jerusalem'; },
+  get WEB_APP_URL()   { try { return ScriptApp.getService().getUrl(); } catch (_) { return prop('WEB_APP_URL'); } },
+  get TIMEZONE()      { return PropertiesService.getScriptProperties().getProperty('TIMEZONE') || 'Asia/Jerusalem'; },
 };
 
 function prop(key) {
+  if (key === undefined || key === null) {
+    throw new Error(
+      'prop() called with undefined key — a CFG getter is referencing an undefined variable.'
+    );
+  }
   const val = PropertiesService.getScriptProperties().getProperty(key);
-  if (!val) throw new Error(`Missing script property: ${key}`);
+  if (!val) {
+    throw new Error(
+      'Missing script property: "' + key + '"' +
+      ' — go to Project Settings → Script Properties and add it.'
+    );
+  }
   return val;
 }
+
+// Expected Spreadsheet ID — must match the SPREADSHEET_ID script property.
+// Run verifyConfig() from the GAS editor to confirm the property is correct.
+const EXPECTED_SS_ID = '1T9B1_4WUYS7Iq1UXyEfnG3LyI0_XapxPH1Q2X-6vVbQ';
 
 // ═══════════════════════════════════════════════════════════════
 // SHEET REFERENCES
@@ -55,14 +69,57 @@ function prop(key) {
  */
 
 const SHEETS = {
-  SLOTS: 'Weekly_Slots',
-  LOG:   'Bookings_Log',
+  SLOTS:    'Weekly_Slots',
+  LOG:      'Bookings_Log',
+  SMS_LOG:  'SMS_LOG',
+  AUDIT:    'Audit_Log',
+  EXEC_LOG: 'Execution_Log',
+  TEMPLATE: 'Slot_Template',
 };
 
 const SLOT_COL  = { DATE:1, DAY:2, START:3, END:4, STATUS:5 };
 const LOG_COL   = { UUID:1, NAME:2, PHONE:3, SERVICE:4, SERVICE_NAME:5,
                     DATE:6, TIME:7, TIMESTAMP:8, DURATION:9, STATUS:10,
                     CAL_EVENT:11, ADMIN_TOKEN:12 };
+
+const LOG_LEVEL = {
+  SUCCESS: '✅ הצלחה',
+  WARNING: '⚠️ אזהרה',
+  ERROR:   '❌ שגיאה',
+  INFO:    'ℹ️ מידע',
+};
+
+/** Convert a Sheets date cell (Date obj or YYYY-MM-DD string) to dd/MM/yyyy for SMS display. */
+function _fmtDate(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'dd/MM/yyyy');
+  const m = String(raw || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? (m[3] + '/' + m[2] + '/' + m[1]) : String(raw || '').trim();
+}
+
+/** Convert a Sheets time cell (Date obj or HH:mm string) to HH:mm for SMS display. */
+function _fmtTime(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'HH:mm');
+  return String(raw || '').trim();
+}
+
+/** Extract ISO yyyy-MM-dd from a Sheets date cell — used internally for sheet/calendar ops. */
+function _isoDate(raw) {
+  if (raw instanceof Date) return Utilities.formatDate(raw, 'Asia/Jerusalem', 'yyyy-MM-dd');
+  return String(raw || '').trim();
+}
+
+const ACTION = {
+  SEND_OTP:      'שליחת OTP',
+  VERIFY_BOOK:   'אימות והזמנה',
+  ADMIN_APPROVE: 'אישור הזמנה',
+  ADMIN_REJECT:  'דחיית הזמנה',
+  ADMIN_CANCEL:  'ביטול הזמנה',
+  CAL_SYNC:      'סנכרון יומן',
+  SEND_REMINDER: 'תזכורת SMS',
+  BACKUP:        'גיבוי נתונים',
+  HEALTH:        'בדיקת תקינות',
+  MANUAL_SMS:    'SMS ידני',
+};
 
 function ss() {
   return SpreadsheetApp.openById(CFG.SS_ID);
@@ -80,12 +137,169 @@ function logSheet() {
   return sh;
 }
 
+/**
+ * Returns the SMS_LOG sheet, creating it with a header row if it does not exist.
+ * Columns: Timestamp | To | Context | Status | Message | Detail
+ */
+function smsLogSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.SMS_LOG);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.SMS_LOG);
+    sh.appendRow(['Timestamp', 'To', 'Context', 'Status', 'Message', 'Detail']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:F1').setFontWeight('bold');
+    sh.setColumnWidth(5, 400); // Message column wider
+  }
+  return sh;
+}
+
+/**
+ * Appends one row to SMS_LOG.
+ * @param {string} to      - Recipient phone in E.164
+ * @param {string} context - e.g. 'OTP', 'AdminNotify', 'ClientApproval', 'ClientRejection'
+ * @param {string} status  - 'SENT' | 'MOCK' | 'ERROR'
+ * @param {string} message - SMS body
+ * @param {string} [detail] - Twilio SID on success, error message on failure
+ */
+function logSMS(to, context, status, message, detail) {
+  try {
+    smsLogSheet().appendRow([
+      new Date(),
+      to,
+      context,
+      status,
+      message.slice(0, 500), // truncate for cell safety
+      detail || '',
+    ]);
+  } catch (e) {
+    // Never let SMS_LOG failure break the main flow
+    Logger.log('[logSMS] Sheet write failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// OBSERVABILITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Returns (creating if needed) the Execution_Log sheet with a frozen header row.
+ * Columns: Timestamp | Action | Level | Phone | BookingID | Message | Technical_Detail
+ */
+function execLogSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.EXEC_LOG);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.EXEC_LOG);
+    sh.appendRow(['זמן', 'פעולה', 'רמה', 'טלפון', 'ID הזמנה', 'תיאור', 'פרט טכני (דיבאג)']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:G1').setFontWeight('bold');
+    sh.setColumnWidth(1, 160); // Timestamp
+    sh.setColumnWidth(6, 300); // Message
+    sh.setColumnWidth(7, 400); // Technical_Detail
+    sh.hideColumns(7);          // hidden by default; Ofir can show via Sheets UI
+  }
+  return sh;
+}
+
+/**
+ * Appends one structured row to Execution_Log.
+ * @param {string} level     - LOG_LEVEL constant
+ * @param {string} action    - ACTION constant
+ * @param {string} message   - Human-readable Hebrew summary
+ * @param {object} [opts]    - Optional: { phone, bookingId, detail }
+ */
+function log(level, action, message, opts) {
+  opts = opts || {};
+  try {
+    execLogSheet().appendRow([
+      new Date(),
+      action,
+      level,
+      opts.phone     || '',
+      opts.bookingId || '',
+      message,
+      opts.detail    || '',
+    ]);
+  } catch (e) {
+    Logger.log('[log] Execution_Log write failed: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RESILIENCE
+// ═══════════════════════════════════════════════════════════════
+
+const DAILY_SMS_LIMIT = 45; // leave 5-unit buffer below Twilio trial cap of 50
+
+/**
+ * Retries fn up to maxAttempts times with exponential back-off.
+ * @param {Function} fn
+ * @param {object}  [opts]
+ * @param {number}  [opts.maxAttempts=3]
+ * @param {number}  [opts.baseDelayMs=500]
+ * @returns {*} result of fn
+ */
+function withRetry(fn, opts) {
+  opts = opts || {};
+  var maxAttempts = opts.maxAttempts || 3;
+  var baseDelayMs = opts.baseDelayMs || 500;
+  var lastErr;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt < maxAttempts) {
+        Utilities.sleep(baseDelayMs * Math.pow(2, attempt - 1));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
+ * Returns the number of SMS rows logged today in SMS_LOG.
+ * Counts rows where column A (Timestamp) falls within today (Asia/Jerusalem).
+ */
+function getDailySmsCount() {
+  var tz     = 'Asia/Jerusalem';
+  var today  = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var sh     = smsLogSheet();
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+  var timestamps = sh.getRange(2, 1, lastRow - 1, 1).getValues();
+  var count = 0;
+  for (var i = 0; i < timestamps.length; i++) {
+    var cell = timestamps[i][0];
+    if (cell instanceof Date) {
+      var cellDay = Utilities.formatDate(cell, tz, 'yyyy-MM-dd');
+      if (cellDay === today) count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Throws if daily SMS quota is at or above DAILY_SMS_LIMIT.
+ * @param {string} context - caller label for the error message
+ */
+function checkSmsQuota(context) {
+  var count = getDailySmsCount();
+  if (count >= DAILY_SMS_LIMIT) {
+    var msg = 'מכסת SMS יומית הגעה ל-' + count + '/' + DAILY_SMS_LIMIT;
+    log(LOG_LEVEL.ERROR, context, msg);
+    throw new Error(msg);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // HTTP ENTRY POINTS
 // ═══════════════════════════════════════════════════════════════
 
 function doPost(e) {
   // Split try-catch: parse errors and handler errors logged separately
+  Logger.log('[doPost] RAW EVENT: ' + JSON.stringify(e));
   Logger.log('[doPost] Invoked');
 
   let body;
@@ -104,10 +318,46 @@ function doPost(e) {
 
   try {
     switch (body.action) {
-      case 'getSlots':      return jsonOk(handleGetSlots(body));
-      case 'sendOTP':       return jsonOk(handleSendOTP(body));
-      case 'verifyAndBook': return jsonOk(handleVerifyAndBook(body));
-      case 'adminAction':   return jsonOk(handleAdminAction(body));
+      case 'getSlots':      return jsonOk(IS_SUPABASE_ENABLED ? handleGetSlotsV2(body)      : handleGetSlots(body));
+      case 'sendOTP':       return jsonOk(IS_SUPABASE_ENABLED ? handleSendOTPV2(body)       : handleSendOTP(body));
+      case 'verifyAndBook': return jsonOk(IS_SUPABASE_ENABLED ? handleVerifyAndBookV2(body) : handleVerifyAndBook(body));
+      case 'adminAction':   return jsonOk(IS_SUPABASE_ENABLED ? handleAdminActionV2(body)   : handleAdminAction(body));
+      case 'listBookings':  return jsonOk(handleListBookings(body));
+      case 'changeStatus':  return jsonOk(handleChangeStatus(body));
+      case 'createBooking': return jsonOk(handleCreateBooking(body));
+      case 'healthCheck':   return jsonOk(handleHealthCheck(body));
+      case 'createBackup':  return jsonOk(handleCreateBackup(body));
+      case 'getTemplate':   return jsonOk(handleGetTemplate(body));
+      case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
+      case 'generateSlots': return jsonOk(handleGenerateSlots(body));
+      case 'blockDates':    return jsonOk(handleBlockDates(body));
+      case 'sendReminders': return jsonOk(handleSendReminders(body));
+      case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
+      case 'injectMock':   return jsonOk(handleInjectMock(body));
+      case 'clearSlotsCache': return jsonOk(handleClearSlotsCache(body));
+      case 'getAutoSms':       return jsonOk(handleGetAutoSms(body));
+      case 'setAutoSms':       return jsonOk(handleSetAutoSms(body));
+      case 'sendManualSMS':    return jsonOk(handleSendManualSMS(body));
+      case 'getSmsLog':        return jsonOk(handleGetSmsLog(body));
+      case 'getSlotInventory': return jsonOk(handleGetSlotInventory(body));
+      case 'toggleSlotStatus': return jsonOk(handleToggleSlotStatus(body));
+      case 'migrateToSupabase': return jsonOk(handleMigrateToSupabase(body));
+      case 'adminGetSlots':         return jsonOk(handleAdminGetSlotsV2(body));
+      case 'adminAddSlot':          return jsonOk(handleAdminAddSlotV2(body));
+      case 'adminDeleteSlot':       return jsonOk(handleAdminDeleteSlotV2(body));
+      case 'adminToggleSlot':       return jsonOk(handleAdminToggleSlotV2(body));
+      case 'adminGetClients':       return jsonOk(handleAdminGetClientsV2(body));
+      case 'adminGetClientHistory': return jsonOk(handleAdminGetClientHistoryV2(body));
+      case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
+      case 'runFlowTest': {
+        try {
+          const flowResult = testFullBookingFlow();
+          return jsonOk(flowResult || { success: false, error: 'no_result' });
+        } catch (fe) {
+          Logger.log('[doPost] runFlowTest exception: ' + fe.message);
+          return jsonOk({ success: false, error: fe.message });
+        }
+      }
       default:
         Logger.log('[doPost] Unknown action: ' + body.action);
         return jsonErr('Unknown action: ' + body.action, 400);
@@ -132,7 +382,7 @@ function doGet(e) {
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
       try {
-        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month });
+        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -154,7 +404,14 @@ function doGet(e) {
     if (result.success) {
       return HtmlService.createHtmlOutput(buildAdminConfirmPage(action, result));
     }
-    return HtmlService.createHtmlOutput('<h2>שגיאה: ' + result.error + '</h2>');
+    const ERR_HE = {
+      invalid_token:    'קישור לא תקין או פג תוקף.',
+      booking_not_found:'הזמנה לא נמצאה.',
+      already_processed:'הזמנה זו כבר טופלה.',
+      lock_timeout:     'המערכת עמוסה. נסה שוב בעוד שניות ספורות.',
+    };
+    const msg = ERR_HE[result.error] || ('שגיאה: ' + result.error);
+    return HtmlService.createHtmlOutput('<h2>' + msg + '</h2>');
   } catch (err) {
     Logger.log('[doGet] Error: ' + err.message + '\n' + err.stack);
     return HtmlService.createHtmlOutput('<h2>שגיאה פנימית: ' + err.message + '</h2>');
@@ -172,8 +429,34 @@ function doGet(e) {
  *   2. Time cells arrive as Date objects (Jan 1 1900 HH:MM) — use Utilities.formatDate
  *   3. Short/empty rows would cause index-out-of-bounds — guarded explicitly
  */
+// Cache TTL for slot data (seconds).  10 min = fast reads, low staleness.
+const SLOTS_CACHE_TTL = 600;
+
+/** Returns the CacheService key for a given year/month. */
+function _slotsCacheKey(year, month) {
+  return 'slots_' + year + '_' + month;
+}
+
+/**
+ * Invalidates the cached slots for a given date string ('YYYY-MM-DD').
+ * Call this after any booking approval or rejection so the next getSlots
+ * request re-reads from the Sheet and sees the updated status.
+ */
+function invalidateSlotsCache(dateStr) {
+  try {
+    const parts = String(dateStr).split('-');
+    const key   = _slotsCacheKey(parseInt(parts[0], 10), parseInt(parts[1], 10));
+    CacheService.getScriptCache().remove(key);
+    Logger.log('[cache] Invalidated slots cache key: ' + key);
+  } catch (e) {
+    Logger.log('[cache] invalidateSlotsCache error: ' + e.message);
+  }
+}
+
 function handleGetSlots(body) {
+  if (!body) { Logger.log('[ERROR] handleGetSlots: body is undefined'); return { success: false, error: 'missing_payload' }; }
   const TZ = 'Asia/Jerusalem';
+  var _tSlots = Date.now();
 
   Logger.log('[getSlots] START — body: ' + JSON.stringify(body));
 
@@ -183,6 +466,24 @@ function handleGetSlots(body) {
 
   if (!year || !month || year < 2020 || month < 1 || month > 12) {
     throw new Error('Invalid year/month. Got: year=' + body.year + ', month=' + body.month);
+  }
+
+  // ── Cache check (avoids Spreadsheet I/O on warm requests) ──
+  const cacheKey = _slotsCacheKey(year, month);
+  const noCache = body.noCache || body.no_cache;
+  if (noCache) {
+    Logger.log('[getSlots] noCache=true — bypassing cache, reading directly from sheet');
+  } else {
+    try {
+      const cached = CacheService.getScriptCache().get(cacheKey);
+      if (cached) {
+        Logger.log('[getSlots] CACHE HIT — returning cached slots for ' + cacheKey);
+        return { success: true, slots: JSON.parse(cached), fromCache: true };
+      }
+      Logger.log('[getSlots] CACHE MISS — reading from Spreadsheet');
+    } catch (cacheErr) {
+      Logger.log('[getSlots] Cache read error (non-fatal): ' + cacheErr.message);
+    }
   }
 
   // ── Sheet access ──
@@ -201,8 +502,9 @@ function handleGetSlots(body) {
     return { success: true, slots: {} };
   }
 
+  var _tRead = Date.now();
   const data = sh.getDataRange().getValues();
-  Logger.log('[getSlots] getDataRange rows=' + data.length + ', cols=' + (data[0] ? data[0].length : 0));
+  Logger.log('[PERF][getSlots] sheet.getDataRange()=' + (Date.now() - _tRead) + 'ms, rows=' + data.length + ', cols=' + (data[0] ? data[0].length : 0));
   Logger.log('[getSlots] Header: ' + JSON.stringify(data[0]));
 
   const slots = {};
@@ -230,6 +532,7 @@ function handleGetSlots(body) {
                ', startRaw=' + startRaw +
                ' (type=' + typeof startRaw + ', isDate=' + (startRaw instanceof Date) + ')' +
                ', status="' + status + '"');
+    Logger.log('[SERVER DEBUG] Row ' + r + ': Date=' + dateRaw + ' (type=' + (dateRaw instanceof Date ? 'Date' : typeof dateRaw) + '), Time=' + startRaw + ' (type=' + (startRaw instanceof Date ? 'Date' : typeof startRaw) + '), Status=' + status);
 
     // ── Skip non-available ──
     if (status !== 'Available') {
@@ -290,7 +593,16 @@ function handleGetSlots(body) {
 
   // Sort times within each day
   Object.keys(slots).forEach(k => slots[k].sort());
-  Logger.log('[getSlots] DONE. Days with slots: ' + Object.keys(slots).length);
+  Logger.log('[PERF][getSlots] loop+sort done=' + (Date.now() - _tSlots) + 'ms total, days=' + Object.keys(slots).length);
+
+  // ── Store in cache for future requests ──
+  try {
+    CacheService.getScriptCache().put(cacheKey, JSON.stringify(slots), SLOTS_CACHE_TTL);
+    Logger.log('[getSlots] CACHED under key: ' + cacheKey + ' (TTL ' + SLOTS_CACHE_TTL + 's)');
+  } catch (cacheErr) {
+    Logger.log('[getSlots] Cache write error (non-fatal): ' + cacheErr.message);
+  }
+
   Logger.log('[getSlots] Result: ' + JSON.stringify(slots));
   return { success: true, slots };
 }
@@ -303,40 +615,49 @@ function handleGetSlots(body) {
  * and sends it via Twilio SMS.
  * Body: { phone: '05XXXXXXXX' }
  */
-// QA bypass: 0500000000 normalises to QA_MOCK_PHONE.
-// Caches a fixed OTP and skips Twilio so tests never consume SMS quota.
-const QA_MOCK_PHONE = '+972500000000';
-const QA_MOCK_OTP   = '123456';
-
 function handleSendOTP(body) {
+  var _t0 = Date.now();
   Logger.log('[sendOTP] Raw phone from request: "' + body.phone + '"');
-  const phone = normalizePhone(body.phone);
-  Logger.log('[sendOTP] Normalized phone: "' + phone + '" (05X→+972 conversion applied if needed)');
+  var phone = normalizePhone(body.phone);
+  Logger.log('[sendOTP] Normalized phone: "' + phone + '"');
   if (!phone) {
     throw new Error(
       'Invalid phone: "' + body.phone + '" — expected 05XXXXXXXX (10 digits) or E.164 (+972...)');
   }
 
-  // Mock mode: fixed OTP, no Twilio call
-  if (phone === QA_MOCK_PHONE) {
-    Logger.log('[sendOTP] MOCK MODE — caching fixed OTP ' + QA_MOCK_OTP + ', skipping Twilio');
-    CacheService.getScriptCache().put('otp_' + phone, QA_MOCK_OTP, 300);
-    return { success: true };
+  // Rate-limit: one real OTP request per phone per 30 seconds.
+  var rateLimitKey = 'otp_ratelimit_' + phone;
+  var cache = CacheService.getScriptCache();
+  if (cache.get(rateLimitKey)) {
+    Logger.log('[sendOTP] Rate limit hit for ' + phone + ' — retry in 30 s');
+    log(LOG_LEVEL.WARNING, ACTION.SEND_OTP, 'Rate limit — בקשת OTP חוזרת נחסמה', { phone: phone });
+    return { success: false, error: 'rate_limited', retryAfterSecs: 30 };
+  }
+  cache.put(rateLimitKey, '1', 30); // block repeat for 30 s
+
+  // Quota guard — refuse if daily SMS cap reached
+  try {
+    checkSmsQuota(ACTION.SEND_OTP);
+  } catch (quotaErr) {
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'מכסת SMS יומית מלאה — OTP לא נשלח', { phone: phone, detail: quotaErr.message });
+    return { success: false, error: 'sms_quota_exceeded' };
   }
 
-  const otp   = generateOTP();
-  const cache = CacheService.getScriptCache();
+  var otp = generateOTP();
   cache.put('otp_' + phone, otp, 300); // 5-minute TTL
 
   Logger.log('[sendOTP] OTP cached for ' + phone + ', calling Twilio...');
   try {
-    sendSMS(phone, `קוד האימות שלך להזמנת תור: ${otp}\nתקף ל-5 דקות.`);
+    sendSMS._context = 'OTP';
+    sendSMS(phone, 'קוד האימות שלך להזמנת תור: ' + otp + '\nתקף ל-5 דקות.');
   } catch (smsErr) {
     Logger.log('[sendOTP] SMS FAILED: ' + smsErr.message);
-    // Return debugInfo so the browser Console shows the exact Twilio reason.
+    log(LOG_LEVEL.ERROR, ACTION.SEND_OTP, 'שליחת SMS נכשלה', { phone: phone, detail: smsErr.message });
     return { success: false, error: smsErr.message, debugInfo: smsErr.debugInfo || {} };
   }
-  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone);
+  var elapsed = Date.now() - _t0;
+  Logger.log('[sendOTP] SMS dispatched successfully to ' + phone + ' (' + elapsed + 'ms)');
+  log(LOG_LEVEL.SUCCESS, ACTION.SEND_OTP, 'OTP נשלח בהצלחה (' + elapsed + 'ms)', { phone: phone });
   return { success: true };
 }
 
@@ -354,10 +675,20 @@ function handleSendOTP(body) {
  * Race-condition guard: uses LockService + double-check of slot status.
  */
 function handleVerifyAndBook(body) {
+  var _t0 = Date.now();
   const { otp, booking } = body;
   if (!otp || !booking) throw new Error('otp and booking are required');
 
   const phone = normalizePhone(booking.phone);
+
+  // ── 0. Validation parity (mirrors frontend guards) ──
+  const ALLOWED_SERVICES = ['gel_classic', 'gel_feet'];
+  if (!booking.name || booking.name.trim().length < 2) {
+    return { success: false, error: 'invalid_name' };
+  }
+  if (!booking.service || !ALLOWED_SERVICES.includes(booking.service)) {
+    return { success: false, error: 'invalid_service' };
+  }
 
   // ── 1. Validate OTP ──
   const cache    = CacheService.getScriptCache();
@@ -378,15 +709,27 @@ function handleVerifyAndBook(body) {
   }
 
   try {
-    // ── 3. Race-condition check: verify slot is still Available ──
+    // ── 3. Integrity gate — slot MUST exist in Weekly_Slots with status Available ──
+    // Rejects any booking that has no backing row in the slots DB ("floating booking" prevention).
+    if (CFG.SS_ID !== EXPECTED_SS_ID) {
+      Logger.log('[verifyAndBook] ABORT: SPREADSHEET_ID mismatch. Expected ' +
+                 EXPECTED_SS_ID + ', got ' + CFG.SS_ID);
+      return { success: false, error: 'configuration_error' };
+    }
+    Logger.log('[verifyAndBook] Integrity gate — checking slot: ' + booking.date + ' ' + booking.time);
     const slotRow = findSlotRow(booking.date, booking.time);
     if (!slotRow) {
-      return { success: false, error: 'slot_not_found' };
+      Logger.log('[verifyAndBook] REJECTED: slot not found in Weekly_Slots');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ לא נמצא ב-Weekly_Slots', { phone: phone, detail: booking.date + ' ' + booking.time });
+      return { success: false, error: 'slot_not_available' };
     }
     const currentStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
     if (currentStatus !== 'Available') {
-      return { success: false, error: 'slot_unavailable' };
+      Logger.log('[verifyAndBook] REJECTED: slot status is "' + currentStatus + '" (not Available)');
+      log(LOG_LEVEL.WARNING, ACTION.VERIFY_BOOK, 'חריץ אינו זמין — סטטוס: ' + currentStatus, { phone: phone, detail: booking.date + ' ' + booking.time });
+      return { success: false, error: 'slot_not_available' };
     }
+    Logger.log('[verifyAndBook] Integrity gate PASSED — slot confirmed Available at row ' + slotRow.rowIndex);
 
     // ── 4. Atomically mark slot as Pending_Lock ──
     slotsSheet().getRange(slotRow.rowIndex, SLOT_COL.STATUS).setValue('Pending_Lock');
@@ -422,22 +765,17 @@ function handleVerifyAndBook(body) {
       `שם: ${booking.name}`,
       `טלפון: ${formatPhone(phone)}`,
       `שירות: ${booking.serviceName}`,
-      `תאריך: ${booking.date} בשעה ${booking.time}`,
+      'תאריך: ' + _fmtDate(booking.date) + ' בשעה ' + booking.time,
       ``,
       `✅ אישור: ${approveUrl}`,
       `❌ דחייה: ${rejectUrl}`,
     ].join('\n');
-    if (phone !== QA_MOCK_PHONE) {
-      sendSMS(CFG.ADMIN_PHONE, adminMsg);
-    } else {
-      Logger.log('[verifyAndBook] MOCK MODE — admin SMS suppressed. Copy links from log:');
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log(adminMsg);
-      Logger.log('────────────────────────────────────────────────────');
-      Logger.log('[verifyAndBook] bookingId=' + bookingId + ' | adminToken=' + adminToken);
-    }
+    sendSMS._context = 'AdminNotify';
+    sendSMS(CFG.ADMIN_PHONE, adminMsg);
 
-    Logger.log('[verifyAndBook] Booking created: ' + bookingId);
+    var elapsed = Date.now() - _t0;
+    Logger.log('[verifyAndBook] Booking created: ' + bookingId + ' (' + elapsed + 'ms)');
+    log(LOG_LEVEL.SUCCESS, ACTION.VERIFY_BOOK, 'הזמנה נוצרה בהצלחה (' + elapsed + 'ms)', { phone: phone, bookingId: bookingId, detail: booking.serviceName + ' | ' + booking.date + ' ' + booking.time });
     return { success: true, bookingId, status: 'Pending' };
 
   } finally {
@@ -466,46 +804,61 @@ function handleAdminAction(body) {
     return { success: false, error: 'invalid_token' };
   }
 
-  // ── 2. Find booking row ──
-  const logSh  = logSheet();
-  const data   = logSh.getDataRange().getValues();
-  let bookingRow = null, bookingIdx = -1;
+  // ── 2. Acquire distributed lock — prevents duplicate-approval race between
+  //       the SMS link and Admin Dashboard acting on the same booking concurrently. ──
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[adminAction] Lock timeout for booking ' + bookingId);
+    return { success: false, error: 'lock_timeout' };
+  }
 
-  for (let r = 1; r < data.length; r++) {
-    if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
-      bookingRow = data[r];
-      bookingIdx = r + 1; // 1-indexed
-      break;
+  try {
+    // ── 3. Find booking row ──
+    const logSh  = logSheet();
+    const data   = logSh.getDataRange().getValues();
+    let bookingRow = null, bookingIdx = -1;
+
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+        bookingRow = data[r];
+        bookingIdx = r + 1; // 1-indexed
+        break;
+      }
     }
+
+    if (!bookingRow) return { success: false, error: 'booking_not_found' };
+
+    const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
+    if (currentStatus !== 'Pending') {
+      return { success: false, error: 'already_processed', currentStatus };
+    }
+
+    if (action === 'APPROVE') {
+      return processApproval(logSh, bookingRow, bookingIdx, bookingId);
+    } else if (action === 'REJECT') {
+      return processRejection(logSh, bookingRow, bookingIdx, bookingId);
+    }
+
+    throw new Error('Unknown adminAction: ' + action);
+  } finally {
+    lock.releaseLock();
   }
-
-  if (!bookingRow) return { success: false, error: 'booking_not_found' };
-
-  const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
-  if (currentStatus !== 'Pending') {
-    return { success: false, error: 'already_processed', currentStatus };
-  }
-
-  if (action === 'APPROVE') {
-    return processApproval(logSh, bookingRow, bookingIdx, bookingId);
-  } else if (action === 'REJECT') {
-    return processRejection(logSh, bookingRow, bookingIdx, bookingId);
-  }
-
-  throw new Error('Unknown adminAction: ' + action);
 }
 
 function processApproval(logSh, row, rowIdx, bookingId) {
-  const date        = String(row[LOG_COL.DATE - 1]).trim();
-  const time        = String(row[LOG_COL.TIME - 1]).trim();
+  const dateIso     = _isoDate(row[LOG_COL.DATE - 1]);
+  const date        = _fmtDate(row[LOG_COL.DATE - 1]);
+  const time        = _fmtTime(row[LOG_COL.TIME - 1]);
   const duration    = parseInt(row[LOG_COL.DURATION - 1], 10) || 90;
   const clientName  = String(row[LOG_COL.NAME - 1]).trim();
   const clientPhone = normalizePhone(String(row[LOG_COL.PHONE - 1]).trim());
   const serviceName = String(row[LOG_COL.SERVICE_NAME - 1]).trim();
 
   // ── Create Google Calendar event ──
-  const calEventId = createCalendarEvent({
-    date, time, duration, clientName, serviceName, bookingId,
+  const calEventId = CalService.createEvent({
+    date: dateIso, time, duration, clientName, serviceName, bookingId,
   });
 
   // ── Update Bookings_Log: status → Approved, store calendar event ID ──
@@ -514,7 +867,8 @@ function processApproval(logSh, row, rowIdx, bookingId) {
   SpreadsheetApp.flush();
 
   // ── Update Weekly_Slots: mark slot as Booked ──
-  updateSlotStatus(date, time, 'Booked');
+  updateSlotStatus(dateIso, time, 'Booked');
+  invalidateSlotsCache(dateIso);
 
   // ── Notify client ──
   const clientMsg = [
@@ -524,19 +878,21 @@ function processApproval(logSh, row, rowIdx, bookingId) {
     ``,
     `מחכה לך! 💅`,
   ].join('\n');
-  if (clientPhone !== QA_MOCK_PHONE) {
-    sendSMS(clientPhone, clientMsg);
+  if (isAutoSmsEnabled()) {
+    SmsService.send(clientPhone, clientMsg, 'ClientApproval');
   } else {
-    Logger.log('[processApproval] MOCK MODE — skipping client confirmation SMS');
+    Logger.log('[processApproval] Auto-SMS disabled — skipping client notification');
   }
 
   Logger.log('[adminAction] Approved: ' + bookingId);
+  log(LOG_LEVEL.SUCCESS, ACTION.ADMIN_APPROVE, 'הזמנה אושרה — יומן עודכן', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time + ' | calEvent:' + calEventId });
   return { success: true, action: 'APPROVE', bookingId, calEventId };
 }
 
 function processRejection(logSh, row, rowIdx, bookingId) {
-  const date        = String(row[LOG_COL.DATE - 1]).trim();
-  const time        = String(row[LOG_COL.TIME - 1]).trim();
+  const dateIso     = _isoDate(row[LOG_COL.DATE - 1]);
+  const date        = _fmtDate(row[LOG_COL.DATE - 1]);
+  const time        = _fmtTime(row[LOG_COL.TIME - 1]);
   const clientPhone = normalizePhone(String(row[LOG_COL.PHONE - 1]).trim());
   const serviceName = String(row[LOG_COL.SERVICE_NAME - 1]).trim();
 
@@ -545,20 +901,22 @@ function processRejection(logSh, row, rowIdx, bookingId) {
   SpreadsheetApp.flush();
 
   // ── Release slot back to Available ──
-  updateSlotStatus(date, time, 'Available');
+  updateSlotStatus(dateIso, time, 'Available');
+  invalidateSlotsCache(dateIso); // bust cache so rejected slot reappears immediately
 
   // ── Notify client ──
   const clientMsg = [
     `❌ לצערנו, הבקשה לתור ב-${date} שעה ${time} לא אושרה.`,
     `ניתן להזמין תור חלופי דרך האפליקציה.`,
   ].join('\n');
-  if (clientPhone !== QA_MOCK_PHONE) {
-    sendSMS(clientPhone, clientMsg);
+  if (isAutoSmsEnabled()) {
+    SmsService.send(clientPhone, clientMsg, 'ClientRejection');
   } else {
-    Logger.log('[processRejection] MOCK MODE — skipping client rejection SMS');
+    Logger.log('[processRejection] Auto-SMS disabled — skipping client notification');
   }
 
   Logger.log('[adminAction] Rejected: ' + bookingId);
+  log(LOG_LEVEL.INFO, ACTION.ADMIN_REJECT, 'הזמנה נדחתה — חריץ שוחרר', { phone: clientPhone, bookingId: bookingId, detail: serviceName + ' | ' + dateIso + ' ' + time });
   return { success: true, action: 'REJECT', bookingId };
 }
 
@@ -598,30 +956,81 @@ function createCalendarEvent({ date, time, duration, clientName, serviceName, bo
  * Blocks personal time in Weekly_Slots based on non-booking calendar events.
  * Intended to be run as a time-driven trigger (e.g., daily at 01:00).
  * Marks any slot overlapping a calendar event as 'Blocked'.
+ *
+ * Also performs two maintenance passes each run:
+ *   1. Orphaned Pending_Lock cleanup — resets any Pending_Lock slot with no
+ *      matching Pending booking row (guards against mid-booking GAS crashes).
+ *   2. TZ-safe date/time parsing via Utilities.formatDate (fixes UTC-midnight
+ *      drift that occurs when Sheets Date cells are read as JS Date objects).
+ *   3. Cache invalidation for every date whose slot status changed so clients
+ *      see the update within the next request rather than waiting up to 10 min.
  */
 function syncCalendarToSlots() {
-  const cal   = CalendarApp.getCalendarById(CFG.CAL_ID);
-  const sh    = slotsSheet();
-  const data  = sh.getDataRange().getValues();
-  const now   = new Date();
-  const end   = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day window
+  const _syncStart = Date.now();
+  const TZ   = 'Asia/Jerusalem';
+  const cal  = CalendarApp.getCalendarById(CFG.CAL_ID);
+  const sh   = slotsSheet();
+  const data = sh.getDataRange().getValues();
+  const now  = new Date();
+  const end  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30-day window
 
-  const events = cal.getEvents(now, end);
+  const events       = cal.getEvents(now, end);
+  const changedDates = new Set();
+
+  // ── Pass 1: Orphaned Pending_Lock cleanup ─────────────────────────────────
+  // Build a key-set of date|time for all currently-Pending bookings.
+  // A slot in Pending_Lock with no matching row was orphaned by a GAS crash
+  // mid-booking and must be released so clients can book that slot again.
+  const logData    = logSheet().getDataRange().getValues();
+  const pendingKeys = new Set();
+  for (let r = 1; r < logData.length; r++) {
+    if (String(logData[r][LOG_COL.STATUS - 1]).trim() !== 'Pending') continue;
+    const ld = logData[r][LOG_COL.DATE - 1];
+    const lt = logData[r][LOG_COL.TIME - 1];
+    const ds = (ld instanceof Date) ? Utilities.formatDate(ld, TZ, 'yyyy-MM-dd') : String(ld).trim();
+    const ts = (lt instanceof Date) ? Utilities.formatDate(lt, TZ, 'HH:mm')     : String(lt).trim();
+    pendingKeys.add(ds + '|' + ts);
+  }
 
   for (let r = 1; r < data.length; r++) {
-    const row       = data[r];
-    const dateStr   = formatSheetDate(row[SLOT_COL.DATE - 1]);
-    const startStr  = String(row[SLOT_COL.START - 1]).trim();
-    const endStr    = String(row[SLOT_COL.END   - 1]).trim();
-    const status    = String(row[SLOT_COL.STATUS - 1]).trim();
+    if (String(data[r][SLOT_COL.STATUS - 1]).trim() !== 'Pending_Lock') continue;
+    const rd = data[r][SLOT_COL.DATE  - 1];
+    const rs = data[r][SLOT_COL.START - 1];
+    const ds = (rd instanceof Date) ? Utilities.formatDate(rd, TZ, 'yyyy-MM-dd') : String(rd).trim();
+    const ts = (rs instanceof Date) ? Utilities.formatDate(rs, TZ, 'HH:mm')     : String(rs).trim();
+    if (!pendingKeys.has(ds + '|' + ts)) {
+      sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Available');
+      changedDates.add(ds);
+      Logger.log('[syncCalendarToSlots] Orphaned Pending_Lock reset -> Available: ' + ds + ' ' + ts);
+    }
+  }
 
-    if (status === 'Booked' || !dateStr || !startStr) continue;
+  // ── Pass 2: Calendar overlap sync (TZ-safe parsing) ───────────────────────
+  for (let r = 1; r < data.length; r++) {
+    const row    = data[r];
+    const status = String(row[SLOT_COL.STATUS - 1]).trim();
+
+    if (status === 'Booked' || status === 'Pending_Lock') continue;
+
+    const rawDate  = row[SLOT_COL.DATE  - 1];
+    const rawStart = row[SLOT_COL.START - 1];
+    const rawEnd   = row[SLOT_COL.END   - 1];
+
+    // Utilities.formatDate prevents the UTC-midnight off-by-one that happens
+    // when Sheets returns Date cells and JS Date methods use the local timezone.
+    const dateStr  = (rawDate  instanceof Date) ? Utilities.formatDate(rawDate,  TZ, 'yyyy-MM-dd') : String(rawDate  || '').trim();
+    const startStr = (rawStart instanceof Date) ? Utilities.formatDate(rawStart, TZ, 'HH:mm')      : String(rawStart || '').trim();
+    const endStr   = (rawEnd   instanceof Date) ? Utilities.formatDate(rawEnd,   TZ, 'HH:mm')      : String(rawEnd   || '').trim();
+
+    if (!dateStr || !startStr) continue;
 
     const [yr, mo, da] = dateStr.split('-').map(Number);
     const [sh_, sm_]   = startStr.split(':').map(Number);
-    const [eh_, em_]   = endStr  .split(':').map(Number);
-    const slotStart = new Date(yr, mo - 1, da, sh_, sm_);
-    const slotEnd   = new Date(yr, mo - 1, da, eh_, em_);
+    const endParts     = endStr.split(':').map(Number);
+    const slotStart    = new Date(yr, mo - 1, da, sh_, sm_);
+    const slotEnd      = new Date(yr, mo - 1, da,
+      isNaN(endParts[0]) ? sh_ + 2 : endParts[0],
+      isNaN(endParts[1]) ? 0       : endParts[1]);
 
     const overlaps = events.some(ev =>
       ev.getStartTime() < slotEnd && ev.getEndTime() > slotStart
@@ -629,14 +1038,27 @@ function syncCalendarToSlots() {
 
     if (overlaps && status === 'Available') {
       sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Blocked');
+      changedDates.add(dateStr);
     } else if (!overlaps && status === 'Blocked') {
-      // Re-open if personal event was deleted
       sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Available');
+      changedDates.add(dateStr);
     }
   }
 
   SpreadsheetApp.flush();
-  Logger.log('[syncCalendarToSlots] Sync complete');
+
+  // Bust the slot cache for every date that changed so the next getSlots
+  // request returns fresh data instead of stale cache (up to 10-min old).
+  changedDates.forEach(invalidateSlotsCache);
+
+  var _syncElapsed = Date.now() - _syncStart;
+  var _changedList  = [...changedDates].join(', ') || '—';
+  Logger.log('[syncCalendarToSlots] Done. Changed dates: ' + _changedList + ' (' + _syncElapsed + 'ms)');
+  if (_syncElapsed > 5 * 60 * 1000) {
+    log(LOG_LEVEL.WARNING, ACTION.CAL_SYNC, 'סנכרון יומן ארך זמן רב (' + Math.round(_syncElapsed / 1000) + 's)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  } else {
+    log(LOG_LEVEL.SUCCESS, ACTION.CAL_SYNC, 'סנכרון יומן הושלם (' + _syncElapsed + 'ms)', { detail: 'תאריכים שהשתנו: ' + _changedList });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -649,6 +1071,9 @@ function sendSMS(to, body) {
   const fromNum = CFG.TWILIO_FROM;
   Logger.log('[sendSMS] Payload → To: "' + to + '" | From: "' + fromNum +
              '" | To.length: ' + to.length + ' | From.length: ' + fromNum.length);
+
+  const _smsCtx = sendSMS._context || 'Unknown';
+  delete sendSMS._context;
 
   const url     = `https://api.twilio.com/2010-04-01/Accounts/${CFG.TWILIO_SID}/Messages.json`;
   const options = {
@@ -665,6 +1090,7 @@ function sendSMS(to, body) {
     resp = UrlFetchApp.fetch(url, options);
   } catch (fetchErr) {
     Logger.log('[sendSMS] Network error: ' + fetchErr.message);
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, 'network: ' + fetchErr.message);
     const err = new Error('SMS network error: ' + fetchErr.message);
     err.debugInfo = { stage: 'network', to, from: fromNum, message: fetchErr.message };
     throw err;
@@ -684,12 +1110,16 @@ function sendSMS(to, body) {
       dbg.twilioMessage = tw.message;
       if (tw.more_info) { detail += ' — ' + tw.more_info; dbg.moreInfo = tw.more_info; }
     } catch (_) { detail += ' | ' + respText.slice(0, 200); }
+    if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'ERROR', body, detail);
     const err = new Error('Twilio SMS failed: ' + detail);
     err.debugInfo = dbg;
     throw err;
   }
 
-  Logger.log('[sendSMS] SMS sent OK to ' + to);
+  let sid = '';
+  try { sid = JSON.parse(respText).sid || ''; } catch (_) {}
+  if (!IS_SUPABASE_ENABLED) logSMS(to, _smsCtx, 'SENT', body, sid);
+  Logger.log('[sendSMS] SMS sent OK to ' + to + ' | SID: ' + sid);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -747,9 +1177,8 @@ function uuid4() {
  * Uses GAS Utilities.formatDate with IANA timezone for correct DST resolution.
  */
 function nowISO() {
-  const tz   = CFG.TIMEZONE;
   const now  = new Date();
-  const fmt  = Utilities.formatDate(now, tz, "yyyy-MM-dd'T'HH:mm:ssXXX");
+  const fmt  = Utilities.formatDate(now, 'Asia/Jerusalem', "yyyy-MM-dd'T'HH:mm:ssXXX");
   return fmt;
 }
 
@@ -967,76 +1396,6 @@ function runInternalTests() {
  * Run once from the GAS editor to install the daily calendar-sync trigger.
  * Do NOT deploy this function as part of the web app.
  */
-/**
- * Run from the GAS editor to generate admin Approve/Reject links for the
- * most recent booking in Bookings_Log. Paste either URL in a browser to
- * test the admin-approval flow without an SMS being sent.
- */
-function simulateAdminSMS() {
-  Logger.log('');
-  Logger.log('══════════════ simulateAdminSMS START ══════════════');
-
-  const sh      = logSheet();
-  const lastRow = sh.getLastRow();
-
-  if (lastRow < 2) {
-    Logger.log('[simulateAdminSMS] Bookings_Log is empty — submit a booking first.');
-    return;
-  }
-
-  const data = sh.getRange(lastRow, 1, 1, 12).getValues()[0];
-
-  // Columns: A=UUID B=Name C=Phone D=Service E=ServiceName
-  //          F=Date G=Time H=Timestamp I=Duration J=Status K=CalEventId L=AdminToken
-  const bookingId   = String(data[0]).trim();
-  const name        = String(data[1]).trim();
-  const phone       = String(data[2]).trim();
-  const serviceName = String(data[4]).trim();
-  const status      = String(data[9]).trim();
-  const adminToken  = String(data[11]).trim();
-
-  // Date/Time cells may arrive as Date objects depending on Sheet column format
-  let date = data[5];
-  date = (date instanceof Date)
-    ? Utilities.formatDate(date, CFG.TIMEZONE, 'yyyy-MM-dd')
-    : String(date).trim();
-
-  let time = data[6];
-  time = (time instanceof Date)
-    ? Utilities.formatDate(time, CFG.TIMEZONE, 'HH:mm')
-    : String(time).trim();
-
-  Logger.log('[simulateAdminSMS] Row ' + lastRow + ':');
-  Logger.log('  bookingId:  ' + bookingId);
-  Logger.log('  name:       ' + name);
-  Logger.log('  phone:      ' + phone);
-  Logger.log('  service:    ' + serviceName);
-  Logger.log('  date/time:  ' + date + ' ' + time);
-  Logger.log('  status:     ' + status);
-  Logger.log('  adminToken: ' + adminToken);
-
-  if (!bookingId || !adminToken) {
-    Logger.log('[simulateAdminSMS] ERROR: bookingId or adminToken empty — check Bookings_Log columns A and L.');
-    return;
-  }
-
-  const approveUrl = buildAdminUrl('APPROVE', bookingId, adminToken);
-  const rejectUrl  = buildAdminUrl('REJECT',  bookingId, adminToken);
-
-  Logger.log('');
-  Logger.log('══════════════ ADMIN LINKS (paste in browser) ══════════════');
-  Logger.log('');
-  Logger.log('✅ APPROVE:');
-  Logger.log(approveUrl);
-  Logger.log('');
-  Logger.log('❌ REJECT:');
-  Logger.log(rejectUrl);
-  Logger.log('');
-  Logger.log('════════════════════════════════════════════════════════════');
-  Logger.log('[simulateAdminSMS] Open either URL in a browser to run the approval flow.');
-  Logger.log('[simulateAdminSMS] Expected: status in Bookings_Log changes to Approved/Rejected + Calendar event created.');
-  Logger.log('══════════════ simulateAdminSMS END ══════════════');
-}
 // ═══════════════════════════════════════════════════════════════
 // UNIT TESTS — run from GAS editor, no deployment needed
 // ═══════════════════════════════════════════════════════════════
@@ -1093,12 +1452,81 @@ function runBackendTests() {
   failed === 0 ? Logger.log('🎉 All tests passed!') : Logger.log('⚠️  ' + failed + ' test(s) FAILED');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// QA / TEST UTILITIES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * QA Console endpoint — returns current IS_TEST_MODE state and
+ * optionally injects a named test scenario into the live system.
+ *
+ * body.scenario (optional):
+ *   "status"  (default) — returns IS_TEST_MODE flag and quota counters
+ *   "quota"             — returns todays SMS count vs limit
+ */
+function handleClearSlotsCache(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  const year  = parseInt(body.year  || new Date().getFullYear(), 10);
+  const month = parseInt(body.month || (new Date().getMonth() + 1), 10);
+  const key   = _slotsCacheKey(year, month);
+  try {
+    CacheService.getScriptCache().remove(key);
+    Logger.log('[clearSlotsCache] Removed cache key: ' + key);
+    return { success: true, cleared: key };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function handleInjectMock(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var scenario = body.scenario || 'status';
+
+  if (scenario === 'status') {
+    return {
+      success:      true,
+      IS_TEST_MODE: IS_TEST_MODE,
+      mode:         IS_TEST_MODE ? 'test' : 'production',
+      message:      IS_TEST_MODE
+        ? 'IS_TEST_MODE=true — Twilio and Calendar calls are mocked'
+        : 'IS_TEST_MODE=false — system is LIVE',
+    };
+  }
+
+  if (scenario === 'quota') {
+    var count = getDailySmsCount();
+    return {
+      success:    true,
+      smsSentToday: count,
+      smsLimit:   DAILY_SMS_LIMIT,
+      remaining:  Math.max(0, DAILY_SMS_LIMIT - count),
+    };
+  }
+
+  return { success: false, error: 'Unknown scenario: ' + scenario };
+}
+
+/**
+ * Run from the GAS editor to diagnose ADMIN_TOKEN auth failures.
+ * Prints the stored token length and first/last char codes to the log.
+ * Safe to leave in place — reads only, never writes.
+ */
+function debugAdminToken() {
+  const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!stored) { Logger.log('ADMIN_TOKEN: NOT SET'); return; }
+  Logger.log('ADMIN_TOKEN length    : ' + stored.length);
+  Logger.log('ADMIN_TOKEN trimmed   : ' + stored.trim().length + ' (after trim)');
+  Logger.log('First char code       : ' + stored.charCodeAt(0));
+  Logger.log('Last char code        : ' + stored.charCodeAt(stored.length - 1));
+  Logger.log('Whitespace detected   : ' + (stored !== stored.trim() ? 'YES — this is the bug' : 'none'));
+}
+
 /**
  * End-to-end "golden path" integration test.
  * Creates a fictional slot, runs verifyAndBook + adminAction APPROVE,
  * asserts slot and log status at each step, then cleans up all test data.
  *
- * IMPORTANT: uses QA_MOCK_PHONE (0500000000) so NO Twilio SMS is sent.
+ * IMPORTANT: uses phone 0500000000 — IS_TEST_MODE suppresses all Twilio/Calendar calls.
  * Run from the GAS editor — do NOT deploy as a web-app endpoint.
  */
 function testFullBookingFlow() {
@@ -1139,9 +1567,10 @@ function testFullBookingFlow() {
 
     // ── Step 2: cache OTP + call handleVerifyAndBook ──────────────
     Logger.log('\n[Step 2] Calling handleVerifyAndBook (mock phone, no SMS)...');
-    CacheService.getScriptCache().put('otp_' + QA_MOCK_PHONE, QA_MOCK_OTP, 60);
+    const TEST_OTP = '000001';
+    CacheService.getScriptCache().put('otp_+972500000000', TEST_OTP, 60);
     const vRes = handleVerifyAndBook({
-      otp: QA_MOCK_OTP,
+      otp: TEST_OTP,
       booking: {
         id: testId, name: 'AUTO-TEST', phone: '0500000000',
         service: 'gel_classic', serviceName: "Test Service",
@@ -1240,18 +1669,1263 @@ function testFullBookingFlow() {
   Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
   failed === 0 ? Logger.log('🎉 Golden path PASSED!') : Logger.log('⚠️  ' + failed + ' step(s) FAILED — see ❌ above');
   Logger.log('══════════════ testFullBookingFlow END ══════════════');
+
+  return { success: failed === 0, passed: passed, failed: failed };
 }
+/**
+ * Run once from the GAS editor to verify all script properties are configured
+ * correctly and the SPREADSHEET_ID matches the expected value.
+ * Safe to run at any time — reads only, no writes, no SMS, no Calendar.
+ */
+function verifyConfig() {
+  Logger.log('');
+  Logger.log('══════════════ verifyConfig START ══════════════');
+  let allOk = true;
+
+  // ── Spreadsheet ID ──
+  try {
+    const actual = CFG.SS_ID;
+    if (actual === EXPECTED_SS_ID) {
+      Logger.log('[verifyConfig] SPREADSHEET_ID: OK — ' + actual);
+    } else {
+      Logger.log('[verifyConfig] SPREADSHEET_ID MISMATCH');
+      Logger.log('  expected: ' + EXPECTED_SS_ID);
+      Logger.log('  actual:   ' + actual);
+      allOk = false;
+    }
+  } catch (e) {
+    Logger.log('[verifyConfig] SPREADSHEET_ID: MISSING — ' + e.message);
+    allOk = false;
+  }
+
+  // ── Required properties ──
+  const REQUIRED = [
+    'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID', 'ADMIN_TOKEN',
+  ];
+  REQUIRED.forEach(function(key) {
+    const val = PropertiesService.getScriptProperties().getProperty(key);
+    if (val) {
+      Logger.log('[verifyConfig] ' + key + ': OK');
+    } else {
+      Logger.log('[verifyConfig] ' + key + ': MISSING');
+      allOk = false;
+    }
+  });
+
+  // ── Sheet access ──
+  try {
+    const sh = slotsSheet();
+    Logger.log('[verifyConfig] Weekly_Slots: OK (lastRow=' + sh.getLastRow() + ')');
+  } catch (e) {
+    Logger.log('[verifyConfig] Weekly_Slots: ERROR — ' + e.message);
+    allOk = false;
+  }
+  try {
+    const sh = logSheet();
+    Logger.log('[verifyConfig] Bookings_Log: OK (lastRow=' + sh.getLastRow() + ')');
+  } catch (e) {
+    Logger.log('[verifyConfig] Bookings_Log: ERROR — ' + e.message);
+    allOk = false;
+  }
+
+  Logger.log('');
+  Logger.log(allOk
+    ? '[verifyConfig] All checks PASSED'
+    : '[verifyConfig] FAILED — fix issues above before taking live bookings');
+  Logger.log('══════════════ verifyConfig END ══════════════');
+}
+
 function installTriggers() {
-  // Remove any existing syncCalendarToSlots triggers first
+  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
   ScriptApp.getProjectTriggers()
-    .filter(t => t.getHandlerFunction() === 'syncCalendarToSlots')
+    .filter(t => HANDLERS.includes(t.getHandlerFunction()))
     .forEach(t => ScriptApp.deleteTrigger(t));
 
   ScriptApp.newTrigger('syncCalendarToSlots')
-    .timeBased()
-    .everyDays(1)
-    .atHour(1)
-    .create();
+    .timeBased().everyDays(1).atHour(1).create();
+  Logger.log('[installTriggers] syncCalendarToSlots trigger installed (01:00 daily).');
 
-  Logger.log('[installTriggers] syncCalendarToSlots trigger installed.');
+  ScriptApp.newTrigger('sendDailyReminders')
+    .timeBased().everyDays(1).atHour(8).create();
+  Logger.log('[installTriggers] sendDailyReminders trigger installed (08:00 daily).');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 24H SMS REMINDERS  (Phase 3.2)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Sends a reminder SMS to every client with an Approved booking for tomorrow.
+ * Routes to sendDailyRemindersV2() (Supabase) when IS_SUPABASE_ENABLED=true,
+ * falling back to _sendDailyRemindersSheets() if Supabase is unavailable.
+ * Idempotent: PropertiesService key REMINDER_LAST_RUN prevents double-sends.
+ * Called at 08:00 daily by the time trigger, or manually via the dashboard.
+ */
+function sendDailyReminders() {
+  if (IS_SUPABASE_ENABLED) {
+    var v2result = sendDailyRemindersV2();
+    if (v2result !== null) return v2result;
+    Logger.log('[sendDailyReminders] V2 unavailable — falling back to Sheets path.');
+  }
+  return _sendDailyRemindersSheets();
+}
+
+function _sendDailyRemindersSheets() {
+  var _t0   = Date.now();
+  var TZ    = 'Asia/Jerusalem';
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+
+  // Idempotency guard — skip if already ran today
+  var props   = PropertiesService.getScriptProperties();
+  var lastRun = props.getProperty('REMINDER_LAST_RUN') || '';
+  if (lastRun === today) {
+    Logger.log('[sendDailyReminders] Already ran today (' + today + '), skipping.');
+    return { skipped: true, reason: 'already_ran_today', date: today };
+  }
+
+  // Tomorrow's date string
+  var tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  var tomorrow = Utilities.formatDate(tomorrowDate, TZ, 'yyyy-MM-dd');
+  Logger.log('[sendDailyReminders] Looking for Approved bookings on ' + tomorrow);
+
+  // Read Bookings_Log
+  var sh   = logSheet();
+  var data = sh.getDataRange().getValues();
+  var sent = 0, skippedQuota = 0, errors = 0;
+
+  for (var r = 1; r < data.length; r++) {
+    var row    = data[r];
+    var status = String(row[LOG_COL.STATUS - 1] || '').trim();
+    if (status !== 'Approved') continue;
+
+    var rawDate = row[LOG_COL.DATE - 1];
+    var dateStr = (rawDate instanceof Date)
+      ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (dateStr !== tomorrow) continue;
+
+    var rawTime   = row[LOG_COL.TIME - 1];
+    var timeStr   = (rawTime instanceof Date)
+      ? Utilities.formatDate(rawTime, TZ, 'HH:mm') : String(rawTime || '').trim();
+    var phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
+    var name       = String(row[LOG_COL.NAME         - 1] || '').trim();
+    var svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
+    var bookingId  = String(row[LOG_COL.UUID         - 1] || '').trim();
+
+    if (!phone) { Logger.log('[sendDailyReminders] Missing phone at row ' + r); continue; }
+
+    // Quota guard — stop sending if limit reached
+    try {
+      checkSmsQuota(ACTION.SEND_REMINDER);
+    } catch (quotaErr) {
+      skippedQuota++;
+      Logger.log('[sendDailyReminders] Quota reached at row ' + r + ': ' + quotaErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'מכסת SMS מלאה — תזכורות נעצרו', { detail: 'שנשלחו: ' + sent });
+      break;
+    }
+
+    var msg = ('תזכורת: מחר יש לך תור! ' +
+      'שירות: ' + svcName + '. ' +
+      'תאריך: ' + tomorrow.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
+      'לביטול יש לפנות למיטל.');
+
+    try {
+      SmsService.send(phone, msg, 'Reminder');
+      sent++;
+      log(LOG_LEVEL.SUCCESS, ACTION.SEND_REMINDER, 'תזכורת נשלחה ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: svcName + ' | ' + tomorrow + ' ' + timeStr });
+    } catch (smsErr) {
+      errors++;
+      Logger.log('[sendDailyReminders] SMS error for ' + phone + ': ' + smsErr.message);
+      log(LOG_LEVEL.ERROR, ACTION.SEND_REMINDER, 'שגיאה בשליחת תזכורת ל-' + name,
+        { phone: phone, bookingId: bookingId, detail: smsErr.message });
+    }
+  }
+
+  // Mark as done for today (skip if quota prevented all sends)
+  if (skippedQuota === 0) {
+    props.setProperty('REMINDER_LAST_RUN', today);
+  }
+
+  var elapsed = Date.now() - _t0;
+  var summary = 'תזכורות יומיות: שנשלחו ' + sent + ', שגיאות ' + errors + ', מכסה ' + skippedQuota + ' (' + elapsed + 'ms)';
+  Logger.log('[sendDailyReminders] ' + summary);
+  log(LOG_LEVEL.INFO, ACTION.SEND_REMINDER, summary, { detail: 'תאריך תור: ' + tomorrow });
+  return { success: true, sent: sent, errors: errors, skippedQuota: skippedQuota, date: tomorrow };
+}
+
+/**
+ * Admin-authenticated wrapper: allows manual trigger from the dashboard.
+ * Clears REMINDER_LAST_RUN so sendDailyReminders will run even if it already
+ * ran today — useful for re-sending after adding a late booking.
+ * Body: { token, force? } — set force: true to bypass today's idempotency guard.
+ */
+function handleSendReminders(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (body.force) {
+    PropertiesService.getScriptProperties().deleteProperty('REMINDER_LAST_RUN');
+    Logger.log('[handleSendReminders] force=true — REMINDER_LAST_RUN cleared');
+  }
+  var result = sendDailyReminders();
+  return Object.assign({ success: true }, result);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD API  (v3.0)
+// ═══════════════════════════════════════════════════════════════
+
+function handleGetSystemInfo(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var props = PropertiesService.getScriptProperties();
+  return {
+    success: true,
+    reminderLastRun: props.getProperty('REMINDER_LAST_RUN') || null,
+  };
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// ADMIN POWER-TOOLS API  (feat-admin-control)
+// ═══════════════════════════════════════════════════════════════
+
+// ── Auto-SMS toggle ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true when AUTO_SMS_ENABLED is unset (default) or 'true'.
+ * Checked before every automated SMS send in processApproval /
+ * processRejection / processCancellation.
+ */
+function isAutoSmsEnabled() {
+  var val = PropertiesService.getScriptProperties().getProperty('AUTO_SMS_ENABLED');
+  return val === null || val === 'true';
+}
+
+function handleGetAutoSms(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  return { success: true, enabled: isAutoSmsEnabled() };
+}
+
+function handleSetAutoSms(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var enabled = body.enabled === true || body.enabled === 'true';
+  PropertiesService.getScriptProperties().setProperty('AUTO_SMS_ENABLED', enabled ? 'true' : 'false');
+  Logger.log('[setAutoSms] AUTO_SMS_ENABLED=' + enabled);
+  log(LOG_LEVEL.INFO, ACTION.MANUAL_SMS, 'הגדרת SMS אוטומטי שונתה: ' + (enabled ? 'מופעל' : 'כבוי'), {});
+  return { success: true, enabled: enabled };
+}
+
+// ── Manual SMS ───────────────────────────────────────────────────────────────
+
+/**
+ * Sends a single free-form SMS from the admin dashboard.
+ * Body: { token, phone, message }
+ * Security: requires valid ADMIN_TOKEN; phone normalised via normalizePhone().
+ */
+function handleSendManualSMS(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var phone   = normalizePhone(String(body.phone   || '').trim());
+  var message = String(body.message || '').trim();
+  if (!phone)              return { success: false, error: 'invalid_phone' };
+  if (!message)            return { success: false, error: 'empty_message' };
+  if (message.length > 1000) return { success: false, error: 'message_too_long' };
+  SmsService.send(phone, message, 'ManualAdmin');
+  log(LOG_LEVEL.INFO, ACTION.MANUAL_SMS, 'SMS ידני נשלח', { phone: phone, detail: message.slice(0, 100) });
+  return { success: true };
+}
+
+// ── SMS Audit Log ─────────────────────────────────────────────────────────────
+
+/**
+ * Returns the last 50 SMS_LOG rows in reverse-chronological order.
+ * Columns: Timestamp | To | Context | Status | Message | Detail
+ */
+function handleGetSmsLog(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var sh   = smsLogSheet();
+  var data = sh.getDataRange().getValues();
+  var entries = [];
+  for (var r = data.length - 1; r >= 1 && entries.length < 50; r--) {
+    var row = data[r];
+    if (!row || row.length < 4) continue;
+    entries.push({
+      ts:      row[0] instanceof Date
+               ? Utilities.formatDate(row[0], 'Asia/Jerusalem', 'dd/MM/yyyy HH:mm')
+               : String(row[0] || ''),
+      to:      String(row[1] || ''),
+      context: String(row[2] || ''),
+      status:  String(row[3] || ''),
+      snippet: String(row[4] || '').slice(0, 80),
+    });
+  }
+  return { success: true, entries: entries };
+}
+
+// ── Slot Inventory ────────────────────────────────────────────────────────────
+
+/**
+ * Returns all Weekly_Slots rows for the next 62 days.
+ * Also flags slots whose time/date had a Cancelled booking in the last 7 days
+ * so the dashboard can highlight them for easy re-release.
+ */
+function handleGetSlotInventory(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+
+  var today     = _isoDate(new Date());
+  var future    = new Date(); future.setDate(future.getDate() + 62);
+  var futureStr = _isoDate(future);
+  var cutoff    = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+  var cutoffStr = _isoDate(cutoff);
+
+  // Collect recently-cancelled slot keys
+  var cancelled = {};
+  var logData   = logSheet().getDataRange().getValues();
+  for (var lr = 1; lr < logData.length; lr++) {
+    var lrow    = logData[lr];
+    if (!lrow || lrow.length < 10) continue;
+    var ldate   = _isoDate(lrow[LOG_COL.DATE - 1]);
+    var ltime   = _fmtTime(lrow[LOG_COL.TIME - 1]);
+    var lstatus = String(lrow[LOG_COL.STATUS - 1] || '').trim();
+    if (lstatus === 'Cancelled' && ldate >= cutoffStr && ldate <= futureStr) {
+      cancelled[ldate + 'T' + ltime] = true;
+    }
+  }
+
+  // Collect slots in range
+  var slotData = slotsSheet().getDataRange().getValues();
+  var slots = [];
+  for (var r = 1; r < slotData.length; r++) {
+    var row    = slotData[r];
+    if (!row || row.length < 5) continue;
+    var date   = _isoDate(row[SLOT_COL.DATE   - 1]);
+    var time   = _fmtTime(row[SLOT_COL.START  - 1]);
+    var status = String(row[SLOT_COL.STATUS   - 1] || '').trim();
+    if (date < today || date > futureStr) continue;
+    slots.push({
+      date:              date,
+      time:              time,
+      status:            status,
+      recentlyCancelled: !!cancelled[date + 'T' + time],
+    });
+  }
+
+  return { success: true, slots: slots };
+}
+
+/**
+ * Toggles a single slot between Available and Blocked.
+ * Booked / Pending_Lock slots are left untouched (returns cannot_toggle).
+ * Body: { token, date (YYYY-MM-DD), time (HH:mm) }
+ */
+function handleToggleSlotStatus(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var date = String(body.date || '').trim();
+  var time = String(body.time || '').trim();
+  if (!date || !time) return { success: false, error: 'missing_params' };
+
+  var sh   = slotsSheet();
+  var data = sh.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    var row    = data[r];
+    var rDate  = _isoDate(row[SLOT_COL.DATE  - 1]);
+    var rTime  = _fmtTime(row[SLOT_COL.START - 1]);
+    var status = String(row[SLOT_COL.STATUS  - 1] || '').trim();
+    if (rDate !== date || rTime !== time) continue;
+
+    var newStatus;
+    if      (status === 'Available')                  newStatus = 'Blocked';
+    else if (status === 'Blocked' || status === 'Cancelled') newStatus = 'Available';
+    else    return { success: false, error: 'cannot_toggle', status: status };
+
+    sh.getRange(r + 1, SLOT_COL.STATUS).setValue(newStatus);
+    SpreadsheetApp.flush();
+    invalidateSlotsCache(date);
+    Logger.log('[toggleSlot] ' + date + ' ' + time + ': ' + status + ' -> ' + newStatus);
+    return { success: true, date: date, time: time, prevStatus: status, newStatus: newStatus };
+  }
+  return { success: false, error: 'slot_not_found', date: date, time: time };
+}
+
+function validateAdmin(token) {
+  if (!token) return false;
+  var _tVA = Date.now();
+  const stored = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!stored) throw new Error('ADMIN_TOKEN script property not set');
+  var ok = timingSafeEqual(String(token).trim(), stored.trim());
+  Logger.log('[PERF][validateAdmin] ' + (Date.now() - _tVA) + 'ms');
+  return ok;
+}
+
+function auditSheet() {
+  const spreadsheet = ss();
+  let sh = spreadsheet.getSheetByName(SHEETS.AUDIT);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.AUDIT);
+    sh.appendRow(['Timestamp', 'Admin', 'Action', 'BookingId', 'PrevStatus', 'NewStatus', 'Detail']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:G1').setFontWeight('bold');
+    sh.setColumnWidth(4, 280);
+    sh.setColumnWidth(7, 250);
+  }
+  return sh;
+}
+
+function writeAuditLog(admin, action, bookingId, prevStatus, newStatus, detail) {
+  try {
+    auditSheet().appendRow([
+      new Date(), admin || 'dashboard', action, bookingId,
+      prevStatus || '', newStatus || '', (detail || '').slice(0, 300),
+    ]);
+  } catch (e) {
+    Logger.log('[auditLog] Write failed: ' + e.message);
+  }
+}
+
+function handleListBookings(body) {
+  if (!body) { Logger.log('[ERROR] handleListBookings: body is undefined'); return { success: false, error: 'missing_payload' }; }
+  var _tLB = Date.now();
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const sh   = logSheet();
+  var _tLBRead = Date.now();
+  const data = sh.getDataRange().getValues();
+  Logger.log('[PERF][listBookings] sheet.getDataRange()=' + (Date.now() - _tLBRead) + 'ms, rows=' + data.length);
+  const TZ   = 'Asia/Jerusalem';
+  const rows = [];
+  for (let r = 1; r < data.length; r++) {
+    const row = data[r];
+    if (!row || row.length < 10) continue;
+    const rawDate = row[LOG_COL.DATE - 1];
+    const rawTime = row[LOG_COL.TIME - 1];
+    rows.push({
+      id:          String(row[LOG_COL.UUID         - 1] || '').trim(),
+      name:        String(row[LOG_COL.NAME         - 1] || '').trim(),
+      phone:       String(row[LOG_COL.PHONE        - 1] || '').trim(),
+      service:     String(row[LOG_COL.SERVICE      - 1] || '').trim(),
+      serviceName: String(row[LOG_COL.SERVICE_NAME - 1] || '').trim(),
+      date:        (rawDate instanceof Date) ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim(),
+      time:        (rawTime instanceof Date) ? Utilities.formatDate(rawTime, TZ, 'HH:mm')     : String(rawTime || '').trim(),
+      timestamp:   String(row[LOG_COL.TIMESTAMP    - 1] || '').trim(),
+      duration:    parseInt(row[LOG_COL.DURATION   - 1], 10) || 90,
+      status:      String(row[LOG_COL.STATUS       - 1] || '').trim(),
+      calEventId:  String(row[LOG_COL.CAL_EVENT    - 1] || '').trim(),
+    });
+  }
+  rows.sort((a, b) => (b.timestamp > a.timestamp ? 1 : -1));
+  Logger.log('[PERF][listBookings] total=' + (Date.now() - _tLB) + 'ms, rows=' + rows.length);
+  return { success: true, bookings: rows };
+}
+
+function handleChangeStatus(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const { bookingId, targetStatus } = body;
+  if (!bookingId || !targetStatus) {
+    return { success: false, error: 'bookingId and targetStatus are required' };
+  }
+  const ALLOWED = ['Approved', 'Rejected', 'Cancelled'];
+  if (!ALLOWED.includes(targetStatus)) {
+    return { success: false, error: 'invalid targetStatus: ' + targetStatus };
+  }
+
+  // ── Acquire lock — prevents concurrent SMS-link + dashboard race on same booking. ──
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[changeStatus] Lock timeout for booking ' + bookingId);
+    return { success: false, error: 'lock_timeout' };
+  }
+
+  try {
+    const sh   = logSheet();
+    const data = sh.getDataRange().getValues();
+    let bookingRow = null, bookingIdx = -1;
+    for (let r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+        bookingRow = data[r]; bookingIdx = r + 1; break;
+      }
+    }
+    if (!bookingRow) return { success: false, error: 'booking_not_found' };
+    const currentStatus = String(bookingRow[LOG_COL.STATUS - 1]).trim();
+    const VALID = { Pending: ['Approved', 'Rejected'], Approved: ['Cancelled'] };
+    if (!VALID[currentStatus] || !VALID[currentStatus].includes(targetStatus)) {
+      return { success: false, error: 'invalid_transition', from: currentStatus, to: targetStatus };
+    }
+    let result;
+    if (targetStatus === 'Approved')      result = processApproval(sh, bookingRow, bookingIdx, bookingId);
+    else if (targetStatus === 'Rejected') result = processRejection(sh, bookingRow, bookingIdx, bookingId);
+    else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId);
+    writeAuditLog('dashboard', targetStatus, bookingId, currentStatus, targetStatus, '');
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function processCancellation(logSh, row, rowIdx, bookingId) {
+  const TZ_     = 'Asia/Jerusalem';
+  const rawDate = row[LOG_COL.DATE - 1];
+  const rawTime = row[LOG_COL.TIME - 1];
+  const dateIso = _isoDate(rawDate);
+  const date    = _fmtDate(rawDate);
+  const time    = _fmtTime(rawTime);
+  const phone      = normalizePhone(String(row[LOG_COL.PHONE        - 1] || '').trim());
+  const svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
+  const calEventId = String(row[LOG_COL.CAL_EVENT    - 1] || '').trim();
+
+  if (calEventId) CalService.deleteEvent(CFG.CAL_ID, calEventId);
+
+  logSh.getRange(rowIdx, LOG_COL.STATUS).setValue('Cancelled');
+  SpreadsheetApp.flush();
+  updateSlotStatus(dateIso, time, 'Available');
+  invalidateSlotsCache(dateIso);
+
+  const msg = [
+    '❌ התור שלך ב-' + date + ' בשעה ' + time + ' בוטל.',
+    'שירות: ' + svcName, '',
+    'ניתן לתאם תור חדש דרך האפליקציה.',
+  ].join('\n');
+
+  if (isAutoSmsEnabled()) {
+    SmsService.send(phone, msg, 'ClientCancellation');
+  } else {
+    Logger.log('[processCancellation] Auto-SMS disabled — skipping client notification');
+  }
+
+  Logger.log('[processCancellation] Cancelled: ' + bookingId);
+  return { success: true, action: 'CANCEL', bookingId };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SERVICE INTERFACES  (IS_TEST_MODE = true → no Twilio / Calendar)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Flip to true in the GAS editor to run end-to-end test flows
+ * without touching real Twilio or Google Calendar.
+ * Flip back to false before every production deployment.
+ */
+const IS_TEST_MODE = false;
+// Set to true once SUPABASE_URL + SUPABASE_KEY are configured in Script Properties.
+// When true, getSlots / sendOTP / verifyAndBook / adminAction route through SupabaseLayer.js.
+const IS_SUPABASE_ENABLED = true;
+
+const CalService = {
+  createEvent(params) {
+    if (IS_TEST_MODE) {
+      const id = 'MOCK_CAL_' + Date.now();
+      Logger.log('[CalService MOCK] createEvent id=' + id + ' params=' + JSON.stringify(params));
+      return id;
+    }
+    return createCalendarEvent(params);
+  },
+  deleteEvent(calId, eventId) {
+    if (IS_TEST_MODE) {
+      Logger.log('[CalService MOCK] deleteEvent id=' + eventId);
+      return true;
+    }
+    try {
+      const cal = CalendarApp.getCalendarById(calId);
+      const ev  = cal ? cal.getEventById(eventId) : null;
+      if (ev) { ev.deleteEvent(); Logger.log('[CalService] Deleted: ' + eventId); return true; }
+      Logger.log('[CalService] Event not found (already deleted?): ' + eventId);
+      return false;
+    } catch (e) {
+      Logger.log('[CalService] deleteEvent error: ' + e.message);
+      return false;
+    }
+  },
+};
+
+const SmsService = {
+  send(to, message, context) {
+    if (IS_TEST_MODE) {
+      Logger.log('[SmsService MOCK] ctx=' + context + ' to=' + to + ' | ' + message.slice(0, 80));
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'MOCK', message_body: message, detail: 'IS_TEST_MODE' });
+      } else {
+        logSMS(to, context, 'MOCK', message, 'IS_TEST_MODE');
+      }
+      return;
+    }
+    sendSMS._context = context;
+    try {
+      sendSMS(to, message);
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'SENT', message_body: message, detail: '' });
+      }
+    } catch (e) {
+      if (IS_SUPABASE_ENABLED && typeof CommunicationLogService !== 'undefined') {
+        CommunicationLogService.log({ recipient_phone: to, context: context,
+          status: 'ERROR', message_body: message, detail: e.message });
+      }
+      throw e;
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// ACTION: createBooking  (admin/test — bypasses OTP requirement)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Creates a Pending booking directly from the admin dashboard or
+ * internal test page. Requires a valid ADMIN_TOKEN.
+ *
+ * Body: { token, name, phone, service, serviceName, date, time, duration? }
+ * The slot must exist in Weekly_Slots with status Available.
+ */
+function handleCreateBooking(body) {
+  Logger.log('[createBooking] Invoked — name=' + body.name +
+             ' date=' + body.date + ' time=' + body.time);
+
+  if (!validateAdmin(body.token)) {
+    Logger.log('[createBooking] REJECTED: unauthorized');
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+
+  const required = ['name', 'phone', 'service', 'serviceName', 'date', 'time'];
+  const missing  = required.filter(k => !body[k]);
+  if (missing.length) {
+    Logger.log('[createBooking] Missing fields: ' + missing.join(', '));
+    return { success: false, error: 'missing_fields', fields: missing };
+  }
+
+  const phone = normalizePhone(body.phone);
+  if (!phone) {
+    Logger.log('[createBooking] Invalid phone: ' + body.phone);
+    return { success: false, error: 'invalid_phone', raw: body.phone };
+  }
+
+  const dur  = parseInt(body.duration, 10) || 90;
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (_) {
+    Logger.log('[createBooking] Lock timeout — slot contested');
+    return { success: false, error: 'slot_locked' };
+  }
+
+  try {
+    Logger.log('[createBooking] Checking slot: ' + body.date + ' ' + body.time);
+    var slotRow = findSlotRow(body.date, body.time);
+    if (!slotRow) {
+      if (!body.autoCreateSlot) {
+        Logger.log('[createBooking] REJECTED: slot not found in Weekly_Slots');
+        return { success: false, error: 'slot_not_found', date: body.date, time: body.time };
+      }
+      // QA/admin path: create the slot on-the-fly so test injections never fail
+      var DAY_NAMES = ['\u05e8\u05d0\u05e9\u05d5\u05df','\u05e9\u05e0\u05d9','\u05e9\u05dc\u05d9\u05e9\u05d9','\u05e8\u05d1\u05d9\u05e2\u05d9','\u05d7\u05de\u05d9\u05e9\u05d9','\u05e9\u05d9\u05e9\u05d9','\u05e9\u05d1\u05ea'];
+      var slotDate = new Date(body.date + 'T12:00:00');
+      var dayName  = DAY_NAMES[slotDate.getDay()];
+      var durMins  = parseInt(body.duration, 10) || 90;
+      var parts    = body.time.split(':').map(Number);
+      var endMins  = parts[0] * 60 + parts[1] + durMins;
+      var endTime  = ('0' + Math.floor(endMins / 60)).slice(-2) + ':' + ('0' + (endMins % 60)).slice(-2);
+      slotsSheet().appendRow([body.date, dayName, body.time, endTime, 'Available']);
+      SpreadsheetApp.flush();
+      Logger.log('[createBooking] Auto-created slot: ' + body.date + ' ' + body.time + '-' + endTime);
+      slotRow = findSlotRow(body.date, body.time);
+      if (!slotRow) return { success: false, error: 'slot_create_failed', date: body.date, time: body.time };
+    }
+
+    const slotStatus = String(slotRow.row[SLOT_COL.STATUS - 1]).trim();
+    if (slotStatus !== 'Available') {
+      Logger.log('[createBooking] REJECTED: slot status = ' + slotStatus);
+      return { success: false, error: 'slot_not_available', currentStatus: slotStatus };
+    }
+
+    // Atomically lock slot
+    slotsSheet().getRange(slotRow.rowIndex, SLOT_COL.STATUS).setValue('Pending_Lock');
+    SpreadsheetApp.flush();
+    Logger.log('[createBooking] Slot locked: ' + body.date + ' ' + body.time);
+
+    const bookingId  = uuid4();
+    const adminToken = signAdminToken(bookingId);
+    const now        = nowISO();
+
+    logSheet().appendRow([
+      bookingId, body.name, phone,
+      body.service, body.serviceName,
+      body.date, body.time, now, dur,
+      'Pending', '', adminToken,
+    ]);
+    SpreadsheetApp.flush();
+    Logger.log('[createBooking] Row written — id=' + bookingId);
+
+    writeAuditLog('admin', 'CreateBooking', bookingId, '', 'Pending',
+                  body.name + ' | ' + body.date + ' ' + body.time);
+
+    // In test mode, simulate the admin-notification SMS so the QA console
+    // shows a full flow (booking + notification) without touching Twilio.
+    if (IS_TEST_MODE) {
+      let adminTo;
+      try { adminTo = CFG.ADMIN_PHONE; } catch (_) { adminTo = 'ADMIN_TEST'; }
+      const adminMsg = [
+        '📅 [TEST] הזמנה חדשה ממתינה לאישור:',
+        'שם: ' + body.name,
+        'טלפון: ' + formatPhone(phone),
+        'שירות: ' + body.serviceName,
+        'תאריך: ' + body.date + ' בשעה ' + body.time,
+        'מזהה: ' + bookingId,
+      ].join('\n');
+      SmsService.send(adminTo, adminMsg, 'AdminNotify');
+      Logger.log('[createBooking] TEST MODE - admin notification simulated to SMS_LOG');
+    }
+
+    return {
+      success: true, bookingId, status: 'Pending',
+      name: body.name, date: body.date, time: body.time,
+    };
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SYSTEM HEALTH MONITOR  (Phase 4)
+// ═══════════════════════════════════════════════════════════════
+
+function handleHealthCheck(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var TZ = 'Asia/Jerusalem';
+  var checks = [];
+  function addCheck(name, label, fn) {
+    try {
+      var r = fn();
+      checks.push({ name: name, label: label, status: r.status, detail: r.detail || '' });
+    } catch (e) {
+      checks.push({ name: name, label: label, status: 'error', detail: e.message });
+    }
+  }
+
+  addCheck('properties', 'תכונות סקריפט', function() {
+    var REQUIRED = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+                    'ADMIN_PHONE', 'HMAC_SECRET', 'CALENDAR_ID', 'ADMIN_TOKEN'];
+    var props   = PropertiesService.getScriptProperties();
+    var missing = REQUIRED.filter(function(k) { return !props.getProperty(k); });
+    return missing.length === 0
+      ? { status: 'ok',    detail: 'כל ' + REQUIRED.length + ' תכונות הוגדרו' }
+      : { status: 'error', detail: 'חסרות: ' + missing.join(', ') };
+  });
+
+  addCheck('sheets', 'גיליונות נדרשים', function() {
+    var spreadsheet = ss();
+    var names   = Object.values(SHEETS);
+    var missing = names.filter(function(n) { return !spreadsheet.getSheetByName(n); });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.length + ' גיליונות קיימים' }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('calendar', 'גישה ליומן', function() {
+    var cal = CalendarApp.getCalendarById(CFG.CAL_ID);
+    if (!cal) return { status: 'error', detail: 'יומן לא נמצא: ' + CFG.CAL_ID };
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE — יומן לא מתעדכן בפועל' }
+      : { status: 'ok',   detail: cal.getName() };
+  });
+
+  addCheck('testMode', 'מצב הפעלה', function() {
+    return IS_TEST_MODE
+      ? { status: 'warn', detail: 'IS_TEST_MODE=true — SMS ויומן מדומים' }
+      : { status: 'ok',   detail: 'מצב ייצור — Twilio ויומן פעילים' };
+  });
+
+  addCheck('smsQuota', 'מכסת SMS היום', function() {
+    var count = getDailySmsCount();
+    var pct   = Math.round(count / DAILY_SMS_LIMIT * 100);
+    return { status: pct >= 90 ? 'error' : pct >= 70 ? 'warn' : 'ok',
+             detail: count + ' / ' + DAILY_SMS_LIMIT + ' SMS (' + pct + '%)' };
+  });
+
+  addCheck('recentErrors', 'שגיאות 24 שעות אחרונות', function() {
+    var sh = ss().getSheetByName(SHEETS.EXEC_LOG);
+    if (!sh) return { status: 'warn', detail: 'Execution_Log טרם נוצר' };
+    var data     = sh.getDataRange().getValues();
+    var cutoff   = Date.now() - 24 * 60 * 60 * 1000;
+    var errCount = 0;
+    for (var r = 1; r < data.length; r++) {
+      var ts = data[r][0];
+      if (ts instanceof Date && ts.getTime() >= cutoff &&
+          String(data[r][2]).indexOf('שגיאה') >= 0) errCount++;
+    }
+    return errCount === 0
+      ? { status: 'ok',                          detail: 'אין שגיאות' }
+      : { status: errCount > 5 ? 'error' : 'warn', detail: errCount + ' שגיאות' };
+  });
+
+  addCheck('triggers', 'טריגרים מותקנים', function() {
+    var names   = ScriptApp.getProjectTriggers().map(function(t) { return t.getHandlerFunction(); });
+    var missing = ['syncCalendarToSlots', 'sendDailyReminders'].filter(function(n) {
+      return names.indexOf(n) < 0;
+    });
+    return missing.length === 0
+      ? { status: 'ok',   detail: names.join(', ') }
+      : { status: 'warn', detail: 'חסרים: ' + missing.join(', ') };
+  });
+
+  addCheck('reminderLastRun', 'תזכורות — הרצה אחרונה', function() {
+    var lastRun = PropertiesService.getScriptProperties().getProperty('REMINDER_LAST_RUN') || '';
+    var today   = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+    if (!lastRun) return { status: 'warn', detail: 'טרם הופעל' };
+    return lastRun === today
+      ? { status: 'ok',   detail: 'נשלח היום' }
+      : { status: 'warn', detail: 'נשלח ב-' + lastRun.replace(/-/g, '/') };
+  });
+
+  addCheck('pendingBookings', 'הזמנות ממתינות לאישור', function() {
+    var data    = logSheet().getDataRange().getValues();
+    var pending = 0;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][LOG_COL.STATUS - 1]).trim() === 'Pending') pending++;
+    }
+    return pending === 0
+      ? { status: 'ok',   detail: 'אין ממתינות' }
+      : { status: 'warn', detail: pending + ' ממתינות לאישור' };
+  });
+
+  var nErr    = checks.filter(function(c) { return c.status === 'error'; }).length;
+  var nWarn   = checks.filter(function(c) { return c.status === 'warn';  }).length;
+  var overall = nErr > 0 ? 'error' : nWarn > 0 ? 'warn' : 'ok';
+  log(LOG_LEVEL.INFO, ACTION.HEALTH,
+      'בדיקת תקינות: ' + overall + ' (' + nErr + ' שגיאות, ' + nWarn + ' אזהרות)');
+  return { success: true, overall: overall, checks: checks };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BACKUP UTILITY
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Creates a timestamped _Backup_YYYYMMDD_HHmm tab in the live spreadsheet.
+ * Copies all values (not formulas) from Weekly_Slots and Bookings_Log.
+ * Safe to run at any time — appends a new tab, never overwrites data.
+ * Returns { success, tabName, rowsCopied: { slots, bookings } }.
+ */
+function createBackupSnapshot() {
+  const TZ        = 'Asia/Jerusalem';
+  const dateLabel = Utilities.formatDate(new Date(), TZ, 'yyyyMMdd_HHmm');
+  const tabName   = '_Backup_' + dateLabel;
+  const spreadsheet = ss();
+
+  if (spreadsheet.getSheetByName(tabName)) {
+    Logger.log('[createBackupSnapshot] Tab already exists: ' + tabName);
+    return { success: false, error: 'backup_tab_exists', tabName: tabName };
+  }
+
+  const backupSh    = spreadsheet.insertSheet(tabName);
+  backupSh.setTabColor('#A67C8E');
+  const rowsCopied  = { slots: 0, bookings: 0 };
+
+  // Copy Weekly_Slots (including header row)
+  const slotData = slotsSheet().getDataRange().getValues();
+  if (slotData.length > 0) {
+    backupSh.getRange(1, 1, slotData.length, slotData[0].length).setValues(slotData);
+    rowsCopied.slots = slotData.length - 1;
+  }
+
+  // Leave one blank row as separator, then copy Bookings_Log
+  const logOffset = slotData.length + 2;
+  const logData   = logSheet().getDataRange().getValues();
+  if (logData.length > 0) {
+    backupSh.getRange(logOffset, 1, logData.length, logData[0].length).setValues(logData);
+    rowsCopied.bookings = logData.length - 1;
+  }
+
+  backupSh.setFrozenRows(1);
+  SpreadsheetApp.flush();
+
+  Logger.log('[createBackupSnapshot] Created: ' + tabName +
+             ' | slots=' + rowsCopied.slots + ' | bookings=' + rowsCopied.bookings);
+
+  return { success: true, tabName: tabName, rowsCopied: rowsCopied };
+}
+
+/**
+ * Admin-authenticated wrapper for createBackupSnapshot().
+ * Requires valid ADMIN_TOKEN. Writes to Audit_Log on success.
+ */
+function handleCreateBackup(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  const result = createBackupSnapshot();
+  if (result.success) {
+    writeAuditLog('admin', 'CreateBackup', '', '', '', result.tabName);
+  }
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SLOT TEMPLATE & SLOT GENERATOR  (admin Phase 2)
+// ═══════════════════════════════════════════════════════════════
+
+function templateSheet() {
+  var spreadsheet = ss();
+  var sh = spreadsheet.getSheetByName(SHEETS.TEMPLATE);
+  if (!sh) {
+    sh = spreadsheet.insertSheet(SHEETS.TEMPLATE);
+    sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+    sh.setFrozenRows(1);
+    sh.getRange('A1:D1').setFontWeight('bold');
+    var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    for (var d = 0; d < 7; d++) {
+      sh.appendRow([d, DAY_NAMES[d], '', d < 5 ? 'TRUE' : 'FALSE']);
+    }
+  }
+  return sh;
+}
+
+function handleGetTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  var sh   = templateSheet();
+  var data = sh.getDataRange().getValues();
+  var rows = [];
+  for (var r = 1; r < data.length; r++) {
+    var row = data[r];
+    var rawTimes = String(row[2] || '').trim();
+    rows.push({
+      dayOfWeek:  parseInt(row[0], 10),
+      dayName:    String(row[1] || '').trim(),
+      startTimes: rawTimes ? rawTimes.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [],
+      active:     String(row[3] || '').trim().toUpperCase() === 'TRUE',
+    });
+  }
+  return { success: true, template: rows };
+}
+
+function handleSaveTemplate(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!Array.isArray(body.template)) return { success: false, error: 'template array required' };
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var sh = templateSheet();
+  sh.clearContents();
+  sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+  for (var i = 0; i < body.template.length; i++) {
+    var entry = body.template[i];
+    var dow   = parseInt(entry.dayOfWeek, 10);
+    sh.appendRow([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'תבנית שעות עודכנה');
+  return { success: true };
+}
+
+function handleGenerateSlots(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ = 'Asia/Jerusalem';
+  var tmplData = handleGetTemplate(body);
+  if (!tmplData.success) return tmplData;
+  var template = tmplData.template;
+  var slotSh   = slotsSheet();
+  var existing = slotSh.getDataRange().getValues();
+  var existSet = {};
+  for (var r = 1; r < existing.length; r++) {
+    var ed = existing[r][SLOT_COL.DATE  - 1];
+    var es = existing[r][SLOT_COL.START - 1];
+    var ds = (ed instanceof Date) ? Utilities.formatDate(ed, TZ, 'yyyy-MM-dd') : String(ed || '').trim();
+    var ts = (es instanceof Date) ? Utilities.formatDate(es, TZ, 'HH:mm')     : String(es || '').trim();
+    if (ds && ts) existSet[ds + '|' + ts] = true;
+  }
+  var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  var cur   = new Date(body.startDate + 'T00:00:00');
+  var end   = new Date(body.endDate   + 'T00:00:00');
+  var added = 0;
+  while (cur <= end) {
+    var dow     = cur.getDay();
+    var dateStr = Utilities.formatDate(cur, TZ, 'yyyy-MM-dd');
+    var tmplRow = null;
+    for (var t = 0; t < template.length; t++) {
+      if (template[t].dayOfWeek === dow) { tmplRow = template[t]; break; }
+    }
+    if (tmplRow && tmplRow.active && tmplRow.startTimes.length > 0) {
+      for (var s = 0; s < tmplRow.startTimes.length; s++) {
+        var startTime = tmplRow.startTimes[s];
+        if (!existSet[dateStr + '|' + startTime]) {
+          var parts   = startTime.split(':').map(Number);
+          var endHr   = parts[0] + 2;
+          if (endHr >= 24) endHr = 23;
+          var endMin  = parts[1];
+          var endTime = (endHr < 10 ? '0' + endHr : String(endHr)) + ':' + (endMin < 10 ? '0' + endMin : String(endMin));
+          slotSh.appendRow([dateStr, DAY_NAMES[dow], startTime, endTime, 'Available']);
+          existSet[dateStr + '|' + startTime] = true;
+          added++;
+        }
+      }
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'נוצרו ' + added + ' חריצי זמן (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'GenerateSlots', '', '', '', added + ' slots for ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, added: added };
+}
+
+function handleBlockDates(body) {
+  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+  if (!body.startDate || !body.endDate) return { success: false, error: 'startDate and endDate required' };
+  var TZ      = 'Asia/Jerusalem';
+  var sh      = slotsSheet();
+  var data    = sh.getDataRange().getValues();
+  var blocked = 0;
+  for (var r = 1; r < data.length; r++) {
+    var rawDate = data[r][SLOT_COL.DATE   - 1];
+    var status  = String(data[r][SLOT_COL.STATUS - 1] || '').trim();
+    var dateStr = (rawDate instanceof Date) ? Utilities.formatDate(rawDate, TZ, 'yyyy-MM-dd') : String(rawDate || '').trim();
+    if (!dateStr || status !== 'Available') continue;
+    if (dateStr >= body.startDate && dateStr <= body.endDate) {
+      sh.getRange(r + 1, SLOT_COL.STATUS).setValue('Blocked');
+      blocked++;
+    }
+  }
+  SpreadsheetApp.flush();
+  log(LOG_LEVEL.INFO, ACTION.CAL_SYNC, 'חופשה: ' + blocked + ' חריצים נחסמו (' + body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'BlockDates', '', '', '', blocked + ' slots blocked ' + body.startDate + ' to ' + body.endDate);
+  return { success: true, blocked: blocked };
+}
+
+// ===============================================================
+// COLUMN-MAPPING UNIT TEST  (run from the GAS editor)
+// ===============================================================
+
+/**
+ * Verifies the LOG_COL / SLOT_COL mapping objects are internally
+ * consistent (no gaps, no duplicate indices) and that the live sheets
+ * are at least as wide as the mapping expects. Touches no Twilio/Calendar.
+ */
+function testColumnMapping() {
+  let passed = 0, failed = 0;
+  function assert(label, cond, detail) {
+    cond ? passed++ : failed++;
+    Logger.log((cond ? 'PASS' : 'FAIL') + ' - ' + label + (detail ? ' | ' + detail : ''));
+  }
+
+  Logger.log('');
+  Logger.log('============== testColumnMapping START ==============');
+
+  // -- LOG_COL integrity --
+  const logVals = Object.keys(LOG_COL).map(function (k) { return LOG_COL[k]; });
+  assert('LOG_COL has 12 entries', logVals.length === 12, 'got ' + logVals.length);
+  assert('LOG_COL indices are unique', new Set(logVals).size === logVals.length);
+  assert('LOG_COL covers 1..12',
+    logVals.slice().sort(function (a, b) { return a - b; }).join(',') === '1,2,3,4,5,6,7,8,9,10,11,12');
+  assert('LOG_COL.UUID = 1',         LOG_COL.UUID === 1);
+  assert('LOG_COL.STATUS = 10',      LOG_COL.STATUS === 10);
+  assert('LOG_COL.CAL_EVENT = 11',   LOG_COL.CAL_EVENT === 11);
+  assert('LOG_COL.ADMIN_TOKEN = 12', LOG_COL.ADMIN_TOKEN === 12);
+
+  // -- SLOT_COL integrity --
+  const slotVals = Object.keys(SLOT_COL).map(function (k) { return SLOT_COL[k]; });
+  assert('SLOT_COL has 5 entries', slotVals.length === 5, 'got ' + slotVals.length);
+  assert('SLOT_COL indices are unique', new Set(slotVals).size === slotVals.length);
+  assert('SLOT_COL covers 1..5',
+    slotVals.slice().sort(function (a, b) { return a - b; }).join(',') === '1,2,3,4,5');
+  assert('SLOT_COL.STATUS = 5', SLOT_COL.STATUS === 5);
+
+  // -- Live sheet width --
+  try {
+    const logSh = logSheet();
+    Logger.log('[testColumnMapping] Bookings_Log headers: ' +
+               JSON.stringify(logSh.getRange(1, 1, 1, logSh.getLastColumn()).getValues()[0]));
+    assert('Bookings_Log has >= 12 columns', logSh.getLastColumn() >= 12,
+           'lastColumn=' + logSh.getLastColumn());
+
+    const slotSh = slotsSheet();
+    Logger.log('[testColumnMapping] Weekly_Slots headers: ' +
+               JSON.stringify(slotSh.getRange(1, 1, 1, slotSh.getLastColumn()).getValues()[0]));
+    assert('Weekly_Slots has >= 5 columns', slotSh.getLastColumn() >= 5,
+           'lastColumn=' + slotSh.getLastColumn());
+  } catch (e) {
+    Logger.log('Live sheet width check skipped: ' + e.message);
+    failed++;
+  }
+
+  Logger.log('');
+  Logger.log('============== RESULTS: ' + passed + ' passed, ' + failed + ' failed ==============');
+  return { passed: passed, failed: failed };
+}
+
+// ===============================================================
+// END-TO-END FLOW TEST  (create -> approve -> cancel -> verify)
+// ===============================================================
+
+/** Finds a Bookings_Log row by UUID. Returns { row, rowIndex } or null. */
+function findBookingRow(logSh, bookingId) {
+  const data = logSh.getDataRange().getValues();
+  for (let r = 1; r < data.length; r++) {
+    if (String(data[r][LOG_COL.UUID - 1]).trim() === bookingId) {
+      return { row: data[r], rowIndex: r + 1 };
+    }
+  }
+  return null;
+}
+
+/**
+ * Runs a complete booking lifecycle end-to-end and returns a step-by-step
+ * report. Seeds its own Weekly_Slots row, so it needs no pre-existing data.
+ *
+ *   create  -> Pending   + slot Pending_Lock
+ *   approve -> Approved  + slot Booked      + CalendarEventId stored
+ *   cancel  -> Cancelled + slot Available
+ *   audit   -> Audit_Log holds all three actions for the booking
+ *
+ * All test data is removed in the finally block. Safe to run repeatedly.
+ * Returns { passed, failed, sheetsOk, steps: [{ label, ok, detail }] }.
+ */
+function runFullFlowTest() {
+  const TZ     = 'Asia/Jerusalem';
+  const report = { passed: 0, failed: 0, sheetsOk: false, steps: [] };
+  function step(label, ok, detail) {
+    ok = !!ok;
+    ok ? report.passed++ : report.failed++;
+    report.steps.push({ label: label, ok: ok, detail: detail || '' });
+    Logger.log((ok ? 'PASS' : 'FAIL') + ' - ' + label + (detail ? ' | ' + detail : ''));
+  }
+
+  Logger.log('');
+  Logger.log('============== runFullFlowTest START (IS_TEST_MODE=' + IS_TEST_MODE + ') ==============');
+
+  const adminToken = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!adminToken) {
+    step('ADMIN_TOKEN script property is set', false,
+         'add it in Project Settings -> Script Properties');
+    Logger.log('============== runFullFlowTest ABORTED ==============');
+    return report;
+  }
+
+  const day      = new Date(); day.setDate(day.getDate() + 75);
+  const testDate = Utilities.formatDate(day, TZ, 'yyyy-MM-dd');
+  const testTime = '07:30';
+  const slotSh   = slotsSheet();
+  const logSh    = logSheet();
+  let bookingId  = null;
+
+  try {
+    // -- Step 1: seed an Available slot --
+    slotSh.appendRow([testDate, 'TEST', testTime, '09:00', 'Available']);
+    SpreadsheetApp.flush();
+    step('1. Test slot seeded (Available)', findSlotRow(testDate, testTime) !== null,
+         testDate + ' ' + testTime);
+
+    // -- Step 2: createBooking --
+    const cRes = handleCreateBooking({
+      token: adminToken, name: 'E2E-FlowTest', phone: '0500000000',
+      service: 'gel_classic', serviceName: 'E2E Test',
+      date: testDate, time: testTime, duration: 90,
+    });
+    bookingId = cRes.bookingId || null;
+    step('2. createBooking -> Pending',
+         cRes.success === true && cRes.status === 'Pending', 'id=' + bookingId);
+
+    const s2 = findSlotRow(testDate, testTime);
+    step('2b. Slot locked -> Pending_Lock',
+         !!s2 && String(s2.row[SLOT_COL.STATUS - 1]).trim() === 'Pending_Lock',
+         s2 ? String(s2.row[SLOT_COL.STATUS - 1]).trim() : 'slot missing');
+
+    // -- Step 3: approve --
+    const aRes = handleChangeStatus({ token: adminToken, bookingId: bookingId, targetStatus: 'Approved' });
+    step('3. changeStatus -> Approved', aRes.success === true,
+         aRes.error || ('cal=' + aRes.calEventId));
+
+    const bA = findBookingRow(logSh, bookingId);
+    step('3b. Bookings_Log row -> Approved',
+         !!bA && String(bA.row[LOG_COL.STATUS - 1]).trim() === 'Approved');
+    step('3c. CalendarEventId stored',
+         !!bA && String(bA.row[LOG_COL.CAL_EVENT - 1]).trim().length > 0,
+         bA ? String(bA.row[LOG_COL.CAL_EVENT - 1]).trim() : '');
+
+    const s3 = findSlotRow(testDate, testTime);
+    step('3d. Slot -> Booked',
+         !!s3 && String(s3.row[SLOT_COL.STATUS - 1]).trim() === 'Booked',
+         s3 ? String(s3.row[SLOT_COL.STATUS - 1]).trim() : 'slot missing');
+
+    // -- Step 4: cancel --
+    const xRes = handleChangeStatus({ token: adminToken, bookingId: bookingId, targetStatus: 'Cancelled' });
+    step('4. changeStatus -> Cancelled', xRes.success === true, xRes.error || '');
+
+    const bX = findBookingRow(logSh, bookingId);
+    step('4b. Bookings_Log row -> Cancelled',
+         !!bX && String(bX.row[LOG_COL.STATUS - 1]).trim() === 'Cancelled');
+
+    const s4 = findSlotRow(testDate, testTime);
+    step('4c. Slot released -> Available',
+         !!s4 && String(s4.row[SLOT_COL.STATUS - 1]).trim() === 'Available',
+         s4 ? String(s4.row[SLOT_COL.STATUS - 1]).trim() : 'slot missing');
+
+    // -- Step 5: audit trail --
+    const auditData = auditSheet().getDataRange().getValues();
+    const actions   = [];
+    for (let r = 1; r < auditData.length; r++) {
+      if (String(auditData[r][3]).trim() === bookingId) actions.push(String(auditData[r][2]).trim());
+    }
+    step('5. Audit_Log: CreateBooking logged', actions.indexOf('CreateBooking') !== -1, actions.join(', '));
+    step('5b. Audit_Log: Approved logged',     actions.indexOf('Approved') !== -1);
+    step('5c. Audit_Log: Cancelled logged',    actions.indexOf('Cancelled') !== -1);
+
+  } catch (e) {
+    step('UNCAUGHT EXCEPTION', false, e.message);
+    Logger.log(e.stack);
+  } finally {
+    // -- Cleanup: remove the test booking + slot rows --
+    try {
+      if (bookingId) {
+        const ld = logSh.getDataRange().getValues();
+        for (let r = ld.length - 1; r >= 1; r--) {
+          if (String(ld[r][LOG_COL.UUID - 1]).trim() === bookingId) { logSh.deleteRow(r + 1); break; }
+        }
+      }
+      const sd = slotSh.getDataRange().getValues();
+      for (let r = sd.length - 1; r >= 1; r--) {
+        const rd = sd[r][SLOT_COL.DATE - 1];
+        const rs = sd[r][SLOT_COL.START - 1];
+        const d  = (rd instanceof Date) ? Utilities.formatDate(rd, TZ, 'yyyy-MM-dd') : String(rd).trim();
+        const s  = (rs instanceof Date) ? Utilities.formatDate(rs, TZ, 'HH:mm')      : String(rs).trim();
+        if (d === testDate && s === testTime) { slotSh.deleteRow(r + 1); break; }
+      }
+      SpreadsheetApp.flush();
+      Logger.log('[runFullFlowTest] Cleanup complete');
+    } catch (ce) {
+      Logger.log('[runFullFlowTest] Cleanup error: ' + ce.message);
+    }
+  }
+
+  report.sheetsOk = report.failed === 0;
+  Logger.log('');
+  Logger.log('============== FLOW REPORT ==============');
+  Logger.log('Passed: ' + report.passed + '  |  Failed: ' + report.failed);
+  Logger.log(report.sheetsOk
+    ? 'ALL SHEETS UPDATED CORRECTLY'
+    : 'SHEET MISMATCH - see FAIL lines above');
+  Logger.log('============== runFullFlowTest END ==============');
+  return report;
+}
+
+/**
+ * doPost wrapper for runFullFlowTest - lets the QA console trigger the full
+ * lifecycle test over HTTP. Admin-token guarded; refuses to run when
+ * IS_TEST_MODE is false so production Twilio/Calendar are never touched.
+ * Body: { token }
+ */
+function handleRunFlowTest(body) {
+  if (!validateAdmin(body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  if (!IS_TEST_MODE) {
+    return {
+      success: false, error: 'flow_test_disabled',
+      detail: 'Set IS_TEST_MODE = true in Code.gs to enable the E2E flow test.',
+    };
+  }
+  const report = runFullFlowTest();
+  return { success: report.sheetsOk, report: report };
 }

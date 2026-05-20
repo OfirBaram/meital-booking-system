@@ -1,16 +1,14 @@
 'use strict';
 
+import APP_CONFIG from './config.js';
+
 // ═══════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════
 
 const CONFIG = {
-  API_BASE: 'https://script.google.com/macros/s/AKfycbxXxFW7XLsc6S9UatHYqB92JHgi4IYe6zKs6oiiF_KGDs6ibGtqjjwmTQT7OeTKRh_FOg/exec',
-  HMAC_SECRET: 'Meital123',
   TIMEZONE: 'Asia/Jerusalem',
   OTP_LENGTH: 6,
-  MOCK_PHONE: '0500000000',  // QA bypass — fixed OTP, no Twilio
-  MOCK_OTP:   '123456',
   OTP_RESEND_SECS: 60,
   LS_PREFIX: 'meital_',
 };
@@ -77,11 +75,25 @@ function uuid4() {
   });
 }
 
+function _jerusalemOffset(date) {
+  // Use Intl to resolve the real UTC offset for the given instant (DST-aware).
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: 'Asia/Jerusalem',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(date);
+  const tz = (parts.find(p => p.type === 'timeZoneName') || {}).value || '';
+  const m  = tz.match(/GMT([+-])(\d+)/);
+  if (!m) return '+03:00'; // safe fallback
+  return `${m[1]}${m[2].padStart(2, '0')}:00`;
+}
+
 function toISO8601Jerusalem(dateStr, timeStr) {
+  const d      = new Date(`${dateStr}T${timeStr}:00`);
+  const offset = _jerusalemOffset(d);
   return {
-    local: `${dateStr}T${timeStr}:00`,
+    local:    `${dateStr}T${timeStr}:00`,
     timezone: CONFIG.TIMEZONE,
-    tagged: `${dateStr}T${timeStr}:00+03:00`,
+    tagged:   `${dateStr}T${timeStr}:00${offset}`,
   };
 }
 
@@ -103,7 +115,6 @@ function formatPhone(raw) {
 
 function isValidPhone(raw) {
   const digits = raw.replace(/\D/g, '');
-  if (digits === CONFIG.MOCK_PHONE) return true; // QA bypass
   return /^05[0-9]{8}$/.test(digits);
 }
 
@@ -145,10 +156,25 @@ const LS = {
 // API LAYER  (stubs for GAS backend)
 // ═══════════════════════════════════════════════════
 
+const FETCH_TIMEOUT_MS = 30_000;
+
+async function fetchWithTimeout(url, options = {}) {
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('הבקשה ארכה יותר מדי. נסי שוב.');
+    throw e;
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 async function apiGetSlots(year, month) {
-  if (CONFIG.API_BASE) {
-    const url = `${CONFIG.API_BASE}?action=getSlots&year=${year}&month=${month}`;
-    const r   = await fetch(url);
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const url = `${APP_CONFIG.API_URL}?action=getSlots&year=${year}&month=${month}`;
+    const r   = await fetchWithTimeout(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return JSON.parse(await r.text());
   }
@@ -156,8 +182,8 @@ async function apiGetSlots(year, month) {
 }
 
 async function apiSendOTP(phone) {
-  if (CONFIG.API_BASE) {
-    const r = await fetch(CONFIG.API_BASE, {
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify({ action: 'sendOTP', phone }),
@@ -170,7 +196,7 @@ async function apiSendOTP(phone) {
 
 async function apiVerifyAndBook(otp) {
   const ts = toISO8601Jerusalem(State.date, State.time);
-  if (CONFIG.API_BASE) {
+  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
     const payload = {
       action: 'verifyAndBook',
       otp,
@@ -188,7 +214,7 @@ async function apiVerifyAndBook(otp) {
         status:      'Pending',
       },
     };
-    const r = await fetch(CONFIG.API_BASE, {
+    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload),
@@ -234,7 +260,7 @@ function renderProgress() {
   let html = '';
   STEP_LABELS.forEach((lbl, i) => {
     const n = i + 1, done = n < step, curr = n === step;
-    html += '<div class="flex flex-col items-center shrink-0">';
+    html += `<div class="flex flex-col items-center shrink-0" data-qa="step-indicator-${n}">`;
     if (done) {
       html += `<div class="w-7 h-7 rounded-full bg-primary flex items-center justify-center shadow-sm transition-all">
         <svg class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24">
@@ -272,7 +298,7 @@ function renderServices() {
   document.getElementById('js-services').innerHTML = SERVICES.map(s => `
     <button
       class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full"
-      data-id="${s.id}"
+      data-id="${s.id}" data-qa="card-service-${s.id}"
     >
       <div class="flex items-start gap-3">
         <span class="text-2xl mt-0.5" aria-hidden="true">${s.icon}</span>
@@ -288,7 +314,7 @@ function renderServices() {
     const btn = e.target.closest('[data-id]');
     if (!btn) return;
     State.service = SERVICES.find(s => s.id === btn.dataset.id);
-    document.querySelectorAll('.service-card').forEach(c =>
+    document.querySelectorAll('[data-qa^="card-service"]').forEach(c =>
       c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
     updateNav();
   });
@@ -363,7 +389,7 @@ function renderCalendar() {
     ].join(' ');
 
     html += `
-      <div class="${cls}" data-date="${key}" role="button" tabindex="${disabled ? -1 : 0}"
+      <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
         ${has && !disabled && !sel ? '<span class="dot-avail"></span>' : ''}
@@ -372,6 +398,18 @@ function renderCalendar() {
   }
 
   document.getElementById('js-calendar').innerHTML = html;
+
+  // Empty-month notice
+  let _emptyEl = document.getElementById('js-cal-empty');
+  if (!_emptyEl) {
+    _emptyEl = document.createElement('p');
+    _emptyEl.id = 'js-cal-empty';
+    _emptyEl.className = 'mt-4 text-center text-sm text-text-muted';
+    _emptyEl.dir = 'rtl';
+    _emptyEl.textContent = 'אין תורים פנויים לחודש זה, נסי חודש אחר';
+    document.getElementById('js-cal-loading').insertAdjacentElement('beforebegin', _emptyEl);
+  }
+  _emptyEl.classList.toggle('hidden', html.includes('cal-day avail'));
 }
 
 function renderCalendarSkeleton() {
@@ -381,20 +419,31 @@ function renderCalendarSkeleton() {
     ).join('');
 }
 
+function _setCalendarLoading(on) {
+  const el = document.getElementById('js-cal-loading');
+  if (el) el.classList.toggle('hidden', !on);
+}
+
 async function loadMonthSlots(year, month) {
   const key = `${year}-${month}`;
   if (State.prefetchedMonths.has(key)) { renderCalendar(); return; }
   renderCalendarSkeleton();
+  _setCalendarLoading(true);
   try {
     const res = await apiGetSlots(year, month);
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
+      const _slotCount = Object.values(res.slots || {}).reduce((n, a) => n + a.length, 0);
+      console.log('[DEBUG] Slots received: ' + _slotCount + ' for ' + year + '-' + month + ' | days: ' + JSON.stringify(Object.keys(res.slots || {})));
+      if (_slotCount === 0) console.log('[DEBUG] Slots received: 0');
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
-  } catch {
-    toast('בעיית חיבור. נסי לרענן את הדף.', 'error');
+  } catch (e) {
+    toast(e.message.includes('ארכה') ? e.message : 'בעיית חיבור. נסי לרענן את הדף.', 'error');
+  } finally {
+    _setCalendarLoading(false);
   }
   renderCalendar();
 }
@@ -418,7 +467,7 @@ function renderSlots(dateKey) {
   slotsWrap.classList.remove('hidden');
 
   slotsGrid.innerHTML = times.map(t => `
-    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}">
+    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}" data-qa="slot-btn">
       <span class="font-semibold text-sm">${t}</span>
     </div>
   `).join('');
@@ -438,7 +487,7 @@ function renderOTPInputs() {
       pattern="[0-9]"
       maxlength="1"
       autocomplete="${i === 0 ? 'one-time-code' : 'off'}"
-      data-idx="${i}"
+      data-idx="${i}" data-qa="otp-digit"
       aria-label="ספרה ${i + 1}"
     >
   `).join('');
@@ -480,18 +529,18 @@ function renderOTPInputs() {
 }
 
 function getOTP() {
-  return Array.from(document.querySelectorAll('.otp-input')).map(i => i.value).join('');
+  return Array.from(document.querySelectorAll('[data-qa="otp-digit"]')).map(i => i.value).join('');
 }
 
 function clearOTPInputs(markError = false) {
-  document.querySelectorAll('.otp-input').forEach(i => {
+  document.querySelectorAll('[data-qa="otp-digit"]').forEach(i => {
     i.value = '';
     i.classList.remove('filled');
     if (markError) i.classList.add('error');
   });
   setTimeout(() => {
-    document.querySelectorAll('.otp-input').forEach(i => i.classList.remove('error'));
-    document.querySelector('.otp-input[data-idx="0"]')?.focus();
+    document.querySelectorAll('[data-qa="otp-digit"]').forEach(i => i.classList.remove('error'));
+    document.querySelector('[data-qa="otp-digit"][data-idx="0"]')?.focus();
   }, 400);
 }
 
@@ -509,7 +558,7 @@ function renderConfirmation() {
   ];
 
   document.getElementById('js-confirm-details').innerHTML = rows.map(r => `
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between" data-qa="confirm-row">
       <span class="text-text-muted text-xs font-medium">${r.label}</span>
       <span class="text-text-main text-sm font-semibold">${r.value}</span>
     </div>
@@ -624,22 +673,16 @@ async function handleNext() {
     }
     setLoading(false);
 
-    if (res.success || !CONFIG.API_BASE) {
+    if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       State.otpCooldownUntil = Date.now() + 30_000;
       showStep(4);
       document.getElementById('js-otp-phone').textContent =
         `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
       renderOTPInputs();
       startResendTimer();
-      if (State.phone === CONFIG.MOCK_PHONE) {
-        setTimeout(() => {
-          const inputs = document.querySelectorAll('.otp-input');
-          CONFIG.MOCK_OTP.split('').forEach((d, i) => {
-            if (inputs[i]) { inputs[i].value = d; inputs[i].classList.add('filled'); }
-          });
-          autoSubmitOTP();
-        }, 500);
-      }
+    } else if (res.error === 'rate_limited') {
+      const secs = res.retryAfterSecs || 30;
+      toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
@@ -678,6 +721,13 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
+  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked') {
+    // Slot was taken, locked, or never existed — clear selection and send user back.
+    toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
+    State.date = null;
+    State.time = null;
+    State.prefetchedMonths = new Set(); // force fresh slot data on next load
+    setTimeout(() => showStep(2), 2500);
   } else {
     document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
     document.getElementById('js-otp-error').classList.remove('hidden');
@@ -923,13 +973,25 @@ function wireEvents() {
 
   document.getElementById('js-resend').addEventListener('click', async () => {
     setLoading(true);
-    const res = await apiSendOTP(State.phone);
+    let res;
+    try {
+      res = await apiSendOTP(State.phone);
+    } catch {
+      setLoading(false);
+      toast('שגיאת חיבור בשליחת הקוד. נסי שוב.', 'error');
+      return;
+    }
     setLoading(false);
-    if (res.success || !CONFIG.API_BASE) {
+    if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       clearOTPInputs();
       document.getElementById('js-otp-error').classList.add('hidden');
       startResendTimer();
       toast('קוד חדש נשלח 📲');
+    } else if (res.error === 'rate_limited') {
+      const secs = res.retryAfterSecs || 30;
+      toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
+    } else {
+      toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
   });
 
