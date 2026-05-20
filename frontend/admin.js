@@ -130,7 +130,7 @@ async function login() {
 
   S.token = token;
   try {
-    const data = await apiCall('listBookings');
+    const data = await apiCall('listBookings', { token: S.token });
     if (!data.success) throw new Error(data.error || 'auth');
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_TS, String(Date.now()));
@@ -154,7 +154,7 @@ async function load(silent = false) {
   if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
   try {
-    const data = await apiCall('listBookings');
+    const data = await apiCall('listBookings', { token: S.token });
     if (!data.success) {
       if (data.error === 'unauthorized' || data.code === 403) { logout(); return; }
       throw new Error(data.error || 'error');
@@ -862,7 +862,7 @@ async function init() {
   // Session restore
   if (S.token && sessionValid()) {
     try {
-      const data = await apiCall('listBookings');
+      const data = await apiCall('listBookings', { token: S.token });
       if (!data.success) throw new Error(data.error);
       S.bookings = data.bookings || [];
       showDash();
