@@ -58,12 +58,10 @@ function fmtPhone(p) {
 }
 
 async function apiCall(action, extra = {}) {
-  const payload = { action, token: S.token, ...extra };
-  console.log('Sending to API:', payload);
   const r = await fetch(API, {
     method:  'POST',
-    body:    JSON.stringify(payload),
-    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ action, token: S.token, ...extra }),
+    headers: { 'Content-Type': 'text/plain' },
   });
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
