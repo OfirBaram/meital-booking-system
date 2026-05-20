@@ -35,16 +35,15 @@ const CFG = {
 
 function prop(key) {
   if (key === undefined || key === null) {
-    throw new Error(
-      'prop() called with undefined key — a CFG getter is referencing an undefined variable.'
-    );
+    var stack = '';
+    try { stack = (new Error()).stack || ''; } catch (_) {}
+    Logger.log('[ERROR] prop() called with undefined/null key — defensive return null. Stack: ' + stack);
+    return null;
   }
   const val = PropertiesService.getScriptProperties().getProperty(key);
   if (!val) {
-    throw new Error(
-      'Missing script property: "' + key + '"' +
-      ' — go to Project Settings → Script Properties and add it.'
-    );
+    Logger.log('[WARN] prop("' + key + '") — script property is not set; returning null');
+    return null;
   }
   return val;
 }
