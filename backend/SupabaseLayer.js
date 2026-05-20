@@ -230,6 +230,7 @@ var CommunicationLogService = (function () {
 
 // ─── handleGetSlotsV2 ─────────────────────────────────────────────
 function handleGetSlotsV2(body) {
+  if (!body) { Logger.log('[ERROR] handleGetSlotsV2: body is undefined'); return { success: false, error: 'missing_payload' }; }
   var _tV2 = Date.now();
   var year  = parseInt(body.year,  10) || new Date().getFullYear();
   var month = parseInt(body.month, 10) || (new Date().getMonth() + 1);
@@ -769,6 +770,7 @@ function handleAdminToggleSlotV2(body) {
 // Returns up to 50 clients, optionally filtered by name/phone (ilike).
 // Input: { token, search:'' }
 function handleAdminGetClientsV2(body) {
+  if (!body) { Logger.log('[ERROR] handleAdminGetClientsV2: body is undefined'); return { success: false, error: 'missing_payload' }; }
   if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized' };
 
   var search = String(body.search || '').trim();

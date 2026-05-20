@@ -454,6 +454,7 @@ function invalidateSlotsCache(dateStr) {
 }
 
 function handleGetSlots(body) {
+  if (!body) { Logger.log('[ERROR] handleGetSlots: body is undefined'); return { success: false, error: 'missing_payload' }; }
   const TZ = 'Asia/Jerusalem';
   var _tSlots = Date.now();
 
@@ -2083,6 +2084,7 @@ function writeAuditLog(admin, action, bookingId, prevStatus, newStatus, detail) 
 }
 
 function handleListBookings(body) {
+  if (!body) { Logger.log('[ERROR] handleListBookings: body is undefined'); return { success: false, error: 'missing_payload' }; }
   var _tLB = Date.now();
   if (!validateAdmin(body.token)) {
     return { success: false, error: 'unauthorized', code: 403 };
