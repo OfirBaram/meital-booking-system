@@ -141,20 +141,22 @@ var SheetMirrorService = (function () {
             return;
           }
         }
-        sh.appendRow([
+        var _sbRow = sh.getLastRow() + 1;
+        sh.getRange(_sbRow, LOG_COL.DATE, 1, 2).setNumberFormat('@');
+        sh.getRange(_sbRow, 1, 1, 12).setValues([[
           b.id,
           b.client_name        || '',
           b.client_phone       || '',
           b.treatment_type     || '',
           b.treatment_name     || '',
-          b.date_label         || '',
-          b.time_label         || '',
+          toDateStr(b.date_label  || ''),
+          toTimeStr(b.time_label  || ''),
           b.created_at         || Utilities.formatDate(new Date(), 'Asia/Jerusalem', "yyyy-MM-dd'T'HH:mm:ssXXX"),
           b.duration_min       || '',
           b.status             || 'Pending',
           b.calendar_event_id  || '',
           b.admin_token        || '',
-        ]);
+        ]]);
         SpreadsheetApp.flush();
       });
     },

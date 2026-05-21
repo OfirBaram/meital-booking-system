@@ -35,14 +35,16 @@ const CFG = {
 
 function prop(key) {
   if (key === undefined || key === null) {
+    Logger.log('[prop] BAD KEY: value=' + String(key) + ' typeof=' + typeof key);
     var stack = '';
-    try { stack = (new Error()).stack || ''; } catch (_) {}
-    Logger.log('[ERROR] prop() called with undefined/null key — defensive return null. Stack: ' + stack);
+    try { stack = new Error().stack || ''; } catch (e) {}
+    Logger.log('[prop] stack: ' + stack);
+    console.error('[prop] BAD KEY value=' + String(key), new Error('prop-bad-key'));
     return null;
   }
-  const val = PropertiesService.getScriptProperties().getProperty(key);
+  var val = PropertiesService.getScriptProperties().getProperty(key);
   if (!val) {
-    Logger.log('[WARN] prop("' + key + '") — script property is not set; returning null');
+    Logger.log('[prop] not set: ' + key);
     return null;
   }
   return val;
@@ -740,20 +742,15 @@ function handleVerifyAndBook(body) {
 
     // ── 6. Write Bookings_Log row ──
     const now = nowISO();
-    logSheet().appendRow([
-      bookingId,
-      booking.name,
-      phone,
-      booking.service,
-      booking.serviceName,
-      booking.date,
-      booking.time,
-      now,
-      booking.duration,
-      'Pending',
-      '',              // CalendarEventId — filled on approval
-      adminToken,
-    ]);
+    var _logSh1 = logSheet();
+    var _logRow1 = _logSh1.getLastRow() + 1;
+    _logSh1.getRange(_logRow1, LOG_COL.DATE, 1, 2).setNumberFormat('@');
+    _logSh1.getRange(_logRow1, 1, 1, 12).setValues([[
+      bookingId, booking.name, phone,
+      booking.service, booking.serviceName,
+      toDateStr(booking.date), toTimeStr(booking.time),
+      now, booking.duration, 'Pending', '', adminToken,
+    ]]);
     SpreadsheetApp.flush();
 
     // ── 7. Send admin SMS with approve / reject links ──
@@ -1160,6 +1157,32 @@ function generateOTP() {
 }
 
 /** RFC 4122 UUID v4 in GAS (no crypto.randomUUID available) */
+
+// Converts a value that may be a Date object (from getValues()) or a string to HH:mm.
+// getValues() silently converts time-formatted Sheet cells to Date objects;
+// String(dateObj) produces "Sat Dec 30 1899..." which Sheets re-parses as a date.
+function toTimeStr(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  var s = String(val || '');
+  var m = s.match(/(\d{1,2}:\d{2})/);
+  return m ? m[1] : s;
+}
+
+// Converts a value that may be a Date object or a string to YYYY-MM-DD.
+function toDateStr(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(val || '');
+}
+
+/**
+ * Walks a payload recursively and logs any field whose value is a Date object
+ * or a string containing the 1899-epoch artifacts ('1899' or 'Dec').
+ * Call just before a return statement to verify the outgoing payload is clean.
+ */
 function uuid4() {
   const rand = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0');
   return [
@@ -1558,7 +1581,10 @@ function testFullBookingFlow() {
   try {
     // ── Step 1: insert a test slot ────────────────────────────────
     Logger.log('\n[Step 1] Inserting test slot into Weekly_Slots...');
-    slotSh.appendRow([testDate, 'TEST', testTime, testEnd, 'Available']);
+    var _tr1 = slotSh.getLastRow() + 1;
+    var _rng1 = slotSh.getRange(_tr1, 1, 1, 5);
+    _rng1.setNumberFormat('@');
+    _rng1.setValues([[toDateStr(testDate), 'TEST', toTimeStr(testTime), toTimeStr(testEnd), 'Available']]);
     SpreadsheetApp.flush();
     const slot1 = findSlotRow(testDate, testTime);
     assert('1a: slot found in sheet',    slot1 !== null ? 'found' : 'not found', 'found');
@@ -2328,7 +2354,10 @@ function handleCreateBooking(body) {
       var parts    = body.time.split(':').map(Number);
       var endMins  = parts[0] * 60 + parts[1] + durMins;
       var endTime  = ('0' + Math.floor(endMins / 60)).slice(-2) + ':' + ('0' + (endMins % 60)).slice(-2);
-      slotsSheet().appendRow([body.date, dayName, body.time, endTime, 'Available']);
+      var _slotSh = slotsSheet();
+      var _slotRange = _slotSh.getRange(_slotSh.getLastRow() + 1, 1, 1, 5);
+      _slotRange.setNumberFormat('@');
+      _slotRange.setValues([[toDateStr(body.date), String(dayName), toTimeStr(body.time), toTimeStr(endTime), 'Available']]);
       SpreadsheetApp.flush();
       Logger.log('[createBooking] Auto-created slot: ' + body.date + ' ' + body.time + '-' + endTime);
       slotRow = findSlotRow(body.date, body.time);
@@ -2350,12 +2379,15 @@ function handleCreateBooking(body) {
     const adminToken = signAdminToken(bookingId);
     const now        = nowISO();
 
-    logSheet().appendRow([
+    var _logSh2 = logSheet();
+    var _logRow2 = _logSh2.getLastRow() + 1;
+    _logSh2.getRange(_logRow2, LOG_COL.DATE, 1, 2).setNumberFormat('@');
+    _logSh2.getRange(_logRow2, 1, 1, 12).setValues([[
       bookingId, body.name, phone,
       body.service, body.serviceName,
-      body.date, body.time, now, dur,
+      toDateStr(body.date), toTimeStr(body.time), now, dur,
       'Pending', '', adminToken,
-    ]);
+    ]]);
     SpreadsheetApp.flush();
     Logger.log('[createBooking] Row written — id=' + bookingId);
 
@@ -2585,21 +2617,33 @@ function templateSheet() {
 }
 
 function handleGetTemplate(body) {
-  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
-  var sh   = templateSheet();
-  var data = sh.getDataRange().getValues();
-  var rows = [];
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    var rawTimes = String(row[2] || '').trim();
-    rows.push({
-      dayOfWeek:  parseInt(row[0], 10),
-      dayName:    String(row[1] || '').trim(),
-      startTimes: rawTimes ? rawTimes.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [],
-      active:     String(row[3] || '').trim().toUpperCase() === 'TRUE',
-    });
+  try {
+    if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+    var sh = templateSheet();
+    // getDisplayValues() returns every cell as its visible string, bypassing Date conversion entirely.
+    // A time-formatted cell that holds 1899-epoch Date shows "09:00" here — exactly what we need.
+    var data = sh.getDataRange().getDisplayValues();
+    var rows = [];
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var timesStr = String(row[2] || '').trim();
+      rows.push({
+        dayOfWeek:  parseInt(row[0], 10),
+        dayName:    String(row[1] || '').trim(),
+        startTimes: timesStr
+          ? timesStr.split(',').map(function(t) {
+              var m = t.trim().match(/\d{2}:\d{2}/);
+              return m ? m[0] : null;
+            }).filter(Boolean)
+          : [],
+        active: String(row[3] || '').trim().toUpperCase() === 'TRUE',
+      });
+    }
+    return { success: true, template: rows };
+  } catch (e) {
+    Logger.log('[handleGetTemplate] ERROR: ' + e.message);
+    return { success: false, error: 'internal_error', message: e.message };
   }
-  return { success: true, template: rows };
 }
 
 function handleSaveTemplate(body) {
@@ -2608,13 +2652,17 @@ function handleSaveTemplate(body) {
   var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   var sh = templateSheet();
   sh.clearContents();
-  sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+  // Build all rows including header, then write in one batch with text format on StartTimes (col 3)
+  var allRows = [['DayOfWeek', 'DayName', 'StartTimes', 'Active']];
   for (var i = 0; i < body.template.length; i++) {
     var entry = body.template[i];
     var dow   = parseInt(entry.dayOfWeek, 10);
-    sh.appendRow([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
+    allRows.push([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
   }
+  sh.getRange(1, 3, allRows.length, 1).setNumberFormat('@');
+  sh.getRange(1, 1, allRows.length, 4).setValues(allRows);
   SpreadsheetApp.flush();
+
   log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'תבנית שעות עודכנה');
   return { success: true };
 }
@@ -2639,7 +2687,8 @@ function handleGenerateSlots(body) {
   var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   var cur   = new Date(body.startDate + 'T00:00:00');
   var end   = new Date(body.endDate   + 'T00:00:00');
-  var added = 0;
+  var added   = 0;
+  var newRows = [];
   while (cur <= end) {
     var dow     = cur.getDay();
     var dateStr = Utilities.formatDate(cur, TZ, 'yyyy-MM-dd');
@@ -2647,22 +2696,39 @@ function handleGenerateSlots(body) {
     for (var t = 0; t < template.length; t++) {
       if (template[t].dayOfWeek === dow) { tmplRow = template[t]; break; }
     }
+    Logger.log(
+      '[generateSlots] date=%s dow=%s(%s) tmplRow=%s active=%s times=%s',
+      dateStr,
+      dow, typeof dow,
+      tmplRow ? 'found(dow=' + tmplRow.dayOfWeek + ' type=' + typeof tmplRow.dayOfWeek + ')' : 'null',
+      tmplRow ? String(tmplRow.active) : 'n/a',
+      tmplRow ? JSON.stringify(tmplRow.startTimes) : 'n/a'
+    );
     if (tmplRow && tmplRow.active && tmplRow.startTimes.length > 0) {
       for (var s = 0; s < tmplRow.startTimes.length; s++) {
-        var startTime = tmplRow.startTimes[s];
+        var startTime = tmplRow.startTimes[s].trim();
+        if (!startTime || startTime.indexOf(':') === -1) continue;
+        var parts = startTime.split(':').map(Number);
+        if (isNaN(parts[0]) || isNaN(parts[1])) continue;
         if (!existSet[dateStr + '|' + startTime]) {
-          var parts   = startTime.split(':').map(Number);
-          var endHr   = parts[0] + 2;
+          var endHr  = parts[0] + 2;
           if (endHr >= 24) endHr = 23;
-          var endMin  = parts[1];
+          var endMin = parts[1];
           var endTime = (endHr < 10 ? '0' + endHr : String(endHr)) + ':' + (endMin < 10 ? '0' + endMin : String(endMin));
-          slotSh.appendRow([dateStr, DAY_NAMES[dow], startTime, endTime, 'Available']);
+          newRows.push([toDateStr(dateStr), String(DAY_NAMES[dow]), toTimeStr(startTime), toTimeStr(endTime), 'Available']);
           existSet[dateStr + '|' + startTime] = true;
           added++;
         }
       }
     }
     cur.setDate(cur.getDate() + 1);
+  }
+  if (newRows.length > 0) {
+    var firstNewRow = slotSh.getLastRow() + 1;
+    var range = slotSh.getRange(firstNewRow, 1, newRows.length, 5);
+    range.setNumberFormat('@');
+    Logger.log('DEBUG: Writing to sheet. Rows content: ' + JSON.stringify(newRows));
+    range.setValues(newRows);
   }
   SpreadsheetApp.flush();
   log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'נוצרו ' + added + ' חריצי זמן (' + body.startDate + ' – ' + body.endDate + ')');
@@ -2811,7 +2877,10 @@ function runFullFlowTest() {
 
   try {
     // -- Step 1: seed an Available slot --
-    slotSh.appendRow([testDate, 'TEST', testTime, '09:00', 'Available']);
+    var _tr2 = slotSh.getLastRow() + 1;
+    var _rng2 = slotSh.getRange(_tr2, 1, 1, 5);
+    _rng2.setNumberFormat('@');
+    _rng2.setValues([[toDateStr(testDate), 'TEST', toTimeStr(testTime), toTimeStr('09:00'), 'Available']]);
     SpreadsheetApp.flush();
     step('1. Test slot seeded (Available)', findSlotRow(testDate, testTime) !== null,
          testDate + ' ' + testTime);
