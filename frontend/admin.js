@@ -413,6 +413,7 @@ async function generateSlots() {
   const startDate = document.getElementById('js-gen-start').value;
   const endDate   = document.getElementById('js-gen-end').value;
   if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) { toast('תאריך לא תקין', 'err'); return; }
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
   const btn = document.getElementById('js-gen-submit');
@@ -421,7 +422,11 @@ async function generateSlots() {
   try {
     const data = await apiCall('generateSlots', { startDate, endDate });
     if (!data.success) throw new Error(data.error);
-    toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+    if (data.added === 0) {
+      toast('לא נוצרו חריצים — הגדר שעות בתבנית השבועית תחילה', 'err');
+    } else {
+      toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+    }
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
@@ -434,6 +439,7 @@ async function blockDates() {
   const startDate = document.getElementById('js-block-start').value;
   const endDate   = document.getElementById('js-block-end').value;
   if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) { toast('תאריך לא תקין', 'err'); return; }
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
   const range = startDate === endDate ? startDate.replace(/-/g, '/') : startDate.replace(/-/g,'/') + ' – ' + endDate.replace(/-/g,'/');
