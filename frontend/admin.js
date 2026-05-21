@@ -421,7 +421,11 @@ async function generateSlots() {
   try {
     const data = await apiCall('generateSlots', { startDate, endDate });
     if (!data.success) throw new Error(data.error);
-    toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+    if (data.added === 0) {
+      toast('לא נוצרו חריצים — הגדר שעות בתבנית השבועית תחילה', 'err');
+    } else {
+      toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+    }
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
