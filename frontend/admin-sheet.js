@@ -16,6 +16,16 @@
  *
  * Actions dispatched on document for admin.js to handle:
  *   CustomEvent 'sheet:action'  { detail: { action, id, date } }
+ *
+ * Bug fixes applied vs. initial version:
+ *   FIX-1 (HIGH)   _animateClose has a 400ms timeout fallback so _closing
+ *                  never gets stuck when animationend fails to fire
+ *                  (prefers-reduced-motion, DOM removal, etc.)
+ *   FIX-2 (MEDIUM) closeSheet() resets _drag state when called externally
+ *                  during an active drag, restoring panel.style.transition.
+ *   FIX-3 (MEDIUM) openSheet() while _closing uses a _pendingOpen variable
+ *                  (last-write-wins) instead of stacking animationend
+ *                  listeners that would call _doOpen multiple times.
  */
 
 // ── Pure state ────────────────────────────────────────────────────────────────
@@ -34,6 +44,9 @@ export const SNAP_HEIGHTS = {
 }
 
 const VALID_SNAPS = new Set(['peek', 'half', 'full'])
+
+// Hoisted so _esc is never reconstructed per call
+const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
 /**
  * Pure reducer — derives next state from current state + action.
@@ -65,9 +78,10 @@ export function sheetReducer(state, action) {
 
 // ── DOM controller ────────────────────────────────────────────────────────────
 
-let _state      = { ...INITIAL_SHEET_STATE }
-let _closing    = false
+let _state       = { ...INITIAL_SHEET_STATE }
+let _closing     = false
 let _initialized = false
+let _pendingOpen = null   // FIX-3: store latest queued open (last-write-wins)
 
 export function initSheet() {
   if (_initialized) return
@@ -87,11 +101,8 @@ export function initSheet() {
 
 export function openSheet(type, payload, snap = 'half') {
   if (_closing) {
-    // Wait for the exit animation to finish, then open
-    const overlay = document.getElementById('js-sheet')
-    overlay && overlay.addEventListener('animationend', () => {
-      _doOpen(type, payload, snap)
-    }, { once: true })
+    // FIX-3: record latest intent; _animateClose's onDone will execute it
+    _pendingOpen = { type, payload, snap }
     return
   }
   _doOpen(type, payload, snap)
@@ -99,6 +110,14 @@ export function openSheet(type, payload, snap = 'half') {
 
 export function closeSheet() {
   if (!_state.open || _closing) return
+
+  // FIX-2: if a drag is in progress, cleanly reset it before closing
+  if (_drag.active) {
+    _drag.active = false
+    const panel = document.getElementById('js-sheet-panel')
+    if (panel) panel.style.transition = ''
+  }
+
   _state = sheetReducer(_state, { type: 'CLOSE' })
   _animateClose()
 }
@@ -163,10 +182,7 @@ function _bookingRow(b) {
     Cancelled: 'bg-gray-100 text-gray-400',
   }
   const LABEL = {
-    Pending: 'ממתין',
-    Approved: 'מאושר',
-    Rejected: 'נדחה',
-    Cancelled: 'בוטל',
+    Pending: 'ממתין', Approved: 'מאושר', Rejected: 'נדחה', Cancelled: 'בוטל',
   }
   const badge = BADGE[b.status] || 'bg-gray-100 text-gray-500'
   const label = LABEL[b.status] || _esc(b.status)
@@ -196,8 +212,8 @@ function _bookingRow(b) {
 function _onSheetAction(e) {
   const btn    = e.currentTarget
   const action = btn.dataset.sheetAction || btn.dataset.action || ''
-  const id     = btn.dataset.id    || ''
-  const date   = btn.dataset.date  || ''
+  const id     = btn.dataset.id   || ''
+  const date   = btn.dataset.date || ''
   document.dispatchEvent(new CustomEvent('sheet:action', {
     detail: { action, id, date },
     bubbles: false,
@@ -205,6 +221,9 @@ function _onSheetAction(e) {
 }
 
 // ── Animations ────────────────────────────────────────────────────────────────
+
+// Duration in ms — slightly longer than the CSS animation to act as a safety net
+const _CLOSE_FALLBACK_MS = 400
 
 function _animateOpen() {
   const overlay = document.getElementById('js-sheet')
@@ -233,17 +252,34 @@ function _animateClose() {
   panel.classList.remove('sheet-entering')
   panel.classList.add('sheet-exiting')
 
-  panel.addEventListener('animationend', () => {
+  // FIX-1: single idempotent handler shared between animationend and fallback
+  let settled = false
+  function onDone() {
+    if (settled) return
+    settled = true
+
     overlay.classList.add('hidden')
     panel.classList.remove('sheet-exiting')
     document.body.style.overflow = ''
     _closing = false
-    // Clear stale content after sheet is hidden
+
+    // Clear stale content
     const contentEl = document.getElementById('js-sheet-content')
     const footerEl  = document.getElementById('js-sheet-footer')
     if (contentEl) contentEl.innerHTML = ''
     if (footerEl)  { footerEl.innerHTML = ''; footerEl.classList.add('hidden') }
-  }, { once: true })
+
+    // FIX-3: execute any queued open (last-write-wins)
+    if (_pendingOpen) {
+      const next   = _pendingOpen
+      _pendingOpen = null
+      _doOpen(next.type, next.payload, next.snap)
+    }
+  }
+
+  panel.addEventListener('animationend', onDone, { once: true })
+  // FIX-1: safety fallback — fires if animationend never arrives
+  setTimeout(onDone, _CLOSE_FALLBACK_MS)
 }
 
 // ── Drag-to-resize ────────────────────────────────────────────────────────────
@@ -266,7 +302,7 @@ function _initDrag() {
 
   handle.addEventListener('pointermove', e => {
     if (!_drag.active) return
-    const dy   = _drag.startY - e.clientY       // positive = dragged up
+    const dy   = _drag.startY - e.clientY
     const newH = Math.max(60, Math.min(window.innerHeight * 0.94, _drag.startH + dy))
     panel.style.maxHeight = newH + 'px'
   })
@@ -279,10 +315,10 @@ function _initDrag() {
     const h  = panel.getBoundingClientRect().height
     const vh = window.innerHeight
 
-    if (h < vh * 0.18)       closeSheet()
-    else if (h < vh * 0.47)  _snapTo('peek')
-    else if (h < vh * 0.76)  _snapTo('half')
-    else                     _snapTo('full')
+    if      (h < vh * 0.18) closeSheet()
+    else if (h < vh * 0.47) _snapTo('peek')
+    else if (h < vh * 0.76) _snapTo('half')
+    else                    _snapTo('full')
   })
 
   handle.addEventListener('pointercancel', () => {
@@ -299,6 +335,5 @@ function _snapTo(snap) {
 }
 
 function _esc(s) {
-  return String(s || '').replace(/[&<>"']/g,
-    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  return String(s || '').replace(/[&<>"']/g, c => _ESC_MAP[c])
 }
