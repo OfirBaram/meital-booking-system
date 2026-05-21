@@ -7,6 +7,7 @@ import {
   buildCard,
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog, renderSlotInventory,
 } from './admin-render.js';
+import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -27,6 +28,8 @@ const S = {
   clientHistory:     null,
   clientSearch:      '',
   _clientSearchTimer: null,
+  calData:  {},
+  calMonth: new Date(),
 };
 
 async function apiCall(action, extra = {}) {
@@ -101,10 +104,12 @@ async function login() {
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_TS, String(Date.now()));
     S.bookings = data.bookings || [];
+    S.calData = buildCalData(S.bookings);
     showDash();
     hideSkeleton();
     render();
     updateStats();
+    renderVisibleCalendar();
   } catch (_) {
     S.token = '';
     err.classList.remove('hidden');
@@ -125,9 +130,11 @@ async function load(silent = false) {
       throw new Error(data.error || 'error');
     }
     S.bookings = data.bookings || [];
+    S.calData = buildCalData(S.bookings);
     render();
     updateStats();
     if (S.tab === 'pulse') renderPulse();
+    if (S.tab === 'calendar') renderVisibleCalendar();
   } catch (e) {
     if (e.message !== 'unauthorized') toast('שגיאה בטעינת ההזמנות', 'err');
   } finally {
@@ -159,7 +166,8 @@ function setTab(tab) {
     ].join(' ');
   });
   if (tab === 'pulse')  renderPulse();
-  if (tab === 'slots')  loadTemplate();
+  if (tab === 'slots')    loadTemplate();
+  if (tab === 'calendar') renderVisibleCalendar();
   if (tab === 'diary')  {
     const fromEl = document.getElementById('js-diary-from');
     const toEl   = document.getElementById('js-diary-to');
@@ -637,6 +645,49 @@ async function runHealthCheck() {
   }
 }
 
+function renderVisibleCalendar() {
+  const y  = S.calMonth.getFullYear();
+  const mo = S.calMonth.getMonth() + 1;
+  renderCalendar(
+    document.getElementById('js-cal-grid'),
+    document.getElementById('js-cal-title'),
+    y, mo, S.calData,
+    { onDayClick: onCalDayClick }
+  );
+}
+
+function onCalDayClick(dateStr, entry) {
+  const peekDate    = document.getElementById('js-cal-peek-date');
+  const peekContent = document.getElementById('js-cal-peek-content');
+  const peekAdd     = document.getElementById('js-cal-peek-add');
+  if (!peekDate) return;
+
+  peekDate.textContent = dateStr.replace(/-/g, '/');
+
+  if (!entry || entry.bookings.length === 0) {
+    peekContent.innerHTML = '<span class="text-text-muted">\u05d0\u05d9\u05df \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d1\u05d9\u05d5\u05dd \u05d6\u05d4</span>';
+    if (peekAdd) peekAdd.classList.remove('hidden');
+    return;
+  }
+
+  peekContent.innerHTML = entry.bookings
+    .slice()
+    .sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+    .map(b =>
+      '<div class="flex items-center justify-between py-1.5 border-b border-secondary/15 last:border-0">'
+      + '<div class="min-w-0">'
+      + '<span class="font-semibold text-text-main text-xs">' + esc(b.name) + '</span>'
+      + '<span class="text-text-muted text-xs mr-2">' + esc(b.time || '') + '</span>'
+      + '</div>'
+      + '<span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold '
+      + (STATUS_CLS[b.status] || 'bg-gray-100 text-gray-500') + '">'
+      + (LABELS[b.status] || esc(b.status))
+      + '</span>'
+      + '</div>'
+    ).join('');
+  if (peekAdd) peekAdd.classList.remove('hidden');
+}
+
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
@@ -672,6 +723,15 @@ async function init() {
 
   document.querySelectorAll('.nav-tab').forEach(btn =>
     btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+
+  document.getElementById('js-cal-prev').addEventListener('click', () => {
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1);
+    renderVisibleCalendar();
+  });
+  document.getElementById('js-cal-next').addEventListener('click', () => {
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
+    renderVisibleCalendar();
+  });
 
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
@@ -711,10 +771,12 @@ async function init() {
       const data = await apiCall('listBookings', { token: S.token });
       if (!data.success) throw new Error(data.error);
       S.bookings = data.bookings || [];
+      S.calData = buildCalData(S.bookings);
       showDash();
       hideSkeleton();
       render();
       updateStats();
+      renderVisibleCalendar();
       loadAutoSmsToggle();
     } catch (_) {
       logout();
