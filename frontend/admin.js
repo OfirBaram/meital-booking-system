@@ -228,6 +228,10 @@ function setTab(tab) {
     ].join(' ');
   });
   if (tab === 'pulse')  renderPulse();
+  // Restart entrance animation on the newly visible tab
+  const _tabEl = document.getElementById('tab-' + tab);
+  if (_tabEl) { _tabEl.classList.remove('tab-entering'); void _tabEl.offsetWidth; _tabEl.classList.add('tab-entering'); }
+
   if (tab === 'slots')    loadTemplate();
   if (tab === 'calendar') renderVisibleCalendar();
   if (tab === 'diary')  {
@@ -297,6 +301,10 @@ function render() {
   cards.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', onAction));
   cards.querySelectorAll('.swipe-wrapper').forEach(w =>
     initCardSwipe(w, { onCommit: _commitCardAction }));
+  // Staggered entrance animation
+  cards.classList.remove('cards-entering');
+  void cards.offsetWidth;
+  cards.classList.add('cards-entering');
 }
 
 async function onAction(e) {

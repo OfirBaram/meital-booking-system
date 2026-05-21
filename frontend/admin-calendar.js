@@ -156,6 +156,10 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
 
   gridEl.innerHTML = '';
   gridEl.appendChild(frag);
+  // Trigger column-staggered entrance animation
+  gridEl.classList.remove('cal-entering');
+  void gridEl.offsetWidth;
+  gridEl.classList.add('cal-entering');
 }
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
