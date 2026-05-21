@@ -18,7 +18,7 @@ const S = {
   bookings: [],
   filter:   'all',
   dateJump: '',
-  tab:      'bookings',
+  tab:      'calendar',
   template: [],
   autoSms:  true,
   _smsSendTarget: null,
@@ -148,7 +148,7 @@ function hideSkeleton() {
 
 function setTab(tab) {
   S.tab = tab;
-  ['bookings','pulse','slots','diary','clients'].forEach(t => {
+  ['calendar','bookings','pulse','slots','diary','clients'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   document.querySelectorAll('.nav-tab').forEach(btn => {
