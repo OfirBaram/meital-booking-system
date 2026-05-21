@@ -666,9 +666,14 @@
     </div>
   </div>
 
-  <!-- Toast -->
-  <div id="js-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none hidden">
-    <div class="text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl whitespace-nowrap bg-text-main text-white"></div>
+  <!-- Toast (supports plain + undo-capable toasts) -->
+  <div id="js-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden">
+    <div class="flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto bg-text-main text-white">
+      <span id="js-toast-msg" class="whitespace-nowrap"></span>
+      <button id="js-toast-undo"
+        class="hidden shrink-0 text-xs font-black tracking-wide underline underline-offset-2
+               opacity-80 hover:opacity-100 active:scale-95 transition-all whitespace-nowrap">בטל</button>
+    </div>
   </div>
 
   <script type="module" src="./admin.js"></script>

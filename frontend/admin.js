@@ -4,11 +4,12 @@ import APP_CONFIG from './config.js';
 import {
   esc, fmtPhone,
   LABELS, STATUS_CLS, SERVICE_NAME, DAY_NAMES_HE, SB_STATUS_LABEL, SB_STATUS_CLS,
-  buildCard,
+  buildCard, buildSwipeCard,
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog, renderSlotInventory,
 } from './admin-render.js';
 import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
 import { initSheet, openSheet, closeSheet } from './admin-sheet.js';
+import { initCardSwipe } from './admin-gestures.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -44,13 +45,26 @@ async function apiCall(action, extra = {}) {
 }
 
 let _toastTmr;
+let _undoTmr    = null;
+let _pendingUndo = null;
+
 function toast(msg, type = '') {
-  const wrap  = document.getElementById('js-toast');
-  const inner = wrap.querySelector('div');
+  const wrap    = document.getElementById('js-toast');
+  const inner   = wrap.querySelector('div');
+  const msgEl   = document.getElementById('js-toast-msg');
+  const undoBtn = document.getElementById('js-toast-undo');
   clearTimeout(_toastTmr);
-  inner.textContent = msg;
+  // Flush any pending undo — commit it before showing unrelated toast
+  if (_pendingUndo) {
+    clearTimeout(_undoTmr);
+    const prev = _pendingUndo; _pendingUndo = null;
+    prev.commitFn();
+  }
+  if (undoBtn) undoBtn.classList.add('hidden');
+  if (msgEl) msgEl.textContent = msg;
+  else inner.textContent = msg;
   inner.className = [
-    'text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl whitespace-nowrap',
+    'flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto',
     type === 'err' ? 'bg-red-500 text-white' :
     type === 'ok'  ? 'bg-green-600 text-white' :
                      'bg-text-main text-white',
@@ -63,6 +77,53 @@ function toast(msg, type = '') {
   }, 3200);
 }
 
+function toastUndo(label, commitFn, onUndo, ttl = 5000) {
+  // Flush previous pending commit before showing new toast
+  if (_pendingUndo) {
+    clearTimeout(_undoTmr);
+    const prev = _pendingUndo; _pendingUndo = null;
+    prev.commitFn();
+  }
+  clearTimeout(_toastTmr);
+
+  const wrap    = document.getElementById('js-toast');
+  const inner   = wrap.querySelector('div');
+  const msgEl   = document.getElementById('js-toast-msg');
+  let   undoBtn = document.getElementById('js-toast-undo');
+
+  if (msgEl) msgEl.textContent = label;
+  inner.className = 'flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto bg-text-main text-white';
+  wrap.classList.remove('hidden');
+  wrap.classList.add('toast-in');
+
+  _pendingUndo = { commitFn };
+
+  // Replace button to clear stale listeners (cloneNode trick)
+  if (undoBtn) {
+    const fresh = undoBtn.cloneNode(true);
+    undoBtn.parentNode.replaceChild(fresh, undoBtn);
+    undoBtn = fresh;
+    undoBtn.classList.remove('hidden');
+    undoBtn.addEventListener('click', () => {
+      clearTimeout(_undoTmr);
+      _pendingUndo = null;
+      wrap.classList.add('hidden');
+      wrap.classList.remove('toast-in');
+      const b2 = document.getElementById('js-toast-undo');
+      if (b2) b2.classList.add('hidden');
+      onUndo && onUndo();
+    }, { once: true });
+  }
+
+  _undoTmr = setTimeout(() => {
+    _pendingUndo = null;
+    wrap.classList.add('hidden');
+    wrap.classList.remove('toast-in');
+    const b2 = document.getElementById('js-toast-undo');
+    if (b2) b2.classList.add('hidden');
+    commitFn();
+  }, ttl);
+}
 function sessionValid() {
   const ts = parseInt(localStorage.getItem(LS_TS) || '0', 10);
   return ts > 0 && (Date.now() - ts) < SESSION_TTL;
@@ -231,18 +292,12 @@ function render() {
     return;
   }
   empty.classList.add('hidden');
-  cards.innerHTML = rows.map(buildCard).join('');
+  cards.innerHTML = rows.map(buildSwipeCard).join('');
   cards.classList.remove('hidden');
   cards.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', onAction));
+  cards.querySelectorAll('.swipe-wrapper').forEach(w =>
+    initCardSwipe(w, { onCommit: _commitCardAction }));
 }
-
-const CONFIRM_MSG = {
-  Approved: 'לאשר את ההזמנה?',
-  Rejected: 'לדחות את ההזמנה?',
-  Cancelled: 'לבטל את ההזמנה?\nהאירוע ביומן Google יימחק.',
-};
-const OK_MSG    = { Approved:'ההזמנה אושרה ✅', Rejected:'ההזמנה נדחתה', Cancelled:'ההזמנה בוטלה' };
-const BTN_LABEL = { Approved:'✅ אשר', Rejected:'❌ דחה', Cancelled:'🚫 בטל' };
 
 async function onAction(e) {
   const btn    = e.currentTarget;
@@ -252,22 +307,7 @@ async function onAction(e) {
     openSmsModal({ id, phone: btn.dataset.phone, name: btn.dataset.name });
     return;
   }
-  if (!confirm(CONFIRM_MSG[target] || 'להמשיך?')) return;
-
-  const card = btn.closest('[data-booking]');
-  card.querySelectorAll('button').forEach(b => { b.disabled = true; });
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span>';
-
-  try {
-    const data = await apiCall('changeStatus', { bookingId: id, targetStatus: target });
-    if (!data.success) throw new Error(data.error || 'error');
-    toast(OK_MSG[target] || 'עודכן', 'ok');
-    await load(true);
-  } catch (err) {
-    toast('שגיאה: ' + err.message, 'err');
-    card.querySelectorAll('button').forEach(b => { b.disabled = false; });
-    btn.textContent = BTN_LABEL[target] || target;
-  }
+  _commitCardAction(id, target);
 }
 
 function setFilter(f) {
@@ -452,7 +492,6 @@ async function blockDates() {
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
   const range = startDate === endDate ? startDate.replace(/-/g, '/') : startDate.replace(/-/g,'/') + ' – ' + endDate.replace(/-/g,'/');
-  if (!confirm('לחסום את כל החריצים הפנויים בין ' + range + '?')) return;
 
   const btn = document.getElementById('js-block-submit');
   btn.disabled = true;
@@ -661,6 +700,51 @@ function onCalDayClick(dateStr, entry) {
   openSheet('day', { dateStr, entry });
 }
 
+function _commitCardAction(id, target) {
+  const wrapper  = document.querySelector('[data-swipe-id="' + id + '"]');
+  const card     = wrapper ? wrapper.querySelector('.swipe-card') : null;
+  const booking  = S.bookings.find(b => b.id === id);
+  const prevStatus = booking ? booking.status : null;
+  if (booking) booking.status = target;
+
+  if (wrapper && card) {
+    const dir = (target === 'Approved') ? 1 : -1;
+    card.style.transition = 'transform 0.22s ease-in';
+    card.style.transform  = 'translate3d(' + (dir * 115) + '%, 0, 0)';
+    wrapper.style.overflow   = 'hidden';
+    wrapper.style.transition = 'max-height 0.28s 0.1s, margin-bottom 0.28s 0.1s, opacity 0.2s 0.08s';
+    setTimeout(() => {
+      wrapper.style.maxHeight    = '0';
+      wrapper.style.marginBottom = '0';
+      wrapper.style.opacity      = '0';
+    }, 40);
+  }
+
+  const OK = {
+    Approved:  'ההזמנה אושרה',
+    Rejected:  'ההזמנה נדחתה',
+    Cancelled: 'ההזמנה בוטלה',
+  };
+  toastUndo(
+    OK[target] || 'עודכן',
+    async () => {
+      try {
+        const data = await apiCall('changeStatus', { bookingId: id, targetStatus: target });
+        if (!data.success) throw new Error(data.error || 'error');
+        await load(true);
+      } catch (e) {
+        if (booking && prevStatus) booking.status = prevStatus;
+        toast('שגיאה: ' + e.message, 'err');
+        await load(true);
+      }
+    },
+    () => {
+      if (booking && prevStatus) booking.status = prevStatus;
+      render();
+    }
+  );
+}
+
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
@@ -814,7 +898,6 @@ async function toggleDiarySlot(slotId, currentStatus) {
 }
 
 async function deleteDiarySlot(slotId) {
-  if (!confirm('למחוק את החריץ הזה? הפעולה אינה הפיכה.')) return;
   try {
     const r = await apiCall('adminDeleteSlot', { slotId });
     if (!r.success) {
