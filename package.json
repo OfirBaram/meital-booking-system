@@ -4,14 +4,20 @@
   "type": "module",
   "scripts": {
     "test:unit": "vitest run",
-    "test:e2e":  "playwright test",
-    "test":      "npm run test:unit && npm run test:e2e",
-    "serve":     "serve frontend -p 4173"
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:backend": "vitest run tests/backend",
+    "lint": "eslint tests/backend --ext .js",
+    "serve": "serve frontend -p 4173"
   },
   "devDependencies": {
-    "vitest":           "^1.6.0",
-    "jsdom":            "^24.0.0",
     "@playwright/test": "^1.44.0",
-    "serve":            "^14.2.3"
+    "eslint": "^8.57.0",
+    "jsdom": "^24.0.0",
+    "serve": "^14.2.3",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "pg": "^8.21.0"
   }
 }
