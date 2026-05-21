@@ -84,6 +84,34 @@ export function buildCard(b) {
     + '</div>';
 }
 
+// ─── buildSwipeCard ───────────────────────────────────────────
+// Wraps Pending/Approved cards in a .swipe-wrapper with reveal layers.
+// Rejected/Cancelled are returned as plain buildCard output (no swipe).
+
+export function buildSwipeCard(b) {
+  const inner = buildCard(b);
+  if (b.status !== 'Pending' && b.status !== 'Approved') return inner;
+
+  const approveLabel = 'אשר';
+  const rejectLabel  = b.status === 'Pending' ? 'דחה' : 'בטל';
+
+  const approveLayer = b.status === 'Pending'
+    ? '<div class="swipe-reveal approve" aria-hidden="true">'
+      + '<span class="font-bold text-sm">' + approveLabel + '</span></div>'
+    : '';
+
+  const rejectLayer = '<div class="swipe-reveal reject" aria-hidden="true">'
+    + '<span class="font-bold text-sm">' + rejectLabel + '</span></div>';
+
+  return '<div class="swipe-wrapper"'
+    + ' data-swipe-id="' + esc(b.id) + '"'
+    + ' data-swipe-status="' + esc(b.status) + '">'
+    + rejectLayer
+    + approveLayer
+    + '<div class="swipe-card">' + inner + '</div>'
+    + '</div>';
+}
+
 // ─── renderDiarySlots ─────────────────────────────────────────────────────────
 // Migrated: onclick → data-action="toggle-diary-slot" / "delete-diary-slot"
 // callbacks: { onToggle(slotId: number, currentStatus: string), onDelete(slotId: number) }
