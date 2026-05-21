@@ -8,6 +8,7 @@ import {
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog, renderSlotInventory,
 } from './admin-render.js';
 import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
+import { initSheet, openSheet, closeSheet } from './admin-sheet.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -657,35 +658,7 @@ function renderVisibleCalendar() {
 }
 
 function onCalDayClick(dateStr, entry) {
-  const peekDate    = document.getElementById('js-cal-peek-date');
-  const peekContent = document.getElementById('js-cal-peek-content');
-  const peekAdd     = document.getElementById('js-cal-peek-add');
-  if (!peekDate) return;
-
-  peekDate.textContent = dateStr.replace(/-/g, '/');
-
-  if (!entry || entry.bookings.length === 0) {
-    peekContent.innerHTML = '<span class="text-text-muted">\u05d0\u05d9\u05df \u05d4\u05d6\u05de\u05e0\u05d5\u05ea \u05d1\u05d9\u05d5\u05dd \u05d6\u05d4</span>';
-    if (peekAdd) peekAdd.classList.remove('hidden');
-    return;
-  }
-
-  peekContent.innerHTML = entry.bookings
-    .slice()
-    .sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-    .map(b =>
-      '<div class="flex items-center justify-between py-1.5 border-b border-secondary/15 last:border-0">'
-      + '<div class="min-w-0">'
-      + '<span class="font-semibold text-text-main text-xs">' + esc(b.name) + '</span>'
-      + '<span class="text-text-muted text-xs mr-2">' + esc(b.time || '') + '</span>'
-      + '</div>'
-      + '<span class="shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold '
-      + (STATUS_CLS[b.status] || 'bg-gray-100 text-gray-500') + '">'
-      + (LABELS[b.status] || esc(b.status))
-      + '</span>'
-      + '</div>'
-    ).join('');
-  if (peekAdd) peekAdd.classList.remove('hidden');
+  openSheet('day', { dateStr, entry });
 }
 
 function startAutoRefresh() {
@@ -765,6 +738,8 @@ async function init() {
     document.getElementById('js-client-history').classList.add('hidden');
     document.getElementById('js-clients-list').classList.remove('hidden');
   });
+
+  initSheet();
 
   if (S.token && sessionValid()) {
     try {
