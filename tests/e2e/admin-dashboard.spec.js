@@ -78,9 +78,12 @@ async function setupAdminMocks(page, overrides = {}) {
   })
 
   // Mock Supabase Edge Function calls so tests never hit the real network
-  await page.route(SB_FUNC_GLOB, async (route) => {
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const sbBody = request.url().endsWith('/list-bookings')
+      ? MOCK_BOOKINGS
+      : { success: true, added: 3 }
     route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify({ success: true, added: 3 }) })
+      body: JSON.stringify(sbBody) })
   })
 }
 

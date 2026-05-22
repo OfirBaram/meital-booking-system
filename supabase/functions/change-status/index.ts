@@ -12,47 +12,38 @@ function json(body: unknown, status = 200) {
   })
 }
 
+const ALLOWED: string[] = ['Approved', 'Rejected', 'Cancelled']
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { adminToken, startDate, endDate, template } = await req.json()
+    const { adminToken, bookingId, targetStatus } = await req.json()
 
-    // Admin token validation — matches the ADMIN_TOKEN script property used by GAS
     const expectedToken = Deno.env.get('ADMIN_TOKEN')
     if (!adminToken || !expectedToken || adminToken !== expectedToken) {
       return json({ success: false, error: 'unauthorized' }, 403)
     }
 
-    // Input validation
-    if (!startDate || !endDate || !Array.isArray(template)) {
-      return json({ success: false, error: 'startDate, endDate, and template are required' }, 400)
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-      return json({ success: false, error: 'dates must be YYYY-MM-DD' }, 400)
-    }
-    if (endDate < startDate) {
-      return json({ success: false, error: 'endDate must be >= startDate' }, 400)
+    if (!bookingId || !ALLOWED.includes(targetStatus)) {
+      return json({ success: false, error: 'invalid_input' }, 400)
     }
 
-    // Service-role client — bypasses RLS, never exposed to the browser
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    // Delegate timezone conversion and duplicate detection to PostgreSQL
-    const { data, error } = await supabase.rpc('generate_slots', {
-      p_start_date: startDate,
-      p_end_date:   endDate,
-      p_template:   template,
+    const { data, error } = await supabase.rpc('change_appointment_status', {
+      p_booking_id: bookingId,
+      p_new_status: targetStatus.toLowerCase(),  // DB stores lowercase
     })
 
     if (error) throw error
 
     return json(data)
   } catch (err) {
-    console.error('[generate-slots]', err)
+    console.error('[change-status]', err)
     return json({ success: false, error: 'internal_error' }, 500)
   }
 })

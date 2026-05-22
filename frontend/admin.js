@@ -161,7 +161,12 @@ async function login() {
 
   S.token = token;
   try {
-    const data = await apiCall('listBookings', { token: S.token });
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
     if (!data.success) throw new Error(data.error || 'auth');
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_TS, String(Date.now()));
@@ -186,11 +191,14 @@ async function load(silent = false) {
   if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
   try {
-    const data = await apiCall('listBookings', { token: S.token });
-    if (!data.success) {
-      if (data.error === 'unauthorized' || data.code === 403) { logout(); return; }
-      throw new Error(data.error || 'error');
-    }
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+    );
+    if (r.status === 403) { logout(); return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'error');
     S.bookings = data.bookings || [];
     S.calData = buildCalData(S.bookings);
     render();
@@ -757,8 +765,19 @@ function _commitCardAction(id, target) {
     OK[target] || 'עודכן',
     async () => {
       try {
-        const data = await apiCall('changeStatus', { bookingId: id, targetStatus: target });
+        const r = await fetch(
+          `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
         if (!data.success) throw new Error(data.error || 'error');
+        // GAS side-effects (SMS + Calendar) — fire-and-forget
+        // Approval failures surface as a warning so Meital can verify the calendar manually
+        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+          console.warn('[changeStatus GAS side-effects failed]', e.message);
+          if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
+        });
         await load(true);
       } catch (e) {
         if (booking && prevStatus) booking.status = prevStatus;
@@ -855,7 +874,12 @@ async function init() {
 
   if (S.token && sessionValid()) {
     try {
-      const data = await apiCall('listBookings', { token: S.token });
+      const r = await fetch(
+        `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
       if (!data.success) throw new Error(data.error);
       S.bookings = data.bookings || [];
       S.calData = buildCalData(S.bookings);
@@ -1016,13 +1040,22 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
   btns.forEach(b => { b.disabled = true; });
 
   try {
-    const r = await apiCall('adminAction', { bookingId, token: adminToken, decision });
-    if (!r.success) {
-      if (r.error === 'already_processed') toast('ההזמנה כבר טופלה', 'warn');
-      else throw new Error(r.error);
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId, targetStatus: decision }) }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const sbData = await r.json();
+    if (!sbData.success) {
+      if (sbData.error === 'invalid_transition') toast('ההזמנה כבר טופלה', 'warn');
+      else throw new Error(sbData.error);
       btns.forEach(b => { b.disabled = false; });
       return;
     }
+    // GAS side-effects (SMS + Calendar) — fire-and-forget; log failures only
+    apiCall('adminAction', { bookingId, token: adminToken, decision }).catch(e =>
+      console.warn('[adminAction GAS side-effects failed]', e.message)
+    );
     toast(decision === 'Approved' ? 'ההזמנה אושרה ✓' : 'ההזמנה נדחתה', 'ok');
     const newStatus   = decision === 'Approved' ? 'approved' : 'rejected';
     const statusLabel = LABELS[newStatus];
