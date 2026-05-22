@@ -6,7 +6,7 @@
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:e2e",
-    "test:backend": "vitest run tests/backend",
+    "test:backend": "vitest run --config vitest.backend.config.js",
     "lint": "eslint tests/backend --ext .js",
     "serve": "serve frontend -p 4173"
   },
