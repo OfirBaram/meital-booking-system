@@ -84,10 +84,9 @@ test.describe('tab-entering animation class', () => {
 
   test('tab-entering is added to the bookings tab when switching to it', async ({ page }) => {
     await page.locator('[data-qa="nav-tab-bookings"]').click()
-    // Grab the class immediately after click (animation in progress)
-    const hasClass = await page.locator('#tab-bookings').evaluate(el =>
-      el.classList.contains('tab-entering'))
-    expect(hasClass).toBe(true)
+    // tab-entering is added synchronously by setTab() and removed after 220 ms;
+    // poll for up to 300 ms to absorb any Playwright command-dispatch latency.
+    await expect(page.locator('#tab-bookings')).toHaveClass(/tab-entering/, { timeout: 300 })
   })
 
   test('tab-entering is removed from bookings tab after animation settles', async ({ page }) => {
