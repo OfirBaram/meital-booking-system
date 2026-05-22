@@ -473,14 +473,29 @@ async function generateSlots() {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) { toast('תאריך לא תקין', 'err'); return; }
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
+  const template = S.template.filter(r => r.active && r.startTimes?.length > 0);
+  if (template.length === 0) { toast('לא נוצרו חריצים — הגדר שעות בתבנית השבועית תחילה', 'err'); return; }
+
   const btn = document.getElementById('js-gen-submit');
   btn.disabled = true;
   btn.innerHTML = '<span class="w-4 h-4 spinner"></span> יוצר...';
   try {
-    const data = await apiCall('generateSlots', { startDate, endDate });
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/generate-slots`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ adminToken: S.token, startDate, endDate, template }),
+      }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
     if (!data.success) throw new Error(data.error);
     if (data.added === 0) {
-      toast('לא נוצרו חריצים — הגדר שעות בתבנית השבועית תחילה', 'err');
+      toast('לא נוצרו חריצים חדשים — הכול כבר קיים', 'ok');
     } else {
       toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
     }
