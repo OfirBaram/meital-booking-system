@@ -31,6 +31,7 @@
 import { test, expect } from '@playwright/test'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
 
 // Today's date as YYYY-MM-DD — booking on this date will be visible on calendar
@@ -78,6 +79,11 @@ async function setupMocks(page, bookings = MOCK_BOOKINGS_TODAY) {
       default:                return ok({ success: false, error: 'not_mocked' })
     }
   })
+
+  // Stub Supabase Edge Function calls to prevent unmocked requests hanging networkidle
+  await page.route(SB_FUNC_GLOB, route =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, added: 0 }) }))
 }
 
 async function loginAndWait(page) {

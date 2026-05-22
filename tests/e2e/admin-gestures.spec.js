@@ -23,6 +23,7 @@
 import { test, expect } from '@playwright/test'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
 const TODAY      = new Date().toISOString().slice(0, 10)
 
@@ -67,6 +68,11 @@ async function setupMocks(page, overrides = {}) {
       default:                return ok({ success: false, error: 'not_mocked' })
     }
   })
+  // Stub all Supabase Edge Function calls — prevents unmocked real-network
+  // requests from hanging page.waitForLoadState('networkidle') in CI.
+  await page.route(SB_FUNC_GLOB, route =>
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, added: 0 }) }))
 }
 
 async function loginAndGoToBookings(page) {

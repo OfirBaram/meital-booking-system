@@ -22,6 +22,7 @@ import { test, expect } from '@playwright/test'
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
 const GAS_GLOB    = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN  = 'test-admin-token-32chars-exactly'
 
 /** Minimal booking list response that makes login succeed. */
@@ -74,6 +75,12 @@ async function setupAdminMocks(page, overrides = {}) {
       case 'getTemplate':       return respond({ success: true, template: [] })
       default:                  return respond({ success: false, error: 'not_mocked' })
     }
+  })
+
+  // Mock Supabase Edge Function calls so tests never hit the real network
+  await page.route(SB_FUNC_GLOB, async (route) => {
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify({ success: true, added: 3 }) })
   })
 }
 
