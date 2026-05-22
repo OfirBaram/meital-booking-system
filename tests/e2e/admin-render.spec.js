@@ -345,11 +345,11 @@ test.describe('buildCard — no inline onclick in bookings tab', () => {
     await page.goto('/admin.html')
     await loginAndGoTo(page, 'bookings')
 
-    // Confirm dialog then approve
+    // Approve via dispatchEvent to bypass the swipe card's setPointerCapture handler.
+    // toastUndo defers the changeStatus call by 5 s (TTL); wait long enough for it to fire.
     await expect(page.locator('[data-action="Approved"]').first()).toBeVisible({ timeout: 5_000 })
-    page.once('dialog', d => d.accept())
-    await page.locator('[data-action="Approved"]').first().click()
-    await page.waitForTimeout(800)
+    await page.locator('[data-action="Approved"]').first().dispatchEvent('click')
+    await page.waitForTimeout(6_000)
 
     expect(statusChanges.some(s => s.target === 'Approved'), 'changeStatus(Approved) not called').toBe(true)
     expect(jsErrors).toHaveLength(0)

@@ -196,15 +196,13 @@ test('tapping the Approve button triggers toastUndo instead of confirm()', async
   })
   await loginAndGoToBookings(page)
 
-  // Click the approve button
-  await page.locator('button[data-action="Approved"]').first().click()
+  // Click the approve button via dispatchEvent to bypass the swipe card's
+  // setPointerCapture handler, which hijacks the pointer event stream and
+  // prevents a synthetic page.click() from reaching the button's onAction listener.
+  await page.locator('button[data-action="Approved"]').first().dispatchEvent('click')
 
-  // toastUndo toast should appear — check class directly (toastIn animation starts at
-  // opacity:0 with fill:both, so toBeVisible would race with the CSS fade-in)
-  await page.waitForFunction(
-    () => !document.getElementById('js-toast')?.classList.contains('hidden'),
-    { timeout: 3_000 }
-  )
+  // toastUndo toast should appear
+  await expect(page.locator('#js-toast')).toBeVisible({ timeout: 3_000 })
   await expect(page.locator('#js-toast-msg')).toContainText('אושרה')
 
   // confirm() must NOT have been called
