@@ -923,26 +923,45 @@ function processRejection(logSh, row, rowIdx, bookingId) {
 /**
  * Creates a calendar event on approval.
  * Returns the event ID (stored in Bookings_Log for later management).
+ *
+ * Accepts two parameter shapes:
+ *   Legacy (processApproval — Sheets path):
+ *     { date: 'YYYY-MM-DD', time: 'HH:MM', duration: <min>,
+ *       clientName, serviceName, bookingId }
+ *   V2 (handleAdminActionV2 in SupabaseLayer.js):
+ *     { summary, description, startTime: Date, endTime: Date }
+ *
+ * The two shapes existed in parallel without reconciliation —
+ * calling V2 with the legacy destructure produced a silent
+ * TypeError that the surrounding catch swallowed, so approvals
+ * completed but no calendar event was ever created.
  */
-function createCalendarEvent({ date, time, duration, clientName, serviceName, bookingId }) {
+function createCalendarEvent(params) {
   const cal = CalendarApp.getCalendarById(CFG.CAL_ID);
   if (!cal) throw new Error('Calendar not found: ' + CFG.CAL_ID);
 
-  const [year, month, day] = date.split('-').map(Number);
-  const [hour, min]        = time.split(':').map(Number);
+  let start, end, title, description;
 
-  const start = new Date(year, month - 1, day, hour, min, 0);
-  const end   = new Date(start.getTime() + duration * 60 * 1000);
+  if (params.startTime && params.endTime) {
+    // V2 shape — Date objects + pre-built title/description.
+    start       = new Date(params.startTime);
+    end         = new Date(params.endTime);
+    title       = params.summary || 'הזמנה';
+    description = params.description || '';
+  } else {
+    // Legacy shape — construct Date from date+time+duration strings.
+    const [year, month, day] = params.date.split('-').map(Number);
+    const [hour, min]        = params.time.split(':').map(Number);
+    start       = new Date(year, month - 1, day, hour, min, 0);
+    end         = new Date(start.getTime() + params.duration * 60 * 1000);
+    title       = `💅 ${params.serviceName} — ${params.clientName}`;
+    description = `הזמנה #${params.bookingId}\nלקוחה: ${params.clientName}\nשירות: ${params.serviceName}`;
+  }
 
-  const event = cal.createEvent(
-    `💅 ${serviceName} — ${clientName}`,
-    start,
-    end,
-    {
-      description: `הזמנה #${bookingId}\nלקוחה: ${clientName}\nשירות: ${serviceName}`,
-      status: 'confirmed',
-    }
-  );
+  const event = cal.createEvent(title, start, end, {
+    description: description,
+    status:      'confirmed',
+  });
 
   Logger.log('[createCalendarEvent] Created event: ' + event.getId());
   return event.getId();

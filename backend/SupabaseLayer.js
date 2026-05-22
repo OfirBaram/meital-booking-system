@@ -463,7 +463,8 @@ function handleAdminActionV2(body) {
         startTime:   startDt,
         endTime:     endDt,
       });
-      calEventId = calResult && calResult.id ? calResult.id : null;
+      // createCalendarEvent returns the event ID as a string (or throws).
+      calEventId = calResult || null;
     } catch (e) {
       Logger.log('[handleAdminActionV2] Calendar error (non-fatal): ' + e.message);
     }
