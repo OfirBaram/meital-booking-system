@@ -100,10 +100,18 @@ async function goToStep4(page) {
 }
 
 async function fillOTP(page, code) {
-  const inputs = page.locator('[data-qa="otp-digit"]')
-  for (let i = 0; i < code.length; i++) {
-    await inputs.nth(i).fill(code[i])
-  }
+  // booking.js renderOTPInputs() schedules setTimeout(focus(0), 300) which races
+  // with sequential .nth(i).fill() in Chromium; dispatching the input events from
+  // page context is synchronous and immune to the focus race.
+  await page.evaluate((digits) => {
+    const inputs = document.querySelectorAll('[data-qa="otp-digit"]')
+    for (let i = 0; i < digits.length; i++) {
+      const inp = inputs[i]
+      if (!inp) return
+      inp.value = digits[i]
+      inp.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  }, code)
 }
 
 // ─── 1. Input sanitization ────────────────────────────────────────────────────
