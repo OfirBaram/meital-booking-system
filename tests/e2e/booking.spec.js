@@ -18,6 +18,10 @@ import { test, expect } from '@playwright/test'
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const TEST_GAS_URL = 'https://script.google.com/macros/s/TEST_MOCK_ID/exec'
 
+// Supabase Edge Function mocks
+const SB_FUNC_GLOB = 'https://supabase.test.mock/functions/v1/**'
+const TEST_SB_URL  = 'https://supabase.test.mock'
+
 /** Deterministic slots: first 4 BASE times for every non-Fri/Sat weekday >= today */
 function makeMockSlots(year, month) {
   const slots = {}
@@ -46,7 +50,7 @@ async function setupMocks(page) {
     route.fulfill({
       status:      200,
       contentType: 'application/javascript',
-      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };
+      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", SUPABASE_URL: "${TEST_SB_URL}", SUPABASE_ANON_KEY: "test-anon-key", VERSION: "2.0.0", IS_MOCK_MODE: false };
 export default APP_CONFIG;
 `,
     })
@@ -67,38 +71,33 @@ export default APP_CONFIG;
       })
     }
 
-    if (method === 'POST') {
-      let body = {}
-      try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
-      console.log(`[mock] POST action=${body.action}`)
+    return route.continue()
+  })
 
-      if (body.action === 'sendOTP') {
-        return route.fulfill({
-          status:      200,
-          contentType: 'application/json',
-          body:        JSON.stringify({ success: true }),
-        })
-      }
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const path = request.url().split('/').pop()
 
-      if (body.action === 'verifyAndBook') {
-        const otp = body.otp ?? ''
-        console.log(`[mock] verifyAndBook otp=${otp}`)
-        const ok = otp !== '000000'
-        return route.fulfill({
-          status:      200,
-          contentType: 'application/json',
-          body: JSON.stringify(
-            ok
-              ? { success: true, bookingId: body.booking?.id, status: 'Pending' }
-              : { success: false, error: 'invalid_otp' }
-          ),
-        })
-      }
-
-      return route.fulfill({ status: 400, body: '{}' })
+    if (path === 'send-otp') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
     }
 
-    return route.continue()
+    if (path === 'verify-and-book') {
+      let body = {}
+      try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
+      const otp = body.otp ?? ''
+      const ok = otp !== '000000'
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(
+          ok
+            ? { success: true, bookingId: body.booking?.id, status: 'Pending' }
+            : { success: false, error: 'invalid_otp' }
+        ),
+      })
+    }
+
+    return route.fulfill({ status: 400, body: '{}' })
   })
 }
 
@@ -456,14 +455,12 @@ async function setupMocksWithOverrides(page, overrides = {}) {
     route.fulfill({
       status:      200,
       contentType: 'application/javascript',
-      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };\nexport default APP_CONFIG;\n`,
+      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", SUPABASE_URL: "${TEST_SB_URL}", SUPABASE_ANON_KEY: "test-anon-key", VERSION: "2.0.0", IS_MOCK_MODE: false };\nexport default APP_CONFIG;\n`,
     })
   )
 
   await page.route(GAS_GLOB, async (route, request) => {
-    const method = request.method()
-
-    if (method === 'GET') {
+    if (request.method() === 'GET') {
       const url   = new URL(request.url())
       const year  = parseInt(url.searchParams.get('year'),  10)
       const month = parseInt(url.searchParams.get('month'), 10)
@@ -473,24 +470,21 @@ async function setupMocksWithOverrides(page, overrides = {}) {
         body:        JSON.stringify(makeMockSlots(year, month)),
       })
     }
+    return route.continue()
+  })
 
-    if (method === 'POST') {
-      let body = {}
-      try { body = JSON.parse(request.postData()) } catch { }
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const path = request.url().split('/').pop()
 
-      if (body.action === 'sendOTP' && overrides.sendOTP)
-        return overrides.sendOTP(route)
-      if (body.action === 'verifyAndBook' && overrides.verifyAndBook)
-        return overrides.verifyAndBook(route)
+    if (path === 'send-otp' && overrides.sendOTP) return overrides.sendOTP(route)
+    if (path === 'verify-and-book' && overrides.verifyAndBook) return overrides.verifyAndBook(route)
 
-      // Defaults
-      if (body.action === 'sendOTP')
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
-      if (body.action === 'verifyAndBook')
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    if (path === 'send-otp')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    if (path === 'verify-and-book')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
 
-      return route.fulfill({ status: 400, body: '{}' })
-    }
+    return route.fulfill({ status: 400, body: '{}' })
   })
 }
 
@@ -523,7 +517,7 @@ test.describe('API error hardening — sendOTP', () => {
       sendOTP: route => route.fulfill({
         status:      200,
         contentType: 'application/json',
-        body:        JSON.stringify({ success: false, error: 'rate_limited', retryAfterSecs: 28 }),
+        body:        JSON.stringify({ success: false, error: 'rate_limited', retryAfter: 28 }),
       }),
     })
     await page.goto('/')

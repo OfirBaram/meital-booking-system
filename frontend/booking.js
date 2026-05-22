@@ -182,45 +182,49 @@ async function apiGetSlots(year, month) {
 }
 
 async function apiSendOTP(phone) {
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ action: 'sendOTP', phone }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/send-otp`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ phone }),
+      }
+    );
+    return r.json();
   }
   return { success: true };
 }
 
 async function apiVerifyAndBook(otp) {
-  const ts = toISO8601Jerusalem(State.date, State.time);
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const payload = {
-      action: 'verifyAndBook',
-      otp,
-      booking: {
-        id:          State.bookingId,
-        name:        State.name,
-        phone:       State.phone,
-        service:     State.service.id,
-        serviceName: State.service.name,
-        date:        State.date,
-        time:        State.time,
-        timestamp:   ts.tagged,
-        timezone:    ts.timezone,
-        duration:    State.service.duration,
-        status:      'Pending',
-      },
-    };
-    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/verify-and-book`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          otp,
+          booking: {
+            id:          State.bookingId,
+            name:        State.name,
+            phone:       State.phone,
+            service:     State.service.id,
+            serviceName: State.service.name,
+            date:        State.date,
+            time:        State.time,
+            duration:    State.service.duration,
+          },
+        }),
+      }
+    );
+    return r.json();
   }
 
   await delay(750);
@@ -681,8 +685,10 @@ async function handleNext() {
       renderOTPInputs();
       startResendTimer();
     } else if (res.error === 'rate_limited') {
-      const secs = res.retryAfterSecs || 30;
+      const secs = res.retryAfter || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
+    } else if (res.error === 'quota_exceeded') {
+      toast('שירות השליחה אינו זמין כרגע. נסי שוב מאוחר יותר.', 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
@@ -721,7 +727,7 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
-  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked') {
+  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
     State.date = null;
@@ -988,8 +994,10 @@ function wireEvents() {
       startResendTimer();
       toast('קוד חדש נשלח 📲');
     } else if (res.error === 'rate_limited') {
-      const secs = res.retryAfterSecs || 30;
+      const secs = res.retryAfter || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
+    } else if (res.error === 'quota_exceeded') {
+      toast('שירות השליחה אינו זמין כרגע. נסי שוב מאוחר יותר.', 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
