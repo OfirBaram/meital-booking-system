@@ -230,7 +230,12 @@ function setTab(tab) {
   if (tab === 'pulse')  renderPulse();
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
-  if (_tabEl) { _tabEl.classList.remove('tab-entering'); void _tabEl.offsetWidth; _tabEl.classList.add('tab-entering'); }
+  if (_tabEl) {
+    _tabEl.classList.remove('tab-entering');
+    void _tabEl.offsetWidth;
+    _tabEl.classList.add('tab-entering');
+    setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
+  }
 
   if (tab === 'slots')    loadTemplate();
   if (tab === 'calendar') renderVisibleCalendar();

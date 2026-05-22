@@ -319,7 +319,7 @@ test.describe('buildCard — no inline onclick in bookings tab', () => {
 
     await setupMocks(page)
     await page.goto('/admin.html')
-    await loginAndGoTo(page, null)
+    await loginAndGoTo(page, 'bookings')
 
     await expect(page.locator('[data-booking]').first()).toBeVisible({ timeout: 5_000 })
 
@@ -343,7 +343,7 @@ test.describe('buildCard — no inline onclick in bookings tab', () => {
       },
     })
     await page.goto('/admin.html')
-    await loginAndGoTo(page, null)
+    await loginAndGoTo(page, 'bookings')
 
     // Confirm dialog then approve
     await expect(page.locator('[data-action="Approved"]').first()).toBeVisible({ timeout: 5_000 })
