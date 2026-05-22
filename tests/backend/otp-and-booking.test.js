@@ -165,4 +165,45 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
     const [row] = await query(`SELECT lookup_slot_by_date_time('2099-11-15', '10:00')`)
     expect(row.lookup_slot_by_date_time).toBeNull()
   })
+
+  it('returns booking_id_exists (not raw SQLERRM) when booking_id collides', async () => {
+    // The previous test inserted BOOKING_ID into appointments. Try to reuse
+    // it against a brand-new available slot — the slot-status guard passes,
+    // but the appointments INSERT hits the PK unique_violation, which the
+    // EXCEPTION block must translate to 'booking_id_exists' (NOT SQLERRM).
+    const SLOT2_START = '2099-11-15T10:00:00Z'
+    const SLOT2_END   = '2099-11-15T11:30:00Z'
+    await query('DELETE FROM slots WHERE start_time = $1', [SLOT2_START])
+    await query(
+      `INSERT INTO slots (start_time, end_time, status) VALUES ($1, $2, 'available')`,
+      [SLOT2_START, SLOT2_END],
+    )
+    const [{ id: slot2Id }] = await query(
+      'SELECT id FROM slots WHERE start_time = $1', [SLOT2_START],
+    )
+    const [{ id: clientId }] = await query(
+      'SELECT id FROM clients WHERE phone = $1', [CLIENT_PHONE],
+    )
+
+    const [{ result }] = await query(
+      `SELECT lock_slot_for_booking($1, $2, $3::uuid, $4, $5, $6, $7) AS result`,
+      [slot2Id, clientId, BOOKING_ID, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+    )
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('booking_id_exists')
+
+    // Belt and suspenders: the response must not contain any Postgres internals.
+    const blob = JSON.stringify(result)
+    expect(blob).not.toMatch(/duplicate key/i)
+    expect(blob).not.toMatch(/appointments_pkey/i)
+    expect(blob).not.toMatch(/SQLSTATE/i)
+    expect(blob).not.toMatch(/violates/i)
+
+    // Slot2 must have been rolled back to 'available' (function is atomic).
+    const [slot2] = await query('SELECT status FROM slots WHERE id = $1', [slot2Id])
+    expect(slot2.status).toBe('available')
+
+    await query('DELETE FROM slots WHERE start_time = $1', [SLOT2_START])
+  })
 })

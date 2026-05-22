@@ -188,15 +188,19 @@ Deno.serve(async (req) => {
     if (rpcError) throw rpcError
 
     if (!bookingResult.success) {
-      // Normalise: lock_slot_for_booking still leaks SQLERRM in EXCEPTION block (Phase 5 fix).
-      const safeError = (bookingResult.error === 'slot_not_available' ||
-                         bookingResult.error === 'slot_not_found')
-        ? bookingResult.error
-        : 'internal_error'
-      return json(
-        { success: false, error: safeError },
-        safeError === 'internal_error' ? 500 : 409,
-      )
+      // Defense in depth: the RPC now returns typed codes only (see
+      // 20260527000000_lock_slot_safe_errors.sql), but we still whitelist
+      // so a future regression to the SQL can never leak SQLERRM.
+      const SAFE_CODES = new Set([
+        'slot_not_available', 'slot_not_found',
+        'booking_id_exists', 'invalid_reference', 'invalid_input',
+      ])
+      const code = SAFE_CODES.has(bookingResult.error) ? bookingResult.error : 'internal_error'
+      const status =
+        code === 'internal_error'                                  ? 500 :
+        code === 'invalid_input' || code === 'invalid_reference'   ? 400 :
+        409  // slot_not_available, slot_not_found, booking_id_exists
+      return json({ success: false, error: code }, status)
     }
 
     // ── Admin SMS — fire-and-forget ────────────────────────────────────────
