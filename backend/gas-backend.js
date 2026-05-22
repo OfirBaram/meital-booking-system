@@ -1780,6 +1780,125 @@ function verifyConfig() {
   Logger.log('══════════════ verifyConfig END ══════════════');
 }
 
+// ═══════════════════════════════════════════════════════════════
+// ONE-SHOT BACKFILL — created 2026-05-23
+// Fixes calendar_event_id=NULL on appointments approved during the
+// V2 shape-mismatch window. Safe to delete after a verified run.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * One-shot backfill: create Google Calendar events for any approved
+ * appointment whose calendar_event_id IS NULL.
+ *
+ * Idempotent: each row is patched only if it still has NULL after the
+ * Calendar event is successfully created. Errors per row are logged
+ * and skipped — the script never aborts mid-batch.
+ *
+ * Skips past appointments (start_time < now) by default — they don't
+ * belong in the calendar. Flip SKIP_PAST to false to backfill them too.
+ *
+ * Safe to delete after a successful run is verified.
+ */
+function backfillMissingCalendarEvents() {
+  const SKIP_PAST = true;
+  const report = { found: 0, fixed: 0, skipped: 0, errors: [] };
+
+  const rows = SupabaseService.select('appointments',
+    'status=eq.approved' +
+    '&calendar_event_id=is.null' +
+    '&select=id,client_id,slot_id,treatment_name,duration_min' +
+    '&order=created_at.asc');
+
+  if (!rows) {
+    Logger.log('[backfill] Supabase select failed');
+    return { success: false, error: 'supabase_unavailable' };
+  }
+
+  report.found = rows.length;
+  Logger.log('[backfill] Found ' + rows.length +
+             ' approved appointments with NULL calendar_event_id');
+
+  rows.forEach(function (appt) {
+    try {
+      const clientRows = SupabaseService.select('clients',
+        'id=eq.' + appt.client_id + '&select=phone,full_name');
+      const client = clientRows && clientRows[0];
+      if (!client) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'client_not_found' });
+        return;
+      }
+
+      const slotRows = SupabaseService.select('slots',
+        'id=eq.' + appt.slot_id + '&select=start_time,end_time');
+      const slot = slotRows && slotRows[0];
+      if (!slot) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'slot_not_found' });
+        return;
+      }
+
+      const startDt = new Date(slot.start_time);
+      const endDt   = new Date(slot.end_time);
+
+      if (SKIP_PAST && startDt < new Date()) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'in_past' });
+        return;
+      }
+
+      // Legacy shape — same path processApproval uses (well-tested).
+      const calEventId = CalService.createEvent({
+        date:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'yyyy-MM-dd'),
+        time:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'HH:mm'),
+        duration:    appt.duration_min || 90,
+        clientName:  client.full_name,
+        serviceName: appt.treatment_name,
+        bookingId:   appt.id,
+      });
+
+      if (!calEventId) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'no_event_id_returned' });
+        return;
+      }
+
+      // Persist in Supabase.
+      SupabaseService.update('appointments', 'id=eq.' + appt.id, {
+        calendar_event_id: calEventId,
+      });
+
+      // Mirror to Bookings_Log so Sheets stays consistent.
+      SheetMirrorService.upsertBooking({
+        id:                appt.id,
+        client_name:       client.full_name,
+        client_phone:      client.phone,
+        treatment_name:    appt.treatment_name,
+        duration_min:      appt.duration_min,
+        date_label:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'yyyy-MM-dd'),
+        time_label:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'HH:mm'),
+        status:            'Approved',
+        calendar_event_id: calEventId,
+      });
+
+      report.fixed++;
+      Logger.log('[backfill] Fixed ' + appt.id + ' -> ' + calEventId);
+
+      // Pacing — well under Calendar quota.
+      Utilities.sleep(150);
+    } catch (e) {
+      report.skipped++;
+      report.errors.push({ id: appt.id, reason: e.message });
+      Logger.log('[backfill] FAILED ' + appt.id + ': ' + e.message);
+    }
+  });
+
+  Logger.log('[backfill] DONE: found=' + report.found +
+             ' fixed=' + report.fixed +
+             ' skipped=' + report.skipped);
+  return { success: true, report: report };
+}
+
 function installTriggers() {
   const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
   ScriptApp.getProjectTriggers()
