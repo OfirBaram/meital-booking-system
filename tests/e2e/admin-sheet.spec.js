@@ -80,10 +80,15 @@ async function setupMocks(page, bookings = MOCK_BOOKINGS_TODAY) {
     }
   })
 
-  // Stub Supabase Edge Function calls to prevent unmocked requests hanging networkidle
-  await page.route(SB_FUNC_GLOB, route =>
+  // Stub Supabase Edge Function calls; route list-bookings to the `bookings` fixture
+  // so login() sets S.calData correctly and calendar cells show booking dots.
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const sbBody = request.url().endsWith('/list-bookings')
+      ? bookings
+      : { success: true, added: 0 }
     route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify({ success: true, added: 0 }) }))
+      body: JSON.stringify(sbBody) })
+  })
 }
 
 async function loginAndWait(page) {

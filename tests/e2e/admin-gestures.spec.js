@@ -70,9 +70,13 @@ async function setupMocks(page, overrides = {}) {
   })
   // Stub all Supabase Edge Function calls — prevents unmocked real-network
   // requests from hanging page.waitForLoadState('networkidle') in CI.
-  await page.route(SB_FUNC_GLOB, route =>
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const sbBody = request.url().endsWith('/list-bookings')
+      ? MOCK_WITH_PENDING
+      : { success: true, added: 0 }
     route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify({ success: true, added: 0 }) }))
+      body: JSON.stringify(sbBody) })
+  })
 }
 
 async function loginAndGoToBookings(page) {

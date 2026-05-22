@@ -32,8 +32,14 @@ const MOCK_BOOKINGS = {
     {
       id: 'uuid-1', name: 'לקוחה א', phone: '0501111111',
       service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
-      date: '2099-12-01', time: '10:00', status: 'Approved',
+      date: '2099-12-01', time: '10:00', status: 'Pending',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90,
+    },
+    {
+      id: 'uuid-2', name: 'לקוחה ב', phone: '0502222222',
+      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      date: '2099-12-15', time: '11:00', status: 'Approved',
+      timestamp: '2099-11-15T11:00:00+03:00', duration: 90,
     },
   ],
 }
@@ -54,7 +60,7 @@ const MOCK_CLIENTS = {
  * Wire up GAS route interception for admin.html.
  * All admin actions succeed with minimal stub data.
  */
-async function setupAdminMocks(page, overrides = {}) {
+async function setupAdminMocks(page, overrides = {}, sbOverrides = {}) {
   await page.route(GAS_GLOB, async (route, request) => {
     if (request.method() !== 'POST') return route.continue()
 
@@ -77,11 +83,11 @@ async function setupAdminMocks(page, overrides = {}) {
     }
   })
 
-  // Mock Supabase Edge Function calls so tests never hit the real network
+  // Mock Supabase Edge Function calls; sbOverrides can override any path
   await page.route(SB_FUNC_GLOB, async (route, request) => {
-    const sbBody = request.url().endsWith('/list-bookings')
-      ? MOCK_BOOKINGS
-      : { success: true, added: 3 }
+    const path = request.url().split('/').pop()
+    if (sbOverrides[path]) return sbOverrides[path](route, request)
+    const sbBody = path === 'list-bookings' ? MOCK_BOOKINGS : { success: true, added: 3 }
     route.fulfill({ status: 200, contentType: 'application/json',
       body: JSON.stringify(sbBody) })
   })
@@ -138,8 +144,9 @@ test.describe('Admin dashboard — login flow', () => {
   })
 
   test('failed login (unauthorized) shows error message and stays on login', async ({ page }) => {
-    await setupAdminMocks(page, {
-      listBookings: (route) => route.fulfill({
+    // login() now calls SB list-bookings, not GAS listBookings — override the SB route
+    await setupAdminMocks(page, {}, {
+      'list-bookings': (route) => route.fulfill({
         status:      200,
         contentType: 'application/json',
         body:        JSON.stringify({ success: false, error: 'unauthorized' }),
