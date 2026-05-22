@@ -110,8 +110,8 @@ test.describe('Admin dashboard — parse & load safety', () => {
     await setupAdminMocks(page)
     await page.goto('/admin.html')
 
-    // Give scripts time to execute
-    await page.waitForLoadState('networkidle')
+    // networkidle flakes when SB local Docker holds long-polls open; wait on the login panel instead.
+    await expect(page.locator('#js-login')).toBeVisible({ timeout: 10_000 })
 
     expect(jsErrors, 'JS errors on load: ' + jsErrors.join(' | ')).toHaveLength(0)
   })

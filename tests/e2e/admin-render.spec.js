@@ -130,7 +130,8 @@ test.describe('Zero pageerror on each tab render', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
     await setupMocks(page)
     await page.goto('/admin.html')
-    await page.waitForLoadState('networkidle')
+    // networkidle flakes when SB local Docker holds long-polls open; wait on the login panel instead.
+    await expect(page.locator('#js-login')).toBeVisible({ timeout: 10_000 })
     page['_jsErrors'] = jsErrors
   })
 
