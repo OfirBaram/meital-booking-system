@@ -331,7 +331,7 @@ function doPost(e) {
       case 'getTemplate':   return jsonOk(handleGetTemplate(body));
       case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
       case 'generateSlots': return jsonOk(handleGenerateSlots(body));
-      case 'blockDates':    return jsonOk(handleBlockDates(body));
+      case 'blockDates':    return jsonOk(IS_SUPABASE_ENABLED ? handleBlockDatesV2(body) : handleBlockDates(body));
       case 'sendReminders': return jsonOk(handleSendReminders(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));

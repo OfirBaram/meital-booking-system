@@ -573,6 +573,51 @@ function handleAdminActionV2(body) {
   return { success: true, decision: decision, bookingId: bookingId };
 }
 
+// ─── handleBlockDatesV2 ──────────────────────────────────────────
+// Vacation override: bulk-locks all Available slots in a date range.
+// startDate / endDate: 'YYYY-MM-DD' (inclusive, Jerusalem-local).
+// Booked & pending slots are deliberately skipped (clients keep their tor).
+function handleBlockDatesV2(body) {
+  if (!validateAdmin(body && body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  if (!body.startDate || !body.endDate) {
+    return { success: false, error: 'startDate and endDate required' };
+  }
+  if (body.endDate < body.startDate) {
+    return { success: false, error: 'invalid_range' };
+  }
+
+  // Convert Jerusalem-local day boundaries to UTC ISO for the query.
+  var fromUtc = _sb_localToUtcIso(body.startDate, '00:00');
+  var toUtc   = _sb_localToUtcIso(body.endDate,   '23:59');
+
+  var updated = SupabaseService.update('slots',
+    'status=eq.available' +
+    '&start_time=gte.' + encodeURIComponent(fromUtc) +
+    '&start_time=lte.' + encodeURIComponent(toUtc),
+    { status: 'locked', last_updated: new Date().toISOString() }
+  );
+
+  if (!updated) return { success: false, error: 'supabase_unavailable' };
+  var count = updated.length || 0;
+
+  // Best-effort Sheet mirror via the existing V1 handler.
+  // V1 failures never propagate — Supabase is the source of truth.
+  try { handleBlockDates(body); }
+  catch (e) {
+    Logger.log('[V2.blockDates] Sheet mirror failed (non-fatal): ' + e.message);
+  }
+
+  log(LOG_LEVEL.INFO, ACTION.CAL_SYNC,
+      'חופשה (Supabase): ' + count + ' חריצים נחסמו (' +
+      body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'BlockDatesV2', '', '', '',
+      count + ' slots locked ' + body.startDate + ' to ' + body.endDate);
+
+  return { success: true, blocked: count };
+}
+
 // ─── handleMigrateToSupabase ─────────────────────────────────────
 // One-time migration: seeds Supabase from the existing Google Sheets.
 // Idempotent — slots use ON CONFLICT on start_time; clients on phone;
