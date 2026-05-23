@@ -183,6 +183,57 @@ var SheetMirrorService = (function () {
       });
     },
 
+    /**
+     * Mirror a new (or status-changed) slot into Weekly_Slots.
+     * Idempotent: if a row for the same date+time already exists, only the
+     * status is updated; the Day column is preserved.  If no row exists, a
+     * new one is appended with all five columns populated.
+     *
+     * Uses getDisplayValues() per the documented Date Reading Rule to avoid
+     * the 1899-epoch issue when scanning the date/time columns.
+     *
+     * @param {string} startTimeISO  UTC ISO from Supabase slots.start_time
+     * @param {string} endTimeISO    UTC ISO from Supabase slots.end_time
+     * @param {string} sbStatus      Supabase status: available|booked|pending|locked
+     */
+    upsertSlot: function (startTimeISO, endTimeISO, sbStatus) {
+      safe('upsertSlot', function () {
+        var TZ = 'Asia/Jerusalem';
+        var dt = new Date(startTimeISO);
+        var dateStr = Utilities.formatDate(dt, TZ, 'yyyy-MM-dd');
+        var timeStr = Utilities.formatDate(dt, TZ, 'HH:mm');
+        var endStr  = Utilities.formatDate(new Date(endTimeISO), TZ, 'HH:mm');
+        var dayHe   = ['\u05E8\u05D0\u05E9\u05D5\u05DF','\u05E9\u05E0\u05D9','\u05E9\u05DC\u05D9\u05E9\u05D9','\u05E8\u05D1\u05D9\u05E2\u05D9','\u05D7\u05DE\u05D9\u05E9\u05D9','\u05E9\u05D9\u05E9\u05D9','\u05E9\u05D1\u05EA'][dt.getDay()];
+        var sheetStatus = ({
+          available: 'Available',
+          booked:    'Booked',
+          pending:   'Pending_Lock',
+          locked:    'Blocked',
+        })[sbStatus] || 'Available';
+
+        var sh   = slotsSheet();
+        var data = sh.getDataRange().getDisplayValues();
+        for (var r = 1; r < data.length; r++) {
+          var d = String(data[r][SLOT_COL.DATE  - 1]).trim();
+          var t = String(data[r][SLOT_COL.START - 1]).trim();
+          if (d === dateStr && t === timeStr) {
+            sh.getRange(r + 1, SLOT_COL.STATUS).setValue(sheetStatus);
+            SpreadsheetApp.flush();
+            Logger.log('[SheetMirror] upsertSlot: updated row ' + (r + 1) +
+                       ' (' + dateStr + ' ' + timeStr + ') -> ' + sheetStatus);
+            return;
+          }
+        }
+        var newRow = sh.getLastRow() + 1;
+        var rng    = sh.getRange(newRow, 1, 1, 5);
+        rng.setNumberFormat('@');
+        rng.setValues([[dateStr, dayHe, timeStr, endStr, sheetStatus]]);
+        SpreadsheetApp.flush();
+        Logger.log('[SheetMirror] upsertSlot: appended ' + dateStr + ' ' + timeStr +
+                   ' ' + sheetStatus + ' (row ' + newRow + ')');
+      });
+    },
+
     /** Mirror an SMS event to the SMS_LOG sheet. */
     logSms: function (entry) {
       safe('logSms', function () {
@@ -698,6 +749,7 @@ function handleAdminAddSlotV2(body) {
   var existing = SupabaseService.select('slots',
     'start_time=eq.' + encodeURIComponent(startUtc) + '&select=id,status&limit=1');
   if (existing && existing.length > 0) {
+    SheetMirrorService.upsertSlot(startUtc, endUtc, existing[0].status);
     return {
       success: true,
       already_exists: true,
@@ -713,6 +765,8 @@ function handleAdminAddSlotV2(body) {
   });
 
   if (!inserted || !inserted[0]) return { success: false, error: 'insert_failed' };
+
+  SheetMirrorService.upsertSlot(startUtc, endUtc, 'available');
 
   return {
     success: true,
