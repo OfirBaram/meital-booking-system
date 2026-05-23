@@ -311,7 +311,7 @@ function handleGetSlotsV2(body) {
     var date = Utilities.formatDate(dt, 'Asia/Jerusalem', 'yyyy-MM-dd');
     var time = Utilities.formatDate(dt, 'Asia/Jerusalem', 'HH:mm');
     if (!grouped[date]) grouped[date] = [];
-    grouped[date].push(time);
+    grouped[date].push({ id: row.id, time: time });
   });
 
   Logger.log('[PERF][getSlotsV2] total=' + (Date.now() - _tV2) + 'ms');

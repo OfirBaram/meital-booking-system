@@ -53,6 +53,7 @@ const State = {
   service: null,
   date: null,
   time: null,
+  slotId: null,
   name: '',
   phone: '',
   bookingId: null,
@@ -195,24 +196,15 @@ async function apiSendOTP(phone) {
 }
 
 async function apiVerifyAndBook(otp) {
-  const ts = toISO8601Jerusalem(State.date, State.time);
   if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
     const payload = {
-      action: 'verifyAndBook',
+      action:    'verifyAndBook',
       otp,
-      booking: {
-        id:          State.bookingId,
-        name:        State.name,
-        phone:       State.phone,
-        service:     State.service.id,
-        serviceName: State.service.name,
-        date:        State.date,
-        time:        State.time,
-        timestamp:   ts.tagged,
-        timezone:    ts.timezone,
-        duration:    State.service.duration,
-        status:      'Pending',
-      },
+      slotId:    State.slotId,
+      bookingId: State.bookingId,
+      service:   State.service.id,
+      phone:     State.phone,
+      name:      State.name,
     };
     const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
       method: 'POST',
@@ -466,11 +458,16 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  slotsGrid.innerHTML = times.map(t => `
-    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}" data-qa="slot-btn">
-      <span class="font-semibold text-sm">${t}</span>
+  slotsGrid.innerHTML = times.map(t => {
+    const time = typeof t === 'string' ? t : t.time;
+    const id   = typeof t === 'string' ? '' : t.id;
+    return `
+    <div class="time-slot ${State.time === time ? 'selected' : ''}"
+         data-time="${time}" data-slot-id="${id}" data-qa="slot-btn">
+      <span class="font-semibold text-sm">${time}</span>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════
@@ -724,8 +721,9 @@ async function submitOTP(otp) {
   } else if (res.error === 'slot_not_available' || res.error === 'slot_locked') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
-    State.date = null;
-    State.time = null;
+    State.date   = null;
+    State.time   = null;
+    State.slotId = null;
     State.prefetchedMonths = new Set(); // force fresh slot data on next load
     setTimeout(() => showStep(2), 2500);
   } else {
@@ -956,8 +954,9 @@ function wireEvents() {
   document.getElementById('js-calendar').addEventListener('click', e => {
     const day = e.target.closest('[data-date]');
     if (!day || day.classList.contains('disabled')) return;
-    State.date = day.dataset.date;
-    State.time = null;
+    State.date   = day.dataset.date;
+    State.time   = null;
+    State.slotId = null;
     renderCalendar();
     renderSlots(State.date);
     updateNav();
@@ -966,7 +965,8 @@ function wireEvents() {
   document.getElementById('js-slots').addEventListener('click', e => {
     const slot = e.target.closest('[data-time]');
     if (!slot) return;
-    State.time = slot.dataset.time;
+    State.time   = slot.dataset.time;
+    State.slotId = slot.dataset.slotId ? parseInt(slot.dataset.slotId, 10) : null;
     renderSlots(State.date);
     updateNav();
   });
@@ -1013,6 +1013,7 @@ function resetApp() {
   State.service   = null;
   State.date      = null;
   State.time      = null;
+  State.slotId    = null;
   State.name      = '';
   State.phone     = '';
   State.bookingId        = null;
