@@ -349,6 +349,7 @@ function doPost(e) {
       case 'adminToggleSlot':       return jsonOk(handleAdminToggleSlotV2(body));
       case 'adminGetClients':       return jsonOk(handleAdminGetClientsV2(body));
       case 'adminGetClientHistory': return jsonOk(handleAdminGetClientHistoryV2(body));
+      case 'adminDebugInspect': return jsonOk(handleAdminDebugInspect(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -1491,6 +1492,32 @@ function runBackendTests() {
 
   Logger.log('\n══════════════ RESULTS: ' + passed + ' passed, ' + failed + ' failed ══════════════');
   failed === 0 ? Logger.log('🎉 All tests passed!') : Logger.log('⚠️  ' + failed + ' test(s) FAILED');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DEBUG / ADMIN OPERATIONS (read-only deployment fingerprint)
+// ═══════════════════════════════════════════════════════════════
+
+function handleAdminDebugInspect(body) {
+  if (!validateAdmin(body && body.token)) return { success: false, error: "unauthorized" };
+
+  // Probe whether the deployed bundle includes the mirror fix.
+  // Reading the function definition string is safe and bypasses naming concerns.
+  var mirrorHasUpsertSlot = false;
+  try {
+    mirrorHasUpsertSlot = (typeof SheetMirrorService !== "undefined") &&
+                          (typeof SheetMirrorService.upsertSlot === "function");
+  } catch (e) {}
+
+  return {
+    success: true,
+    pong: "debug-inspect-alive",
+    ts: new Date().toISOString(),
+    serverTimeIsrael: Utilities.formatDate(new Date(), "Asia/Jerusalem", "yyyy-MM-dd HH:mm:ss"),
+    isTestMode: (typeof IS_TEST_MODE !== "undefined") ? IS_TEST_MODE : null,
+    isSupabaseEnabled: (typeof IS_SUPABASE_ENABLED !== "undefined") ? IS_SUPABASE_ENABLED : null,
+    mirrorHasUpsertSlot: mirrorHasUpsertSlot
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
