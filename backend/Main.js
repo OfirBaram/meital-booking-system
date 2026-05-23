@@ -384,7 +384,9 @@ function doGet(e) {
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
       try {
-        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
+        const result = IS_SUPABASE_ENABLED
+          ? handleGetSlotsV2({ year: e.parameter.year, month: e.parameter.month })
+          : handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -3161,23 +3163,4 @@ function handleRunFlowTest(body) {
   }
   const report = runFullFlowTest();
   return { success: report.sheetsOk, report: report };
-}
-
-function handleAdminDebugInspect(body) {
-  if (!validateAdmin(body && body.token)) return { success: false, error: "unauthorized" };
-  return {
-    success: true,
-    pong: "debug-inspect-alive",
-    ts: new Date().toISOString(),
-    isTestMode: (typeof IS_TEST_MODE !== "undefined") ? IS_TEST_MODE : null,
-    isSupabaseEnabled: (typeof IS_SUPABASE_ENABLED !== "undefined") ? IS_SUPABASE_ENABLED : null,
-    mirrorHasUpsertSlot: typeof SheetMirrorService !== 'undefined' && typeof SheetMirrorService.upsertSlot === 'function'
-  };
-}
-
-function doGet(e) {
-  return HtmlService.createTemplateFromFile('admin')
-      .evaluate()
-      .setTitle('Meital Admin Console')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }

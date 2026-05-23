@@ -288,14 +288,14 @@ function handleGetSlotsV2(body) {
   var year  = parseInt(body.year,  10) || new Date().getFullYear();
   var month = parseInt(body.month, 10) || (new Date().getMonth() + 1);
 
-  var from    = year + '-' + _sb_pad(month) + '-01T00:00:00+00:00';
+  var from    = year + '-' + _sb_pad(month) + '-01T00:00:00Z';
   var lastDay = new Date(year, month, 0).getDate();
-  var to      = year + '-' + _sb_pad(month) + '-' + _sb_pad(lastDay) + 'T23:59:59+00:00';
+  var to      = year + '-' + _sb_pad(month) + '-' + _sb_pad(lastDay) + 'T23:59:59Z';
 
   var _tSBSelect = Date.now();
   var rows = SupabaseService.select('slots',
-    'start_time=gte.' + from +
-    '&start_time=lte.' + to +
+    'start_time=gte.' + encodeURIComponent(from) +
+    '&start_time=lte.' + encodeURIComponent(to) +
     '&status=eq.available' +
     '&order=start_time.asc' +
     '&select=id,start_time');

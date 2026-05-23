@@ -384,7 +384,9 @@ function doGet(e) {
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
       try {
-        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
+        const result = IS_SUPABASE_ENABLED
+          ? handleGetSlotsV2({ year: e.parameter.year, month: e.parameter.month })
+          : handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
