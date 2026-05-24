@@ -366,6 +366,20 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# ── Public Edge Functions (no Supabase user session required) ─────────
+# These three functions are called by unauthenticated visitors.
+# verify_jwt = false tells the Edge runtime to skip JWT validation;
+# the functions still enforce their own request-body validation.
+# list-bookings and change-status are admin-only and keep JWT ON.
+[functions.get-slots]
+verify_jwt = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-and-book]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
