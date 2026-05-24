@@ -57,7 +57,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e -- --video=on
+        run: npm run test:e2e
 
       # Upload HTML report on failure + videos always.
       # Download from: Actions tab → run → Artifacts section.
