@@ -183,6 +183,57 @@ var SheetMirrorService = (function () {
       });
     },
 
+    /**
+     * Mirror a new (or status-changed) slot into Weekly_Slots.
+     * Idempotent: if a row for the same date+time already exists, only the
+     * status is updated; the Day column is preserved.  If no row exists, a
+     * new one is appended with all five columns populated.
+     *
+     * Uses getDisplayValues() per the documented Date Reading Rule to avoid
+     * the 1899-epoch issue when scanning the date/time columns.
+     *
+     * @param {string} startTimeISO  UTC ISO from Supabase slots.start_time
+     * @param {string} endTimeISO    UTC ISO from Supabase slots.end_time
+     * @param {string} sbStatus      Supabase status: available|booked|pending|locked
+     */
+    upsertSlot: function (startTimeISO, endTimeISO, sbStatus) {
+      safe('upsertSlot', function () {
+        var TZ = 'Asia/Jerusalem';
+        var dt = new Date(startTimeISO);
+        var dateStr = Utilities.formatDate(dt, TZ, 'yyyy-MM-dd');
+        var timeStr = Utilities.formatDate(dt, TZ, 'HH:mm');
+        var endStr  = Utilities.formatDate(new Date(endTimeISO), TZ, 'HH:mm');
+        var dayHe   = ['\u05E8\u05D0\u05E9\u05D5\u05DF','\u05E9\u05E0\u05D9','\u05E9\u05DC\u05D9\u05E9\u05D9','\u05E8\u05D1\u05D9\u05E2\u05D9','\u05D7\u05DE\u05D9\u05E9\u05D9','\u05E9\u05D9\u05E9\u05D9','\u05E9\u05D1\u05EA'][dt.getDay()];
+        var sheetStatus = ({
+          available: 'Available',
+          booked:    'Booked',
+          pending:   'Pending_Lock',
+          locked:    'Blocked',
+        })[sbStatus] || 'Available';
+
+        var sh   = slotsSheet();
+        var data = sh.getDataRange().getDisplayValues();
+        for (var r = 1; r < data.length; r++) {
+          var d = String(data[r][SLOT_COL.DATE  - 1]).trim();
+          var t = String(data[r][SLOT_COL.START - 1]).trim();
+          if (d === dateStr && t === timeStr) {
+            sh.getRange(r + 1, SLOT_COL.STATUS).setValue(sheetStatus);
+            SpreadsheetApp.flush();
+            Logger.log('[SheetMirror] upsertSlot: updated row ' + (r + 1) +
+                       ' (' + dateStr + ' ' + timeStr + ') -> ' + sheetStatus);
+            return;
+          }
+        }
+        var newRow = sh.getLastRow() + 1;
+        var rng    = sh.getRange(newRow, 1, 1, 5);
+        rng.setNumberFormat('@');
+        rng.setValues([[dateStr, dayHe, timeStr, endStr, sheetStatus]]);
+        SpreadsheetApp.flush();
+        Logger.log('[SheetMirror] upsertSlot: appended ' + dateStr + ' ' + timeStr +
+                   ' ' + sheetStatus + ' (row ' + newRow + ')');
+      });
+    },
+
     /** Mirror an SMS event to the SMS_LOG sheet. */
     logSms: function (entry) {
       safe('logSms', function () {
@@ -237,14 +288,14 @@ function handleGetSlotsV2(body) {
   var year  = parseInt(body.year,  10) || new Date().getFullYear();
   var month = parseInt(body.month, 10) || (new Date().getMonth() + 1);
 
-  var from    = year + '-' + _sb_pad(month) + '-01T00:00:00+00:00';
+  var from    = year + '-' + _sb_pad(month) + '-01T00:00:00Z';
   var lastDay = new Date(year, month, 0).getDate();
-  var to      = year + '-' + _sb_pad(month) + '-' + _sb_pad(lastDay) + 'T23:59:59+00:00';
+  var to      = year + '-' + _sb_pad(month) + '-' + _sb_pad(lastDay) + 'T23:59:59Z';
 
   var _tSBSelect = Date.now();
   var rows = SupabaseService.select('slots',
-    'start_time=gte.' + from +
-    '&start_time=lte.' + to +
+    'start_time=gte.' + encodeURIComponent(from) +
+    '&start_time=lte.' + encodeURIComponent(to) +
     '&status=eq.available' +
     '&order=start_time.asc' +
     '&select=id,start_time');
@@ -260,7 +311,7 @@ function handleGetSlotsV2(body) {
     var date = Utilities.formatDate(dt, 'Asia/Jerusalem', 'yyyy-MM-dd');
     var time = Utilities.formatDate(dt, 'Asia/Jerusalem', 'HH:mm');
     if (!grouped[date]) grouped[date] = [];
-    grouped[date].push(time);
+    grouped[date].push({ id: row.id, time: time });
   });
 
   Logger.log('[PERF][getSlotsV2] total=' + (Date.now() - _tV2) + 'ms');
@@ -463,7 +514,8 @@ function handleAdminActionV2(body) {
         startTime:   startDt,
         endTime:     endDt,
       });
-      calEventId = calResult && calResult.id ? calResult.id : null;
+      // createCalendarEvent returns the event ID as a string (or throws).
+      calEventId = calResult || null;
     } catch (e) {
       Logger.log('[handleAdminActionV2] Calendar error (non-fatal): ' + e.message);
     }
@@ -519,6 +571,51 @@ function handleAdminActionV2(body) {
       { bookingId: bookingId, phone: client ? client.phone : '' });
 
   return { success: true, decision: decision, bookingId: bookingId };
+}
+
+// ─── handleBlockDatesV2 ──────────────────────────────────────────
+// Vacation override: bulk-locks all Available slots in a date range.
+// startDate / endDate: 'YYYY-MM-DD' (inclusive, Jerusalem-local).
+// Booked & pending slots are deliberately skipped (clients keep their tor).
+function handleBlockDatesV2(body) {
+  if (!validateAdmin(body && body.token)) {
+    return { success: false, error: 'unauthorized', code: 403 };
+  }
+  if (!body.startDate || !body.endDate) {
+    return { success: false, error: 'startDate and endDate required' };
+  }
+  if (body.endDate < body.startDate) {
+    return { success: false, error: 'invalid_range' };
+  }
+
+  // Convert Jerusalem-local day boundaries to UTC ISO for the query.
+  var fromUtc = _sb_localToUtcIso(body.startDate, '00:00');
+  var toUtc   = _sb_localToUtcIso(body.endDate,   '23:59');
+
+  var updated = SupabaseService.update('slots',
+    'status=eq.available' +
+    '&start_time=gte.' + encodeURIComponent(fromUtc) +
+    '&start_time=lte.' + encodeURIComponent(toUtc),
+    { status: 'locked', last_updated: new Date().toISOString() }
+  );
+
+  if (!updated) return { success: false, error: 'supabase_unavailable' };
+  var count = updated.length || 0;
+
+  // Best-effort Sheet mirror via the existing V1 handler.
+  // V1 failures never propagate — Supabase is the source of truth.
+  try { handleBlockDates(body); }
+  catch (e) {
+    Logger.log('[V2.blockDates] Sheet mirror failed (non-fatal): ' + e.message);
+  }
+
+  log(LOG_LEVEL.INFO, ACTION.CAL_SYNC,
+      'חופשה (Supabase): ' + count + ' חריצים נחסמו (' +
+      body.startDate + ' – ' + body.endDate + ')');
+  writeAuditLog('admin', 'BlockDatesV2', '', '', '',
+      count + ' slots locked ' + body.startDate + ' to ' + body.endDate);
+
+  return { success: true, blocked: count };
 }
 
 // ─── handleMigrateToSupabase ─────────────────────────────────────
@@ -697,6 +794,7 @@ function handleAdminAddSlotV2(body) {
   var existing = SupabaseService.select('slots',
     'start_time=eq.' + encodeURIComponent(startUtc) + '&select=id,status&limit=1');
   if (existing && existing.length > 0) {
+    SheetMirrorService.upsertSlot(startUtc, endUtc, existing[0].status);
     return {
       success: true,
       already_exists: true,
@@ -712,6 +810,8 @@ function handleAdminAddSlotV2(body) {
   });
 
   if (!inserted || !inserted[0]) return { success: false, error: 'insert_failed' };
+
+  SheetMirrorService.upsertSlot(startUtc, endUtc, 'available');
 
   return {
     success: true,

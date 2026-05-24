@@ -53,6 +53,7 @@ const State = {
   service: null,
   date: null,
   time: null,
+  slotId: null,
   name: '',
   phone: '',
   bookingId: null,
@@ -468,11 +469,16 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  slotsGrid.innerHTML = times.map(t => `
-    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}" data-qa="slot-btn">
-      <span class="font-semibold text-sm">${t}</span>
+  slotsGrid.innerHTML = times.map(t => {
+    const time = typeof t === 'string' ? t : t.time;
+    const id   = typeof t === 'string' ? '' : t.id;
+    return `
+    <div class="time-slot ${State.time === time ? 'selected' : ''}"
+         data-time="${time}" data-slot-id="${id}" data-qa="slot-btn">
+      <span class="font-semibold text-sm">${time}</span>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════
@@ -728,8 +734,9 @@ async function submitOTP(otp) {
   } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
-    State.date = null;
-    State.time = null;
+    State.date   = null;
+    State.time   = null;
+    State.slotId = null;
     State.prefetchedMonths = new Set(); // force fresh slot data on next load
     setTimeout(() => showStep(2), 2500);
   } else {
@@ -960,8 +967,9 @@ function wireEvents() {
   document.getElementById('js-calendar').addEventListener('click', e => {
     const day = e.target.closest('[data-date]');
     if (!day || day.classList.contains('disabled')) return;
-    State.date = day.dataset.date;
-    State.time = null;
+    State.date   = day.dataset.date;
+    State.time   = null;
+    State.slotId = null;
     renderCalendar();
     renderSlots(State.date);
     updateNav();
@@ -970,7 +978,8 @@ function wireEvents() {
   document.getElementById('js-slots').addEventListener('click', e => {
     const slot = e.target.closest('[data-time]');
     if (!slot) return;
-    State.time = slot.dataset.time;
+    State.time   = slot.dataset.time;
+    State.slotId = slot.dataset.slotId ? parseInt(slot.dataset.slotId, 10) : null;
     renderSlots(State.date);
     updateNav();
   });
@@ -1019,6 +1028,7 @@ function resetApp() {
   State.service   = null;
   State.date      = null;
   State.time      = null;
+  State.slotId    = null;
   State.name      = '';
   State.phone     = '';
   State.bookingId        = null;

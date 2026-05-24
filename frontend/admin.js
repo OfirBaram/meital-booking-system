@@ -872,6 +872,16 @@ async function init() {
 
   initSheet();
 
+  document.addEventListener('sheet:action', e => {
+    const { action, date } = e.detail;
+    if (action === 'addSlot') {
+      closeSheet();
+      setTab('diary');
+      const dateEl = document.getElementById('js-add-slot-date');
+      if (dateEl) { dateEl.value = date; dateEl.dispatchEvent(new Event('change')); }
+    }
+  });
+
   if (S.token && sessionValid()) {
     try {
       const r = await fetch(
