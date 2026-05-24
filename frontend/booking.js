@@ -734,11 +734,18 @@ async function submitOTP(otp) {
   } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
-    State.date   = null;
-    State.time   = null;
-    State.slotId = null;
-    State.prefetchedMonths = new Set(); // force fresh slot data on next load
-    setTimeout(() => showStep(2), 2500);
+    State.date            = null;
+    State.time            = null;
+    State.slotId          = null;
+    State.slots           = {};           // clear stale cache so the unavailable slot disappears
+    State.prefetchedMonths = new Set();
+    setTimeout(() => {
+      showStep(2);
+      // Reload fresh availability so the user can't re-select the same gone slot
+      if (State.calMonth) {
+        loadMonthSlots(State.calMonth.getFullYear(), State.calMonth.getMonth() + 1);
+      }
+    }, 2500);
   } else {
     document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
     document.getElementById('js-otp-error').classList.remove('hidden');
