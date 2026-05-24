@@ -3,7 +3,7 @@ const APP_CONFIG = {
     // Use the JWT anon key from: Supabase Dashboard → Project Settings → API
     // → "Project API Keys" → "anon public". It must start with "eyJ".
     // The "sb_publishable_..." key is NOT a JWT and will cause 401 errors.
-    SUPABASE_ANON_KEY: "eyJ...",
+    SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8",
     VERSION: "2.0.0",
     IS_MOCK_MODE: false
 };
