@@ -90,6 +90,9 @@ async function sendAdminSms(params: {
 }
 
 // ── Boot diagnostic ───────────────────────────────────────────────────
+// GAS_URL is optional: used only in fire-and-forget admin SMS URLs.
+// Its absence does not break the booking flow — it only produces
+// malformed approve/reject links in the admin notification SMS.
 const _BOOT = {
   SUPABASE_URL:              !!Deno.env.get('SUPABASE_URL'),
   SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
@@ -98,13 +101,20 @@ const _BOOT = {
   TWILIO_ACCOUNT_SID:        !!Deno.env.get('TWILIO_ACCOUNT_SID'),
   TWILIO_AUTH_TOKEN:         !!Deno.env.get('TWILIO_AUTH_TOKEN'),
   TWILIO_FROM_NUMBER:        !!Deno.env.get('TWILIO_FROM_NUMBER'),
-  GAS_URL:                   !!Deno.env.get('GAS_URL'),
+  GAS_URL_optional:          !!Deno.env.get('GAS_URL'),
 }
 console.log('[verify-and-book] boot:', JSON.stringify(_BOOT))
 
-const _MISSING = Object.entries(_BOOT).filter(([, v]) => !v).map(([k]) => k)
+const _REQUIRED = [
+  'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'HMAC_SECRET',
+  'ADMIN_PHONE', 'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_NUMBER',
+] as const
+const _MISSING = _REQUIRED.filter(k => !Deno.env.get(k))
 if (_MISSING.length > 0) {
-  console.error('[verify-and-book] MISSING SECRETS:', _MISSING.join(', '))
+  console.error('[verify-and-book] MISSING REQUIRED SECRETS:', _MISSING.join(', '))
+}
+if (!Deno.env.get('GAS_URL')) {
+  console.warn('[verify-and-book] GAS_URL not set — admin approve/reject SMS links will be broken (non-fatal)')
 }
 
 // ── Request handler ───────────────────────────────────────────────────

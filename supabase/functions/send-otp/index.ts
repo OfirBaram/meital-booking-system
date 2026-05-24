@@ -147,6 +147,14 @@ Deno.serve(async (req) => {
     }
 
     const smsBody   = 'קוד האימות שלך: ' + otp + '. בתוקף ל-5 דקות.'
+
+    // Pre-flight log: confirm exact To/From going to Twilio.
+    // Twilio error 21211 = "To" number invalid. Common causes:
+    //   (a) Trial account: destination must be verified at twilio.com/console/phone-numbers/verified
+    //   (b) fromNumber format wrong: must be E.164 (e.g. +14155551234 or your purchased number)
+    //   (c) Alphanumeric sender ID requires country approval for Israel
+    console.log('[send-otp] step:twilio-preflight to_suffix=****' + phone.slice(-4) + ' from_suffix=****' + fromNumber.slice(-4))
+
     const twilioRes = await fetch(
       'https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json',
       {
