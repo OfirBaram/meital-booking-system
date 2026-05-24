@@ -153,7 +153,7 @@ const LS = {
 };
 
 // ═══════════════════════════════════════════════════
-// API LAYER  (stubs for GAS backend)
+// API LAYER
 // ═══════════════════════════════════════════════════
 
 const FETCH_TIMEOUT_MS = 30_000;
@@ -172,11 +172,12 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 async function apiGetSlots(year, month) {
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const url = `${APP_CONFIG.API_URL}?action=getSlots&year=${year}&month=${month}`;
-    const r   = await fetchWithTimeout(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/get-slots?year=${year}&month=${month}`,
+      { headers: { 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` } }
+    );
+    return r.json();
   }
   return mockSlots(year, month);
 }
@@ -438,9 +439,6 @@ async function loadMonthSlots(year, month) {
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
-      const _slotCount = Object.values(res.slots || {}).reduce((n, a) => n + a.length, 0);
-      console.log('[DEBUG] Slots received: ' + _slotCount + ' for ' + year + '-' + month + ' | days: ' + JSON.stringify(Object.keys(res.slots || {})));
-      if (_slotCount === 0) console.log('[DEBUG] Slots received: 0');
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
@@ -727,7 +725,7 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
-  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked' || res.error === 'slot_not_found') {
+  } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
     State.date = null;
@@ -822,7 +820,7 @@ const LEGAL_CONTENT = {
       <h3 class="font-semibold mt-3">מידע שנאסף</h3>
       <p>האתר אוסף <strong>שם מלא ומספר טלפון בלבד</strong>, לצורך תיאום תורים. המידע אינו משמש למטרות שיווקיות ואינו מועבר לצדדים שלישיים — למעט שירות SMS (Twilio) לאימות זהות בתהליך ההזמנה.</p>
       <h3 class="font-semibold mt-3">אחסון המידע</h3>
-      <p>פרטי ההזמנות נשמרים ב-Google Sheets מאובטח, הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
+      <p>פרטי ההזמנות נשמרים במסד נתונים מאובטח (Supabase), הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
       <h3 class="font-semibold mt-3">זכויות המשתמש</h3>
       <p>ניתן לבקש עיון, תיקון או מחיקה של המידע האישי בכל עת בפנייה ישירה:</p>
       <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
