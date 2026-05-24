@@ -75,7 +75,19 @@ export default APP_CONFIG;
   })
 
   await page.route(SB_FUNC_GLOB, async (route, request) => {
-    const path = request.url().split('/').pop()
+    // Strip query params before comparing — get-slots has ?year=&month=
+    const path = new URL(request.url()).pathname.split('/').pop()
+
+    if (path === 'get-slots') {
+      const u     = new URL(request.url())
+      const year  = parseInt(u.searchParams.get('year'),  10)
+      const month = parseInt(u.searchParams.get('month'), 10)
+      return route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify(makeMockSlots(year, month)),
+      })
+    }
 
     if (path === 'send-otp') {
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
@@ -474,7 +486,19 @@ async function setupMocksWithOverrides(page, overrides = {}) {
   })
 
   await page.route(SB_FUNC_GLOB, async (route, request) => {
-    const path = request.url().split('/').pop()
+    // Strip query params before comparing — get-slots has ?year=&month=
+    const path = new URL(request.url()).pathname.split('/').pop()
+
+    if (path === 'get-slots') {
+      const u     = new URL(request.url())
+      const year  = parseInt(u.searchParams.get('year'),  10)
+      const month = parseInt(u.searchParams.get('month'), 10)
+      return route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify(makeMockSlots(year, month)),
+      })
+    }
 
     if (path === 'send-otp' && overrides.sendOTP) return overrides.sendOTP(route)
     if (path === 'verify-and-book' && overrides.verifyAndBook) return overrides.verifyAndBook(route)

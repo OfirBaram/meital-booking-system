@@ -21,7 +21,7 @@ const OTP_RE           = /^\d{6}$/
 function normalizePhone(raw: string): string | null {
   const digits = (raw ?? '').replace(/\D/g, '')
   if (digits.startsWith('972') && digits.length === 12) return '+' + digits
-  if (digits.startsWith('05') && digits.length === 10)  return '+972' + digits.slice(1)
+  if (digits.startsWith('05')  && digits.length === 10)  return '+972' + digits.slice(1)
   return null
 }
 
@@ -73,11 +73,11 @@ async function sendAdminSms(params: {
     'דחה: ' + rejectUrl
 
   const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    'https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json',
     {
       method: 'POST',
       headers: {
-        'Authorization': 'Basic ' + btoa(`${accountSid}:${authToken}`),
+        'Authorization': 'Basic ' + btoa(accountSid + ':' + authToken),
         'Content-Type':  'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: adminPhone, From: fromNumber, Body: body }),
@@ -85,9 +85,29 @@ async function sendAdminSms(params: {
   )
 
   if (!res.ok) {
-    throw new Error(`Twilio ${res.status}: ${await res.text()}`)
+    throw new Error('Twilio ' + res.status + ': ' + await res.text())
   }
 }
+
+// ── Boot diagnostic ───────────────────────────────────────────────────
+const _BOOT = {
+  SUPABASE_URL:              !!Deno.env.get('SUPABASE_URL'),
+  SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
+  HMAC_SECRET:               !!Deno.env.get('HMAC_SECRET'),
+  ADMIN_PHONE:               !!Deno.env.get('ADMIN_PHONE'),
+  TWILIO_ACCOUNT_SID:        !!Deno.env.get('TWILIO_ACCOUNT_SID'),
+  TWILIO_AUTH_TOKEN:         !!Deno.env.get('TWILIO_AUTH_TOKEN'),
+  TWILIO_FROM_NUMBER:        !!Deno.env.get('TWILIO_FROM_NUMBER'),
+  GAS_URL:                   !!Deno.env.get('GAS_URL'),
+}
+console.log('[verify-and-book] boot:', JSON.stringify(_BOOT))
+
+const _MISSING = Object.entries(_BOOT).filter(([, v]) => !v).map(([k]) => k)
+if (_MISSING.length > 0) {
+  console.error('[verify-and-book] MISSING SECRETS:', _MISSING.join(', '))
+}
+
+// ── Request handler ───────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
@@ -95,52 +115,90 @@ Deno.serve(async (req) => {
   try {
     const { otp, booking } = await req.json()
 
-    // ── Input validation ────────────────────────────────────────────
+    // ── Step 1: input validation ────────────────────────────────────
     if (!OTP_RE.test(otp ?? '')) {
+      console.warn('[verify-and-book] step:input-fail otp_format_invalid')
       return json({ success: false, error: 'invalid_input' }, 400)
     }
 
     const phone = normalizePhone(booking?.phone)
-    if (
-      !phone                                        ||
-      !PHONE_RE.test(phone)                         ||
-      !booking?.id                                  ||
-      !(booking?.name?.trim()?.length >= 2)         ||
-      !VALID_TREATMENTS.includes(booking?.service)  ||
-      !DATE_RE.test(booking?.date ?? '')            ||
-      !TIME_RE.test(booking?.time ?? '')            ||
-      !Number.isInteger(booking?.duration)
-    ) {
+    const inputOk =
+      !!phone                                       &&
+      PHONE_RE.test(phone)                          &&
+      !!booking?.id                                 &&
+      (booking?.name?.trim()?.length >= 2)          &&
+      VALID_TREATMENTS.includes(booking?.service)   &&
+      DATE_RE.test(booking?.date ?? '')             &&
+      TIME_RE.test(booking?.time ?? '')             &&
+      Number.isInteger(booking?.duration)
+
+    if (!inputOk) {
+      console.warn('[verify-and-book] step:input-fail booking_fields_invalid phone_ok=' + !!phone)
       return json({ success: false, error: 'invalid_input' }, 400)
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    console.log('[verify-and-book] step:input-ok phone_suffix=****' + phone.slice(-4) + ' date=' + booking.date + ' time=' + booking.time)
 
-    // ── OTP validation ────────────────────────────────────────────
-    const { data: otpRow } = await supabase
+    // ── Step 2: Supabase client ─────────────────────────────────────
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    if (!supabaseUrl || !serviceKey) {
+      console.error('[verify-and-book] step:client-fail missing secrets at request time')
+      return json({ success: false, error: 'internal_error' }, 500)
+    }
+    const supabase = createClient(supabaseUrl, serviceKey)
+
+    // ── Step 3: fetch the latest valid OTP row ─────────────────────
+    const now = new Date().toISOString()
+    const { data: otpRow, error: fetchError } = await supabase
       .from('otp_requests')
-      .select('id, otp_hash')
+      .select('id, otp_hash, expires_at, used')
       .eq('phone', phone)
       .eq('used', false)
-      .gt('expires_at', new Date().toISOString())
+      .gt('expires_at', now)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
+    if (fetchError) {
+      console.error('[verify-and-book] step:otp-fetch-fail', fetchError.message, '| code:', fetchError.code)
+      throw fetchError
+    }
+
     if (!otpRow) {
+      // Debug: count ALL rows for this phone to distinguish "never sent" from "expired/used"
+      const { count } = await supabase
+        .from('otp_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('phone', phone)
+      console.warn('[verify-and-book] step:otp-not-found phone_suffix=****' + phone.slice(-4) + ' total_rows_for_phone=' + count)
       return json({ success: false, error: 'invalid_otp' }, 400)
     }
 
+    console.log('[verify-and-book] step:otp-row-found id=' + otpRow.id + ' expires_at=' + otpRow.expires_at + ' used=' + otpRow.used)
+
+    // ── Step 4: hash comparison ─────────────────────────────────────
+    // sha256Hex is identical in send-otp and verify-and-book:
+    //   crypto.subtle SHA-256 → Uint8Array → hex string with padStart(2,'0')
     const submittedHash = await sha256Hex(otp)
-    if (submittedHash !== otpRow.otp_hash) {
+    const hashMatch     = submittedHash === otpRow.otp_hash
+
+    if (!hashMatch) {
+      // Log first 8 chars only — enough to see obvious mismatches, not guessable
+      console.warn(
+        '[verify-and-book] step:hash-mismatch' +
+        ' submitted_prefix=' + submittedHash.slice(0, 8) +
+        ' stored_prefix='    + otpRow.otp_hash.slice(0, 8)
+      )
       return json({ success: false, error: 'invalid_otp' }, 400)
     }
 
-    // Mark OTP used — atomic guard against replay / double-submit
-    const { data: updated } = await supabase
+    console.log('[verify-and-book] step:hash-match')
+
+    // ── Step 5: atomic mark-used (replay attack guard) ─────────────
+    // Re-checks used=false and expires_at > now() so a double-submit
+    // or expired-between-check race cannot re-use a consumed OTP.
+    const { data: updated, error: updateError } = await supabase
       .from('otp_requests')
       .update({ used: true })
       .eq('id', otpRow.id)
@@ -148,30 +206,49 @@ Deno.serve(async (req) => {
       .gt('expires_at', new Date().toISOString())
       .select('id')
 
+    if (updateError) {
+      console.error('[verify-and-book] step:mark-used-fail', updateError.message, '| code:', updateError.code)
+      throw updateError
+    }
+
     if (!updated || updated.length === 0) {
+      // This branch fires if: (a) OTP was already consumed by a parallel request,
+      // or (b) OTP expired in the ~1ms gap between the SELECT and this UPDATE.
+      console.warn('[verify-and-book] step:mark-used-zero-rows otp_id=' + otpRow.id + ' likely_cause=race_or_expiry')
       return json({ success: false, error: 'invalid_otp' }, 400)
     }
 
-    // ── Client upsert ───────────────────────────────────────────────
+    console.log('[verify-and-book] step:otp-consumed otp_id=' + updated[0].id)
+
+    // ── Step 6: upsert client ───────────────────────────────────────
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .upsert({ phone, full_name: booking.name.trim() }, { onConflict: 'phone' })
       .select('id')
       .single()
 
-    if (clientError) throw clientError
+    if (clientError) {
+      console.error('[verify-and-book] step:client-upsert-fail', clientError.message)
+      throw clientError
+    }
+    console.log('[verify-and-book] step:client-ok client_id=' + client.id)
 
-    // ── Slot lookup ─────────────────────────────────────────────────
+    // ── Step 7: slot lookup ─────────────────────────────────────────
     const { data: slotId, error: slotLookupError } = await supabase
       .rpc('lookup_slot_by_date_time', { p_date: booking.date, p_time: booking.time })
 
-    if (slotLookupError) throw slotLookupError
-
-    if (!slotId) {
-      return json({ success: false, error: 'slot_not_available' }, 409)
+    if (slotLookupError) {
+      console.error('[verify-and-book] step:slot-lookup-fail', slotLookupError.message)
+      throw slotLookupError
     }
 
-    // ── Admin token + atomic booking ──────────────────────────────────
+    if (!slotId) {
+      console.warn('[verify-and-book] step:slot-not-found date=' + booking.date + ' time=' + booking.time)
+      return json({ success: false, error: 'slot_not_available' }, 409)
+    }
+    console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
+
+    // ── Step 8: atomic booking ──────────────────────────────────────
     const adminToken = await hmacSha256Hex(Deno.env.get('HMAC_SECRET')!, booking.id)
 
     const { data: bookingResult, error: rpcError } = await supabase
@@ -185,25 +262,25 @@ Deno.serve(async (req) => {
         p_admin_token:    adminToken,
       })
 
-    if (rpcError) throw rpcError
+    if (rpcError) {
+      console.error('[verify-and-book] step:lock-rpc-fail', rpcError.message)
+      throw rpcError
+    }
 
     if (!bookingResult.success) {
-      // Defense in depth: the RPC now returns typed codes only (see
-      // 20260527000000_lock_slot_safe_errors.sql), but we still whitelist
-      // so a future regression to the SQL can never leak SQLERRM.
       const SAFE_CODES = new Set([
         'slot_not_available', 'slot_not_found',
         'booking_id_exists', 'invalid_reference', 'invalid_input',
       ])
-      const code = SAFE_CODES.has(bookingResult.error) ? bookingResult.error : 'internal_error'
-      const status =
-        code === 'internal_error'                                  ? 500 :
-        code === 'invalid_input' || code === 'invalid_reference'   ? 400 :
-        409  // slot_not_available, slot_not_found, booking_id_exists
+      const code   = SAFE_CODES.has(bookingResult.error) ? bookingResult.error : 'internal_error'
+      const status = code === 'internal_error' ? 500 : code === 'invalid_input' || code === 'invalid_reference' ? 400 : 409
+      console.warn('[verify-and-book] step:lock-fail code=' + code)
       return json({ success: false, error: code }, status)
     }
 
-    // ── Admin SMS — fire-and-forget ────────────────────────────────────────
+    console.log('[verify-and-book] step:booking-created booking_id=' + booking.id)
+
+    // ── Step 9: admin SMS (fire-and-forget) ─────────────────────────
     sendAdminSms({
       adminPhone:  Deno.env.get('ADMIN_PHONE')!,
       accountSid:  Deno.env.get('TWILIO_ACCOUNT_SID')!,
@@ -217,11 +294,14 @@ Deno.serve(async (req) => {
       time:        booking.time,
       bookingId:   booking.id,
       adminToken,
-    }).catch(e => console.warn('[verify-and-book] admin SMS failed:', e.message))
+    }).catch(e => console.warn('[verify-and-book] admin-sms-fail:', e.message))
 
+    console.log('[verify-and-book] step:complete booking_id=' + booking.id)
     return json({ success: true, bookingId: booking.id, status: 'Pending' })
+
   } catch (err) {
-    console.error('[verify-and-book]', err)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[verify-and-book] unhandled-error:', msg)
     return json({ success: false, error: 'internal_error' }, 500)
   }
 })
