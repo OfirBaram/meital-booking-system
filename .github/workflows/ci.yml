@@ -91,6 +91,9 @@ jobs:
       - name: Start local Supabase (applies migrations automatically)
         run: supabase start
 
+      - name: Export DATABASE_URL for backend tests
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres" >> $GITHUB_ENV
+
       - name: Install dependencies
         run: npm install
 
