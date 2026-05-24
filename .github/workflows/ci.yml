@@ -57,10 +57,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --video=on
 
-      # Upload full HTML report as an artifact when tests fail.
-      # Download from: Actions tab → failed run → Artifacts section.
+      # Upload HTML report on failure + videos always.
+      # Download from: Actions tab → run → Artifacts section.
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: failure()
@@ -68,6 +68,14 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+      - name: Upload Playwright videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-videos
+          path: test-results/
+          retention-days: 3
 
   # ─── Job 3: Backend Tests ──────────────────────────────────────────────────
   backend-tests:
