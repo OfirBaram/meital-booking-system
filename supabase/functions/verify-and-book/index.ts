@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
 
     // ── Step 7: slot lookup ─────────────────────────────────────────
     console.log('[verify-and-book] step:slot-lookup-args p_date="' + String(booking.date) + '" p_time="' + String(booking.time) + '" date_type=' + typeof booking.date + ' time_type=' + typeof booking.time)
-    const { data: slotId, error: slotLookupError } = await supabase
+    const { data: slotData, error: slotLookupError } = await supabase
       .rpc('lookup_slot_by_date_time', { p_date: String(booking.date), p_time: String(booking.time) })
 
     if (slotLookupError) {
@@ -265,8 +265,16 @@ Deno.serve(async (req) => {
       throw slotLookupError
     }
 
+    // The SQL function may be defined as RETURNS bigint (scalar → null when not found)
+    // or RETURNS SETOF bigint (set → [] when not found). An empty array is truthy in JS
+    // so !slotData misses it, causing [] to reach lock_slot_for_booking as a bigint → crash.
+    // Normalise both shapes to a single scalar value or null.
+    const slotId = Array.isArray(slotData)
+      ? (slotData.length > 0 ? slotData[0] : null)
+      : slotData
+
     if (!slotId) {
-      console.warn('[verify-and-book] step:slot-not-found date=' + booking.date + ' time=' + booking.time)
+      console.warn('[verify-and-book] step:slot-not-found date=' + booking.date + ' time=' + booking.time + ' raw=' + JSON.stringify(slotData))
       return json({ success: false, error: 'slot_not_available' }, 409)
     }
     console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
