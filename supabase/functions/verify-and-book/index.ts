@@ -256,6 +256,7 @@ Deno.serve(async (req) => {
     console.log('[verify-and-book] step:client-ok client_id=' + client.id)
 
     // ── Step 7: slot lookup ─────────────────────────────────────────
+    console.log('[verify-and-book] step:slot-lookup-args p_date="' + String(booking.date) + '" p_time="' + String(booking.time) + '" date_type=' + typeof booking.date + ' time_type=' + typeof booking.time)
     const { data: slotId, error: slotLookupError } = await supabase
       .rpc('lookup_slot_by_date_time', { p_date: String(booking.date), p_time: String(booking.time) })
 
