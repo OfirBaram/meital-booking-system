@@ -183,6 +183,17 @@ async function apiGetSlots(year, month) {
   return mockSlots(year, month);
 }
 
+// Converts any Israeli mobile format to E.164 before sending to the backend.
+// State.phone is stored as digits-only (e.g. "0542290881"); the backend
+// normalizePhone() already handles both formats, but sending E.164 from the
+// frontend makes the wire format unambiguous and easier to read in logs.
+function toE164(digits) {
+  const d = (digits || '').replace(/\D/g, '');
+  if (d.startsWith('972') && d.length === 12) return '+' + d;
+  if (d.startsWith('05')  && d.length === 10)  return '+972' + d.slice(1);
+  return digits; // pass through unchanged if format is unrecognised
+}
+
 async function apiSendOTP(phone) {
   if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
     const r = await fetchWithTimeout(
@@ -193,7 +204,7 @@ async function apiSendOTP(phone) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: toE164(phone) }),
       }
     );
     return r.json();
@@ -216,7 +227,7 @@ async function apiVerifyAndBook(otp) {
           booking: {
             id:          State.bookingId,
             name:        State.name,
-            phone:       State.phone,
+            phone:       toE164(State.phone),
             service:     State.service.id,
             serviceName: State.service.name,
             date:        State.date,
