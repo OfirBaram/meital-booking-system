@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
     }
     console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
 
-    // ── Step 8: atomic booking ──────────────────────────────────────
+    // ── Step 8: generate admin token ───────────────────────────────
     const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
     if (!hmacSecret) {
       console.error('[verify-and-book] step:hmac-secret-missing HMAC_SECRET is not set — cannot generate admin token')
@@ -299,36 +299,45 @@ Deno.serve(async (req) => {
     }
     const adminToken = await hmacSha256Hex(hmacSecret, booking.id)
 
-    const { data: bookingResult, error: rpcError } = await supabase
-      .rpc('lock_slot_for_booking', {
-        p_slot_id:        slotId,
-        p_client_id:      client.id,
-        p_booking_id:     booking.id,
-        p_treatment_type: booking.service,
-        p_treatment_name: booking.serviceName,
-        p_duration_min:   booking.duration,
-        p_admin_token:    adminToken,
+    // ── Step 9: lock the slot ───────────────────────────────────────
+    const { data: locked, error: lockError } = await supabase
+      .rpc('lock_slot_for_booking', { p_slot_id: String(slotId) })
+
+    if (lockError) {
+      console.error('[verify-and-book] step:lock-rpc-fail', lockError.message)
+      throw lockError
+    }
+
+    if (!locked) {
+      console.warn('[verify-and-book] step:slot-taken slot_id=' + slotId)
+      return json({ success: false, error: 'slot_not_available' }, 409)
+    }
+    console.log('[verify-and-book] step:slot-locked slot_id=' + slotId)
+
+    // ── Step 10: create appointment record ──────────────────────────
+    const { error: apptError } = await supabase
+      .from('appointments')
+      .insert({
+        id:             booking.id,
+        client_id:      client.id,
+        slot_id:        slotId,
+        treatment_type: booking.service,
+        treatment_name: booking.serviceName,
+        duration_min:   booking.duration,
+        is_verified:    true,
+        status:         'pending',
+        admin_token:    adminToken,
       })
 
-    if (rpcError) {
-      console.error('[verify-and-book] step:lock-rpc-fail', rpcError.message)
-      throw rpcError
-    }
-
-    if (bookingResult == null) {
-      console.error('[verify-and-book] step:lock-rpc-null RPC returned null — check lock_slot_for_booking function exists and returns a row')
-      return json({ success: false, error: 'internal_error' }, 500)
-    }
-
-    if (!bookingResult.success) {
-      const SAFE_CODES = new Set([
-        'slot_not_available', 'slot_not_found',
-        'booking_id_exists', 'invalid_reference', 'invalid_input',
-      ])
-      const code   = SAFE_CODES.has(bookingResult.error) ? bookingResult.error : 'internal_error'
-      const status = code === 'internal_error' ? 500 : code === 'invalid_input' || code === 'invalid_reference' ? 400 : 409
-      console.warn('[verify-and-book] step:lock-fail code=' + code)
-      return json({ success: false, error: code }, status)
+    if (apptError) {
+      console.error('[verify-and-book] step:appt-insert-fail', apptError.message)
+      // Compensate: restore the slot so it can be rebooked
+      await supabase
+        .from('slots')
+        .update({ status: 'available', last_updated: new Date().toISOString() })
+        .eq('id', slotId)
+        .then(() => console.log('[verify-and-book] step:slot-unlocked slot_id=' + slotId))
+      throw apptError
     }
 
     console.log('[verify-and-book] step:booking-created booking_id=' + booking.id)
