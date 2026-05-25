@@ -176,16 +176,28 @@ Deno.serve(async (req) => {
     }
 
     if (!otpRow) {
-      // Debug: count ALL rows for this phone to distinguish "never sent" from "expired/used"
+      // Count ALL rows for this phone to distinguish "never sent" from "expired/used"
       const { count } = await supabase
         .from('otp_requests')
         .select('id', { count: 'exact', head: true })
         .eq('phone', phone)
-      console.warn('[verify-and-book] step:otp-not-found phone_suffix=****' + phone.slice(-4) + ' total_rows_for_phone=' + count)
+      console.warn(
+        '[verify-and-book] step:lookup-result' +
+        ' phone=****' + phone.slice(-4) +
+        ' found=false' +
+        ' total_rows_for_phone=' + count
+      )
       return json({ success: false, error: 'invalid_otp' }, 400)
     }
 
-    console.log('[verify-and-book] step:otp-row-found id=' + otpRow.id + ' expires_at=' + otpRow.expires_at + ' used=' + otpRow.used)
+    console.log(
+      '[verify-and-book] step:lookup-result' +
+      ' phone=****' + phone.slice(-4) +
+      ' found=true' +
+      ' otp_id=' + otpRow.id +
+      ' expires_at=' + otpRow.expires_at +
+      ' hash_prefix=' + otpRow.otp_hash.slice(0, 8)
+    )
 
     // ── Step 4: hash comparison ─────────────────────────────────────
     // sha256Hex is identical in send-otp and verify-and-book:
@@ -277,6 +289,11 @@ Deno.serve(async (req) => {
       throw rpcError
     }
 
+    if (bookingResult == null) {
+      console.error('[verify-and-book] step:lock-rpc-null RPC returned null — check lock_slot_for_booking function exists and returns a row')
+      return json({ success: false, error: 'internal_error' }, 500)
+    }
+
     if (!bookingResult.success) {
       const SAFE_CODES = new Set([
         'slot_not_available', 'slot_not_found',
@@ -310,8 +327,9 @@ Deno.serve(async (req) => {
     return json({ success: true, bookingId: booking.id, status: 'Pending' })
 
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('[verify-and-book] unhandled-error:', msg)
+    const msg   = err instanceof Error ? err.message         : String(err)
+    const stack = err instanceof Error ? (err.stack ?? '—')  : '—'
+    console.error('[verify-and-book] unhandled-error:', msg, '| stack:', stack)
     return json({ success: false, error: 'internal_error' }, 500)
   }
 })
