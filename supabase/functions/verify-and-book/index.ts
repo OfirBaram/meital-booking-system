@@ -274,7 +274,19 @@ Deno.serve(async (req) => {
       : slotData
 
     if (!slotId) {
-      console.warn('[verify-and-book] step:slot-not-found date=' + booking.date + ' time=' + booking.time + ' raw=' + JSON.stringify(slotData))
+      const { data: sampleSlots } = await supabase
+        .from('slots')
+        .select('id, start_time, status')
+        .eq('status', 'available')
+        .order('start_time')
+        .limit(3)
+      console.warn(
+        '[verify-and-book] step:slot-not-found' +
+        ' date=' + booking.date +
+        ' time=' + booking.time +
+        ' raw=' + JSON.stringify(slotData) +
+        ' sample_available_slots=' + JSON.stringify(sampleSlots)
+      )
       return json({ success: false, error: 'slot_not_available' }, 409)
     }
     console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
