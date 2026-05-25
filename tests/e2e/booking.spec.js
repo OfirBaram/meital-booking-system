@@ -302,43 +302,46 @@ test.describe('Step 5 — Confirmation', () => {
 // ─── Performance — instant calendar (pre-fetch) ───────────────────────────────
 
 test.describe('Performance — slot pre-fetch on page load', () => {
-  test('getSlots is called exactly once on load; step 2 uses cached data', async ({ page }) => {
+  test('get-slots is called exactly once on load; step 2 uses cached data', async ({ page }) => {
+    // This test was updated from GAS to Supabase architecture.
+    // booking.js calls apiGetSlots which uses APP_CONFIG.SUPABASE_URL → /functions/v1/get-slots
+    // The old test used API_URL (GAS) which is no longer referenced by the frontend.
     let getSlotsCalls = 0
 
     await page.route('**/config.js', route =>
       route.fulfill({
         status:      200,
         contentType: 'application/javascript',
-        body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };
+        body: `const APP_CONFIG = { SUPABASE_URL: "${TEST_SB_URL}", SUPABASE_ANON_KEY: "test-anon-key", VERSION: "2.0.0", IS_MOCK_MODE: false };
 export default APP_CONFIG;
 `,
       })
     )
 
-    await page.route(GAS_GLOB, async (route, request) => {
-      if (request.method() === 'GET') {
+    await page.route(SB_FUNC_GLOB, async (route, request) => {
+      const path = new URL(request.url()).pathname.split('/').pop()
+
+      if (path === 'get-slots') {
         getSlotsCalls++
-        const url   = new URL(request.url())
-        const year  = parseInt(url.searchParams.get('year'),  10)
-        const month = parseInt(url.searchParams.get('month'), 10)
+        const u     = new URL(request.url())
+        const year  = parseInt(u.searchParams.get('year'),  10)
+        const month = parseInt(u.searchParams.get('month'), 10)
         return route.fulfill({
           status:      200,
           contentType: 'application/json',
           body:        JSON.stringify(makeMockSlots(year, month)),
         })
       }
-      if (request.method() === 'POST') {
-        let body = {}
-        try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
-        if (body.action === 'sendOTP')
-          return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
-      }
+      if (path === 'send-otp')
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+
       return route.continue()
     })
 
     // Register waitForResponse BEFORE goto to avoid the race condition.
+    // URL is /functions/v1/get-slots (kebab-case, not camelCase).
     const prefetchDone = page.waitForResponse(
-      res => res.url().includes('getSlots') && res.status() === 200,
+      res => res.url().includes('get-slots') && res.status() === 200,
       { timeout: 5_000 }
     )
     await page.goto('/')
@@ -353,7 +356,7 @@ export default APP_CONFIG;
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
 
-    // Calendar should appear without an additional getSlots call
+    // Calendar should appear without an additional get-slots call (cache hit)
     await expect(page.locator('.cal-day.avail').first()).toBeVisible({ timeout: 3_000 })
     expect(getSlotsCalls).toBe(1)
 

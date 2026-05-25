@@ -271,7 +271,12 @@ Deno.serve(async (req) => {
     console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
 
     // ── Step 8: atomic booking ──────────────────────────────────────
-    const adminToken = await hmacSha256Hex(Deno.env.get('HMAC_SECRET')!, booking.id)
+    const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+    if (!hmacSecret) {
+      console.error('[verify-and-book] step:hmac-secret-missing HMAC_SECRET is not set — cannot generate admin token')
+      return json({ success: false, error: 'internal_error' }, 500)
+    }
+    const adminToken = await hmacSha256Hex(hmacSecret, booking.id)
 
     const { data: bookingResult, error: rpcError } = await supabase
       .rpc('lock_slot_for_booking', {
