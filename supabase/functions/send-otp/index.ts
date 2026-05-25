@@ -123,6 +123,22 @@ Deno.serve(async (req) => {
     const otpHash   = await sha256Hex(otp)
     const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000).toISOString()
 
+    // Invalidate any previous valid OTPs for this phone before inserting the new one.
+    // Without this, a "resend" creates a second valid row; verify-and-book always picks
+    // the latest, so entering a code from an older SMS produces a hash mismatch.
+    const { error: invalidateError } = await supabase
+      .from('otp_requests')
+      .update({ used: true })
+      .eq('phone', phone)
+      .eq('used', false)
+      .gt('expires_at', new Date().toISOString())
+
+    if (invalidateError) {
+      console.error('[send-otp] step:invalidate-prev-fail', invalidateError.message)
+      // Non-fatal: proceed — worst case the old row is still valid but verify
+      // will pick the newer one we are about to insert.
+    }
+
     const { data: inserted, error: insertError } = await supabase
       .from('otp_requests')
       .insert({ phone, otp_hash: otpHash, expires_at: expiresAt })
@@ -133,7 +149,9 @@ Deno.serve(async (req) => {
       console.error('[send-otp] step:otp-insert-fail', insertError.message, '| code:', insertError.code)
       throw insertError
     }
-    console.log('[send-otp] step:otp-inserted id=' + inserted.id)
+    // Log hash prefix only — safe for logs, never reversible to the OTP value.
+    // Cross-reference with verify-and-book's stored_prefix log to confirm hash parity.
+    console.log('[send-otp] step:otp-inserted id=' + inserted.id + ' hash_prefix=' + otpHash.slice(0, 8))
 
     // ── Step 6: send SMS via Twilio ──────────────────────────────────
     const accountSid = (Deno.env.get('TWILIO_ACCOUNT_SID') ?? '').trim()
