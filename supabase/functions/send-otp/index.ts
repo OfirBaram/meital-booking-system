@@ -1,3 +1,4 @@
+// @deno-types="https://esm.sh/@supabase/supabase-js@2?dts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const CORS = {
