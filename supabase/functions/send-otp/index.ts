@@ -136,15 +136,27 @@ Deno.serve(async (req) => {
     console.log('[send-otp] step:otp-inserted id=' + inserted.id)
 
     // ── Step 6: send SMS via Twilio ──────────────────────────────────
-    const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
-    const authToken  = Deno.env.get('TWILIO_AUTH_TOKEN')
-    const fromNumber = Deno.env.get('TWILIO_FROM_NUMBER')
+    const accountSid = (Deno.env.get('TWILIO_ACCOUNT_SID') ?? '').trim()
+    const authToken  = (Deno.env.get('TWILIO_AUTH_TOKEN')  ?? '').trim()
+    const fromNumber = (Deno.env.get('TWILIO_FROM_NUMBER') ?? '').trim()
 
     if (!accountSid || !authToken || !fromNumber) {
       console.error('[send-otp] step:twilio-config-fail one or more Twilio secrets missing at request time')
       await supabase.from('otp_requests').delete().eq('id', inserted.id)
       return json({ success: false, error: 'internal_error' }, 500)
     }
+
+    // Forensic log: safe partial reveal to diagnose credential issues without exposing secrets.
+    // SID format: AC + 32 hex chars. Shows first 5 (AC + 3) and last 2 — enough to spot a wrong account.
+    // Token length: 32 chars expected. Any other length means hidden chars or wrong secret.
+    console.log(
+      '[send-otp] step:twilio-creds-audit' +
+      ' sid_prefix=' + accountSid.slice(0, 5) +
+      ' sid_suffix=' + accountSid.slice(-2) +
+      ' sid_len='    + accountSid.length +
+      ' token_len='  + authToken.length +
+      ' from_suffix=****' + fromNumber.slice(-4)
+    )
 
     const smsBody   = 'קוד האימות שלך: ' + otp + '. בתוקף ל-5 דקות.'
 
