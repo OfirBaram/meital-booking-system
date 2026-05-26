@@ -1077,6 +1077,10 @@ async function prefetchSlots() {
 }
 
 function init() {
+  if (APP_CONFIG.IS_MAINTENANCE_MODE) {
+    document.getElementById('js-maintenance').classList.remove('hidden');
+    return;
+  }
   renderProgress();
   renderDayHeaders();
   renderServices();

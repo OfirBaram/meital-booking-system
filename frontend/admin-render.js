@@ -119,7 +119,7 @@ export function buildSwipeCard(b) {
 export function renderDiarySlots(slots, container, { onToggle, onDelete }) {
   if (!container) return;
   if (!slots || !slots.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין חריצים בטווח זה</div>';
+    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין תורים בטווח זה</div>';
     return;
   }
 
@@ -289,55 +289,4 @@ export function renderSmsLog(entries, container) {
       + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
       + '</div></div>';
   }).join('');
-}
-
-// ─── renderSlotInventory ──────────────────────────────────────────────────────
-// Already uses data-action="toggle-slot" — extracted unchanged.
-// callbacks: { onToggle(date: string, time: string) }
-
-export function renderSlotInventory(slots, container, { onToggle }) {
-  if (!container) return;
-  if (!slots || !slots.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין חריצים בתקופה הנבחרת</div>';
-    return;
-  }
-
-  const byDate = {};
-  slots.forEach(s => { if (!byDate[s.date]) byDate[s.date] = []; byDate[s.date].push(s); });
-
-  container.innerHTML = Object.entries(byDate)
-    .sort(([a], [b]) => a < b ? -1 : 1)
-    .map(([date, daySlots]) => {
-      const label = date.replace(/-/g, '/');
-      const rows = daySlots.map(s => {
-        const isAvail   = s.status === 'Available';
-        const isBlock   = s.status === 'Blocked';
-        const canToggle = isAvail || isBlock;
-        const hl        = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
-        const stCls     = isAvail ? 'text-green-600 bg-green-50'
-                        : isBlock ? 'text-gray-400 bg-gray-50'
-                        : 'text-text-muted bg-secondary/20';
-        const stLabel   = isAvail ? 'פנוי' : isBlock ? 'חסום' : esc(s.status);
-        const btnLabel  = isAvail ? 'חסום' : 'שחרר';
-        const btnCls    = isAvail ? 'bg-red-100 text-red-500 hover:bg-red-200'
-                        : 'bg-green-100 text-green-600 hover:bg-green-200';
-        return '<div class="flex items-center justify-between py-2 border-b border-secondary/15 last:border-0' + hl + '" data-qa="slot-row">'
-          + '<div class="flex items-center gap-2">'
-          + (s.recentlyCancelled ? '<span title="בוטל לאחרונה">🔄</span>' : '')
-          + '<span class="text-sm font-medium text-text-main">' + esc(s.time) + '</span>'
-          + '<span class="text-xs px-2 py-0.5 rounded-full ' + stCls + '">' + stLabel + '</span></div>'
-          + (canToggle
-            ? '<button data-action="toggle-slot" data-date="' + esc(s.date) + '" data-time="' + esc(s.time) + '"'
-              + ' class="' + btnCls + ' text-xs font-bold px-3 py-1.5 rounded-xl transition-colors active:scale-95"'
-              + ' data-qa="btn-toggle-slot">' + btnLabel + '</button>'
-            : '')
-          + '</div>';
-      }).join('');
-
-      return '<div class="mb-3"><div class="text-xs font-bold text-text-muted mb-1">' + label + '</div>'
-        + '<div class="bg-secondary/10 rounded-xl px-3">' + rows + '</div></div>';
-    }).join('');
-
-  container.querySelectorAll('[data-action="toggle-slot"]').forEach(btn =>
-    btn.addEventListener('click', () => onToggle(btn.dataset.date, btn.dataset.time)));
 }

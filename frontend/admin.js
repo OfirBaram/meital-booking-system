@@ -5,7 +5,7 @@ import {
   esc, fmtPhone,
   LABELS, STATUS_CLS, SERVICE_NAME, DAY_NAMES_HE, SB_STATUS_LABEL, SB_STATUS_CLS,
   buildCard, buildSwipeCard,
-  renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog, renderSlotInventory,
+  renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
 } from './admin-render.js';
 import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
 import { initSheet, openSheet, closeSheet } from './admin-sheet.js';
@@ -40,6 +40,22 @@ async function apiCall(action, extra = {}) {
     body:    JSON.stringify({ action, token: S.token, ...extra }),
     headers: { 'Content-Type': 'text/plain' },
   });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function sbCall(funcName, body) {
+  const r = await fetch(
+    APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ adminToken: S.token, ...body }),
+    }
+  );
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -405,18 +421,28 @@ function renderPulse() {
         </div>`).join('');
 }
 
-async function loadTemplate() {
+const DEFAULT_TEMPLATE = [
+  { dayOfWeek: 0, dayName: 'ראשון',  active: true,  startTimes: [] },
+  { dayOfWeek: 1, dayName: 'שני',    active: true,  startTimes: [] },
+  { dayOfWeek: 2, dayName: 'שלישי',  active: true,  startTimes: [] },
+  { dayOfWeek: 3, dayName: 'רביעי',  active: true,  startTimes: [] },
+  { dayOfWeek: 4, dayName: 'חמישי',  active: true,  startTimes: [] },
+  { dayOfWeek: 5, dayName: 'שישי',   active: false, startTimes: [] },
+  { dayOfWeek: 6, dayName: 'שבת',    active: false, startTimes: [] },
+];
+
+function loadTemplate() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
   document.getElementById('js-save-template').disabled = true;
   loadSystemInfo();
   try {
-    const data = await apiCall('getTemplate');
-    if (!data.success) throw new Error(data.error);
-    S.template = data.template || [];
+    const saved = localStorage.getItem('meital_slot_template');
+    S.template = saved ? JSON.parse(saved) : DEFAULT_TEMPLATE.map(r => ({ ...r }));
     renderTemplate();
   } catch (e) {
-    toast('שגיאה בטעינת התבנית', 'err');
+    S.template = DEFAULT_TEMPLATE.map(r => ({ ...r }));
+    renderTemplate();
   } finally {
     document.getElementById('js-template-skeleton').classList.add('hidden');
     document.getElementById('js-template-rows').classList.remove('hidden');
@@ -452,7 +478,7 @@ function renderTemplate() {
   });
 }
 
-async function saveTemplate() {
+function saveTemplate() {
   const container = document.getElementById('js-template-rows');
   const payload   = S.template.map((row, i) => {
     const cb    = container.querySelector('[data-tmpl-idx="' + i + '"]');
@@ -460,17 +486,16 @@ async function saveTemplate() {
     const active = cb ? cb.checked : row.active;
     const rawTimes = input ? input.value : '';
     const startTimes = rawTimes.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
-    return { dayOfWeek: row.dayOfWeek, startTimes, active };
+    return { dayOfWeek: row.dayOfWeek, dayName: row.dayName, startTimes, active };
   });
 
   const btn = document.getElementById('js-save-template');
   btn.disabled = true;
   btn.innerHTML = '<span class="w-4 h-4 spinner"></span>';
   try {
-    const data = await apiCall('saveTemplate', { template: payload });
-    if (!data.success) throw new Error(data.error);
+    localStorage.setItem('meital_slot_template', JSON.stringify(payload));
     toast('תבנית נשמרה ✅', 'ok');
-    S.template = payload.map((e, i) => ({ ...S.template[i], ...e }));
+    S.template = payload;
   } catch (e) {
     toast('שגיאה בשמירת התבנית', 'err');
   } finally {
@@ -487,7 +512,7 @@ async function generateSlots() {
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
   const template = S.template.filter(r => r.active && r.startTimes?.length > 0);
-  if (template.length === 0) { toast('לא נוצרו חריצים — הגדר שעות בתבנית השבועית תחילה', 'err'); return; }
+  if (template.length === 0) { toast('לא נוצרו תורים — הגדר שעות בתבנית השבועית תחילה', 'err'); return; }
 
   const btn = document.getElementById('js-gen-submit');
   btn.disabled = true;
@@ -508,41 +533,18 @@ async function generateSlots() {
     const data = await r.json();
     if (!data.success) throw new Error(data.error);
     if (data.added === 0) {
-      toast('לא נוצרו חריצים חדשים — הכול כבר קיים', 'ok');
+      toast('לא נוצרו תורים חדשים — הכול כבר קיים', 'ok');
     } else {
-      toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+      toast('נוצרו ' + data.added + ' תורים חדשים ✅', 'ok');
     }
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = 'צור חריצים';
+    btn.innerHTML = 'צור תורים';
   }
 }
 
-async function blockDates() {
-  const startDate = document.getElementById('js-block-start').value;
-  const endDate   = document.getElementById('js-block-end').value;
-  if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) { toast('תאריך לא תקין', 'err'); return; }
-  if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
-
-  const range = startDate === endDate ? startDate.replace(/-/g, '/') : startDate.replace(/-/g,'/') + ' – ' + endDate.replace(/-/g,'/');
-
-  const btn = document.getElementById('js-block-submit');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> חוסם...';
-  try {
-    const data = await apiCall('blockDates', { startDate, endDate });
-    if (!data.success) throw new Error(data.error);
-    toast('נחסמו ' + data.blocked + ' חריצים ✅', 'ok');
-  } catch (e) {
-    toast('שגיאה: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'חסום תאריכים';
-  }
-}
 
 async function loadSystemInfo() {
   try {
@@ -649,42 +651,13 @@ async function toggleAutoSms() {
   }
 }
 
-async function loadSlotInventory() {
-  const el = document.getElementById('js-diary-slots');
-  if (!el) return;
-  el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
-  try {
-    const data = await apiCall('getSlotInventory');
-    if (!data.success) throw new Error(data.error);
-    renderSlotInventory(data.slots || [], el, { onToggle: toggleSlot });
-  } catch (e) {
-    el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
-  }
-}
-
-async function toggleSlot(date, time) {
-  try {
-    const data = await apiCall('toggleSlotStatus', { date, time });
-    if (!data.success) {
-      if (data.error === 'cannot_toggle') {
-        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
-      }
-      throw new Error(data.error || 'error');
-    }
-    const lbl = data.newStatus === 'Available' ? 'שוחרר ✅' : 'חסום ✅';
-    toast(date.replace(/-/g, '/') + ' ' + time + ' — ' + lbl, 'ok');
-    await loadSlotInventory();
-  } catch (e) {
-    toast('שגיאה: ' + e.message, 'err');
-  }
-}
 
 async function loadSmsLog() {
   const el = document.getElementById('js-sms-log');
   if (!el) return;
   el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
   try {
-    const data = await apiCall('getSmsLog');
+    const data = await sbCall('sms-log', {});
     if (!data.success) throw new Error(data.error);
     renderSmsLog(data.entries || [], el);
   } catch (e) {
@@ -692,34 +665,6 @@ async function loadSmsLog() {
   }
 }
 
-async function runHealthCheck() {
-  const btn  = document.getElementById('js-health-submit');
-  const list = document.getElementById('health-checks');
-  const icon = document.getElementById('health-overall');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> בודק...';
-  list.innerHTML = '<p class="text-text-muted text-xs">בודק...</p>';
-  icon.textContent = '';
-  try {
-    const data = await apiCall('healthCheck');
-    if (!data.success) throw new Error(data.error);
-    const EMOJI = { ok: '\u2705', warn: '\u26A0\uFE0F', error: '\u274C' };
-    icon.textContent = EMOJI[data.overall] || '';
-    list.innerHTML = (data.checks || []).map(c =>
-      '<div class="flex items-start gap-2">'
-      + '<span class="shrink-0">' + (EMOJI[c.status] || '?') + '</span>'
-      + '<span class="text-text-muted">' + c.label
-      + (c.detail ? ' <span class="text-text-body">— ' + c.detail + '</span>' : '')
-      + '</span></div>'
-    ).join('');
-  } catch (e) {
-    icon.textContent = '\u274C';
-    list.innerHTML = '<p class="text-red-500 text-xs">' + e.message + '</p>';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'בדוק עכשיו';
-  }
-}
 
 function renderVisibleCalendar() {
   const y  = S.calMonth.getFullYear();
@@ -839,9 +784,7 @@ async function init() {
 
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
-  document.getElementById('js-block-submit').addEventListener('click', blockDates);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
-  document.getElementById('js-health-submit').addEventListener('click', runHealthCheck);
 
   document.getElementById('js-auto-sms-btn').addEventListener('click', toggleAutoSms);
 
@@ -919,14 +862,14 @@ async function loadDiarySlots() {
   const btn = document.getElementById('js-diary-load');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
   try {
-    const r = await apiCall('adminGetSlots', { dateFrom: from, dateTo: to });
+    const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: from, dateTo: to });
     if (!r.success) throw new Error(r.error);
     S.diarySlots = r.slots;
     renderDiarySlots(r.slots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
   } catch (e) {
-    toast('שגיאה בטעינת החריצים', 'err');
+    toast('שגיאה בטעינת התורים', 'err');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'טען חריצים'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'טען תורים'; }
   }
 }
 
@@ -943,7 +886,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
     if (toggleBtn) toggleBtn.textContent = newStatus === 'locked' ? '🔓' : '🔒';
   }
   try {
-    const r = await apiCall('adminToggleSlot', { slotId });
+    const r = await sbCall('admin-slots', { action: 'toggleSlot', slotId });
     if (!r.success) {
       if (r.error === 'cannot_toggle') {
         toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
@@ -961,7 +904,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
 
 async function deleteDiarySlot(slotId) {
   try {
-    const r = await apiCall('adminDeleteSlot', { slotId });
+    const r = await sbCall('admin-slots', { action: 'deleteSlot', slotId });
     if (!r.success) {
       if (r.error === 'cannot_delete_active') toast('לא ניתן למחוק חריץ תפוס', 'warn');
       else throw new Error(r.error);
@@ -988,7 +931,7 @@ async function addDiarySlot() {
   const btn = document.getElementById('js-add-slot-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
   try {
-    const r = await apiCall('adminAddSlot', { date, time });
+    const r = await sbCall('admin-slots', { action: 'addSlot', date, time });
     if (!r.success) throw new Error(r.error);
     if (r.already_exists) {
       toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
@@ -1011,7 +954,7 @@ async function loadClients(search) {
   if (!container) return;
   container.innerHTML = '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
   try {
-    const r = await apiCall('adminGetClients', { search: S.clientSearch });
+    const r = await sbCall('admin-clients', { action: 'getClients', search: S.clientSearch });
     if (!r.success) throw new Error(r.error);
     S.clients = r.clients;
     renderClientList(r.clients, container, { onSelect: loadClientHistory });
@@ -1031,7 +974,7 @@ async function loadClientHistory(phone) {
     '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
 
   try {
-    const r = await apiCall('adminGetClientHistory', { clientPhone: phone });
+    const r = await sbCall('admin-clients', { action: 'getClientHistory', clientPhone: phone });
     if (!r.success) throw new Error(r.error);
     S.clientHistory = r;
     const nameEl  = document.getElementById('js-history-name');

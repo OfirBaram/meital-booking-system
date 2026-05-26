@@ -205,12 +205,12 @@ describe('renderDiarySlots — empty state', () => {
   it('renders empty message when no slots', () => {
     const el = makeDiv()
     renderDiarySlots([], el, { onToggle: noOp(), onDelete: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
+    expect(el.textContent).toContain('אין תורים')
   })
   it('renders empty message for null', () => {
     const el = makeDiv()
     renderDiarySlots(null, el, { onToggle: noOp(), onDelete: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
+    expect(el.textContent).toContain('אין תורים')
   })
 })
 
@@ -425,6 +425,6 @@ describe('renderSlotInventory — empty state', () => {
   it('renders empty message when no slots', () => {
     const el = makeDiv()
     renderSlotInventory([], el, { onToggle: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
+    expect(el.textContent).toContain('אין תורים')
   })
 })
