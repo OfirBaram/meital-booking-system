@@ -143,6 +143,31 @@ test.describe('Admin dashboard — login flow', () => {
     await expect(page.locator('#js-dash')).toBeVisible()
   })
 
+  test('backend HTTP 500 on list-bookings shows login error — not a crash', async ({ page }) => {
+    // Regression: bookings_view was dropped from the live DB (migration tracked but view missing),
+    // causing every list-bookings call to throw "relation not found" → HTTP 500, even when the
+    // password is correct. This test catches that class of failure: correct password + backend 500
+    // must show the login error row, not a white screen or JS crash.
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {}, {
+      'list-bookings': (route) => route.fulfill({
+        status:      500,
+        contentType: 'application/json',
+        body:        JSON.stringify({ success: false, error: 'internal_error' }),
+      }),
+    })
+    await page.goto('/admin.html')
+    await page.locator('#js-token-input').fill(FAKE_TOKEN)
+    await page.locator('#js-login-btn').click()
+
+    await expect(page.locator('#js-login-err')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-dash')).toBeHidden()
+    await expect(page.locator('#js-crash-banner')).toBeHidden()
+    expect(jsErrors, 'JS errors on 500: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+
   test('failed login (unauthorized) shows error message and stays on login', async ({ page }) => {
     // login() now calls SB list-bookings, not GAS listBookings — override the SB route
     await setupAdminMocks(page, {}, {
