@@ -72,14 +72,6 @@ const MOCK_SMS_LOG = {
   ],
 }
 
-const MOCK_INV_SLOTS = {
-  success: true,
-  slots: [
-    { date: '2099-12-01', time: '10:00', status: 'Available', recentlyCancelled: false },
-    { date: '2099-12-01', time: '12:00', status: 'Blocked',   recentlyCancelled: false },
-  ],
-}
-
 async function setupMocks(page, overrides = {}) {
   await page.route(GAS_GLOB, async (route, request) => {
     if (request.method() !== 'POST') return route.continue()
@@ -89,26 +81,26 @@ async function setupMocks(page, overrides = {}) {
     const respond = (data) =>
       route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
     switch (body.action) {
-      case 'listBookings':        return respond(MOCK_BOOKINGS_FULL)
-      case 'adminGetSlots':       return respond(MOCK_DIARY_SLOTS)
-      case 'adminGetClients':     return respond(MOCK_CLIENTS)
-      case 'adminGetClientHistory': return respond(MOCK_CLIENT_HISTORY)
-      case 'getSmsLog':           return respond(MOCK_SMS_LOG)
-      case 'getSlotInventory':    return respond(MOCK_INV_SLOTS)
-      case 'getSystemInfo':       return respond({ success: true, reminderLastRun: null })
-      case 'getTemplate':         return respond({ success: true, template: [] })
-      case 'getAutoSms':          return respond({ success: true, enabled: true })
-      default:                    return respond({ success: true })
+      case 'listBookings':  return respond(MOCK_BOOKINGS_FULL)
+      case 'getSystemInfo': return respond({ success: true, reminderLastRun: null })
+      case 'getAutoSms':    return respond({ success: true, enabled: true })
+      default:              return respond({ success: true })
     }
   })
-  // Stub Supabase Edge Function calls; route list-bookings to the full fixture
-  // so login() gets real booking data and render() populates #js-cards.
   await page.route(SB_FUNC_GLOB, async (route, request) => {
-    const sbBody = request.url().endsWith('/list-bookings')
-      ? MOCK_BOOKINGS_FULL
-      : { success: true, added: 0 }
-    route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify(sbBody) })
+    const url = request.url()
+    let sbBody = {}
+    try { sbBody = JSON.parse(request.postData()) } catch { /* */ }
+    const action = sbBody.action || ''
+    if (overrides[action]) return overrides[action](route, sbBody)
+    const respond = (data) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
+    if (url.endsWith('/list-bookings'))  return respond(MOCK_BOOKINGS_FULL)
+    if (url.endsWith('/change-status'))  return respond({ success: true })
+    if (url.endsWith('/admin-slots'))    return respond(action === 'getSlots' ? MOCK_DIARY_SLOTS : { success: true })
+    if (url.endsWith('/admin-clients'))  return respond(action === 'getClients' ? MOCK_CLIENTS : action === 'getClientHistory' ? MOCK_CLIENT_HISTORY : { success: true })
+    if (url.endsWith('/sms-log'))        return respond(MOCK_SMS_LOG)
+    return respond({ success: true, added: 0 })
   })
 }
 
@@ -188,7 +180,7 @@ test.describe('renderDiarySlots — no inline onclick in DOM', () => {
     const apiCalls = []
 
     await setupMocks(page, {
-      adminToggleSlot: (route, body) => {
+      toggleSlot: (route, body) => {
         apiCalls.push(body.slotId)
         return route.fulfill({
           status: 200, contentType: 'application/json',

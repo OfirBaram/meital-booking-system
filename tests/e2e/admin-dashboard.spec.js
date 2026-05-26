@@ -73,23 +73,28 @@ async function setupAdminMocks(page, overrides = {}, sbOverrides = {}) {
     if (overrides[body.action]) return overrides[body.action](route, body)
 
     switch (body.action) {
-      case 'listBookings':      return respond(MOCK_BOOKINGS)
-      case 'adminGetSlots':     return respond(MOCK_SLOTS)
-      case 'adminGetClients':   return respond(MOCK_CLIENTS)
-      case 'getSmsLog':         return respond({ success: true, logs: [] })
-      case 'getSystemInfo':     return respond({ success: true, reminderLastRun: null })
-      case 'getTemplate':       return respond({ success: true, template: [] })
-      default:                  return respond({ success: false, error: 'not_mocked' })
+      case 'listBookings':  return respond(MOCK_BOOKINGS)
+      case 'getSystemInfo': return respond({ success: true, reminderLastRun: null })
+      default:              return respond({ success: true })
     }
   })
 
-  // Mock Supabase Edge Function calls; sbOverrides can override any path
   await page.route(SB_FUNC_GLOB, async (route, request) => {
-    const path = request.url().split('/').pop()
+    const url = request.url()
+    const path = url.split('/').pop()
     if (sbOverrides[path]) return sbOverrides[path](route, request)
-    const sbBody = path === 'list-bookings' ? MOCK_BOOKINGS : { success: true, added: 3 }
-    route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify(sbBody) })
+    let sbBody = {}
+    try { sbBody = JSON.parse(request.postData()) } catch { /* */ }
+    const action = sbBody.action || ''
+    if (overrides[action]) return overrides[action](route, sbBody)
+    const respond = (data) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
+    if (url.endsWith('/list-bookings'))  return respond(MOCK_BOOKINGS)
+    if (url.endsWith('/change-status'))  return respond({ success: true })
+    if (url.endsWith('/admin-slots'))    return respond(action === 'getSlots' ? MOCK_SLOTS : { success: true })
+    if (url.endsWith('/admin-clients'))  return respond(action === 'getClients' ? MOCK_CLIENTS : { success: true, appointments: [] })
+    if (url.endsWith('/sms-log'))        return respond({ success: true, entries: [] })
+    return respond({ success: true, added: 3 })
   })
 }
 
@@ -296,7 +301,7 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients: jsonRoute(MOCK_CLIENTS_FULL),
+      getClients: jsonRoute(MOCK_CLIENTS_FULL),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -317,8 +322,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -342,8 +347,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute({ success: false, error: 'client_not_found' }),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute({ success: false, error: 'client_not_found' }),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -365,8 +370,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
     })
     await page.goto('/admin.html')
 
