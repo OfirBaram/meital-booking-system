@@ -1,4 +1,5 @@
 const APP_CONFIG = {
+    API_URL:           "https://script.google.com/macros/s/AKfycbw32cmN1CPb6q91eSOyU3GaP-lm9FAHMrYSc9goyOKFpxeROJMl6oFg2Q_WpxMiFzsfUw/exec",
     SUPABASE_URL:      "https://callmnxlcganwugxwiym.supabase.co",
     // Use the JWT anon key from: Supabase Dashboard → Project Settings → API
     // → "Project API Keys" → "anon public". It must start with "eyJ".

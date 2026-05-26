@@ -143,15 +143,24 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
     const slotId = slotRow.lookup_slot_by_date_time
     expect(slotId).not.toBeNull()
 
-    const [{ result }] = await query(
-      `SELECT lock_slot_for_booking($1, $2, $3::uuid, $4, $5, $6, $7) AS result`,
-      [slotId, clientId, BOOKING_ID, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+    // lock_slot_for_booking now takes a single TEXT arg and returns BOOLEAN
+    const [{ lock_slot_for_booking: locked }] = await query(
+      `SELECT lock_slot_for_booking($1::TEXT)`,
+      [slotId],
     )
-    expect(result.success).toBe(true)
-    expect(result.booking_id).toBe(BOOKING_ID)
+    expect(locked).toBe(true)
 
+    // Appointment INSERT is now the Edge Function responsibility (app layer)
+    await query(
+      `INSERT INTO appointments
+         (id, slot_id, client_id, treatment_type, treatment_name, duration_min, admin_token, status, is_verified)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, 'pending', true)`,
+      [BOOKING_ID, slotId, clientId, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+    )
+
+    // Slot must be 'locked' (simplified function sets 'locked', not 'pending')
     const [slot] = await query('SELECT status FROM slots WHERE id = $1', [slotId])
-    expect(slot.status).toBe('pending')
+    expect(slot.status).toBe('locked')
 
     const [appt] = await query(
       'SELECT status, treatment_type FROM appointments WHERE id = $1',
@@ -162,15 +171,14 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
   })
 
   it('lookup_slot_by_date_time returns null once slot is no longer available', async () => {
+    // Slot was locked by the previous test; lookup filters status = 'available' only
     const [row] = await query(`SELECT lookup_slot_by_date_time('2099-11-15', '10:00')`)
     expect(row.lookup_slot_by_date_time).toBeNull()
   })
 
-  it('returns booking_id_exists (not raw SQLERRM) when booking_id collides', async () => {
-    // The previous test inserted BOOKING_ID into appointments. Try to reuse
-    // it against a brand-new available slot — the slot-status guard passes,
-    // but the appointments INSERT hits the PK unique_violation, which the
-    // EXCEPTION block must translate to 'booking_id_exists' (NOT SQLERRM).
+  it('DB enforces unique booking_id — duplicate insert raises a unique_violation', async () => {
+    // lock_slot_for_booking no longer handles booking_id collisions (moved to app layer).
+    // Verify the DB unique constraint still exists so BookingService can rely on code 23505.
     const SLOT2_START = '2099-11-15T10:00:00Z'
     const SLOT2_END   = '2099-11-15T11:30:00Z'
     await query('DELETE FROM slots WHERE start_time = $1', [SLOT2_START])
@@ -185,24 +193,23 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
       'SELECT id FROM clients WHERE phone = $1', [CLIENT_PHONE],
     )
 
-    const [{ result }] = await query(
-      `SELECT lock_slot_for_booking($1, $2, $3::uuid, $4, $5, $6, $7) AS result`,
-      [slot2Id, clientId, BOOKING_ID, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+    const [{ lock_slot_for_booking: locked2 }] = await query(
+      `SELECT lock_slot_for_booking($1::TEXT)`, [slot2Id],
     )
+    expect(locked2).toBe(true)
 
-    expect(result.success).toBe(false)
-    expect(result.error).toBe('booking_id_exists')
-
-    // Belt and suspenders: the response must not contain any Postgres internals.
-    const blob = JSON.stringify(result)
-    expect(blob).not.toMatch(/duplicate key/i)
-    expect(blob).not.toMatch(/appointments_pkey/i)
-    expect(blob).not.toMatch(/SQLSTATE/i)
-    expect(blob).not.toMatch(/violates/i)
-
-    // Slot2 must have been rolled back to 'available' (function is atomic).
-    const [slot2] = await query('SELECT status FROM slots WHERE id = $1', [slot2Id])
-    expect(slot2.status).toBe('available')
+    let caughtCode = null
+    try {
+      await query(
+        `INSERT INTO appointments
+           (id, slot_id, client_id, treatment_type, treatment_name, duration_min, admin_token, status, is_verified)
+         VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, 'pending', true)`,
+        [BOOKING_ID, slot2Id, clientId, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+      )
+    } catch (err) {
+      caughtCode = err.code
+    }
+    expect(caughtCode).toBe('23505')
 
     await query('DELETE FROM slots WHERE start_time = $1', [SLOT2_START])
   })

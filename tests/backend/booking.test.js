@@ -82,12 +82,12 @@ describe('BookingService.bookSlot', () => {
     expect(appt.admin_token).toBe('test-hmac-token');
   });
 
-  it('marks the slot as pending', async () => {
+  it('marks the slot as locked', async () => {
     const { rows } = await pool.query(
       `SELECT status FROM slots WHERE id = $1`,
       [slotId]
     );
-    expect(rows[0].status).toBe('pending');
+    expect(rows[0].status).toBe('locked');
   });
 
   it('returns slot_not_available when the same slot is booked again', async () => {
@@ -111,6 +111,39 @@ describe('BookingService.bookSlot', () => {
       [BOOKING_ID_2]
     );
     expect(rows).toHaveLength(0);
+  });
+
+  it('returns booking_id_exists when booking_id collides with a different slot', async () => {
+    // Create a fresh available slot
+    const SLOT2_START = '2099-12-01T11:00:00Z';
+    await pool.query(`DELETE FROM slots WHERE start_time = $1::timestamptz`, [SLOT2_START]);
+    const { rows: s2rows } = await pool.query(
+      `INSERT INTO slots (start_time, end_time, status)
+       VALUES ($1::timestamptz, $1::timestamptz + interval '90 minutes', 'available')
+       RETURNING id`,
+      [SLOT2_START]
+    );
+    const slot2Id = Number(s2rows[0].id);
+
+    // Reuse BOOKING_ID (already inserted in test 1) with the new slot
+    const result = await service.bookSlot({
+      slotId:        slot2Id,
+      clientId,
+      bookingId:     BOOKING_ID,   // collision
+      treatmentType: 'gel_classic',
+      treatmentName: 'gel classic',
+      durationMin:   90,
+      adminToken:    'test-hmac-token-dup',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('booking_id_exists');
+
+    // Slot2 must be rolled back to 'available'
+    const { rows } = await pool.query(`SELECT status FROM slots WHERE id = $1`, [slot2Id]);
+    expect(rows[0].status).toBe('available');
+
+    await pool.query(`DELETE FROM slots WHERE start_time = $1::timestamptz`, [SLOT2_START]);
   });
 
 });
