@@ -489,13 +489,13 @@ git push origin feature/...
 git -C "$(git rev-parse --show-toplevel)" status
 ```
 
-### File Patch Protocol (using `scripts/ai_tools.py`)
+### File Patch Protocol (using `skills/utils/ai_tools.py`)
 
 For any change to `frontend/booking.js` or other JS/HTML files, use the Python patch utility:
 
 ```bash
 PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
-$PYTHON scripts/ai_tools.py patch frontend/booking.js \
+$PYTHON skills/utils/ai_tools.py patch frontend/booking.js \
   --old "old string" \
   --new "new string"
 ```
@@ -504,6 +504,7 @@ Or write a one-off inline script:
 
 ```bash
 $PYTHON << 'PYEOF'
+sys.path.insert(0, 'skills/utils')
 from ai_tools import patch_file, verify_contains
 patch_file('frontend/booking.js', old_str, new_str)
 verify_contains('frontend/booking.js', 'expected snippet')
@@ -738,3 +739,32 @@ The `\'` escape works in all browsers and avoids the adjacent-literal parse erro
 (`#js-crash-banner`) instead of a blank white screen if any JS file fails to
 load or parse. Do not remove or relocate this handler.
   - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).
+
+## 17. Skills Directory
+
+Reusable scripts are organized in `skills/` (distinct from `scripts/` which contains
+one-off historical patch files from development):
+
+| Path | Purpose | When to use |
+|------|---------|-------------|
+| `skills/db/list_supabase_tables.py` | Lists tables via PostgREST + information_schema | Inspecting live DB schema |
+| `skills/utils/ai_tools.py` | Safe file-patch utility (`patch_file`, `verify_contains`) | All JS/HTML file edits |
+| `skills/setup/` | One-time setup scripts (empty — add as needed) | Initial environment setup |
+
+### How to use skills/utils/ai_tools.py
+
+```bash
+PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
+$PYTHON skills/utils/ai_tools.py patch frontend/booking.js   --old "old string"   --new "new string"
+```
+
+Or inline:
+```bash
+$PYTHON << 'PYEOF'
+import sys; sys.path.insert(0, 'skills/utils')
+from ai_tools import patch_file, verify_contains
+patch_file('frontend/booking.js', old_str, new_str)
+PYEOF
+```
+
+See `PROJECT_NOTES.md` for full architecture overview and confirmed findings.
