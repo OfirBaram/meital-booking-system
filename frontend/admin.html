@@ -461,29 +461,7 @@
         </div>
         <button id="js-gen-submit"
           class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          צור חריצים
-        </button>
-      </div>
-
-      <!-- Vacation Override -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">חסימת תאריכים — חופשה</div>
-        <p class="text-xs text-text-muted mb-3">חוסם את כל החריצים הפנויים בטווח הנבחר.</p>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">מתאריך</label>
-            <input id="js-block-start" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">עד תאריך</label>
-            <input id="js-block-end" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-        </div>
-        <button id="js-block-submit"
-          class="w-full bg-red-400 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          חסום תאריכים
+          צור תורים
         </button>
       </div>
 
@@ -504,20 +482,6 @@
         </button>
       </div>
 
-      <!-- HEALTH MONITOR CARD (Phase 4) -->
-      <div class="card rounded-2xl p-4 shadow-sm border border-secondary/20 mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-bold text-base">בדיקת תקינות מערכת</h2>
-          <span id="health-overall" class="text-lg"></span>
-        </div>
-        <div id="health-checks" class="space-y-1.5 text-sm mb-3">
-          <p class="text-text-muted text-xs">לחץ כדי לבדוק...</p>
-        </div>
-        <button id="js-health-submit"
-          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          בדוק עכשיו
-        </button>
-      </div>
     </main>
 
     <!-- ── TAB: DIARY (ניהול יומן + תקשורת) ── -->
@@ -541,13 +505,13 @@
         </div>
         <button id="js-diary-load"
           class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px] text-sm">
-          טען חריצים
+          טען תורים
         </button>
       </div>
 
       <!-- Slot list grouped by date -->
       <div id="js-diary-slots" data-qa="slot-inventory" class="space-y-4 mb-4">
-        <div class="text-xs text-text-muted text-center py-8">בחרי טווח תאריכים ולחצי "טען חריצים"</div>
+        <div class="text-xs text-text-muted text-center py-8">בחרי טווח תאריכים ולחצי "טען תורים"</div>
       </div>
 
       <!-- Add single slot -->

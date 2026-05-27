@@ -20,7 +20,6 @@ import {
   renderClientList,
   renderClientHistory,
   renderSmsLog,
-  renderSlotInventory,
   LABELS,
   STATUS_CLS,
   SB_STATUS_LABEL,
@@ -205,12 +204,12 @@ describe('renderDiarySlots — empty state', () => {
   it('renders empty message when no slots', () => {
     const el = makeDiv()
     renderDiarySlots([], el, { onToggle: noOp(), onDelete: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
+    expect(el.textContent).toContain('אין תורים')
   })
   it('renders empty message for null', () => {
     const el = makeDiv()
     renderDiarySlots(null, el, { onToggle: noOp(), onDelete: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
+    expect(el.textContent).toContain('אין תורים')
   })
 })
 
@@ -379,52 +378,3 @@ describe('renderSmsLog', () => {
   })
 })
 
-// ─── renderSlotInventory ──────────────────────────────────────────────────────
-
-const INV_SLOTS = [
-  { date: '2026-06-01', time: '10:00', status: 'Available', recentlyCancelled: false },
-  { date: '2026-06-01', time: '12:00', status: 'Blocked',   recentlyCancelled: false },
-  { date: '2026-06-01', time: '14:00', status: 'Booked',    recentlyCancelled: false },
-]
-
-describe('renderSlotInventory — no onclick', () => {
-  it('renders zero onclick= attributes', () => {
-    const el = makeDiv()
-    renderSlotInventory(INV_SLOTS, el, { onToggle: noOp() })
-    expect(el.innerHTML).not.toContain('onclick=')
-  })
-})
-
-describe('renderSlotInventory — data-action attributes', () => {
-  it('Available and Blocked slots have toggle buttons; Booked does not', () => {
-    const el = makeDiv()
-    renderSlotInventory(INV_SLOTS, el, { onToggle: noOp() })
-    expect(el.querySelectorAll('[data-action="toggle-slot"]').length).toBe(2)
-  })
-  it('toggle button carries data-date and data-time', () => {
-    const el = makeDiv()
-    renderSlotInventory(INV_SLOTS, el, { onToggle: noOp() })
-    const btn = el.querySelector('[data-action="toggle-slot"]')
-    expect(btn.dataset.date).toBe('2026-06-01')
-    expect(btn.dataset.time).toBe('10:00')
-  })
-})
-
-describe('renderSlotInventory — callback wiring', () => {
-  it('clicking toggle-slot calls onToggle(date, time)', () => {
-    const onToggle = vi.fn()
-    const el = makeDiv()
-    renderSlotInventory(INV_SLOTS, el, { onToggle })
-    el.querySelector('[data-action="toggle-slot"]').click()
-    expect(onToggle).toHaveBeenCalledOnce()
-    expect(onToggle).toHaveBeenCalledWith('2026-06-01', '10:00')
-  })
-})
-
-describe('renderSlotInventory — empty state', () => {
-  it('renders empty message when no slots', () => {
-    const el = makeDiv()
-    renderSlotInventory([], el, { onToggle: noOp() })
-    expect(el.textContent).toContain('אין חריצים')
-  })
-})

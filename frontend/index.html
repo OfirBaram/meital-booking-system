@@ -166,6 +166,20 @@
     }
     [id^="step-"]:not(.hidden) { animation: stepFadeIn .15s ease-out both; }
     .cal-day.animate-pulse { min-height: 2rem; }
+    /* ── Maintenance Mode ── */
+    @keyframes maintFloat {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+    @keyframes maintSparkle {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50%       { opacity: .7; transform: scale(1.2) rotate(20deg); }
+    }
+    .maint-float   { animation: maintFloat 4s ease-in-out infinite; }
+    .maint-sparkle { animation: maintSparkle 3s ease-in-out infinite; }
+    .maint-wa-btn  { transition: transform .2s, box-shadow .2s; }
+    .maint-wa-btn:hover  { transform: scale(1.04); box-shadow: 0 12px 32px rgba(37,211,102,.4); }
+    .maint-wa-btn:active { transform: scale(1); }
   </style>
 </head>
 
@@ -406,6 +420,60 @@
         class="overflow-y-auto px-4 py-4 text-sm text-text-main leading-relaxed space-y-3 overscroll-contain">
       </div>
     </div>
+  </div>
+
+  <!-- ═══════════════════ MAINTENANCE MODE ═══════════════════ -->
+  <div id="js-maintenance" class="hidden fixed inset-0 z-[80] bg-cream flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+
+    <!-- Top accent bar -->
+    <div class="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
+
+    <!-- Logo circle -->
+    <div class="relative mb-10">
+      <div class="w-28 h-28 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-xl shadow-[#A67C8E]/25 maint-float">
+        <span class="text-white font-black text-5xl leading-none select-none">מ</span>
+      </div>
+      <span class="absolute -top-2 -right-2 text-2xl maint-sparkle select-none" aria-hidden="true">✨</span>
+    </div>
+
+    <!-- Heading -->
+    <h1 class="text-4xl font-black text-[#4A2E3A] mb-6 leading-tight tracking-tight">
+      הסטודיו מתחדש! ✨
+    </h1>
+
+    <!-- Decorative divider -->
+    <div class="w-16 h-[2px] rounded-full mb-6" style="background:linear-gradient(90deg,transparent,#DDC3A5,transparent)"></div>
+
+    <!-- Body text -->
+    <p class="text-[#9B8090] text-[1.05rem] leading-relaxed max-w-[19rem] mb-3">
+      אנחנו עובדים ברגעים אלו על שדרוג המערכת כדי להבטיח לך את חוויית קביעת התורים הנוחה והמהירה ביותר.
+    </p>
+    <p class="text-[#4A2E3A] font-semibold text-base mb-8">
+      נחזור לפעילות מלאה ממש בקרוב 🌸
+    </p>
+
+    <!-- CTA label -->
+    <p class="text-[#9B8090] text-sm mb-5">
+      בינתיים, נשמח לעזור לך בקביעת תור בשיחה אישית:
+    </p>
+
+    <!-- WhatsApp button -->
+    <a href="https://api.whatsapp.com/send/?phone=972547686865"
+       target="_blank" rel="noopener noreferrer"
+       class="maint-wa-btn inline-flex items-center gap-3 bg-[#25D366] text-white font-bold text-[1.05rem] px-8 py-[1.1rem] rounded-2xl shadow-lg shadow-[#25D366]/30 select-none">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 shrink-0" aria-hidden="true">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+      </svg>
+      קביעת תור בוואטסאפ
+    </a>
+
+    <!-- Brand signature -->
+    <p class="absolute bottom-7 text-xs text-[#9B8090]/60 font-light select-none">
+      מיטל שבע ברעם — לק ג'ל בוטק
+    </p>
+
+    <!-- Bottom accent bar -->
+    <div class="absolute bottom-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
   </div>
 
   <script type="module" src="./booking.js"></script>

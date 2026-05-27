@@ -59,8 +59,8 @@ jobs:
       - name: Run E2E tests
         run: npm run test:e2e
 
-      # Upload full HTML report as an artifact when tests fail.
-      # Download from: Actions tab → failed run → Artifacts section.
+      # Upload HTML report on failure + videos always.
+      # Download from: Actions tab → run → Artifacts section.
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: failure()
@@ -68,3 +68,42 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+      - name: Upload Playwright videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-videos
+          path: test-results/
+          retention-days: 3
+
+  # ─── Job 3: Backend Tests ──────────────────────────────────────────────────
+  backend-tests:
+    name: Backend Tests (Vitest + Supabase)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (applies migrations automatically)
+        run: supabase start
+
+      - name: Export DATABASE_URL for backend tests
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run backend tests
+        run: npm run test:backend

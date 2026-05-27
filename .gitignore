@@ -75,3 +75,6 @@ dist
 backend/Code.js
 backend/Tests.js
 backend/Setup.gs.js
+
+# Claude Code local MCP config (contains secrets)
+.claude.json

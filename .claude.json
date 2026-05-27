@@ -1,0 +1,1 @@
+{ "mcpServers": { "supabase": { "type": "http", "url": "https://mcp.supabase.com/mcp?project_ref=callmnxlcganwugxwiym", "headers": { "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTEyMzAwMCwiZXhwIjoyMDk0Njk5MDAwfQ.lZ_8zQIF0lWRxG6oV7j9A6FDspq10vv72H1IHRwKWwE" } } } }

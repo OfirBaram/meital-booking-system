@@ -31,6 +31,7 @@
 import { test, expect } from '@playwright/test'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
 
 // Today's date as YYYY-MM-DD — booking on this date will be visible on calendar
@@ -77,6 +78,16 @@ async function setupMocks(page, bookings = MOCK_BOOKINGS_TODAY) {
       case 'getAutoSms':      return ok({ success: true, enabled: true })
       default:                return ok({ success: false, error: 'not_mocked' })
     }
+  })
+
+  // Stub Supabase Edge Function calls; route list-bookings to the `bookings` fixture
+  // so login() sets S.calData correctly and calendar cells show booking dots.
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const sbBody = request.url().endsWith('/list-bookings')
+      ? bookings
+      : { success: true, added: 0 }
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify(sbBody) })
   })
 }
 

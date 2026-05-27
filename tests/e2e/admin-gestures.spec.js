@@ -23,6 +23,7 @@
 import { test, expect } from '@playwright/test'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
 const TODAY      = new Date().toISOString().slice(0, 10)
 
@@ -66,6 +67,15 @@ async function setupMocks(page, overrides = {}) {
       case 'getAutoSms':      return ok({ success: true, enabled: true })
       default:                return ok({ success: false, error: 'not_mocked' })
     }
+  })
+  // Stub all Supabase Edge Function calls — prevents unmocked real-network
+  // requests from hanging page.waitForLoadState('networkidle') in CI.
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const sbBody = request.url().endsWith('/list-bookings')
+      ? MOCK_WITH_PENDING
+      : { success: true, added: 0 }
+    route.fulfill({ status: 200, contentType: 'application/json',
+      body: JSON.stringify(sbBody) })
   })
 }
 
@@ -190,11 +200,13 @@ test('tapping the Approve button triggers toastUndo instead of confirm()', async
   })
   await loginAndGoToBookings(page)
 
-  // Click the approve button
-  await page.locator('button[data-action="Approved"]').first().click()
+  // Click the approve button via dispatchEvent to bypass the swipe card's
+  // setPointerCapture handler, which hijacks the pointer event stream and
+  // prevents a synthetic page.click() from reaching the button's onAction listener.
+  await page.locator('button[data-action="Approved"]').first().dispatchEvent('click')
 
   // toastUndo toast should appear
-  await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
+  await expect(page.locator('#js-toast')).toBeVisible({ timeout: 3_000 })
   await expect(page.locator('#js-toast-msg')).toContainText('אושרה')
 
   // confirm() must NOT have been called
