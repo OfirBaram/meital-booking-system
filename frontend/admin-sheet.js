@@ -193,7 +193,8 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
       + '</button>'
       + '</div>'
     footerEl.classList.remove('hidden')
-    footerEl.querySelector('[data-sheet-action]').addEventListener('click', _onSheetAction)
+    const _addSlotBtn = footerEl.querySelector('[data-sheet-action="addSlot"]')
+    if (_addSlotBtn) _addSlotBtn.addEventListener('click', _onSheetAction)
   }
 }
 

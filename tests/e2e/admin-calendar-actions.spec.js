@@ -534,9 +534,11 @@ test.describe('Peek-strip "הוסף שעה" button', () => {
     await page.keyboard.press('Escape')
     await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 2_000 })
 
-    // Peek button is still visible; clicking it re-opens the sheet
+    // Peek button is still visible; clicking it re-opens the sheet.
+    // Use dispatchEvent to bypass Playwright's transition-stability check
+    // (transition-all on the button causes the same hang as swipe-card buttons).
     await expect(page.locator('#js-cal-peek-add')).toBeVisible()
-    await page.locator('#js-cal-peek-add').click()
+    await page.locator('#js-cal-peek-add').dispatchEvent('click')
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
   })
 })
