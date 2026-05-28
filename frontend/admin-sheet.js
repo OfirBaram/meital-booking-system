@@ -173,16 +173,25 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
   }
 
   if (footerEl) {
+    const _times = [];
+    for (let h = 8; h <= 20; h++) {
+      _times.push(String(h).padStart(2, '0') + ':00');
+      if (h < 20) _times.push(String(h).padStart(2, '0') + ':30');
+    }
     footerEl.innerHTML =
-      '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
-      + ' class="w-full bg-primary text-white font-bold py-3 rounded-xl'
-      + ' hover:bg-primary-dk active:scale-[0.98] transition-all'
-      + ' flex items-center justify-center gap-2 text-sm">'
-      + '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>'
-      + '</svg>'
-      + ' הוסף חריץ זמן'
+      '<div class="flex gap-2 items-center">'
+      + '<label class="text-xs text-text-muted shrink-0">שעה:</label>'
+      + '<select id="js-slot-time-select"'
+      + ' class="flex-1 border border-secondary/50 rounded-xl px-3 py-2 text-sm bg-surface'
+      + ' focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">'
+      + _times.map(function(t) { return '<option value="' + t + '">' + t + '</option>'; }).join('')
+      + '</select>'
+      + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
+      + ' class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl'
+      + ' hover:bg-primary-dk active:scale-[0.98] transition-all text-sm whitespace-nowrap">'
+      + '+ הוסף'
       + '</button>'
+      + '</div>'
     footerEl.classList.remove('hidden')
     footerEl.querySelector('[data-sheet-action]').addEventListener('click', _onSheetAction)
   }
@@ -256,8 +265,10 @@ function _onSheetAction(e) {
   const action = btn.dataset.sheetAction || btn.dataset.action || ''
   const id     = btn.dataset.id   || ''
   const date   = btn.dataset.date || ''
+  const timeEl = document.getElementById('js-slot-time-select')
+  const time   = (action === 'addSlot' && timeEl) ? timeEl.value : ''
   document.dispatchEvent(new CustomEvent('sheet:action', {
-    detail: { action, id, date },
+    detail: { action, id, date, time },
     bubbles: false,
   }))
 }

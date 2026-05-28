@@ -681,6 +681,8 @@ let _sheetOpenDate = null;
 
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
+  const peekBtn = document.getElementById('js-cal-peek-add');
+  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.date = dateStr; }
   openSheet('day', { dateStr, entry });
 }
 
@@ -745,6 +747,12 @@ function _commitSheetAction(id, target) {
   if (!booking) return;
   const prevStatus = booking.status;
   const dateStr    = _sheetOpenDate;
+
+  // Optimistic update — dot changes instantly before API resolves
+  booking.status = target;
+  S.calData = buildCalData(S.bookings);
+  renderVisibleCalendar();
+
   const OK = { Approved: 'ההזמנה אושרה ✓', Rejected: 'ההזמנה נדחתה', Cancelled: 'ההזמנה בוטלה' };
   toastUndo(
     OK[target] || 'עודכן',
@@ -770,12 +778,16 @@ function _commitSheetAction(id, target) {
         }
       } catch (e) {
         if (booking) booking.status = prevStatus;
+        S.calData = buildCalData(S.bookings);
+        renderVisibleCalendar();
         toast('שגיאה: ' + e.message, 'err');
         await load(true);
       }
     },
     () => {
       if (booking) booking.status = prevStatus;
+      S.calData = buildCalData(S.bookings);
+      renderVisibleCalendar();
       if (dateStr && isSheetOpen()) {
         const entry = S.calData[dateStr] || null;
         openSheet('day', { dateStr, entry });
@@ -829,6 +841,15 @@ async function init() {
     renderVisibleCalendar();
   });
 
+  const peekAddBtn = document.getElementById('js-cal-peek-add');
+  if (peekAddBtn) {
+    peekAddBtn.addEventListener('click', () => {
+      const d = peekAddBtn.dataset.date;
+      if (!d) return;
+      if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', { dateStr: d, entry: S.calData[d] || null }); }
+    });
+  }
+
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
@@ -865,10 +886,24 @@ async function init() {
   document.addEventListener('sheet:action', e => {
     const { action, id, date } = e.detail;
     if (action === 'addSlot') {
-      closeSheet();
-      setTab('diary');
-      const dateEl = document.getElementById('js-add-slot-date');
-      if (dateEl) { dateEl.value = date; dateEl.dispatchEvent(new Event('change')); }
+      const slotDate = date;
+      const slotTime = e.detail.time || '';
+      if (!slotTime) { toast('בחרי שעה להוספה', 'warn'); return; }
+      (async () => {
+        try {
+          const r = await sbCall('admin-slots', { action: 'addSlot', date: slotDate, time: slotTime });
+          if (!r.success) throw new Error(r.error);
+          if (r.already_exists) {
+            toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
+          } else {
+            toast('החריץ נוסף ✓', 'ok');
+            await load(true);
+            if (isSheetOpen()) openSheet('day', { dateStr: slotDate, entry: S.calData[slotDate] || null });
+          }
+        } catch (err) {
+          toast('שגיאה בהוספת החריץ', 'err');
+        }
+      })();
       return;
     }
     const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
