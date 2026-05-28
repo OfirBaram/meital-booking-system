@@ -136,7 +136,7 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
     numSpan.textContent = cell.dayNum;
     btn.appendChild(numSpan);
 
-    if (dots.length > 0) {
+    if (dots.length > 0 && !cell.isOtherMonth) {
       const dotsDiv     = document.createElement('div');
       dotsDiv.className = 'cal-dots';
       dots.forEach(color => {

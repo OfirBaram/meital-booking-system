@@ -774,11 +774,11 @@ async function init() {
     btn.addEventListener('click', () => setTab(btn.dataset.tab)));
 
   document.getElementById('js-cal-prev').addEventListener('click', () => {
-    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1);
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
     renderVisibleCalendar();
   });
   document.getElementById('js-cal-next').addEventListener('click', () => {
-    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1);
     renderVisibleCalendar();
   });
 
