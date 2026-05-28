@@ -96,6 +96,18 @@ export function initSheet() {
     if (e.key === 'Escape' && _state.open) closeSheet()
   })
 
+  const sheetContent = document.getElementById('js-sheet-content')
+  if (sheetContent) {
+    sheetContent.addEventListener('click', e => {
+      const btn = e.target.closest('[data-sheet-action][data-id]')
+      if (!btn) return
+      document.dispatchEvent(new CustomEvent('sheet:action', {
+        detail: { action: btn.dataset.sheetAction, id: btn.dataset.id || '', date: btn.dataset.date || '' },
+        bubbles: false,
+      }))
+    })
+  }
+
   _initDrag()
 }
 
@@ -107,6 +119,8 @@ export function openSheet(type, payload, snap = 'half') {
   }
   _doOpen(type, payload, snap)
 }
+
+export function isSheetOpen() { return _state.open }
 
 export function closeSheet() {
   if (!_state.open || _closing) return
@@ -189,6 +203,7 @@ function _bookingRow(b) {
   const phone = String(b.phone || '').replace('+972', '0')
     .replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
   const svc = b.serviceName || b.service || ''
+  const actionsHtml = _bookingActions(b)
 
   return (
     '<div class="bg-cream rounded-2xl p-3.5 border border-secondary/30 shadow-sm card-in"'
@@ -205,8 +220,35 @@ function _bookingRow(b) {
     + '<span class="font-medium">' + _esc(b.time || '') + '</span>'
     + '<span>' + _esc(svc) + '</span>'
     + '</div>'
+    + actionsHtml
     + '</div>'
   )
+}
+
+function _bookingActions(b) {
+  const id = _esc(b.id)
+  if (b.status === 'Pending') {
+    return (
+      '<div class="flex gap-2 mt-2.5">'
+      + '<button data-sheet-action="approve" data-id="' + id + '"'
+      + ' class="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-green-600 active:scale-95 transition-all">אשר ✓</button>'
+      + '<button data-sheet-action="reject" data-id="' + id + '"'
+      + ' class="flex-1 bg-red-400 text-white text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-red-500 active:scale-95 transition-all">דחה ✕</button>'
+      + '</div>'
+    )
+  }
+  if (b.status === 'Approved') {
+    return (
+      '<div class="mt-2.5">'
+      + '<button data-sheet-action="cancel" data-id="' + id + '"'
+      + ' class="w-full bg-gray-100 text-gray-500 text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-gray-200 active:scale-95 transition-all">בטל הזמנה</button>'
+      + '</div>'
+    )
+  }
+  return ''
 }
 
 function _onSheetAction(e) {

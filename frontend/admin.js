@@ -8,7 +8,7 @@ import {
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
 } from './admin-render.js';
 import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
-import { initSheet, openSheet, closeSheet } from './admin-sheet.js';
+import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
 
 const API         = APP_CONFIG.API_URL;
@@ -677,7 +677,10 @@ function renderVisibleCalendar() {
   );
 }
 
+let _sheetOpenDate = null;
+
 function onCalDayClick(dateStr, entry) {
+  _sheetOpenDate = dateStr;
   openSheet('day', { dateStr, entry });
 }
 
@@ -733,6 +736,50 @@ function _commitCardAction(id, target) {
     () => {
       if (booking && prevStatus) booking.status = prevStatus;
       render();
+    }
+  );
+}
+
+function _commitSheetAction(id, target) {
+  const booking = S.bookings.find(b => b.id === id);
+  if (!booking) return;
+  const prevStatus = booking.status;
+  const dateStr    = _sheetOpenDate;
+  const OK = { Approved: 'ההזמנה אושרה ✓', Rejected: 'ההזמנה נדחתה', Cancelled: 'ההזמנה בוטלה' };
+  toastUndo(
+    OK[target] || 'עודכן',
+    async () => {
+      try {
+        const r = await fetch(
+          APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
+          { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+        );
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'error');
+        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+          console.warn('[changeStatus GAS side-effects failed]', e.message);
+          if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
+        });
+        await load(true);
+        if (dateStr && isSheetOpen()) {
+          const entry = S.calData[dateStr] || null;
+          openSheet('day', { dateStr, entry });
+        }
+      } catch (e) {
+        if (booking) booking.status = prevStatus;
+        toast('שגיאה: ' + e.message, 'err');
+        await load(true);
+      }
+    },
+    () => {
+      if (booking) booking.status = prevStatus;
+      if (dateStr && isSheetOpen()) {
+        const entry = S.calData[dateStr] || null;
+        openSheet('day', { dateStr, entry });
+      }
     }
   );
 }
@@ -816,13 +863,16 @@ async function init() {
   initSheet();
 
   document.addEventListener('sheet:action', e => {
-    const { action, date } = e.detail;
+    const { action, id, date } = e.detail;
     if (action === 'addSlot') {
       closeSheet();
       setTab('diary');
       const dateEl = document.getElementById('js-add-slot-date');
       if (dateEl) { dateEl.value = date; dateEl.dispatchEvent(new Event('change')); }
+      return;
     }
+    const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
+    if (STATUS_MAP[action]) _commitSheetAction(id, STATUS_MAP[action]);
   });
 
   if (S.token && sessionValid()) {
