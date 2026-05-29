@@ -291,10 +291,11 @@ test.describe('Step 5 — Confirmation', () => {
     expect(idText).toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i)
   })
 
-  test('"Book another" resets the wizard back to step 1', async ({ page }) => {
-    await page.locator('#js-book-again').click()
-    await expect(page.locator('#step-1')).toBeVisible()
-    await expect(page.locator('.service-card.selected')).toHaveCount(0)
+  test('pending screen shows the WhatsApp CTA and no "book another" button', async ({ page }) => {
+    await expect(page.locator('#js-book-again')).toHaveCount(0)
+    const wa = page.locator('[data-qa="btn-whatsapp"]')
+    await expect(wa).toBeVisible()
+    await expect(wa).toHaveAttribute('href', /972547686865/)
   })
 })
 
@@ -389,13 +390,15 @@ test.describe('Security — OTP send rate limiting', () => {
     await expect(page.locator('#step-4')).not.toBeVisible()
   })
 
-  test('resetApp clears the OTP cooldown', async ({ page }) => {
+  test('a fresh session (reload) can re-book without an OTP cooldown block', async ({ page }) => {
     await goToStep4(page)
     await typeOTP(page, '123456')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
 
-    // Reset wizard
-    await page.locator('#js-book-again').click()
+    // The "book another" button was removed; a reload starts a clean session
+    // (State.otpCooldownUntil is in-memory, so it resets to 0). Route mocks
+    // persist across reloads.
+    await page.reload()
     await expect(page.locator('#step-1')).toBeVisible()
 
     // Go through steps again — OTP send should NOT be rate-limited

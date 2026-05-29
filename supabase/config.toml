@@ -380,6 +380,11 @@ verify_jwt = false
 [functions.verify-and-book]
 verify_jwt = false
 
+# admin-action is opened from a bare SMS link (no anon JWT). It is secured by
+# the per-booking HMAC token in the URL, verified inside the function.
+[functions.admin-action]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

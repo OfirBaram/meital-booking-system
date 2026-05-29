@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildAdminNewBookingSms } from '../_shared/messages.ts'
+import { sendTwilioSms } from '../_shared/sms.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -44,56 +46,40 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
 }
 
 async function sendAdminSms(params: {
-  adminPhone:  string
-  accountSid:  string
-  authToken:   string
-  fromNumber:  string
-  gasUrl:      string
-  name:        string
-  phone:       string
-  serviceName: string
-  date:        string
-  time:        string
-  bookingId:   string
-  adminToken:  string
+  adminPhone:    string
+  accountSid:    string
+  authToken:     string
+  fromNumber:    string
+  actionBaseUrl: string  // e.g. https://<ref>.supabase.co/functions/v1/admin-action
+  name:          string
+  phone:         string
+  serviceName:   string
+  date:          string
+  time:          string
+  bookingId:     string
+  adminToken:    string
 }): Promise<void> {
   const {
-    adminPhone, accountSid, authToken, fromNumber, gasUrl,
+    adminPhone, accountSid, authToken, fromNumber, actionBaseUrl,
     name, phone, serviceName, date, time, bookingId, adminToken,
   } = params
 
-  const approveUrl = `${gasUrl}?action=approve&bookingId=${bookingId}&token=${adminToken}`
-  const rejectUrl  = `${gasUrl}?action=reject&bookingId=${bookingId}&token=${adminToken}`
+  // One-tap links to the admin-action Edge Function. Always a real https URL
+  // (SUPABASE_URL is always present) — never "undefined" — so phones linkify it.
+  const qs         = `bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(adminToken)}`
+  const approveUrl = `${actionBaseUrl}?action=approve&${qs}`
+  const rejectUrl  = `${actionBaseUrl}?action=reject&${qs}`
 
-  const body =
-    'הזמנה חדשה!\n' +
-    name + ' (' + phone + ')\n' +
-    serviceName + '\n' +
-    date + ' ' + time + '\n' +
-    'אשר: ' + approveUrl + '\n' +
-    'דחה: ' + rejectUrl
+  const body = buildAdminNewBookingSms({
+    name, phone, serviceName, date, time, approveUrl, rejectUrl,
+  })
 
-  const res = await fetch(
-    'https://api.twilio.com/2010-04-01/Accounts/' + accountSid + '/Messages.json',
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + btoa(accountSid + ':' + authToken),
-        'Content-Type':  'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ To: adminPhone, From: fromNumber, Body: body }),
-    },
-  )
-
-  if (!res.ok) {
-    throw new Error('Twilio ' + res.status + ': ' + await res.text())
-  }
+  await sendTwilioSms(adminPhone, body, { accountSid, authToken, fromNumber })
 }
 
 // ── Boot diagnostic ───────────────────────────────────────────────────
-// GAS_URL is optional: used only in fire-and-forget admin SMS URLs.
-// Its absence does not break the booking flow — it only produces
-// malformed approve/reject links in the admin notification SMS.
+// Admin approve/reject links now point at the admin-action Edge Function on
+// this same Supabase project (SUPABASE_URL), so GAS_URL is no longer used.
 const _BOOT = {
   SUPABASE_URL:              !!Deno.env.get('SUPABASE_URL'),
   SUPABASE_SERVICE_ROLE_KEY: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
@@ -102,7 +88,6 @@ const _BOOT = {
   TWILIO_ACCOUNT_SID:        !!Deno.env.get('TWILIO_ACCOUNT_SID'),
   TWILIO_AUTH_TOKEN:         !!Deno.env.get('TWILIO_AUTH_TOKEN'),
   TWILIO_FROM_NUMBER:        !!Deno.env.get('TWILIO_FROM_NUMBER'),
-  GAS_URL_optional:          !!Deno.env.get('GAS_URL'),
 }
 console.log('[verify-and-book] boot:', JSON.stringify(_BOOT))
 
@@ -113,9 +98,6 @@ const _REQUIRED = [
 const _MISSING = _REQUIRED.filter(k => !Deno.env.get(k))
 if (_MISSING.length > 0) {
   console.error('[verify-and-book] MISSING REQUIRED SECRETS:', _MISSING.join(', '))
-}
-if (!Deno.env.get('GAS_URL')) {
-  console.warn('[verify-and-book] GAS_URL not set — admin approve/reject SMS links will be broken (non-fatal)')
 }
 
 // ── Request handler ───────────────────────────────────────────────────
@@ -345,12 +327,12 @@ Deno.serve(async (req) => {
 
     // ── Step 9: admin SMS (fire-and-forget) ─────────────────────────
     sendAdminSms({
-      adminPhone:  Deno.env.get('ADMIN_PHONE')!,
-      accountSid:  Deno.env.get('TWILIO_ACCOUNT_SID')!,
-      authToken:   Deno.env.get('TWILIO_AUTH_TOKEN')!,
-      fromNumber:  Deno.env.get('TWILIO_FROM_NUMBER')!,
-      gasUrl:      Deno.env.get('GAS_URL')!,
-      name:        booking.name.trim(),
+      adminPhone:    Deno.env.get('ADMIN_PHONE')!,
+      accountSid:    Deno.env.get('TWILIO_ACCOUNT_SID')!,
+      authToken:     Deno.env.get('TWILIO_AUTH_TOKEN')!,
+      fromNumber:    Deno.env.get('TWILIO_FROM_NUMBER')!,
+      actionBaseUrl: Deno.env.get('SUPABASE_URL')!.replace(/\/$/, '') + '/functions/v1/admin-action',
+      name:          booking.name.trim(),
       phone,
       serviceName: booking.serviceName,
       date:        booking.date,

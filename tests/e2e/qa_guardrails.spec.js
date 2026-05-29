@@ -357,14 +357,18 @@ test.describe('data-qa structural smoke — every functional element is reachabl
     await expect(page.locator('[data-qa="btn-otp-resend"]')).toBeVisible()
   })
 
-  test('step 5: confirmation rows and book-again button', async ({ page }) => {
+  test('step 5: confirmation rows + WhatsApp CTA, no book-again button', async ({ page }) => {
     await goToStep4(page)
     await fillOTP(page, '246810')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('[data-qa="confirm-details"]')).toBeVisible()
     await expect(page.locator('[data-qa="confirm-id"]')).toBeVisible()
     await expect(page.locator('[data-qa="confirm-row"]').first()).toBeVisible()
-    await expect(page.locator('[data-qa="btn-book-again"]')).toBeVisible()
+    // The "book another" button was replaced by a WhatsApp-to-Meital CTA.
+    await expect(page.locator('[data-qa="btn-book-again"]')).toHaveCount(0)
+    const wa = page.locator('[data-qa="btn-whatsapp"]')
+    await expect(wa).toBeVisible()
+    await expect(wa).toHaveAttribute('href', /wa\.me|api\.whatsapp\.com\/send/)
   })
 
   test('footer: privacy and accessibility modal triggers', async ({ page }) => {
