@@ -583,12 +583,21 @@ function renderConfirmation() {
     </div>
   `).join('');
 
+  // Demoted to a quiet reference line — a raw UUID is support metadata, not client UX.
+  // Full UUID stays in the DOM for traceability (and the E2E gate that asserts it).
   document.getElementById('js-confirm-id').innerHTML = `
-    <p class="text-[10px] text-text-muted text-center font-light">מזהה הזמנה</p>
-    <p class="text-[10px] font-mono text-text-muted/60 text-center mt-0.5 tracking-wider">${State.bookingId}</p>
+    <p class="text-[10px] text-text-muted/50 text-center font-light tracking-wide">
+      אסמכתא: <span class="font-mono">${State.bookingId}</span>
+    </p>
   `;
 
   document.getElementById('js-nav').classList.add('hidden');
+
+  // A11y: move focus to the heading so screen-reader users are told the request
+  // was sent (focus was on the now-hidden OTP box). preventScroll keeps showStep's
+  // scroll-to-top intact.
+  const heading = document.getElementById('js-confirm-heading');
+  if (heading) heading.focus({ preventScroll: true });
 }
 
 // ═══════════════════════════════════════════════════
