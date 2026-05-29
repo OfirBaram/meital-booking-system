@@ -20,7 +20,7 @@
  *   9.  No JS console errors during full swipe → undo cycle
  *  10.  confirm() is never called during any status-change flow
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'

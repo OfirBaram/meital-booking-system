@@ -10,7 +10,7 @@
  *
  * Rule: ALL selectors MUST use [data-qa="..."] — never CSS class or ID selectors.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 

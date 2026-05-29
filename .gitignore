@@ -80,3 +80,8 @@ backend/Setup.gs.js
 
 # Claude Code local MCP config (contains secrets)
 .claude.json
+
+# Playwright E2E artifacts (screenshots, traces, videos, CLAUDE-FAILURES.md)
+playwright-report/
+test-results/
+.playwright/

@@ -10,7 +10,7 @@
  * Every test asserts zero pageerror events — a regression guard for the exact
  * class of SyntaxError that prompted this test suite.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
 

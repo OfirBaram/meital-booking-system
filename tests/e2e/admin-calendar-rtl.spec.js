@@ -19,7 +19,7 @@
  *  5. Navigation does not throw any JS errors
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Shared mocks (mirrors admin-dashboard.spec.js) ──────────────────────────
 

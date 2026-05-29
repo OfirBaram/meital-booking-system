@@ -7,7 +7,7 @@
  *
  * All tests intercept the GAS URL so no real network calls are made.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 const GAS_GLOB = 'https://script.google.com/macros/s/**'
 

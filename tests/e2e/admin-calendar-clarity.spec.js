@@ -17,7 +17,7 @@
  *   6. Rejected/Cancelled bookings do NOT inflate the count pill (active-only)
  *   7. Zero JS console errors while rendering the clarity calendar
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'

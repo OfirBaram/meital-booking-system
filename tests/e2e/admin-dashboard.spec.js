@@ -17,7 +17,7 @@
  * Rule: ALL selectors use [data-qa="..."] where available; fall back to
  *       element IDs only for elements the admin.html spec guarantees.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
