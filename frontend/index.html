@@ -140,15 +140,15 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin .75s linear infinite; }
 
-    /* ── Confirmation checkmark ── */
-    @keyframes drawCheck {
-      from { stroke-dashoffset: 120; }
+    /* ── Confirmation pending clock ── */
+    @keyframes drawHand {
+      from { stroke-dashoffset: 24; }
       to   { stroke-dashoffset: 0; }
     }
-    .check-path {
-      stroke-dasharray: 120;
-      stroke-dashoffset: 120;
-      animation: drawCheck .55s ease forwards .25s;
+    .clock-hand {
+      stroke-dasharray: 24;
+      stroke-dashoffset: 24;
+      animation: drawHand .45s ease forwards .25s;
     }
 
     /* ── Pulse dot (available indicator) ── */
@@ -337,31 +337,49 @@
     <!-- ══ STEP 5: Confirmation ══ -->
     <section id="step-5" class="step-section hidden">
       <div class="text-center py-6">
-        <!-- Animated checkmark -->
+        <!-- Pending clock: signals "received, awaiting Meital's approval". A checkmark here
+             would wrongly read as "confirmed" — the booking is not confirmed until the SMS arrives. -->
         <div class="w-24 h-24 mx-auto mb-5">
           <svg viewBox="0 0 100 100" fill="none" class="w-full h-full">
             <circle cx="50" cy="50" r="47" fill="#F5ECF0" stroke="#DDC3A5" stroke-width="1.5"/>
-            <path class="check-path" d="M28 50 L44 66 L72 34"
-              stroke="#A67C8E" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="50" cy="50" r="27" fill="none" stroke="#A67C8E" stroke-width="4"/>
+            <path class="clock-hand" d="M50 50 L50 34" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
+            <path class="clock-hand" d="M50 50 L64 50" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
           </svg>
         </div>
 
         <h2 class="text-2xl font-bold text-text-main mb-2">הבקשה נשלחה!</h2>
-        <p class="text-text-muted text-sm font-light leading-relaxed mb-8 max-w-xs mx-auto">
-          הבקשה שלך ממתינה לאישור.<br>תקבלי SMS ברגע שהתור יאושר.
+
+        <!-- Honest status chip — this is a request, not yet a confirmed appointment -->
+        <div class="inline-flex items-center gap-2 bg-[#FDF3E7] text-amber-700 text-xs font-bold px-3.5 py-1.5 rounded-full mb-4">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          ממתינה לאישור מיטל
+        </div>
+
+        <p class="text-text-muted text-sm font-light leading-relaxed mb-6 max-w-xs mx-auto">
+          תקבלי הודעת SMS ברגע שמיטל תאשר את התור — בדרך כלל תוך זמן קצר.
         </p>
 
         <!-- Summary card -->
-        <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-5 text-right mb-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-5 text-right mb-5">
           <p class="text-[10px] font-semibold text-text-muted uppercase tracking-[.18em] mb-4">פרטי ההזמנה</p>
           <div id="js-confirm-details" data-qa="confirm-details" class="space-y-3"></div>
-          <div id="js-confirm-id" data-qa="confirm-id" class="mt-4 pt-4 border-t border-secondary/20"></div>
+          <div id="js-confirm-id" data-qa="confirm-id" class="mt-4 pt-3 border-t border-secondary/20"></div>
         </div>
 
-        <button id="js-book-again" data-qa="btn-book-again"
-          class="text-primary font-semibold text-sm underline underline-offset-2">
-          הזמני תור נוסף
-        </button>
+        <!-- Escape hatch: cuts "did it work?" anxiety and WhatsApp follow-ups -->
+        <a href="https://api.whatsapp.com/send/?phone=972547686865" target="_blank" rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 text-text-muted text-xs hover:text-primary transition-colors mb-6">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-3.5 h-3.5" aria-hidden="true"><path d="M12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413A11.815 11.815 0 0012.05 0Z"/></svg>
+          יש שאלה? אפשר לכתוב למיטל
+        </a>
+
+        <div>
+          <button id="js-book-again" data-qa="btn-book-again"
+            class="text-primary font-semibold text-sm underline underline-offset-2">
+            הזמני תור נוסף
+          </button>
+        </div>
       </div>
     </section>
 
