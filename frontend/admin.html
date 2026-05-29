@@ -95,8 +95,17 @@
     .cal-cell:active       { transform: scale(0.86); transition: transform 0.07s; }
     .cal-cell.today        { background: #A67C8E; color: #fff; font-weight: 900; border-radius: 0.75rem; }
     .cal-cell.cal-selected { background: #F3EBF0; color: #A67C8E; font-weight: 700; }
-    .cal-cell.other-month  { opacity: 0.22; pointer-events: none; }
-    .cal-cell.past         { opacity: 0.42; }
+    /* Other-month overflow days: clearly "blocked / not this month" — flat cool
+       grey with a faint diagonal hatch, non-interactive. */
+    .cal-cell.other-month  {
+      pointer-events: none; color: #C5BDC2;
+      background: repeating-linear-gradient(45deg, #F2EEF1, #F2EEF1 4px, #EBE5EA 4px, #EBE5EA 8px);
+    }
+    .cal-cell.other-month .cal-count,
+    .cal-cell.other-month .cal-free-dot { display: none; }
+    /* Past days: distinct cool-grey wash so history reads as past (status tints
+       still win via higher specificity for past days that had bookings). */
+    .cal-cell.past         { opacity: 0.6; background: #F1EDF0; color: #B3A8AE; }
     .cal-cell.blocked      { opacity: 0.28; pointer-events: none; }
     .cal-dots { display: flex; gap: 2px; justify-content: center; }
     .cal-dot  { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
@@ -326,6 +335,14 @@
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
           </svg>
+        </button>
+      </div>
+
+      <!-- Jump back to the current month -->
+      <div class="flex justify-center mb-2">
+        <button id="js-cal-today" data-qa="btn-cal-today"
+          class="text-xs font-semibold text-primary hover:text-primary-dk px-3 py-1 rounded-full hover:bg-cream active:scale-95 transition-all">
+          היום
         </button>
       </div>
 

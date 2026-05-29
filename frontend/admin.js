@@ -697,10 +697,28 @@ async function loadAndRenderCalendar() {
 
 let _sheetOpenDate = null;
 
+function _todayISO() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0')
+    + '-' + String(n.getDate()).padStart(2, '0');
+}
+
+/** Build the full day-sheet payload: bookings (calData), the day's slots, and isPast. */
+function _dayPayload(dateStr) {
+  const month    = dateStr.substring(0, 7);
+  const daySlots = (S.slotCache[month] || []).filter(s => s.date === dateStr);
+  return {
+    dateStr,
+    entry:  S.calData[dateStr] || null,
+    slots:  daySlots,
+    isPast: dateStr < _todayISO(),
+  };
+}
+
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
   _updatePeekStrip(dateStr, entry);
-  openSheet('day', { dateStr, entry });
+  openSheet('day', _dayPayload(dateStr));
 }
 
 function _updatePeekStrip(dateStr, entry) {
@@ -887,7 +905,7 @@ async function init() {
     peekAddBtn.addEventListener('click', () => {
       const d = peekAddBtn.dataset.peekDate;
       if (!d) return;
-      if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', { dateStr: d, entry: S.calData[d] || null }); }
+      if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', _dayPayload(d)); }
     });
   }
 
@@ -946,6 +964,28 @@ async function init() {
           }
         } catch (err) {
           toast('שגיאה בהוספת החריץ', 'err');
+        }
+      })();
+      return;
+    }
+    if (action === 'deleteSlot' || action === 'blockSlot') {
+      const slotId = Number(e.detail.slotId);
+      if (!slotId) return;
+      const dayDate = _sheetOpenDate;
+      (async () => {
+        try {
+          // deleteSlot removes the slot; blockSlot flips available↔locked (toggleSlot).
+          const apiAction = action === 'deleteSlot' ? 'deleteSlot' : 'toggleSlot';
+          const r = await sbCall('admin-slots', { action: apiAction, slotId });
+          if (!r.success) throw new Error(r.error);
+          toast(action === 'deleteSlot' ? 'החריץ נמחק' : 'החריץ נחסם', 'ok');
+          if (dayDate) delete S.slotCache[dayDate.substring(0, 7)];
+          await load(true);
+          await loadAndRenderCalendar();
+          // Slot management keeps the popup open — re-open with fresh day data.
+          if (dayDate && isSheetOpen()) openSheet('day', _dayPayload(dayDate));
+        } catch (err) {
+          toast('שגיאה בעדכון החריץ', 'err');
         }
       })();
       return;
