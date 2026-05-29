@@ -297,6 +297,69 @@ describe('calDayStatus', () => {
   })
 })
 
+// ─── calDayStatus — tone + active counts (Calendar Clarity) ──────────────────
+// Mirrors the cell-tint priority in renderCalendar: pending → approved → free.
+// Counts are ACTIVE only (Pending/Approved); Rejected/Cancelled never count.
+
+describe('calDayStatus — tone + active counts', () => {
+  it('null/undefined entry → tone "none" and zero counts', () => {
+    for (const e of [null, undefined]) {
+      const s = calDayStatus(e)
+      expect(s.tone).toBe('none')
+      expect(s.pendingCount).toBe(0)
+      expect(s.approvedCount).toBe(0)
+      expect(s.freeSlotCount).toBe(0)
+    }
+  })
+
+  it('tone "pending" when any Pending booking exists', () => {
+    const s = calDayStatus({ bookings: [{ status: 'Pending' }], hasPending: true })
+    expect(s.tone).toBe('pending')
+    expect(s.pendingCount).toBe(1)
+  })
+
+  it('tone "approved" when only Approved bookings (no pending)', () => {
+    const s = calDayStatus({ bookings: [{ status: 'Approved' }, { status: 'Approved' }], hasApproved: true })
+    expect(s.tone).toBe('approved')
+    expect(s.approvedCount).toBe(2)
+    expect(s.pendingCount).toBe(0)
+  })
+
+  it('tone "free" when no bookings but free slots exist', () => {
+    const s = calDayStatus({ bookings: [], hasFreeSlot: true, freeSlotCount: 3 })
+    expect(s.tone).toBe('free')
+    expect(s.freeSlotCount).toBe(3)
+    expect(s.pendingCount).toBe(0)
+    expect(s.approvedCount).toBe(0)
+  })
+
+  it('pending wins over approved when both present', () => {
+    const s = calDayStatus({
+      bookings: [{ status: 'Pending' }, { status: 'Approved' }],
+      hasPending: true, hasApproved: true,
+    })
+    expect(s.tone).toBe('pending')
+    expect(s.pendingCount).toBe(1)
+    expect(s.approvedCount).toBe(1)
+  })
+
+  it('Rejected/Cancelled do NOT count toward pending/approved or tone', () => {
+    const s = calDayStatus({
+      bookings: [{ status: 'Rejected' }, { status: 'Cancelled' }],
+      freeSlotCount: 0,
+    })
+    expect(s.pendingCount).toBe(0)
+    expect(s.approvedCount).toBe(0)
+    expect(s.tone).toBe('none')
+  })
+
+  it('Rejected booking alongside a free slot → tone "free" (terminal booking ignored)', () => {
+    const s = calDayStatus({ bookings: [{ status: 'Cancelled' }], hasFreeSlot: true, freeSlotCount: 2 })
+    expect(s.tone).toBe('free')
+    expect(s.freeSlotCount).toBe(2)
+  })
+})
+
 // ─── formatCalTitle ───────────────────────────────────────────────────────────
 
 describe('formatCalTitle', () => {

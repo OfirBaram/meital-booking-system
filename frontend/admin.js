@@ -7,7 +7,7 @@ import {
   buildCard, buildSwipeCard,
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
 } from './admin-render.js';
-import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
+import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './admin-calendar.js';
 import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
 
@@ -712,15 +712,19 @@ function _updatePeekStrip(dateStr, entry) {
     peekDate.textContent = DAY_NAMES_HE[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
   }
   if (peekContent) {
-    const bCount = (entry && entry.bookings) ? entry.bookings.length : 0;
-    const fCount = (entry && entry.freeSlotCount) ? entry.freeSlotCount : 0;
+    const { pendingCount, approvedCount, freeSlotCount } = calDayStatus(entry);
     const parts = [];
-    if (bCount > 0) {
-      const col = (entry && entry.hasPending) ? 'text-amber-600' : 'text-green-600';
-      parts.push('<span class="font-semibold ' + col + '">' + bCount + (bCount === 1 ? ' הזמנה' : ' הזמנות') + '</span>');
+    if (pendingCount > 0) {
+      parts.push('<span class="font-semibold text-amber-600">' + pendingCount +
+        (pendingCount === 1 ? ' ממתינה לאישור' : ' ממתינות לאישור') + '</span>');
     }
-    if (fCount > 0) {
-      parts.push('<span class="font-semibold text-rose-500">' + fCount + (fCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
+    if (approvedCount > 0) {
+      parts.push('<span class="font-semibold text-green-600">' + approvedCount +
+        (approvedCount === 1 ? ' מאושרת' : ' מאושרות') + '</span>');
+    }
+    if (freeSlotCount > 0) {
+      parts.push('<span class="font-semibold text-rose-500">' + freeSlotCount +
+        (freeSlotCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
     }
     peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
   }
@@ -787,11 +791,12 @@ function _commitSheetAction(id, target) {
   const booking = S.bookings.find(b => b.id === id);
   if (!booking) return;
   const prevStatus = booking.status;
-  const dateStr    = _sheetOpenDate;
 
-  // Optimistic update — dot changes instantly before API resolves
+  // Optimistic update + close the sheet so the admin immediately sees the
+  // calendar with the day's status changed (dot/tint updates in place).
   booking.status = target;
   renderVisibleCalendar();
+  closeSheet();
 
   const OK = { Approved: 'ההזמנה אושרה ✓', Rejected: 'ההזמנה נדחתה', Cancelled: 'ההזמנה בוטלה' };
   toastUndo(
@@ -811,11 +816,7 @@ function _commitSheetAction(id, target) {
           console.warn('[changeStatus GAS side-effects failed]', e.message);
           if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
         });
-        await load(true);
-        if (dateStr && isSheetOpen()) {
-          const entry = S.calData[dateStr] || null;
-          openSheet('day', { dateStr, entry });
-        }
+        await load(true);            // refresh underlying data; calendar re-renders
       } catch (e) {
         if (booking) booking.status = prevStatus;
         renderVisibleCalendar();
@@ -824,12 +825,9 @@ function _commitSheetAction(id, target) {
       }
     },
     () => {
+      // Undo — revert the optimistic change; calendar reflects it instantly.
       if (booking) booking.status = prevStatus;
       renderVisibleCalendar();
-      if (dateStr && isSheetOpen()) {
-        const entry = S.calData[dateStr] || null;
-        openSheet('day', { dateStr, entry });
-      }
     }
   );
 }
@@ -940,10 +938,11 @@ async function init() {
             toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
           } else {
             toast('החריץ נוסף ✓', 'ok');
+            // Close the sheet and reveal the calendar with the new free slot.
+            closeSheet();
             delete S.slotCache[slotDate.substring(0, 7)];
             await load(true);
             await loadAndRenderCalendar();
-            if (isSheetOpen()) openSheet('day', { dateStr: slotDate, entry: S.calData[slotDate] || null });
           }
         } catch (err) {
           toast('שגיאה בהוספת החריץ', 'err');

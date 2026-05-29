@@ -846,3 +846,48 @@ Add Playwright tests in `tests/e2e/admin-calendar-actions.spec.js`:
 - Sheet re-opens after action with updated status badge
 - Day with Approved booking shows only בטל הזמנה
 - Terminal statuses (Rejected/Cancelled) show no buttons
+
+---
+
+## 20. Admin Calendar — "Clarity" at-a-glance status (v1.5.0)
+
+### v1.5.0 — 2026-05-29 — Calendar Clarity
+**Branch:** `feature/calendar-clarity` (off `main` after #27 merged)
+
+#### Goal
+Meital could not tell at a glance what each day held. The PR #27 status *dots*
+were 4px on a 40px cell (invisible), there was no legend, and **pending** days
+(the only actionable ones) looked the same as everything else.
+
+#### What changed
+| File | Change |
+|------|--------|
+| `frontend/admin-calendar.js` | `calDayStatus(entry)` enriched with `tone` (`pending`→`approved`→`free`→`none`), `pendingCount`, `approvedCount`, `freeSlotCount` (active-only — Rejected/Cancelled never count). `renderCalendar` now applies a whole-cell **tint class** (`has-pending`/`has-approved`/`has-free`) via `_cellClass(cell, tone)`, a single **count pill** (`.cal-count` amber/green), and a rose **free-slot marker** (`.cal-free-dot`). Old 4px `.cal-dot` rendering removed. |
+| `frontend/admin.html` | `<style>`: cell tints, pending ring + `pendingGlow` pulse (today + upcoming only — `:not(.past)` keeps past pending a calm static ring; respects `prefers-reduced-motion`), `.cal-count` pill + `today` white-chip overrides, `.cal-free-dot`, `.cal-legend` pill-bar. New `#js-cal-legend` markup placed **above the grid** (under the month title) so the key is always visible without scrolling past the fixed bottom nav. |
+| `frontend/admin.js` | `_updatePeekStrip` now reuses `calDayStatus` and shows split counts: `"X ממתינות לאישור • Y מאושרות • Z פנוי"`. |
+
+#### Design
+- Priority tint: **pending** (amber `#FDF3E7` + ring/pulse — actionable) → **approved**
+  (green `#EAF5EC`) → **free** (rose `#FBEFF3`). Tints skip the solid Dust-Rose `today`
+  cell (`:not(.today)`); on `today` the count pill renders on a white chip.
+- Count pill = active bookings only. Rose free marker shows open capacity even on a day
+  that also has bookings.
+- Always-visible legend: amber = ממתין לאישור · green = מאושר · rose = זמן פנוי.
+
+#### Tests
+- Unit `tests/unit/calendar.test.js` — +7 tests for `calDayStatus` tone/active counts
+  (incl. Rejected/Cancelled exclusion). 266 unit total.
+- E2E `tests/e2e/admin-calendar-clarity.spec.js` — new (legend, tint classes,
+  count pill, free marker, zero-error gate, add-slot flow). Updated the `.cal-dot`
+  assertions in `admin-calendar-bugs.spec.js` and `admin-calendar-actions.spec.js` to the
+  new tint-class/count-pill representation. 171 E2E total — all green locally.
+
+#### Post-launch fixes (live QA)
+1. **Rose "זמן פנוי" never appeared** — `buildCalData` compared slot status to
+   `'Available'`, but Supabase returns lowercase `'available'` (a latent bug since #27;
+   E2E only passed because the mock used capitalized data). Now compared
+   case-insensitively. E2E fixtures switched to lowercase to match production.
+2. **Popup should close after add-slot / approve / reject / cancel** — `addSlot` and
+   `_commitSheetAction` previously re-opened the sheet. They now `closeSheet()` and reveal
+   the calendar with the optimistic update (rose for a new slot; tint change for a status
+   action). Undo reverts the calendar in place; no sheet re-open.
