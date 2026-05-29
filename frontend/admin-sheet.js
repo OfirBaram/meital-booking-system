@@ -96,6 +96,18 @@ export function initSheet() {
     if (e.key === 'Escape' && _state.open) closeSheet()
   })
 
+  const sheetContent = document.getElementById('js-sheet-content')
+  if (sheetContent) {
+    sheetContent.addEventListener('click', e => {
+      const btn = e.target.closest('[data-sheet-action][data-id]')
+      if (!btn) return
+      document.dispatchEvent(new CustomEvent('sheet:action', {
+        detail: { action: btn.dataset.sheetAction, id: btn.dataset.id || '', date: btn.dataset.date || '' },
+        bubbles: false,
+      }))
+    })
+  }
+
   _initDrag()
 }
 
@@ -107,6 +119,8 @@ export function openSheet(type, payload, snap = 'half') {
   }
   _doOpen(type, payload, snap)
 }
+
+export function isSheetOpen() { return _state.open }
 
 export function closeSheet() {
   if (!_state.open || _closing) return
@@ -159,18 +173,28 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
   }
 
   if (footerEl) {
+    const _times = [];
+    for (let h = 8; h <= 20; h++) {
+      _times.push(String(h).padStart(2, '0') + ':00');
+      if (h < 20) _times.push(String(h).padStart(2, '0') + ':30');
+    }
     footerEl.innerHTML =
-      '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
-      + ' class="w-full bg-primary text-white font-bold py-3 rounded-xl'
-      + ' hover:bg-primary-dk active:scale-[0.98] transition-all'
-      + ' flex items-center justify-center gap-2 text-sm">'
-      + '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>'
-      + '</svg>'
-      + ' הוסף חריץ זמן'
+      '<div class="flex gap-2 items-center">'
+      + '<label class="text-xs text-text-muted shrink-0">שעה:</label>'
+      + '<select id="js-slot-time-select"'
+      + ' class="flex-1 border border-secondary/50 rounded-xl px-3 py-2 text-sm bg-surface'
+      + ' focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">'
+      + _times.map(function(t) { return '<option value="' + t + '">' + t + '</option>'; }).join('')
+      + '</select>'
+      + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
+      + ' class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl'
+      + ' hover:bg-primary-dk active:scale-[0.98] transition-all text-sm whitespace-nowrap">'
+      + '+ הוסף'
       + '</button>'
+      + '</div>'
     footerEl.classList.remove('hidden')
-    footerEl.querySelector('[data-sheet-action]').addEventListener('click', _onSheetAction)
+    const _addSlotBtn = footerEl.querySelector('[data-sheet-action="addSlot"]')
+    if (_addSlotBtn) _addSlotBtn.addEventListener('click', _onSheetAction)
   }
 }
 
@@ -189,6 +213,7 @@ function _bookingRow(b) {
   const phone = String(b.phone || '').replace('+972', '0')
     .replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
   const svc = b.serviceName || b.service || ''
+  const actionsHtml = _bookingActions(b)
 
   return (
     '<div class="bg-cream rounded-2xl p-3.5 border border-secondary/30 shadow-sm card-in"'
@@ -205,8 +230,35 @@ function _bookingRow(b) {
     + '<span class="font-medium">' + _esc(b.time || '') + '</span>'
     + '<span>' + _esc(svc) + '</span>'
     + '</div>'
+    + actionsHtml
     + '</div>'
   )
+}
+
+function _bookingActions(b) {
+  const id = _esc(b.id)
+  if (b.status === 'Pending') {
+    return (
+      '<div class="flex gap-2 mt-2.5">'
+      + '<button data-sheet-action="approve" data-id="' + id + '"'
+      + ' class="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-green-600 active:scale-95 transition-all">אשר ✓</button>'
+      + '<button data-sheet-action="reject" data-id="' + id + '"'
+      + ' class="flex-1 bg-red-400 text-white text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-red-500 active:scale-95 transition-all">דחה ✕</button>'
+      + '</div>'
+    )
+  }
+  if (b.status === 'Approved') {
+    return (
+      '<div class="mt-2.5">'
+      + '<button data-sheet-action="cancel" data-id="' + id + '"'
+      + ' class="w-full bg-gray-100 text-gray-500 text-xs font-bold py-2 rounded-xl'
+      + ' hover:bg-gray-200 active:scale-95 transition-all">בטל הזמנה</button>'
+      + '</div>'
+    )
+  }
+  return ''
 }
 
 function _onSheetAction(e) {
@@ -214,8 +266,10 @@ function _onSheetAction(e) {
   const action = btn.dataset.sheetAction || btn.dataset.action || ''
   const id     = btn.dataset.id   || ''
   const date   = btn.dataset.date || ''
+  const timeEl = document.getElementById('js-slot-time-select')
+  const time   = (action === 'addSlot' && timeEl) ? timeEl.value : ''
   document.dispatchEvent(new CustomEvent('sheet:action', {
-    detail: { action, id, date },
+    detail: { action, id, date, time },
     bubbles: false,
   }))
 }

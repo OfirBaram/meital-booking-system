@@ -768,3 +768,81 @@ PYEOF
 ```
 
 See `PROJECT_NOTES.md` for full architecture overview and confirmed findings.
+
+---
+
+## 18. Admin Calendar — Action Buttons (v1.4.0)
+
+### v1.4.0 — 2026-05-28 — Calendar Day Actions
+**Branch:** `feature/admin-calendar-actions`
+
+#### What was built
+Meital can now approve, reject, or cancel appointments directly from the calendar day sheet — without navigating to the Bookings tab or using swipe gestures.
+
+#### Files changed
+| File | What changed |
+|------|-------------|
+| `frontend/admin-sheet.js` | `_bookingActions(b)` renders inline buttons per status; event delegation on `js-sheet-content` (one listener, wired once in `initSheet`); `isSheetOpen()` exported |
+| `frontend/admin.js` | `isSheetOpen` imported; `_sheetOpenDate` tracks the open date; `_commitSheetAction(id, target)` handles the API call + re-open; `sheet:action` listener routes approve/reject/cancel |
+
+#### Button logic per booking status
+| Status | Buttons shown |
+|--------|-------------|
+| `Pending` | **אשר ✓** (green) + **דחה ✕** (red) |
+| `Approved` | **בטל הזמנה** (gray) |
+| `Rejected` / `Cancelled` | None (terminal state) |
+
+#### Action flow
+1. Admin clicks button → `sheet:action` custom event fires
+2. `_commitSheetAction` runs: optimistic status update + `toastUndo` (5 s window)
+3. On commit: Supabase `change-status` → GAS side-effects (SMS + Calendar) fire-and-forget
+4. `load(true)` refreshes all bookings → `calData` rebuilt → calendar dots update
+5. Sheet re-opens for the same date with fresh data (only if sheet is still visible)
+6. On undo: status reverted locally → sheet re-renders with original data
+
+---
+
+## 19. Next Steps — Admin Calendar Enhancement
+
+> **Resume point for the next conversation.**
+> Branch: `feature/admin-calendar-actions` is pushed and ready for PR.
+
+### Task 1 — Open PR + CI ✅ gate
+```
+gh pr create --base main --head feature/admin-calendar-actions \
+  --title "feat(admin-calendar): approve/reject/cancel from day sheet"
+```
+All Playwright E2E tests must be green before merge (Section 16 rule).
+
+### Task 2 — Inline slot creation from an empty day
+**Goal:** clicking a future day with no bookings should let Meital add available hours *without leaving the calendar tab*.
+
+**Current behaviour:** sheet shows "אין הזמנות ביום זה" + footer "הוסף חריץ זמן" → redirects to Diary tab.
+
+**Target behaviour:** footer shows a mini time-picker inline:
+```
+[שעה: 10:00 ▾]  [+ הוסף]
+```
+On submit → calls Supabase `admin-slots` action `addSlot` for that date + time → toast confirmation → sheet stays open, slot list updates.
+
+**Files to change:**
+- `frontend/admin-sheet.js` — `_renderDay()` footer: replace redirect button with inline `<select>` of half-hour times + submit button; new `_handleAddSlot(dateStr, time)` that calls `sbCall`
+- `frontend/admin.js` — remove the `addSlot` case from the `sheet:action` listener (no longer needed)
+
+### Task 3 — Wire the peek-strip "הוסף שעה" button
+`#js-cal-peek-add` is in `admin.html` but never wired or shown.
+
+**Plan:** in `onCalDayClick`, unhide the button and set `data-date`; clicking it triggers the same inline slot-creation flow from Task 2 (or opens the sheet if not already open).
+
+### Task 4 — Optimistic dot update on status change
+After approve/reject/cancel, the calendar dot for that day only updates after `load(true)` returns (~500 ms).
+
+**Plan:** in `_commitSheetAction`, immediately call `S.calData = buildCalData(S.bookings)` + `renderVisibleCalendar()` after the optimistic `booking.status = target` line, so the dot changes instantly before the API call completes.
+
+### Task 5 — E2E regression tests
+Add Playwright tests in `tests/e2e/admin-calendar-actions.spec.js`:
+- Day with Pending booking shows אשר + דחה buttons
+- Clicking אשר fires `sheet:action` with `action: 'approve'`
+- Sheet re-opens after action with updated status badge
+- Day with Approved booking shows only בטל הזמנה
+- Terminal statuses (Rejected/Cancelled) show no buttons
