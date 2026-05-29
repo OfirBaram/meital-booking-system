@@ -23,7 +23,8 @@ once reached ~48k chars) and performs **careful, reversible** optimization.
 ## The checker (do this first — it's fast and non-destructive)
 
 ```bash
-node .claude/skills/claude-md-maintenance/check_size.mjs CLAUDE.md
+# Note: this repo tracks the file lowercase as claude.md (matters on Linux/CI).
+node .claude/skills/claude-md-maintenance/check_size.mjs claude.md
 ```
 
 - Default budget **40,000 chars**, warn at 90%. Override: `--budget=30000 --warn-ratio=0.8`.

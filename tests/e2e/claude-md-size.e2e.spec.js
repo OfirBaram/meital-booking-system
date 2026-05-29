@@ -5,13 +5,20 @@
 import { test, expect } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '..', '..');
 const cli = path.join(repoRoot, '.claude', 'skills', 'claude-md-maintenance', 'check_size.mjs');
+
+// The file is tracked lowercase (claude.md). Resolve whichever case actually
+// exists so this passes on case-sensitive (Linux CI) and case-insensitive
+// (Windows/macOS) filesystems alike.
+const CLAUDE_MD = ['CLAUDE.md', 'claude.md']
+  .map(f => path.join(repoRoot, f))
+  .find(p => existsSync(p)) ?? path.join(repoRoot, 'claude.md');
 
 function run(args) {
   try {
@@ -35,7 +42,7 @@ test.afterAll(() => {
 });
 
 test('the live CLAUDE.md is within budget (exit 0)', () => {
-  const res = run([path.join(repoRoot, 'CLAUDE.md'), '--json']);
+  const res = run([CLAUDE_MD, '--json']);
   expect(res.code).toBe(0);
   const report = JSON.parse(res.stdout);
   expect(report.status).not.toBe('fail');
