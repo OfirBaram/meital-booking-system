@@ -100,7 +100,7 @@ export function calDayStatus(entry) {
   if (entry.hasPending)  dots.push('amber');
   if (entry.hasApproved) dots.push('green');
   if (entry.hasFreeSlot) dots.push('rose');
-  return { dots, hasPendingOrApproved: entry.hasPending || entry.hasApproved, bookingCount: entry.bookings.length };
+  return { dots, hasPendingOrApproved: entry.hasPending || entry.hasApproved, bookingCount: (entry.bookings || []).length };
 }
 
 /**
