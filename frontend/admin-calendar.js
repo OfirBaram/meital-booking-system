@@ -88,7 +88,9 @@ export function buildCalData(bookings, slots = []) {
     if (b.status === 'Approved') out[b.date].hasApproved = true;
   }
   for (const s of (slots || [])) {
-    if (!s.date || s.status !== 'Available') continue;
+    // Slot status comes from Supabase in lowercase ('available'); compare
+    // case-insensitively so the rose free-slot indicator actually matches.
+    if (!s.date || String(s.status).toLowerCase() !== 'available') continue;
     _e(s.date);
     out[s.date].hasFreeSlot = true;
     out[s.date].freeSlotCount++;

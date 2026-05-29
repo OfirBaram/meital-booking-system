@@ -877,7 +877,17 @@ were 4px on a 40px cell (invisible), there was no legend, and **pending** days
 #### Tests
 - Unit `tests/unit/calendar.test.js` — +7 tests for `calDayStatus` tone/active counts
   (incl. Rejected/Cancelled exclusion). 266 unit total.
-- E2E `tests/e2e/admin-calendar-clarity.spec.js` — new, 6 tests (legend, tint classes,
-  count pill, free marker, zero-error gate). Updated the `.cal-dot` assertions in
-  `admin-calendar-bugs.spec.js` and `admin-calendar-actions.spec.js` to the new
-  tint-class/count-pill representation. 169 E2E total — all green locally.
+- E2E `tests/e2e/admin-calendar-clarity.spec.js` — new (legend, tint classes,
+  count pill, free marker, zero-error gate, add-slot flow). Updated the `.cal-dot`
+  assertions in `admin-calendar-bugs.spec.js` and `admin-calendar-actions.spec.js` to the
+  new tint-class/count-pill representation. 171 E2E total — all green locally.
+
+#### Post-launch fixes (live QA)
+1. **Rose "זמן פנוי" never appeared** — `buildCalData` compared slot status to
+   `'Available'`, but Supabase returns lowercase `'available'` (a latent bug since #27;
+   E2E only passed because the mock used capitalized data). Now compared
+   case-insensitively. E2E fixtures switched to lowercase to match production.
+2. **Popup should close after add-slot / approve / reject / cancel** — `addSlot` and
+   `_commitSheetAction` previously re-opened the sheet. They now `closeSheet()` and reveal
+   the calendar with the optimistic update (rose for a new slot; tint change for a status
+   action). Undo reverts the calendar in place; no sheet re-open.

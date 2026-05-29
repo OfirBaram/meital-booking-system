@@ -355,39 +355,39 @@ test.describe('Cancel flow', () => {
   })
 })
 
-// ─── 12. Sheet re-opens after commit ──────────────────────────────────────────
+// ─── 12. Sheet closes on action; calendar shows the update ────────────────────
 
-test.describe('Sheet re-opens after commit', () => {
-  test('sheet re-opens for the same date with the updated status badge after approve', async ({ page }) => {
-    // list-bookings returns Approved status on the second call (triggered by load(true) in commitFn)
-    let listCallCount = 0
-    const updatedBookings = makeBookings({ ...PENDING_BOOKING, status: 'Approved' })
-
-    // Install fake clock BEFORE page.goto so _undoTmr uses the fake clock
-    await page.clock.install({ time: new Date() })
-
-    await setupMocks(page, makeBookings(PENDING_BOOKING), {
-      'list-bookings': (route) => {
-        listCallCount++
-        const resp = listCallCount <= 1 ? makeBookings(PENDING_BOOKING) : updatedBookings
-        return route.fulfill({ status: 200, contentType: 'application/json',
-          body: JSON.stringify(resp) })
-      },
-    })
-
+test.describe('Sheet closes on action', () => {
+  test('approve closes the sheet and the day cell flips to approved tint', async ({ page }) => {
+    await setupMocks(page, makeBookings(PENDING_BOOKING))
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
 
     await page.locator('[data-sheet-action="approve"]').click()
-    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
 
-    // Advance fake clock past the 5 s undo TTL to trigger the commitFn
-    await page.clock.fastForward(5_100)
+    // Popup closes so the admin immediately sees the calendar...
+    await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 3_000 })
+    // ...with the day's status reflected optimistically.
+    await expect(page.locator(`#js-cal-grid [data-date="${TODAY}"]`)).toHaveClass(/has-approved/)
 
-    // commitFn fires: change-status → load(true) → sheet re-opens
-    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 6_000 })
-    await expect(page.locator('#js-sheet-content')).toContainText('מאושר', { timeout: 4_000 })
+    // Clean up — undo so the deferred API call does not leak into other tests
+    await page.locator('#js-toast-undo').click()
+  })
+
+  test('cancel closes the sheet and the calendar updates', async ({ page }) => {
+    await setupMocks(page, makeBookings(APPROVED_BOOKING))
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+    await openSheetForDate(page, TODAY)
+
+    await page.locator('[data-sheet-action="cancel"]').click()
+
+    await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 3_000 })
+    // Approved booking cancelled → day no longer shows the approved tint
+    await expect(page.locator(`#js-cal-grid [data-date="${TODAY}"]`)).not.toHaveClass(/has-approved/)
+
+    await page.locator('#js-toast-undo').click()
   })
 })
 

@@ -48,14 +48,17 @@ const BOOKINGS = {
   ],
 }
 
-// admin-slots getSlots → Available slots on the pending day (so it ALSO shows a
+// admin-slots getSlots → available slots on the pending day (so it ALSO shows a
 // free marker) and on the free-only day.
+// NOTE: status is LOWERCASE 'available' — this is exactly what Supabase returns.
+// (A capitalized 'Available' here once masked a real bug where the rose
+// indicator never appeared in production.)
 const SLOTS = {
   success: true,
   slots: [
-    { date: D_PENDING, time: '14:00', status: 'Available' },
-    { date: D_FREE,    time: '15:00', status: 'Available' },
-    { date: D_FREE,    time: '15:30', status: 'Available' },
+    { date: D_PENDING, time: '14:00', status: 'available' },
+    { date: D_FREE,    time: '15:00', status: 'available' },
+    { date: D_FREE,    time: '15:30', status: 'available' },
   ],
 }
 
@@ -160,5 +163,61 @@ test.describe('Calendar Clarity — day status indicators', () => {
     await expect(cell(page, D_PENDING)).toHaveClass(/has-pending/)
 
     expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+})
+
+// ─── Add-slot flow — sheet closes + free indicator appears (live regression) ──
+// Reproduces the live bug: adding a slot left the sheet open and the day never
+// showed "זמן פנוי" because the slot status from Supabase is lowercase.
+
+test.describe('Calendar Clarity — add-slot updates the calendar', () => {
+  const D_EMPTY = `${YM}-20` // a current-month day with no bookings or slots
+
+  async function setupAddSlotMocks(page) {
+    const added = [] // slots the admin adds during the test (lowercase status)
+    const NONE = { success: true, bookings: [] }
+
+    await page.route(GAS_GLOB, async (route, request) => {
+      if (request.method() !== 'POST') return route.continue()
+      let b = {}; try { b = JSON.parse(request.postData()) } catch { /* */ }
+      const ok = d => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(d) })
+      if (b.action === 'listBookings')  return ok(NONE)
+      if (b.action === 'getSystemInfo') return ok({ success: true, reminderLastRun: null })
+      return ok({ success: true })
+    })
+    await page.route(SB_FUNC_GLOB, async (route, request) => {
+      const fn = request.url().split('/').pop()
+      const ok = d => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(d) })
+      if (fn === 'list-bookings') return ok(NONE)
+      if (fn === 'admin-slots') {
+        let b = {}; try { b = JSON.parse(request.postData()) } catch { /* */ }
+        if (b.action === 'addSlot') {
+          added.push({ date: b.date, time: b.time, status: 'available' }) // mirror Supabase casing
+          return ok({ success: true, slot: { id: 1, date: b.date, time: b.time, status: 'available' } })
+        }
+        if (b.action === 'getSlots') return ok({ success: true, slots: added })
+        return ok({ success: true })
+      }
+      return ok({ success: true })
+    })
+  }
+
+  test('adding a slot closes the sheet and shows the rose free indicator on that day', async ({ page }) => {
+    await setupAddSlotMocks(page)
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    // Empty day → no tint before adding
+    await expect(cell(page, D_EMPTY)).not.toHaveClass(/has-free/)
+
+    // Open the day sheet and add a slot via the inline footer picker
+    await cell(page, D_EMPTY).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    await page.locator('#js-slot-time-select').selectOption('10:00')
+    await page.locator('[data-sheet-action="addSlot"]').click()
+
+    // Sheet closes, and the day now shows the rose free tint
+    await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 4_000 })
+    await expect(cell(page, D_EMPTY)).toHaveClass(/has-free/, { timeout: 4_000 })
   })
 })
