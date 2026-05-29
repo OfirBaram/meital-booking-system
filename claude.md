@@ -863,7 +863,7 @@ were 4px on a 40px cell (invisible), there was no legend, and **pending** days
 | File | Change |
 |------|--------|
 | `frontend/admin-calendar.js` | `calDayStatus(entry)` enriched with `tone` (`pending`→`approved`→`free`→`none`), `pendingCount`, `approvedCount`, `freeSlotCount` (active-only — Rejected/Cancelled never count). `renderCalendar` now applies a whole-cell **tint class** (`has-pending`/`has-approved`/`has-free`) via `_cellClass(cell, tone)`, a single **count pill** (`.cal-count` amber/green), and a rose **free-slot marker** (`.cal-free-dot`). Old 4px `.cal-dot` rendering removed. |
-| `frontend/admin.html` | `<style>`: cell tints, pending ring + `pendingGlow` pulse (respects `prefers-reduced-motion`), `.cal-count` pill + `today` white-chip overrides, `.cal-free-dot`, `.cal-legend`. New `#js-cal-legend` markup under the grid. |
+| `frontend/admin.html` | `<style>`: cell tints, pending ring + `pendingGlow` pulse (today + upcoming only — `:not(.past)` keeps past pending a calm static ring; respects `prefers-reduced-motion`), `.cal-count` pill + `today` white-chip overrides, `.cal-free-dot`, `.cal-legend` pill-bar. New `#js-cal-legend` markup placed **above the grid** (under the month title) so the key is always visible without scrolling past the fixed bottom nav. |
 | `frontend/admin.js` | `_updatePeekStrip` now reuses `calDayStatus` and shows split counts: `"X ממתינות לאישור • Y מאושרות • Z פנוי"`. |
 
 #### Design

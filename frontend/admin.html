@@ -104,14 +104,15 @@
     /* ── Day status: whole-cell tint (current-month, non-today) ─────────────
        Priority is set in admin-calendar.js calDayStatus.tone:
        pending → approved → free. Pending is amber + ring (it's actionable). */
-    .cal-cell.has-pending:not(.today)  { background: #FDF3E7; box-shadow: inset 0 0 0 1.5px #EBB36B; }
-    .cal-cell.has-approved:not(.today) { background: #EAF5EC; }
-    .cal-cell.has-free:not(.today)     { background: #FBEFF3; }
+    .cal-cell.has-pending:not(.today)  { background: #FCEED9; box-shadow: inset 0 0 0 1.5px #E3A04A; }
+    .cal-cell.has-approved:not(.today) { background: #DCEFE1; }
+    .cal-cell.has-free:not(.today)     { background: #F8DEE9; }
     @keyframes pendingGlow {
-      0%,100% { box-shadow: inset 0 0 0 1.5px #EBB36B; }
-      55%     { box-shadow: inset 0 0 0 1.5px #EBB36B, 0 0 0 3px rgba(235,179,107,0.30); }
+      0%,100% { box-shadow: inset 0 0 0 1.5px #E3A04A; }
+      55%     { box-shadow: inset 0 0 0 1.5px #E3A04A, 0 0 0 3px rgba(227,160,74,0.32); }
     }
-    .cal-cell.has-pending:not(.today)  { animation: pendingGlow 2.6s ease-in-out 0.4s infinite; }
+    /* Pulse only draws the eye to today + upcoming pending; past pending stays a calm static ring. */
+    .cal-cell.has-pending:not(.today):not(.past) { animation: pendingGlow 2.6s ease-in-out 0.4s infinite; }
 
     /* Count pill — active bookings (Pending/Approved). Sits under the day number. */
     .cal-count {
@@ -138,9 +139,14 @@
     }
 
     /* ── Calendar legend ────────────────────────────────────────────────── */
-    .cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
-    .cal-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8A7E84; }
-    .cal-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .cal-legend {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+      width: fit-content; max-width: 100%; margin-inline: auto;
+      padding: 7px 16px; background: #FBF7F4; border: 1px solid rgba(166,124,142,0.12);
+      border-radius: 999px;
+    }
+    .cal-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #8A7E84; }
+    .cal-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
     /* ── Swipe cards ────────────────────────────────────────────────────── */
     .swipe-wrapper { position: relative; overflow: hidden; border-radius: 1rem; }
@@ -323,6 +329,13 @@
         </button>
       </div>
 
+      <!-- Status legend — at-a-glance key, always visible above the grid -->
+      <div id="js-cal-legend" class="cal-legend mb-3" data-qa="cal-legend">
+        <span><i style="background:#E3A04A"></i>ממתין לאישור</span>
+        <span><i style="background:#2E9E54"></i>מאושר</span>
+        <span><i style="background:#F2789F"></i>זמן פנוי</span>
+      </div>
+
       <!-- Day-of-week header (RTL: Sunday=rightmost, rendered first in DOM) -->
       <div class="grid grid-cols-7 mb-1 px-0.5 select-none">
         <div class="text-center text-[11px] font-semibold text-text-muted py-1">א</div>
@@ -354,13 +367,6 @@
         <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
         <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
         <div class="cal-cell animate-pulse bg-secondary/10"></div>
-      </div>
-
-      <!-- Status legend — explains the day-cell colors -->
-      <div id="js-cal-legend" class="cal-legend mt-3" data-qa="cal-legend">
-        <span><i style="background:#E8972E"></i>ממתין לאישור</span>
-        <span><i style="background:#2E9E54"></i>מאושר</span>
-        <span><i style="background:#F2789F"></i>זמן פנוי</span>
       </div>
 
       <!-- Selected-day peek strip -->
