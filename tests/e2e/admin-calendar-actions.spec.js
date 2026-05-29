@@ -50,7 +50,7 @@
  *   22. No JS errors during full approve → undo cycle
  *   23. No JS errors during inline add-slot flow
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

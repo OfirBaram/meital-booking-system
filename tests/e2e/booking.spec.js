@@ -10,7 +10,7 @@
  *  - sendOTP   → always { success: true }
  *  - verifyAndBook → { success: true } for any OTP except '000000'
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 

@@ -19,7 +19,7 @@
  *   9.  No JS errors during tab-switch animation cycle
  *  10.  No JS errors during calendar month navigation
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
