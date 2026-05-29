@@ -7,7 +7,7 @@ import {
   buildCard, buildSwipeCard,
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
 } from './admin-render.js';
-import { buildCalData, renderCalendar, formatCalTitle } from './admin-calendar.js';
+import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './admin-calendar.js';
 import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
 
@@ -712,15 +712,19 @@ function _updatePeekStrip(dateStr, entry) {
     peekDate.textContent = DAY_NAMES_HE[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
   }
   if (peekContent) {
-    const bCount = (entry && entry.bookings) ? entry.bookings.length : 0;
-    const fCount = (entry && entry.freeSlotCount) ? entry.freeSlotCount : 0;
+    const { pendingCount, approvedCount, freeSlotCount } = calDayStatus(entry);
     const parts = [];
-    if (bCount > 0) {
-      const col = (entry && entry.hasPending) ? 'text-amber-600' : 'text-green-600';
-      parts.push('<span class="font-semibold ' + col + '">' + bCount + (bCount === 1 ? ' הזמנה' : ' הזמנות') + '</span>');
+    if (pendingCount > 0) {
+      parts.push('<span class="font-semibold text-amber-600">' + pendingCount +
+        (pendingCount === 1 ? ' ממתינה לאישור' : ' ממתינות לאישור') + '</span>');
     }
-    if (fCount > 0) {
-      parts.push('<span class="font-semibold text-rose-500">' + fCount + (fCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
+    if (approvedCount > 0) {
+      parts.push('<span class="font-semibold text-green-600">' + approvedCount +
+        (approvedCount === 1 ? ' מאושרת' : ' מאושרות') + '</span>');
+    }
+    if (freeSlotCount > 0) {
+      parts.push('<span class="font-semibold text-rose-500">' + freeSlotCount +
+        (freeSlotCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
     }
     peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
   }

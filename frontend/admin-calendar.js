@@ -3,8 +3,8 @@
  *
  * Exports:
  *   computeCalendarGrid(year, month, [_today])  → CalCell[]
- *   buildCalData(bookings)                       → CalData
- *   calDayStatus(entry)                          → { dots[], hasPendingOrApproved }
+ *   buildCalData(bookings, [slots])              → CalData
+ *   calDayStatus(entry)                          → { dots[], tone, pendingCount, approvedCount, freeSlotCount, ... }
  *   formatCalTitle(year, month)                  → string
  *   renderCalendar(gridEl, titleEl, year, month, calData, [opts])
  *
@@ -22,6 +22,14 @@ const DOT_CLS = {
   amber: 'bg-amber-400',
   green: 'bg-green-500',
   rose:  'bg-rose-400',
+};
+
+// Cell tint class per dominant day status (see calDayStatus.tone).
+// Styling lives in admin.html <style> (.cal-cell.has-pending / .has-approved / .has-free).
+const TONE_CLS = {
+  pending:  'has-pending',
+  approved: 'has-approved',
+  free:     'has-free',
 };
 
 // ─── Pure functions ───────────────────────────────────────────────────────────
@@ -89,18 +97,49 @@ export function buildCalData(bookings, slots = []) {
 }
 
 /**
- * Derive the dot indicators for a single calendar cell.
+ * Derive the visual status of a single calendar cell.
+ *
+ * `tone` is the dominant, most-actionable status that drives the cell tint:
+ *   pending → approved → free → none   (pending wins because it needs action).
+ * Counts are ACTIVE only — Rejected/Cancelled bookings never inflate them.
  *
  * @param {Object|null|undefined} entry  value from buildCalData output
- * @returns {{ dots: string[], hasPendingOrApproved: boolean, bookingCount: number }}
+ * @returns {{
+ *   tone: 'pending'|'approved'|'free'|'none',
+ *   pendingCount: number, approvedCount: number, freeSlotCount: number,
+ *   dots: string[], hasPendingOrApproved: boolean, bookingCount: number
+ * }}
  */
 export function calDayStatus(entry) {
-  if (!entry) return { dots: [], hasPendingOrApproved: false, bookingCount: 0 };
+  if (!entry) {
+    return {
+      tone: 'none', pendingCount: 0, approvedCount: 0, freeSlotCount: 0,
+      dots: [], hasPendingOrApproved: false, bookingCount: 0,
+    };
+  }
+
+  const bookings      = entry.bookings || [];
+  const pendingCount  = bookings.filter(b => b.status === 'Pending').length;
+  const approvedCount = bookings.filter(b => b.status === 'Approved').length;
+  const freeSlotCount = entry.freeSlotCount || 0;
+
+  const tone =
+    pendingCount  > 0 ? 'pending'  :
+    approvedCount > 0 ? 'approved' :
+    freeSlotCount > 0 ? 'free'     : 'none';
+
+  // dots[] kept for backward-compat with existing callers/tests
   const dots = [];
   if (entry.hasPending)  dots.push('amber');
   if (entry.hasApproved) dots.push('green');
   if (entry.hasFreeSlot) dots.push('rose');
-  return { dots, hasPendingOrApproved: entry.hasPending || entry.hasApproved, bookingCount: (entry.bookings || []).length };
+
+  return {
+    tone, pendingCount, approvedCount, freeSlotCount,
+    dots,
+    hasPendingOrApproved: entry.hasPending || entry.hasApproved,
+    bookingCount: bookings.length,
+  };
 }
 
 /**
@@ -132,12 +171,15 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
   const frag  = document.createDocumentFragment();
 
   cells.forEach(cell => {
-    const entry             = calData[cell.dateStr] || null;
-    const { dots, bookingCount } = calDayStatus(entry);
+    const entry  = calData[cell.dateStr] || null;
+    const status = calDayStatus(entry);
+    const { tone, pendingCount, approvedCount, freeSlotCount } = status;
+    const activeCount = pendingCount + approvedCount;
+
     const btn               = document.createElement('button');
     btn.dataset.date        = cell.dateStr;
     btn.setAttribute('aria-label', cell.dateStr);
-    btn.className           = _cellClass(cell);
+    btn.className           = _cellClass(cell, tone);
     btn.type                = 'button';
 
     const numSpan           = document.createElement('span');
@@ -145,31 +187,23 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
     numSpan.textContent     = cell.dayNum;
     btn.appendChild(numSpan);
 
-    if (!cell.isOtherMonth && dots.length > 0) {
-      const dotsDiv = document.createElement('div');
-      dotsDiv.className = 'cal-dots';
-      if (bookingCount > 1) {
-        // Multiple bookings: count badge replaces individual dots
-        const countEl = document.createElement('span');
-        countEl.className = 'text-[8px] font-black leading-none ' +
-          ((entry && entry.hasPending) ? 'text-amber-500' : 'text-green-600');
-        countEl.textContent = bookingCount;
-        dotsDiv.appendChild(countEl);
-      } else {
-        // 0 or 1 booking: show booking dot (not rose)
-        dots.filter(c => c !== 'rose').forEach(color => {
-          const dot = document.createElement('div');
-          dot.className = 'cal-dot ' + (DOT_CLS[color] || 'bg-gray-400');
-          dotsDiv.appendChild(dot);
-        });
+    if (!cell.isOtherMonth) {
+      // Count pill — active bookings only (Pending/Approved). Amber when any
+      // pending (actionable), otherwise green. On `today` it sits on a white
+      // chip so it stays legible over the solid Dust-Rose cell.
+      if (activeCount > 0) {
+        const pill = document.createElement('span');
+        pill.className = 'cal-count ' + (pendingCount > 0 ? 'cal-count-pending' : 'cal-count-approved');
+        pill.textContent = activeCount;
+        btn.appendChild(pill);
       }
-      // Rose dot always rendered separately (free slot indicator)
-      if (dots.includes('rose')) {
-        const roseDot = document.createElement('div');
-        roseDot.className = 'cal-dot ' + DOT_CLS.rose;
-        dotsDiv.appendChild(roseDot);
+      // Rose free-slot marker — shows there is open capacity, even alongside
+      // bookings. Suppressed only when the cell is already a pure-free tint.
+      if (freeSlotCount > 0 && tone !== 'free') {
+        const freeDot = document.createElement('span');
+        freeDot.className = 'cal-free-dot';
+        btn.appendChild(freeDot);
       }
-      btn.appendChild(dotsDiv);
     }
 
     if (opts.onDayClick && !cell.isOtherMonth) {
@@ -189,12 +223,14 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
 
 // ─── Private helpers ──────────────────────────────────────────────────────────
 
-function _cellClass(cell) {
+function _cellClass(cell, tone) {
   const parts = ['cal-cell'];
   if (cell.isOtherMonth)               parts.push('other-month');
   else if (cell.isToday)               parts.push('today');
   else if (cell.isPast)                parts.push('past');
   if (cell.isFriday || cell.isSaturday) parts.push('opacity-40 cursor-default');
+  // Status tint (current-month days only) — drives the at-a-glance background
+  if (!cell.isOtherMonth && TONE_CLS[tone]) parts.push(TONE_CLS[tone]);
   return parts.join(' ');
 }
 

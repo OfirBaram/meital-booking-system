@@ -391,17 +391,18 @@ test.describe('Sheet re-opens after commit', () => {
   })
 })
 
-// ─── 13–14. Optimistic dot update ─────────────────────────────────────────────
+// ─── 13–14. Optimistic calendar status update ────────────────────────────────
 
-test.describe('Optimistic calendar dot update', () => {
-  test('approve click immediately turns the amber dot green before any API response', async ({ page }) => {
+test.describe('Optimistic calendar status update', () => {
+  test('approve click immediately flips the day tint pending→approved before any API response', async ({ page }) => {
     await setupMocks(page, makeBookings(PENDING_BOOKING))
     await page.goto('/admin.html')
     await loginAndWait(page)
 
-    // Amber dot is present before any action
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-amber-400`)).toBeVisible({ timeout: 2_000 })
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-green-500`)).toBeHidden()
+    const cell = page.locator(`#js-cal-grid [data-date="${TODAY}"]`)
+    // Pending tint + amber count pill present before any action
+    await expect(cell).toHaveClass(/has-pending/)
+    await expect(cell.locator('.cal-count-pending')).toHaveCount(1)
 
     await openSheetForDate(page, TODAY)
     await page.locator('[data-sheet-action="approve"]').click()
@@ -409,15 +410,16 @@ test.describe('Optimistic calendar dot update', () => {
     // Toast visible → optimistic update has already fired synchronously
     await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
 
-    // Dot is now green (optimistic update fired before API)
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-green-500`)).toBeVisible({ timeout: 1_000 })
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-amber-400`)).toBeHidden()
+    // Tint is now approved (optimistic update fired before API)
+    await expect(cell).toHaveClass(/has-approved/)
+    await expect(cell).not.toHaveClass(/has-pending/)
+    await expect(cell.locator('.cal-count-approved')).toHaveCount(1)
 
     // Clean up — undo to prevent the deferred API call from affecting other tests
     await page.locator('#js-toast-undo').click()
   })
 
-  test('undo immediately reverts the dot back to amber', async ({ page }) => {
+  test('undo immediately reverts the day tint back to pending', async ({ page }) => {
     await setupMocks(page, makeBookings(PENDING_BOOKING))
     await page.goto('/admin.html')
     await loginAndWait(page)
@@ -430,8 +432,9 @@ test.describe('Optimistic calendar dot update', () => {
     await expect(page.locator('#js-toast')).toBeHidden({ timeout: 2_000 })
 
     // Undo callback fires: booking.status reverted, calData rebuilt, calendar re-rendered
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-amber-400`)).toBeVisible({ timeout: 1_000 })
-    await expect(page.locator(`[data-date="${TODAY}"] .cal-dot.bg-green-500`)).toBeHidden()
+    const cell = page.locator(`#js-cal-grid [data-date="${TODAY}"]`)
+    await expect(cell).toHaveClass(/has-pending/)
+    await expect(cell).not.toHaveClass(/has-approved/)
   })
 })
 

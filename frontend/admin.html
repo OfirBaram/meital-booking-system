@@ -101,6 +101,47 @@
     .cal-dots { display: flex; gap: 2px; justify-content: center; }
     .cal-dot  { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
 
+    /* ── Day status: whole-cell tint (current-month, non-today) ─────────────
+       Priority is set in admin-calendar.js calDayStatus.tone:
+       pending → approved → free. Pending is amber + ring (it's actionable). */
+    .cal-cell.has-pending:not(.today)  { background: #FDF3E7; box-shadow: inset 0 0 0 1.5px #EBB36B; }
+    .cal-cell.has-approved:not(.today) { background: #EAF5EC; }
+    .cal-cell.has-free:not(.today)     { background: #FBEFF3; }
+    @keyframes pendingGlow {
+      0%,100% { box-shadow: inset 0 0 0 1.5px #EBB36B; }
+      55%     { box-shadow: inset 0 0 0 1.5px #EBB36B, 0 0 0 3px rgba(235,179,107,0.30); }
+    }
+    .cal-cell.has-pending:not(.today)  { animation: pendingGlow 2.6s ease-in-out 0.4s infinite; }
+
+    /* Count pill — active bookings (Pending/Approved). Sits under the day number. */
+    .cal-count {
+      min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; line-height: 1; color: #fff;
+    }
+    .cal-count-pending  { background: #E8972E; }
+    .cal-count-approved { background: #2E9E54; }
+    /* On the solid Dust-Rose "today" cell, render the pill on a white chip. */
+    .cal-cell.today .cal-count          { background: #fff; }
+    .cal-cell.today .cal-count-pending  { color: #C2781E; }
+    .cal-cell.today .cal-count-approved { color: #1F7D40; }
+
+    /* Rose free-slot marker — open capacity, even on a day that also has bookings. */
+    .cal-free-dot {
+      position: absolute; top: 4px; inset-inline-start: 5px;
+      width: 6px; height: 6px; border-radius: 50%; background: #F2789F;
+    }
+    .cal-cell.today .cal-free-dot { background: #fff; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cal-cell.has-pending:not(.today) { animation: none; }
+    }
+
+    /* ── Calendar legend ────────────────────────────────────────────────── */
+    .cal-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+    .cal-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #8A7E84; }
+    .cal-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
     /* ── Swipe cards ────────────────────────────────────────────────────── */
     .swipe-wrapper { position: relative; overflow: hidden; border-radius: 1rem; }
     .swipe-card {
@@ -313,6 +354,13 @@
         <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
         <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
         <div class="cal-cell animate-pulse bg-secondary/10"></div>
+      </div>
+
+      <!-- Status legend — explains the day-cell colors -->
+      <div id="js-cal-legend" class="cal-legend mt-3" data-qa="cal-legend">
+        <span><i style="background:#E8972E"></i>ממתין לאישור</span>
+        <span><i style="background:#2E9E54"></i>מאושר</span>
+        <span><i style="background:#F2789F"></i>זמן פנוי</span>
       </div>
 
       <!-- Selected-day peek strip -->

@@ -146,25 +146,27 @@ test.describe('Bug 2 regression — dot indicators rendered only on current-mont
     await loginAndWait(page)
   })
 
-  test('other-month overflow cell with Approved booking has NO dot indicator', async ({ page }) => {
+  test('other-month overflow cell with Approved booking has NO status indicator', async ({ page }) => {
     const overflowCell = page.locator(`[data-date="${OVERFLOW_DATE}"]`)
     await expect(overflowCell).toBeVisible()
     // Confirm the cell is genuinely other-month (validates our fixture)
     await expect(overflowCell).toHaveClass(/other-month/)
-    // Bug 2 fix: dot must NOT be rendered for other-month cells
-    const dotCount = await overflowCell.locator('.cal-dot').count()
-    expect(dotCount, `other-month cell [${OVERFLOW_DATE}] must have 0 dots`).toBe(0)
+    // Bug 2 fix: status tint + count pill must NOT render for other-month cells
+    await expect(overflowCell).not.toHaveClass(/has-approved|has-pending|has-free/)
+    const pillCount = await overflowCell.locator('.cal-count').count()
+    expect(pillCount, `other-month cell [${OVERFLOW_DATE}] must have 0 status pills`).toBe(0)
   })
 
-  test('current-month cell with Approved booking DOES show a dot', async ({ page }) => {
+  test('current-month cell with Approved booking DOES show a status indicator', async ({ page }) => {
     const todayCell = page.locator(`[data-date="${TODAY}"]`)
     await expect(todayCell).toBeVisible()
     // Today must NOT be an other-month cell
     const cls = await todayCell.evaluate(el => el.className)
     expect(cls, 'today cell must not be other-month').not.toMatch(/other-month/)
-    // Green dot must be present for the Approved booking
-    const dotCount = await todayCell.locator('.cal-dot').count()
-    expect(dotCount, `current-month cell [${TODAY}] must have at least one dot`).toBeGreaterThan(0)
+    // Approved booking → green tint class + a count pill
+    await expect(todayCell).toHaveClass(/has-approved/)
+    const pillCount = await todayCell.locator('.cal-count').count()
+    expect(pillCount, `current-month cell [${TODAY}] must show a status pill`).toBeGreaterThan(0)
   })
 })
 
