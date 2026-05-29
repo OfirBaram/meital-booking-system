@@ -66,16 +66,24 @@ export function computeCalendarGrid(year, month, _today) {
  * Group a flat bookings array by date and derive per-day flags.
  *
  * @param {Array}  bookings  from GAS listBookings
- * @returns {Object}  { 'YYYY-MM-DD': { bookings[], hasPending, hasApproved } }
+ * @param {Array}  [slots]   from admin-slots getSlots (marks hasFreeSlot / freeSlotCount)
+ * @returns {Object}  { 'YYYY-MM-DD': { bookings[], hasPending, hasApproved, hasFreeSlot, freeSlotCount } }
  */
-export function buildCalData(bookings) {
+export function buildCalData(bookings, slots = []) {
   const out = {};
+  const _e = d => { if (!out[d]) out[d] = { bookings: [], hasPending: false, hasApproved: false, hasFreeSlot: false, freeSlotCount: 0 }; };
   for (const b of (bookings || [])) {
     if (!b.date) continue;
-    if (!out[b.date]) out[b.date] = { bookings: [], hasPending: false, hasApproved: false };
+    _e(b.date);
     out[b.date].bookings.push(b);
     if (b.status === 'Pending')  out[b.date].hasPending  = true;
     if (b.status === 'Approved') out[b.date].hasApproved = true;
+  }
+  for (const s of (slots || [])) {
+    if (!s.date || s.status !== 'Available') continue;
+    _e(s.date);
+    out[s.date].hasFreeSlot = true;
+    out[s.date].freeSlotCount++;
   }
   return out;
 }
@@ -84,14 +92,15 @@ export function buildCalData(bookings) {
  * Derive the dot indicators for a single calendar cell.
  *
  * @param {Object|null|undefined} entry  value from buildCalData output
- * @returns {{ dots: string[], hasPendingOrApproved: boolean }}
+ * @returns {{ dots: string[], hasPendingOrApproved: boolean, bookingCount: number }}
  */
 export function calDayStatus(entry) {
-  if (!entry) return { dots: [], hasPendingOrApproved: false };
+  if (!entry) return { dots: [], hasPendingOrApproved: false, bookingCount: 0 };
   const dots = [];
   if (entry.hasPending)  dots.push('amber');
   if (entry.hasApproved) dots.push('green');
-  return { dots, hasPendingOrApproved: entry.hasPending || entry.hasApproved };
+  if (entry.hasFreeSlot) dots.push('rose');
+  return { dots, hasPendingOrApproved: entry.hasPending || entry.hasApproved, bookingCount: entry.bookings.length };
 }
 
 /**
@@ -123,27 +132,43 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
   const frag  = document.createDocumentFragment();
 
   cells.forEach(cell => {
-    const entry        = calData[cell.dateStr] || null;
-    const { dots }     = calDayStatus(entry);
-    const btn          = document.createElement('button');
-    btn.dataset.date   = cell.dateStr;
+    const entry             = calData[cell.dateStr] || null;
+    const { dots, bookingCount } = calDayStatus(entry);
+    const btn               = document.createElement('button');
+    btn.dataset.date        = cell.dateStr;
     btn.setAttribute('aria-label', cell.dateStr);
-    btn.className      = _cellClass(cell);
-    btn.type           = 'button';
+    btn.className           = _cellClass(cell);
+    btn.type                = 'button';
 
-    const numSpan      = document.createElement('span');
-    numSpan.className  = 'text-xs font-semibold leading-none';
-    numSpan.textContent = cell.dayNum;
+    const numSpan           = document.createElement('span');
+    numSpan.className       = 'text-xs font-semibold leading-none';
+    numSpan.textContent     = cell.dayNum;
     btn.appendChild(numSpan);
 
-    if (dots.length > 0 && !cell.isOtherMonth) {
-      const dotsDiv     = document.createElement('div');
+    if (!cell.isOtherMonth && dots.length > 0) {
+      const dotsDiv = document.createElement('div');
       dotsDiv.className = 'cal-dots';
-      dots.forEach(color => {
-        const dot       = document.createElement('div');
-        dot.className   = 'cal-dot ' + (DOT_CLS[color] || 'bg-gray-400');
-        dotsDiv.appendChild(dot);
-      });
+      if (bookingCount > 1) {
+        // Multiple bookings: count badge replaces individual dots
+        const countEl = document.createElement('span');
+        countEl.className = 'text-[8px] font-black leading-none ' +
+          ((entry && entry.hasPending) ? 'text-amber-500' : 'text-green-600');
+        countEl.textContent = bookingCount;
+        dotsDiv.appendChild(countEl);
+      } else {
+        // 0 or 1 booking: show booking dot (not rose)
+        dots.filter(c => c !== 'rose').forEach(color => {
+          const dot = document.createElement('div');
+          dot.className = 'cal-dot ' + (DOT_CLS[color] || 'bg-gray-400');
+          dotsDiv.appendChild(dot);
+        });
+      }
+      // Rose dot always rendered separately (free slot indicator)
+      if (dots.includes('rose')) {
+        const roseDot = document.createElement('div');
+        roseDot.className = 'cal-dot ' + DOT_CLS.rose;
+        dotsDiv.appendChild(roseDot);
+      }
       btn.appendChild(dotsDiv);
     }
 

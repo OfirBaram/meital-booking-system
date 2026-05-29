@@ -32,6 +32,7 @@ const S = {
   _clientSearchTimer: null,
   calData:  {},
   calMonth: new Date(),
+  slotCache: {},
 };
 
 async function apiCall(action, extra = {}) {
@@ -187,12 +188,11 @@ async function login() {
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_TS, String(Date.now()));
     S.bookings = data.bookings || [];
-    S.calData = buildCalData(S.bookings);
     showDash();
     hideSkeleton();
     render();
     updateStats();
-    renderVisibleCalendar();
+    loadAndRenderCalendar();
   } catch (_) {
     S.token = '';
     err.classList.remove('hidden');
@@ -216,7 +216,6 @@ async function load(silent = false) {
     const data = await r.json();
     if (!data.success) throw new Error(data.error || 'error');
     S.bookings = data.bookings || [];
-    S.calData = buildCalData(S.bookings);
     render();
     updateStats();
     if (S.tab === 'pulse') renderPulse();
@@ -262,7 +261,7 @@ function setTab(tab) {
   }
 
   if (tab === 'slots')    loadTemplate();
-  if (tab === 'calendar') renderVisibleCalendar();
+  if (tab === 'calendar') loadAndRenderCalendar();
   if (tab === 'diary')  {
     const fromEl = document.getElementById('js-diary-from');
     const toEl   = document.getElementById('js-diary-to');
@@ -667,8 +666,10 @@ async function loadSmsLog() {
 
 
 function renderVisibleCalendar() {
-  const y  = S.calMonth.getFullYear();
-  const mo = S.calMonth.getMonth() + 1;
+  const y   = S.calMonth.getFullYear();
+  const mo  = S.calMonth.getMonth() + 1;
+  const key = y + '-' + String(mo).padStart(2, '0');
+  S.calData = buildCalData(S.bookings, S.slotCache[key] || []);
   renderCalendar(
     document.getElementById('js-cal-grid'),
     document.getElementById('js-cal-title'),
@@ -677,13 +678,52 @@ function renderVisibleCalendar() {
   );
 }
 
+async function loadAndRenderCalendar() {
+  const y   = S.calMonth.getFullYear();
+  const mo  = S.calMonth.getMonth() + 1;
+  const key = y + '-' + String(mo).padStart(2, '0');
+  if (!S.slotCache[key]) {
+    const lastDay = new Date(y, mo, 0).getDate();
+    const from = key + '-01';
+    const to   = key + '-' + String(lastDay).padStart(2, '0');
+    try {
+      const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: from, dateTo: to });
+      S.slotCache[key] = (r.success && r.slots) ? r.slots : [];
+    } catch { S.slotCache[key] = []; }
+  }
+  renderVisibleCalendar();
+}
+
 let _sheetOpenDate = null;
 
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
-  const peekBtn = document.getElementById('js-cal-peek-add');
-  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.date = dateStr; }
+  _updatePeekStrip(dateStr, entry);
   openSheet('day', { dateStr, entry });
+}
+
+function _updatePeekStrip(dateStr, entry) {
+  const peekDate    = document.getElementById('js-cal-peek-date');
+  const peekContent = document.getElementById('js-cal-peek-content');
+  const peekBtn     = document.getElementById('js-cal-peek-add');
+  if (peekDate) {
+    const d = new Date(dateStr + 'T00:00:00');
+    peekDate.textContent = DAY_NAMES_HE[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
+  }
+  if (peekContent) {
+    const bCount = (entry && entry.bookings) ? entry.bookings.length : 0;
+    const fCount = (entry && entry.freeSlotCount) ? entry.freeSlotCount : 0;
+    const parts = [];
+    if (bCount > 0) {
+      const col = (entry && entry.hasPending) ? 'text-amber-600' : 'text-green-600';
+      parts.push('<span class="font-semibold ' + col + '">' + bCount + (bCount === 1 ? ' הזמנה' : ' הזמנות') + '</span>');
+    }
+    if (fCount > 0) {
+      parts.push('<span class="font-semibold text-rose-500">' + fCount + (fCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
+    }
+    peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
+  }
+  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.date = dateStr; }
 }
 
 function _commitCardAction(id, target) {
@@ -750,7 +790,6 @@ function _commitSheetAction(id, target) {
 
   // Optimistic update — dot changes instantly before API resolves
   booking.status = target;
-  S.calData = buildCalData(S.bookings);
   renderVisibleCalendar();
 
   const OK = { Approved: 'ההזמנה אושרה ✓', Rejected: 'ההזמנה נדחתה', Cancelled: 'ההזמנה בוטלה' };
@@ -778,7 +817,6 @@ function _commitSheetAction(id, target) {
         }
       } catch (e) {
         if (booking) booking.status = prevStatus;
-        S.calData = buildCalData(S.bookings);
         renderVisibleCalendar();
         toast('שגיאה: ' + e.message, 'err');
         await load(true);
@@ -786,7 +824,6 @@ function _commitSheetAction(id, target) {
     },
     () => {
       if (booking) booking.status = prevStatus;
-      S.calData = buildCalData(S.bookings);
       renderVisibleCalendar();
       if (dateStr && isSheetOpen()) {
         const entry = S.calData[dateStr] || null;
@@ -834,11 +871,16 @@ async function init() {
 
   document.getElementById('js-cal-prev').addEventListener('click', () => {
     S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
-    renderVisibleCalendar();
+    loadAndRenderCalendar();
   });
   document.getElementById('js-cal-next').addEventListener('click', () => {
     S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1);
-    renderVisibleCalendar();
+    loadAndRenderCalendar();
+  });
+  const todayBtn = document.getElementById('js-cal-today');
+  if (todayBtn) todayBtn.addEventListener('click', () => {
+    S.calMonth = new Date();
+    loadAndRenderCalendar();
   });
 
   const peekAddBtn = document.getElementById('js-cal-peek-add');
@@ -897,6 +939,7 @@ async function init() {
             toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
           } else {
             toast('החריץ נוסף ✓', 'ok');
+            delete S.slotCache[slotDate.substring(0, 7)];
             await load(true);
             if (isSheetOpen()) openSheet('day', { dateStr: slotDate, entry: S.calData[slotDate] || null });
           }
@@ -920,12 +963,11 @@ async function init() {
       const data = await r.json();
       if (!data.success) throw new Error(data.error);
       S.bookings = data.bookings || [];
-      S.calData = buildCalData(S.bookings);
       showDash();
       hideSkeleton();
       render();
       updateStats();
-      renderVisibleCalendar();
+      loadAndRenderCalendar();
       loadAutoSmsToggle();
     } catch (_) {
       logout();
