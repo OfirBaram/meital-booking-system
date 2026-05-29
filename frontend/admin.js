@@ -724,7 +724,7 @@ function _updatePeekStrip(dateStr, entry) {
     }
     peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
   }
-  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.date = dateStr; }
+  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.peekDate = dateStr; }
 }
 
 function _commitCardAction(id, target) {
@@ -887,7 +887,7 @@ async function init() {
   const peekAddBtn = document.getElementById('js-cal-peek-add');
   if (peekAddBtn) {
     peekAddBtn.addEventListener('click', () => {
-      const d = peekAddBtn.dataset.date;
+      const d = peekAddBtn.dataset.peekDate;
       if (!d) return;
       if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', { dateStr: d, entry: S.calData[d] || null }); }
     });
