@@ -592,6 +592,12 @@ function renderConfirmation() {
   `;
 
   document.getElementById('js-nav').classList.add('hidden');
+
+  // A11y: move focus to the heading so screen-reader users are told the request
+  // was sent (focus was on the now-hidden OTP box). preventScroll keeps showStep's
+  // scroll-to-top intact.
+  const heading = document.getElementById('js-confirm-heading');
+  if (heading) heading.focus({ preventScroll: true });
 }
 
 // ═══════════════════════════════════════════════════
