@@ -340,4 +340,25 @@ test.describe('Calendar Clarity — day popup control-center', () => {
     await expect(row).toContainText('בוטל')
     await expect(row.locator('[data-sheet-action]')).toHaveCount(0)
   })
+
+  test('a free slot can be blocked and disappears from the free list', async ({ page }) => {
+    const today = localToday()
+    const slotsRef = { current: [{ id: 9, date: today, time: '11:00', status: 'available' }] }
+
+    await route(page, { success: true, bookings: [] }, slotsRef)
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    await cell(page, today).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    const blockBtn = page.locator('[data-sheet-action="blockSlot"][data-slot-id="9"]')
+    await expect(blockBtn).toBeVisible()
+
+    await blockBtn.click()
+
+    // After blocking, the slot is locked — it no longer appears in the free section.
+    await expect(page.locator('[data-slot-id="9"]')).toHaveCount(0, { timeout: 4_000 })
+    await expect(page.locator('#js-sheet')).toBeVisible()
+    await expect(page.locator('#js-toast-msg')).toContainText('נחסם', { timeout: 3_000 })
+  })
 })
