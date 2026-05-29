@@ -1047,10 +1047,11 @@ function wireEvents() {
     document.getElementById('inp-name').focus();
     updateNav();
   });
-
-  document.getElementById('js-book-again').addEventListener('click', resetApp);
 }
 
+// resetApp — start a fresh booking. The "book another" button was removed from
+// the pending-confirmation screen (the WhatsApp CTA replaced it), so this is no
+// longer wired to any control; kept for programmatic reuse / tests.
 function resetApp() {
   State.service   = null;
   State.date      = null;

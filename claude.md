@@ -12,7 +12,7 @@
 2. **clasp deploy** — דחוף גרסה חדשה ל-GAS אחרי כל שינוי backend (push ≠ deploy; הרץ `clasp deploy -i AKfycbw...`).
 3. **בדיקת קצה-לקצה חיה** — הזמנה אמיתית עם מספר טלפון ישראלי.
 
-> מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase; GAS נשאר לתופעות-לוואי (SMS + Calendar).
+> מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase. **SMS ללקוח/אדמין נשלח כעת מ-Supabase Edge Functions** (`change-status`, `admin-action`, `verify-and-book`) — לא מ-GAS (ה-GAS side-effect קרא את ה-Sheet הריק ולכן ה-SMS לא נשלח). GAS נשאר ל-Calendar בלבד. פריסה: `bash scripts/deploy-functions.sh`.
 
 ---
 
@@ -186,6 +186,7 @@ QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService 
 | v1.3.0 | 05-18 | Phase 5 — QA framework (unit + E2E hardening) |
 | v1.4.0 | 05-28 | Calendar Day Actions — אשר/דחה/בטל מתוך ה-day sheet |
 | v1.5.0 | 05-29 | Calendar Clarity — tint לכל התא, count pill, free-slot marker, legend |
+| v1.6.0 | 05-29 | SMS fixes — אישור/דחייה שולחים SMS ללקוח מ-Supabase; admin-action (one-tap); WhatsApp CTA |
 
 ## v1.5.0 פרטים (העבודה הנוכחית)
 - `calDayStatus(entry)` מעשיר: tone (pending→approved→free→none), pendingCount, approvedCount, freeSlotCount (active בלבד — Rejected/Cancelled לא נספרים).
@@ -194,6 +195,14 @@ QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService 
 - legend תמיד-נראה מעל הגריד.
 - **באג שתוקן:** rose "זמן פנוי" לא הופיע כי buildCalData השווה ל-'Available' בעוד Supabase מחזיר 'available' — עכשיו case-insensitive.
 - **התנהגות popup:** addSlot ו-_commitSheetAction עכשיו closeSheet() וחושפים את הלוח עם העדכון האופטימי (לא re-open). Undo מחזיר את הלוח in-place.
+
+## v1.6.0 פרטים — SMS / Notification fixes
+- **שורש הבאג:** הזמנות חיות נכתבות ל-Supabase (`appointments`), אך side-effect ה-SMS ב-GAS קרא את ה-Sheet הריק → `booking_not_found` → SMS לא נשלח (השגיאה נבלעה ב-`.catch`).
+- `supabase/functions/_shared/`: `messages.ts` (pure — `hebrewDayLabel`, `buildClientStatusSms`, `buildAdminNewBookingSms`; נבדק ב-Vitest), `crypto.ts` (HMAC + timing-safe verify), `sms.ts` (Twilio).
+- `change-status`: אחרי RPC מוצלח שולף מ-`bookings_view` ושולח SMS ללקוח (approved/rejected/cancelled). SMS לא-פטאלי.
+- `admin-action` (**חדש**, `verify_jwt=false`): לינק GET חתום-HMAC מה-SMS לאדמין → מאשר/דוחה → SMS ללקוח → דף HTML עברי. מאובטח ע"י טוקן ה-HMAC לכל הזמנה (אותו סוד כמו verify-and-book).
+- `verify-and-book`: ה-SMS לאדמין כולל שם-יום עברי, ולינק `${SUPABASE_URL}/functions/v1/admin-action` קליקבילי (לא עוד `undefined` מ-GAS_URL חסר). **GAS_URL הוסר.**
+- Frontend: מסך ה-pending — הוסר "הזמני תור נוסף", במקומו כפתור WhatsApp בולט (`#js-whatsapp`, `wa.me/972547686865`).
 
 ## v1.4.0 פרטים — Calendar Day Actions
 - `frontend/admin-sheet.js`: `_bookingActions(b)` מציג כפתורים inline לפי סטטוס; event delegation על js-sheet-content (listener אחד ב-initSheet); `isSheetOpen()` exported.
