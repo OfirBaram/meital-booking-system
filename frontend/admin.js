@@ -158,6 +158,7 @@ function showDash() {
 
 function logout() {
   S.token = '';
+  S.slotCache = {};
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_TS);
   showLogin();
@@ -941,6 +942,7 @@ async function init() {
             toast('החריץ נוסף ✓', 'ok');
             delete S.slotCache[slotDate.substring(0, 7)];
             await load(true);
+            await loadAndRenderCalendar();
             if (isSheetOpen()) openSheet('day', { dateStr: slotDate, entry: S.calData[slotDate] || null });
           }
         } catch (err) {
