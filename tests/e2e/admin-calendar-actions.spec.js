@@ -451,14 +451,16 @@ test.describe('Inline slot picker in sheet footer', () => {
     await expect(page.locator('[data-sheet-action="addSlot"]')).toBeVisible({ timeout: 2_000 })
   })
 
-  test('time select has options from 08:00 to 20:00 in half-hour steps', async ({ page }) => {
+  test('time select has options from 08:00 to 19:30 in half-hour steps', async ({ page }) => {
     await setupMocks(page, makeBookings(PENDING_BOOKING))
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
 
     await expect(page.locator('#js-slot-time-select option').first()).toHaveText('08:00')
-    await expect(page.locator('#js-slot-time-select option').last()).toHaveText('20:00')
+    // 20:00 is intentionally excluded — last bookable start is 19:30
+    await expect(page.locator('#js-slot-time-select option').last()).toHaveText('19:30')
+    await expect(page.locator('#js-slot-time-select option', { hasText: '20:00' })).toHaveCount(0)
 
     // Half-hour step: second option should be 08:30
     await expect(page.locator('#js-slot-time-select option').nth(1)).toHaveText('08:30')

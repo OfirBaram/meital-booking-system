@@ -17,6 +17,8 @@ import {
   sheetReducer,
   INITIAL_SHEET_STATE,
   SNAP_HEIGHTS,
+  slotTimeOptions,
+  usedTimeSet,
 } from '../../frontend/admin-sheet.js'
 
 // ─── INITIAL_SHEET_STATE ──────────────────────────────────────────────────────
@@ -199,5 +201,59 @@ describe('sheetReducer — unknown action type', () => {
     const state = { open: true, type: 'day', payload: null, snap: 'half' }
     const s = sheetReducer(state, { type: 'SOMETHING_ELSE' })
     expect(s).toEqual(state)
+  })
+})
+
+// ─── slotTimeOptions — add-slot picker times (08:00 → 19:30) ──────────────────
+
+describe('slotTimeOptions', () => {
+  const times = slotTimeOptions()
+
+  it('starts at 08:00', () => {
+    expect(times[0]).toBe('08:00')
+  })
+  it('ends at 19:30 (20:00 excluded)', () => {
+    expect(times[times.length - 1]).toBe('19:30')
+    expect(times).not.toContain('20:00')
+  })
+  it('is in 30-minute steps', () => {
+    expect(times[1]).toBe('08:30')
+    expect(times[2]).toBe('09:00')
+  })
+  it('has 24 options (08:00–19:30 inclusive, half-hourly)', () => {
+    expect(times).toHaveLength(24)
+  })
+})
+
+// ─── usedTimeSet — which times the picker should flag as taken ────────────────
+
+describe('usedTimeSet', () => {
+  it('flags times of active bookings (Pending/Approved)', () => {
+    const used = usedTimeSet(
+      [{ status: 'Pending', time: '08:00' }, { status: 'Approved', time: '09:00' }],
+      [],
+    )
+    expect(used.has('08:00')).toBe(true)
+    expect(used.has('09:00')).toBe(true)
+  })
+
+  it('does NOT flag times of Rejected/Cancelled bookings (the slot is free again)', () => {
+    const used = usedTimeSet(
+      [{ status: 'Rejected', time: '10:00' }, { status: 'Cancelled', time: '11:00' }],
+      [],
+    )
+    expect(used.has('10:00')).toBe(false)
+    expect(used.has('11:00')).toBe(false)
+  })
+
+  it('flags times of any existing slot regardless of status', () => {
+    const used = usedTimeSet([], [{ time: '12:00', status: 'available' }, { time: '13:00', status: 'locked' }])
+    expect(used.has('12:00')).toBe(true)
+    expect(used.has('13:00')).toBe(true)
+  })
+
+  it('returns an empty set for no bookings and no slots', () => {
+    expect(usedTimeSet([], []).size).toBe(0)
+    expect(usedTimeSet(null, null).size).toBe(0)
   })
 })

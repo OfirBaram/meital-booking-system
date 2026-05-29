@@ -48,6 +48,37 @@ const VALID_SNAPS = new Set(['peek', 'half', 'full'])
 // Hoisted so _esc is never reconstructed per call
 const _ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
+// ── Pure day-sheet helpers (unit-testable) ──────────────────────────────────────
+
+/**
+ * Bookable start times for the add-slot picker: 08:00 → 19:30 in 30-min steps.
+ * 20:00 is intentionally excluded (no service can start that late).
+ */
+export function slotTimeOptions() {
+  const out = []
+  for (let h = 8; h <= 19; h++) {
+    out.push(String(h).padStart(2, '0') + ':00')
+    out.push(String(h).padStart(2, '0') + ':30')
+  }
+  return out
+}
+
+/**
+ * Set of 'HH:MM' times already in use on a day, so the picker can flag them.
+ * A time is "used" if an active booking (Pending/Approved) or any slot sits on it.
+ * Rejected/Cancelled bookings free the time and do not count.
+ */
+export function usedTimeSet(bookings, slots) {
+  const used = new Set()
+  for (const b of (bookings || [])) {
+    if ((b.status === 'Pending' || b.status === 'Approved') && b.time) used.add(b.time)
+  }
+  for (const s of (slots || [])) {
+    if (s.time) used.add(s.time)
+  }
+  return used
+}
+
 /**
  * Pure reducer — derives next state from current state + action.
  * Returns a new object; never mutates the input.
@@ -99,10 +130,16 @@ export function initSheet() {
   const sheetContent = document.getElementById('js-sheet-content')
   if (sheetContent) {
     sheetContent.addEventListener('click', e => {
-      const btn = e.target.closest('[data-sheet-action][data-id]')
+      // Booking buttons carry data-id; free-slot buttons carry data-slot-id.
+      const btn = e.target.closest('[data-sheet-action]')
       if (!btn) return
       document.dispatchEvent(new CustomEvent('sheet:action', {
-        detail: { action: btn.dataset.sheetAction, id: btn.dataset.id || '', date: btn.dataset.date || '' },
+        detail: {
+          action: btn.dataset.sheetAction,
+          id:     btn.dataset.id     || '',
+          date:   btn.dataset.date   || '',
+          slotId: btn.dataset.slotId || '',
+        },
         bubbles: false,
       }))
     })
@@ -157,34 +194,76 @@ function _renderContent() {
 
 function _renderDay(titleEl, contentEl, footerEl, payload) {
   if (!payload) return
-  const { dateStr, entry } = payload
+  const { dateStr, entry, slots = [], isPast = false } = payload
   titleEl.textContent = (dateStr || '').replace(/-/g, '/')
 
-  if (!entry || !entry.bookings || entry.bookings.length === 0) {
+  const bookings  = (entry && entry.bookings) ? entry.bookings : []
+  const freeSlots = (slots || []).filter(s => String(s.status).toLowerCase() === 'available')
+  const pending   = bookings.filter(b => b.status === 'Pending').length
+  const approved  = bookings.filter(b => b.status === 'Approved').length
+
+  // A day is "empty" when there is nothing actionable to show: no bookings and
+  // (for non-past days) no free slots. Past days never show the free-slot section.
+  const hasContent = bookings.length > 0 || (!isPast && freeSlots.length > 0)
+
+  if (!hasContent) {
     contentEl.innerHTML =
       '<div class="flex flex-col items-center justify-center py-12 text-center">'
       + '<div class="text-4xl mb-3">💅</div>'
       + '<p class="text-sm font-medium text-text-muted">אין הזמנות ביום זה</p>'
       + '</div>'
   } else {
-    const sorted = entry.bookings.slice().sort((a, b) =>
-      (a.time || '') < (b.time || '') ? -1 : 1)
-    contentEl.innerHTML = sorted.map(_bookingRow).join('')
+    const parts = []
+
+    // Compact summary line, mirroring the calendar peek strip.
+    const sum = []
+    if (pending)          sum.push('<span class="text-amber-600 font-bold">' + pending + ' ממתינות</span>')
+    if (approved)         sum.push('<span class="text-green-600 font-bold">' + approved + ' מאושרות</span>')
+    if (freeSlots.length) sum.push('<span class="text-rose-500 font-bold">' + freeSlots.length + ' פנוי</span>')
+    if (sum.length) {
+      parts.push('<div class="text-xs text-text-muted flex flex-wrap items-center gap-x-2 gap-y-1">'
+        + sum.join('<span class="opacity-30">•</span>') + '</div>')
+    }
+
+    // Bookings — all statuses, sorted by time. Declined/Cancelled render as
+    // calm history rows (no action buttons) so the day's history stays visible.
+    if (bookings.length) {
+      const sorted = bookings.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      parts.push(sorted.map(_bookingRow).join(''))
+    }
+
+    // Free slots — manageable (delete / block). Hidden on past days.
+    if (!isPast && freeSlots.length) {
+      const sortedFree = freeSlots.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      parts.push(
+        '<div class="pt-1">'
+        + '<div class="text-[11px] font-bold text-text-muted mb-1.5">זמנים פנויים</div>'
+        + sortedFree.map(_freeSlotRow).join('')
+        + '</div>'
+      )
+    }
+
+    contentEl.innerHTML = parts.join('')
   }
 
   if (footerEl) {
-    const _times = [];
-    for (let h = 8; h <= 20; h++) {
-      _times.push(String(h).padStart(2, '0') + ':00');
-      if (h < 20) _times.push(String(h).padStart(2, '0') + ':30');
+    // Past days cannot accept new slots — hide the add-slot footer entirely.
+    if (isPast) {
+      footerEl.innerHTML = ''
+      footerEl.classList.add('hidden')
+      return
     }
+    const used = usedTimeSet(bookings, slots)
+    const opts = slotTimeOptions().map(function (t) {
+      return '<option value="' + t + '">' + t + (used.has(t) ? ' • תפוס' : '') + '</option>'
+    }).join('')
     footerEl.innerHTML =
       '<div class="flex gap-2 items-center">'
       + '<label class="text-xs text-text-muted shrink-0">שעה:</label>'
       + '<select id="js-slot-time-select"'
       + ' class="flex-1 border border-secondary/50 rounded-xl px-3 py-2 text-sm bg-surface'
       + ' focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">'
-      + _times.map(function(t) { return '<option value="' + t + '">' + t + '</option>'; }).join('')
+      + opts
       + '</select>'
       + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
       + ' class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl'
@@ -196,6 +275,25 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
     const _addSlotBtn = footerEl.querySelector('[data-sheet-action="addSlot"]')
     if (_addSlotBtn) _addSlotBtn.addEventListener('click', _onSheetAction)
   }
+}
+
+/** A free (Available) slot row with block + delete controls. */
+function _freeSlotRow(s) {
+  const id = _esc(s.id)
+  return (
+    '<div class="flex items-center justify-between bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 mb-1.5"'
+    + ' data-slot-id="' + id + '">'
+    + '<span class="text-sm font-medium text-rose-600">' + _esc(s.time || '') + ' · פנוי</span>'
+    + '<div class="flex gap-1.5">'
+    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '"'
+    + ' class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white text-text-muted'
+    + ' border border-secondary/40 hover:bg-cream active:scale-95 transition-all">חסום</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ"'
+    + ' class="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-red-400'
+    + ' border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">✕</button>'
+    + '</div>'
+    + '</div>'
+  )
 }
 
 function _bookingRow(b) {

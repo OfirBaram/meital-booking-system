@@ -171,7 +171,11 @@ test.describe('Calendar Clarity — day status indicators', () => {
 // showed "זמן פנוי" because the slot status from Supabase is lowercase.
 
 test.describe('Calendar Clarity — add-slot updates the calendar', () => {
-  const D_EMPTY = `${YM}-20` // a current-month day with no bookings or slots
+  // Use *today* (local) — it is always a current-month, non-past cell, so the
+  // add-slot footer is present (past days hide it). YM-20 could be in the past.
+  const _t = new Date()
+  const D_EMPTY = _t.getFullYear() + '-' + String(_t.getMonth() + 1).padStart(2, '0')
+    + '-' + String(_t.getDate()).padStart(2, '0')
 
   async function setupAddSlotMocks(page) {
     const added = [] // slots the admin adds during the test (lowercase status)
@@ -219,5 +223,142 @@ test.describe('Calendar Clarity — add-slot updates the calendar', () => {
     // Sheet closes, and the day now shows the rose free tint
     await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 4_000 })
     await expect(cell(page, D_EMPTY)).toHaveClass(/has-free/, { timeout: 4_000 })
+  })
+})
+
+// ─── Day popup as a full control-center (v2) ──────────────────────────────────
+
+test.describe('Calendar Clarity — day popup control-center', () => {
+  const pad = n => String(n).padStart(2, '0')
+  const localToday = () => {
+    const t = new Date()
+    return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate())
+  }
+
+  // Stateful router: serves bookings + a mutable slots array; supports
+  // getSlots / deleteSlot / toggleSlot exactly like the Supabase function.
+  async function route(page, bookings, slotsRef) {
+    await page.route(GAS_GLOB, async (r, req) => {
+      if (req.method() !== 'POST') return r.continue()
+      let b = {}; try { b = JSON.parse(req.postData()) } catch { /* */ }
+      const ok = d => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(d) })
+      if (b.action === 'listBookings')  return ok(bookings)
+      if (b.action === 'getSystemInfo') return ok({ success: true, reminderLastRun: null })
+      return ok({ success: true })
+    })
+    await page.route(SB_FUNC_GLOB, async (r, req) => {
+      const fn = req.url().split('/').pop()
+      const ok = d => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(d) })
+      if (fn === 'list-bookings') return ok(bookings)
+      if (fn === 'admin-slots') {
+        let b = {}; try { b = JSON.parse(req.postData()) } catch { /* */ }
+        if (b.action === 'deleteSlot') { slotsRef.current = slotsRef.current.filter(s => s.id !== Number(b.slotId)); return ok({ success: true }) }
+        if (b.action === 'toggleSlot') { slotsRef.current = slotsRef.current.map(s => s.id === Number(b.slotId) ? { ...s, status: 'locked' } : s); return ok({ success: true }) }
+        if (b.action === 'getSlots')   return ok({ success: true, slots: slotsRef.current })
+        return ok({ success: true })
+      }
+      return ok({ success: true })
+    })
+  }
+
+  function bk(id, date, status, time) {
+    return { id, name: 'לקוחה ' + id, phone: '0501234567', service: 'gel_classic',
+      serviceName: "לק ג'ל קלאסי", date, time, status, timestamp: date + 'T' + time + ':00+03:00', duration: 90 }
+  }
+
+  test('a past day shows booking history and NO add-slot footer', async ({ page }) => {
+    const now  = new Date()
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+    const PREV_DAY = `${prev.getFullYear()}-${pad(prev.getMonth() + 1)}-15`
+    const bookings = { success: true, bookings: [bk('past1', PREV_DAY, 'Approved', '10:00')] }
+
+    await route(page, bookings, { current: [] })
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    // js-cal-next steps to the PREVIOUS month (RTL); all its days are past.
+    await page.locator('#js-cal-next').click()
+    await expect(cell(page, PREV_DAY)).toBeVisible({ timeout: 3_000 })
+    await cell(page, PREV_DAY).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+
+    await expect(page.locator('#js-sheet-content')).toContainText('לקוחה past1')   // history stays
+    await expect(page.locator('#js-slot-time-select')).toHaveCount(0)              // no add footer
+    await expect(page.locator('[data-sheet-action="addSlot"]')).toHaveCount(0)
+  })
+
+  test('a free slot can be deleted from the popup and disappears', async ({ page }) => {
+    const today = localToday()
+    const slotsRef = { current: [{ id: 7, date: today, time: '10:00', status: 'available' }] }
+
+    await route(page, { success: true, bookings: [] }, slotsRef)
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    await cell(page, today).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    const delBtn = page.locator('[data-sheet-action="deleteSlot"][data-slot-id="7"]')
+    await expect(delBtn).toBeVisible()
+
+    await delBtn.click()
+
+    // Slot management keeps the popup open and refreshes; the row is gone.
+    await expect(page.locator('[data-slot-id="7"]')).toHaveCount(0, { timeout: 4_000 })
+    await expect(page.locator('#js-sheet')).toBeVisible()
+  })
+
+  test('a time with an existing slot is flagged "תפוס" but stays selectable', async ({ page }) => {
+    const today = localToday()
+    const slotsRef = { current: [{ id: 3, date: today, time: '10:00', status: 'available' }] }
+
+    await route(page, { success: true, bookings: [] }, slotsRef)
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    await cell(page, today).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+
+    const opt = page.locator('#js-slot-time-select option[value="10:00"]')
+    await expect(opt).toContainText('תפוס')
+    // Still selectable (taken times are not disabled — admin may add intentionally)
+    await page.locator('#js-slot-time-select').selectOption('10:00')
+    await expect(page.locator('#js-slot-time-select')).toHaveValue('10:00')
+  })
+
+  test('a cancelled booking shows as a history row with no action buttons', async ({ page }) => {
+    const today = localToday()
+    const bookings = { success: true, bookings: [bk('c1', today, 'Cancelled', '10:00')] }
+
+    await route(page, bookings, { current: [] })
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    await cell(page, today).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+
+    const row = page.locator('[data-booking="c1"]')
+    await expect(row).toContainText('בוטל')
+    await expect(row.locator('[data-sheet-action]')).toHaveCount(0)
+  })
+
+  test('a free slot can be blocked and disappears from the free list', async ({ page }) => {
+    const today = localToday()
+    const slotsRef = { current: [{ id: 9, date: today, time: '11:00', status: 'available' }] }
+
+    await route(page, { success: true, bookings: [] }, slotsRef)
+    await page.goto('/admin.html')
+    await loginAndWait(page)
+
+    await cell(page, today).click()
+    await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    const blockBtn = page.locator('[data-sheet-action="blockSlot"][data-slot-id="9"]')
+    await expect(blockBtn).toBeVisible()
+
+    await blockBtn.click()
+
+    // After blocking, the slot is locked — it no longer appears in the free section.
+    await expect(page.locator('[data-slot-id="9"]')).toHaveCount(0, { timeout: 4_000 })
+    await expect(page.locator('#js-sheet')).toBeVisible()
+    await expect(page.locator('#js-toast-msg')).toContainText('נחסם', { timeout: 3_000 })
   })
 })
