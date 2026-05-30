@@ -88,3 +88,43 @@ surfaces it.
   `loadSmsLog()`.
 - One-shot Twilio credential/account check: `supabase/functions/twilio-diag`.
 - Deploy: `scripts/deploy-functions.sh`.
+
+---
+
+## RESOLUTION (2026-05-30) — root cause was a deployment gap, not code
+
+Confirmed root cause via `supabase functions list` + git history:
+- The v1.6.0 SMS fix (commit `5a320dd`, 2026-05-29) added `notifyClient()` to
+  `change-status` and created the `admin-action` function.
+- But **live `change-status` was last deployed 2026-05-27 (v21)** — pre-fix code
+  that changed status but sent no SMS. **`admin-action` was never deployed at
+  all.** Classic `push != deploy`.
+- Twilio is **NOT the problem**: the account is **paid / pay-as-you-go**
+  ($32 funds, auto-recharge, $43 May spend) — confirmed in the Billing console.
+  OTP SMS already worked, proving creds + From number are valid.
+
+Pre-deploy checks (all green):
+- `admin-action` has `verify_jwt = false` in `supabase/config.toml`.
+- All required secrets set live: HMAC_SECRET, ADMIN_TOKEN, ADMIN_PHONE,
+  TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER.
+
+Fix applied: `bash scripts/deploy-functions.sh` →
+- admin-action    -> v1  (new)
+- change-status   -> v22
+- verify-and-book -> v35
+All ACTIVE as of 2026-05-30 07:07 UTC.
+
+**Blocker resolved.** Pending: live smoke test (real booking -> approve from
+console AND from SMS link -> client receives SMS).
+
+### Still worth doing (asks #2 + #3 — follow-up, not blocking)
+SMS failures are still swallowed and nothing writes to `communication_logs`, so
+the admin SMS-log panel stays empty and failures remain invisible. The
+shared-`logSms()` + admin-indicator plan above still stands as a hardening
+follow-up so a future failure isn't silent.
+
+### Lesson / guard
+Stale `CLAUDE.md` note ("Twilio awaiting paid upgrade") sent the first
+hypothesis the wrong way — the account is already paid. After any backend fix,
+verify the function is actually DEPLOYED (`supabase functions list` timestamps)
+before assuming a code or account bug.
