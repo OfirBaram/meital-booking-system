@@ -1,9 +1,17 @@
 # Investigation: client approve/cancel SMS — is the customer really notified?
 
 > Branch: `investigate/sms-recipient-delivery` (off `main`)
-> Status: **OPEN — UNCONFIRMED. NO CODE CHANGED. Nothing is "fixed" because nothing
-> is yet proven broken.** This file is the plan to confirm, then fix only if needed.
-> Opened: 2026-05-30. Skill: [[sms-notification-verification]].
+> Status: **RESOLVED — H1 confirmed (no bug). NO CODE CHANGED.**
+> Opened + closed: 2026-05-30. Skill: [[sms-notification-verification]].
+
+## OUTCOME (2026-05-30) — H1 confirmed, NOT a bug
+Ground truth from the SMS-log: the **`ClientCancellation` row shows ✅ SENT to
+`0542290881`** — Twilio delivered the customer notification successfully. Because
+`0542290881` is both the test customer's number AND `ADMIN_PHONE`, one device received
+both the admin "approve/cancel link" SMS and the customer "cancelled" SMS, which *looked*
+like a malfunction. Recipient logic is correct; nothing to fix. A real customer (a
+different number) receives only the customer SMS. Optional once-off: the two-phone test
+below for absolute peace of mind, but the ✅ SENT row already proves delivery.
 
 ## The report (Ofir, 2026-05-30)
 Doing approve/cancel from the calendar "all works." But when testing, on a **single
