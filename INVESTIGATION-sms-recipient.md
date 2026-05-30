@@ -46,12 +46,19 @@ wait ~1 min. Then check the new booking's status in the console:
 - **Approved (without tapping)** → confirms GET-prefetch auto-approve → REAL bug, fix.
 - **Pending** (no approved SMS) → working; earlier sighting was a delayed SMS.
 
-**Fix plan (if confirmed):** make `admin-action` non-mutating on GET. The link should
-open a branded confirm page ("אשר תור / דחה תור" button); the actual
-`change_appointment_status` runs only on an explicit POST from that page (carry the
-HMAC token in the form). Prefetchers can't trigger a POST, so bookings never
-auto-approve — still two taps from the SMS. Add an e2e/unit guard. Deploy +
-`npm run verify:deploy`.
+**Fix — IMPLEMENTED on this branch (commit on `investigate/sms-recipient-delivery`).**
+`admin-action` is now non-mutating on GET: a GET (incl. any prefetch) renders a branded
+Hebrew **confirm page** with a POST form; `change_appointment_status` runs ONLY on the
+POST that the button submits (HMAC token carried in the form action). Prefetch/preview
+bots issue GET only, so they can no longer auto-approve. Admin flow is now: tap SMS link
+→ confirm page → tap "אשר/דחה עכשיו". Chosen defensively regardless of the test outcome,
+because a state-mutating GET is wrong on its own.
+
+**Still to do:** deploy + `npm run verify:deploy`, then verify live —
+`curl <approve link>` (GET) must show the confirm page and leave the booking **Pending**;
+only the button (POST) approves. NOT deployed yet (awaiting go-ahead / the decisive test).
+No clean Vitest unit is possible (the file calls `Deno.serve` at top level); verify via
+the live curl + a real two-step approve.
 
 ## Background — three different SMS, three different recipients
 The system sends SMS for different roles. On a single test phone they all pile onto one
