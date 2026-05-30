@@ -5,11 +5,11 @@
 | `IS_TEST_MODE` (backend) | **`false`** — פרודקשן אמיתי |
 | `IS_MOCK_MODE` (frontend) | **`false`** |
 | `IS_SUPABASE_ENABLED` | **`true`** |
-| Twilio | ⏳ ממתין לשדרוג ידני לחשבון Paid |
+| Twilio | ✅ Paid (pay-as-you-go, אומת 2026-05-30) — אין צורך בשדרוג |
 
 ### ⏳ נותר לביצוע ידני (Phase 6 סיום)
-1. **Twilio** — שדרג לחשבון Paid, אמת ששליחה ל-+972 עובדת.
-2. **clasp deploy** — דחוף גרסה חדשה ל-GAS אחרי כל שינוי backend (push ≠ deploy; הרץ `clasp deploy -i AKfycbw...`).
+1. **clasp deploy** — דחוף גרסה חדשה ל-GAS אחרי כל שינוי backend (push ≠ deploy; הרץ `clasp deploy -i AKfycbw...`).
+2. **deploy + verify ל-Edge Functions** — אחרי כל שינוי ב-`supabase/functions/`: `bash scripts/deploy-functions.sh` ואז `npm run verify:deploy` (push ≠ deploy — באג ה-SMS של 2026-05-30 היה פער פריסה, לא קוד). ראה skill `deploy-verification`.
 3. **בדיקת קצה-לקצה חיה** — הזמנה אמיתית עם מספר טלפון ישראלי.
 
 > מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase. **SMS ללקוח/אדמין נשלח כעת מ-Supabase Edge Functions** (`change-status`, `admin-action`, `verify-and-book`) — לא מ-GAS (ה-GAS side-effect קרא את ה-Sheet הריק ולכן ה-SMS לא נשלח). GAS נשאר ל-Calendar בלבד. פריסה: `bash scripts/deploy-functions.sh`.

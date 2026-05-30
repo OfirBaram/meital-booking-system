@@ -36,7 +36,6 @@ All deployed to project `callmnxlcganwugxwiym` as of 2026-05-27:
 | `generate-slots` | Bulk slot generation from a weekly template (admin only) |
 | `sms-log` | Reads the sms_log table (admin only) |
 | `otp-tester` | Diagnostic: checks OTP DB state without sending SMS |
-| `twilio-diag` | Diagnostic: validates Twilio credentials and account status |
 
 ---
 

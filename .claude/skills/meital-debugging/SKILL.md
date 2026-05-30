@@ -55,8 +55,12 @@ Keep new message logic here so it stays Node-testable (no esm.sh/Deno imports).
   verified with `verifyHmacToken`. `HMAC_SECRET` must match the one verify-and-book signs with.
 
 ## Deploy after editing a function (code change ≠ live)
-`bash scripts/deploy-functions.sh` (deploys admin-action, change-status,
-verify-and-book; checks secrets). Then smoke-test a real booking end to end.
+`bash scripts/deploy-functions.sh` (deploys ALL functions, then self-verifies).
+Then smoke-test a real booking end to end. **push != deploy** — after any
+supabase/functions change run `npm run verify:deploy` to prove it is actually
+live; a correct-but-undeployed function is the exact bug from 2026-05-30.
+See the [[deploy-verification]] skill for the full drift-guard workflow and the
+SMS notify->log->display contract.
 
 ## Editing files in this repo
 The project path contains U+200F marks. Prefer Bash heredocs / the Python patch

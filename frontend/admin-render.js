@@ -21,6 +21,12 @@ export const STATUS_CLS = {
   cancelled: 'bg-gray-100 text-gray-400',
 };
 
+export const SMS_STATUS_LABEL = {
+  SENT:  '✅ SMS נשלח ללקוחה',
+  ERROR: '❌ SMS ללקוחה נכשל',
+  MOCK:  '🧪 SMS (הדמיה)',
+};
+
 export const SB_STATUS_LABEL = { available:'פנוי', locked:'נעול', booked:'מוזמן', pending:'ממתין' };
 
 export const SB_STATUS_CLS = {
@@ -80,6 +86,10 @@ export function buildCard(b) {
     + '</div>'
     + '<div class="text-xs font-medium text-text-main mb-0.5">' + esc(b.serviceName) + '</div>'
     + '<div class="text-xs text-text-muted mb-3">📅 ' + date + ' &nbsp;·&nbsp; 🕐 ' + esc(b.time) + '</div>'
+    + (b.smsStatus
+        ? '<div class="text-xs mb-2" data-qa="sms-status" data-sms-status="' + esc(b.smsStatus) + '">'
+          + esc(SMS_STATUS_LABEL[b.smsStatus] || ('SMS: ' + b.smsStatus)) + '</div>'
+        : '')
     + (btns ? '<div class="flex gap-2">' + btns + '</div>' : '')
     + '</div>';
 }
@@ -287,6 +297,11 @@ export function renderSmsLog(entries, container) {
       + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
       + '</div>'
       + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
+      // For failures, surface the reason (e.g. the Twilio error) so the admin
+      // can see WHY a client was not notified, not just that it failed.
+      + (e.status === 'ERROR' && e.detail
+          ? '<div class="text-[11px] text-red-500 mt-0.5 break-words" data-qa="log-detail">' + esc(e.detail) + '</div>'
+          : '')
       + '</div></div>';
   }).join('');
 }

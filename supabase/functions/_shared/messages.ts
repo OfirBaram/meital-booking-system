@@ -88,3 +88,28 @@ export function buildAdminNewBookingSms(f: AdminMsgFields): string {
     `❌ לדחייה: ${f.rejectUrl}`,
   ].join('\n')
 }
+
+// Hebrew label for the action whose client SMS failed (used in the admin alert).
+const FAILED_ACTION_HE: Record<string, string> = {
+  ClientApproval:     'אישור התור',
+  ClientRejection:    'דחיית התור',
+  ClientCancellation: 'ביטול התור',
+}
+
+/**
+ * Heads-up SMS to the ADMIN when a client notification could not be delivered,
+ * so a silent failure becomes an active prompt to call the client. Best-effort —
+ * the authoritative record is still the communication_logs ERROR row.
+ */
+export function buildAdminFailureAlertSms(
+  context: string, clientLabel: string, detail?: string,
+): string {
+  const lines = [
+    '⚠️ לקוחה לא קיבלה הודעת SMS',
+    `לקוחה: ${(clientLabel ?? '').toString().trim() || '—'}`,
+    `הודעה: ${FAILED_ACTION_HE[context] ?? 'עדכון'}`,
+  ]
+  if (detail) lines.push(`סיבה: ${String(detail).slice(0, 120)}`)
+  lines.push('כדאי ליצור קשר ידני 📞')
+  return lines.join('\n')
+}

@@ -81,7 +81,6 @@ supabase functions deploy list-bookings
 supabase functions deploy otp-tester
 supabase functions deploy send-otp
 supabase functions deploy sms-log
-supabase functions deploy twilio-diag
 supabase functions deploy verify-and-book
 ```
 
@@ -89,7 +88,7 @@ Or loop in bash:
 
 ```bash
 for fn in admin-clients admin-slots change-status generate-slots get-slots \
-           list-bookings otp-tester send-otp sms-log twilio-diag verify-and-book; do
+           list-bookings otp-tester send-otp sms-log verify-and-book; do
   supabase functions deploy $fn
 done
 ```
@@ -115,14 +114,7 @@ curl "https://callmnxlcganwugxwiym.supabase.co/functions/v1/get-slots?year=2026&
 
 Expected: `{"success":true,"slots":{...}}`
 
-### 2. Twilio config check
-
-```bash
-curl -X POST "https://callmnxlcganwugxwiym.supabase.co/functions/v1/twilio-diag" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8"
-```
-
-### 3. Admin login
+### 2. Admin login
 
 Open `frontend/admin.html` in a browser and log in with `ADMIN_TOKEN`.
 Verify the Bookings tab loads without JS console errors.
@@ -150,10 +142,10 @@ effects asynchronously. If GAS fails, Supabase is still consistent and admin is 
 | `SUPABASE_URL` | auto-injected by Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | auto-injected by Supabase |
 | `ADMIN_TOKEN` | admin-clients, admin-slots, change-status, generate-slots, list-bookings, sms-log |
-| `TWILIO_ACCOUNT_SID` | send-otp, verify-and-book, twilio-diag |
-| `TWILIO_AUTH_TOKEN` | send-otp, verify-and-book, twilio-diag |
-| `TWILIO_FROM_NUMBER` | send-otp, verify-and-book, twilio-diag |
-| `ADMIN_PHONE` | verify-and-book |
+| `TWILIO_ACCOUNT_SID` | send-otp, verify-and-book |
+| `TWILIO_AUTH_TOKEN` | send-otp, verify-and-book |
+| `TWILIO_FROM_NUMBER` | send-otp, verify-and-book |
+| `ADMIN_PHONE` | verify-and-book, change-status, admin-action |
 | `HMAC_SECRET` | verify-and-book (signs admin tokens) |
 | `DAILY_SMS_LIMIT` | send-otp (default: 45) |
 | `DIAG_KEY` | otp-tester (diagnostic endpoint gate) |

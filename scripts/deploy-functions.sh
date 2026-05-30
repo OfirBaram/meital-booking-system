@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Deploy the Edge Functions changed by the SMS / notification fixes.
+# Deploy ALL Supabase Edge Functions, then verify nothing drifted.
 #
-#   • admin-action   (NEW) — one-tap approve/reject from the admin SMS link
-#   • change-status         — now sends the client SMS on approve/reject/cancel
-#   • verify-and-book       — admin SMS: Hebrew day name, clickable Supabase link
+# Deploys every function under supabase/functions/ (except _shared) — NOT a
+# hand-maintained list. The 2026-05-30 blocker happened because admin-action was
+# new and got left off a hardcoded deploy list, so it was never pushed live.
+# Deploying everything makes "forgot to add the new function" impossible.
 #
 # Prereqs:
 #   1. supabase CLI installed and logged in:   supabase login
@@ -15,7 +16,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
-FUNCS=(admin-action change-status verify-and-book)
+# Discover every deployable function (a directory with an index.ts, minus _shared).
+FUNCS=()
+for d in supabase/functions/*/; do
+  name="$(basename "$d")"
+  [ "$name" = "_shared" ] && continue
+  [ -f "${d}index.ts" ] && FUNCS+=("$name")
+done
 
 echo "▶ Checking required secrets are set on the project…"
 # These must exist for the SMS flow to work. SUPABASE_URL / SERVICE_ROLE_KEY are
@@ -38,10 +45,16 @@ echo "   NOTE: HMAC_SECRET must be the SAME value verify-and-book uses to sign"
 echo "         admin tokens, or admin-action will reject every approve/reject link."
 echo
 
+echo "▶ Deploying ${#FUNCS[@]} functions: ${FUNCS[*]}"
 for f in "${FUNCS[@]}"; do
   echo "▶ Deploying $f …"
   supabase functions deploy "$f"
 done
+
+# Confirm every function's live version now matches the committed source.
+echo
+echo "▶ Verifying no deploy drift…"
+node scripts/verify-deploy.mjs
 
 echo "✓ Done. Smoke-test: book a real appointment, approve it from the admin"
 echo "  console AND from the SMS link, and confirm the client receives an SMS."
