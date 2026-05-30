@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * CLAUDE.md size-budget checker.
  * Part of the `claude-md-maintenance` Claude Code skill.
