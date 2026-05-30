@@ -8,6 +8,15 @@
 // SMS-log panel stayed empty and a Twilio rejection was swallowed silently).
 
 import { sendTwilioSms, type TwilioCreds } from './sms.ts'
+import { buildAdminFailureAlertSms } from './messages.ts'
+
+// Client-facing contexts where a delivery failure means a real client expected a
+// message and didn't get it — worth proactively alerting the admin about. OTP
+// (client is mid-flow and sees the error) and AdminNotify (recipient is the
+// admin; alerting would recurse) are intentionally excluded.
+const CLIENT_CONTEXTS = new Set<CommContext>([
+  'ClientApproval', 'ClientRejection', 'ClientCancellation',
+])
 
 // Mirrors the communication_logs CHECK constraints (initial_schema migration).
 export type LogStatus  = 'SENT' | 'MOCK' | 'ERROR'
@@ -60,11 +69,15 @@ export function buildSmsLogRow(input: SmsLogRowInput) {
 }
 
 export interface SendAndLogParams {
-  to:             string
-  body:           string
-  context:        CommContext
-  creds:          TwilioCreds | null
-  appointmentId?: string | null
+  to:               string
+  body:             string
+  context:          CommContext
+  creds:            TwilioCreds | null
+  appointmentId?:   string | null
+  // When a client-facing SMS fails, ping the admin at this number so the
+  // failure prompts action instead of sitting silently in the log.
+  alertAdminPhone?: string | null
+  clientLabel?:     string   // shown in that alert (client name or phone)
 }
 
 /**
@@ -106,6 +119,23 @@ export async function sendAndLogSms(supabase: any, p: SendAndLogParams): Promise
     await supabase.from('communication_logs').insert(row)
   } catch (logErr) {
     console.error('[notify] log-insert-fail:', logErr instanceof Error ? logErr.message : String(logErr))
+  }
+
+  // Proactive heads-up: if a client never got their approve/reject/cancel SMS,
+  // alert the admin so they can call. Best-effort and never throws; the alert is
+  // sent to a different (admin) number, so it usually goes through even when the
+  // client-specific delivery failed (e.g. unsubscribed/invalid number).
+  if (status === 'ERROR' && p.creds && p.alertAdminPhone && CLIENT_CONTEXTS.has(p.context)) {
+    try {
+      await sendTwilioSms(
+        p.alertAdminPhone,
+        buildAdminFailureAlertSms(p.context, p.clientLabel ?? p.to, detail),
+        p.creds,
+      )
+      console.log('[notify] admin-alert-sent for failed ' + p.context)
+    } catch (alertErr) {
+      console.error('[notify] admin-alert-fail:', alertErr instanceof Error ? alertErr.message : String(alertErr))
+    }
   }
 
   return status

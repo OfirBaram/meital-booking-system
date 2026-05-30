@@ -58,6 +58,9 @@ Client/admin SMS is sent **and recorded** by `_shared/notify.ts`
 (`sendAndLogSms`): every attempt writes a `communication_logs` row —
 `SENT` / `ERROR` (+ Twilio detail) / `MOCK` (secrets absent). Wired into
 `change-status`, `admin-action`, `verify-and-book` (AdminNotify), `send-otp` (OTP).
+When a **client-facing** send ERRORs, it also fires a best-effort heads-up SMS to
+`ADMIN_PHONE` (`buildAdminFailureAlertSms`) so the admin can call the client —
+excluded for OTP/AdminNotify to avoid noise/recursion.
 The admin console surfaces it two ways:
 - per-booking badge — `list-bookings` attaches `smsStatus`; rendered by
   `buildCard` (`frontend/admin-render.js`, `data-qa="sms-status"`).

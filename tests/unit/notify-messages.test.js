@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   hebrewDayLabel, formatDateDmy, fullDateLabel,
-  buildClientStatusSms, buildAdminNewBookingSms,
+  buildClientStatusSms, buildAdminNewBookingSms, buildAdminFailureAlertSms,
 } from '../../supabase/functions/_shared/messages.ts';
 
 describe('hebrewDayLabel', () => {
@@ -64,5 +64,29 @@ describe('buildAdminNewBookingSms', () => {
     expect(msg).toContain('https://x.supabase.co/functions/v1/admin-action?action=approve');
     expect(msg).toContain('https://x.supabase.co/functions/v1/admin-action?action=reject');
     expect(msg).not.toContain('undefined');
+  });
+});
+
+describe('buildAdminFailureAlertSms', () => {
+  it('names the client and the failed action in Hebrew', () => {
+    const msg = buildAdminFailureAlertSms('ClientApproval', 'דנה כהן', 'Twilio 21610');
+    expect(msg).toContain('לא קיבלה');
+    expect(msg).toContain('דנה כהן');
+    expect(msg).toContain('אישור התור');
+    expect(msg).toContain('Twilio 21610');
+  });
+  it('maps cancellation/rejection contexts', () => {
+    expect(buildAdminFailureAlertSms('ClientCancellation', '0501234567')).toContain('ביטול התור');
+    expect(buildAdminFailureAlertSms('ClientRejection', '0501234567')).toContain('דחיית התור');
+  });
+  it('falls back gracefully with no label/detail and never says "undefined"', () => {
+    const msg = buildAdminFailureAlertSms('ClientApproval', '');
+    expect(msg).toContain('—');
+    expect(msg).not.toContain('undefined');
+    expect(msg).not.toContain('סיבה:'); // no reason line when detail is absent
+  });
+  it('truncates an oversized failure detail', () => {
+    const msg = buildAdminFailureAlertSms('ClientApproval', 'דנה', 'x'.repeat(500));
+    expect(msg.length).toBeLessThan(300);
   });
 });

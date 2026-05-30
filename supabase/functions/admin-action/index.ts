@@ -42,7 +42,7 @@ function htmlPage(title: string, message: string, tone: 'ok' | 'err'): Response 
 async function notifyClient(supabase: any, bookingId: string, status: ClientStatus): Promise<void> {
   const { data: bk, error } = await supabase
     .from('bookings_view')
-    .select('phone, serviceName, date, time')
+    .select('name, phone, serviceName, date, time')
     .eq('id', bookingId)
     .maybeSingle()
   if (error || !bk) {
@@ -53,7 +53,10 @@ async function notifyClient(supabase: any, bookingId: string, status: ClientStat
   if (!context) { console.warn('[admin-action] notify-skip: unmapped status ' + status); return }
   const body = buildClientStatusSms(status, { serviceName: bk.serviceName, date: bk.date, time: bk.time })
   const creds  = twilioCredsFromEnv()
-  const result = await sendAndLogSms(supabase, { to: bk.phone, body, context, creds, appointmentId: bookingId })
+  const result = await sendAndLogSms(supabase, {
+    to: bk.phone, body, context, creds, appointmentId: bookingId,
+    alertAdminPhone: Deno.env.get('ADMIN_PHONE'), clientLabel: bk.name,
+  })
   console.log('[admin-action] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }
 

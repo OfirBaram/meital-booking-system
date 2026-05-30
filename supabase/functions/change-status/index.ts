@@ -23,7 +23,7 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
   // Pull the client + slot details from the denormalized view to build the SMS.
   const { data: bk, error } = await supabase
     .from('bookings_view')
-    .select('phone, serviceName, date, time')
+    .select('name, phone, serviceName, date, time')
     .eq('id', bookingId)
     .maybeSingle()
 
@@ -50,6 +50,7 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
   const creds  = twilioCredsFromEnv()
   const result = await sendAndLogSms(supabase, {
     to: bk.phone, body, context, creds, appointmentId: bookingId,
+    alertAdminPhone: Deno.env.get('ADMIN_PHONE'), clientLabel: bk.name,
   })
   console.log('[change-status] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }
