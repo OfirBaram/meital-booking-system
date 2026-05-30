@@ -20,6 +20,39 @@ appointment was cancelled" SMS, and is unsure whether the **customer** actually 
 their notification. He suspects the single-phone test is confusing him. Wants a clear
 test plan + a fix plan if it's real.
 
+## OPEN SUB-ISSUE (2026-05-30): customer gets "approved" SMS right after OTP
+**Report:** sometimes, just after a customer enters the OTP, they receive an
+"approved" SMS — with no admin action. A new booking must stay **Pending**.
+
+**Code facts (verified):**
+- `verify-and-book` (runs on OTP submit) inserts the appointment as `status:'pending'`
+  and sends ONLY the admin notification SMS. No client status SMS, no auto-approve.
+- No DB trigger / no auto-approve exists (checked migrations).
+- The ONLY senders of a client approval SMS are `change-status` (console) and
+  `admin-action` (the one-tap link in the admin SMS).
+
+**Leading hypothesis — GET link prefetch auto-approves (`admin-action`).**
+`admin-action` performs the approval on a **bare GET** (token in the URL). The admin
+notification SMS (sent during `verify-and-book`) contains that approve link. Many
+messaging apps / link-preview bots **prefetch URLs**, which would hit the approve link
+and auto-approve the booking with no human tap → client gets "approved" SMS seconds
+after the OTP. Worse on the single-phone test (link SMS lands on the previewing phone),
+but a real production risk for any admin phone that previews links.
+
+**Alt hypothesis:** delayed/out-of-order SMS from a previous booking's approval (benign).
+
+**Decisive test (pending Ofir):** with a CLEAN DB, book once, enter OTP, **tap nothing**,
+wait ~1 min. Then check the new booking's status in the console:
+- **Approved (without tapping)** → confirms GET-prefetch auto-approve → REAL bug, fix.
+- **Pending** (no approved SMS) → working; earlier sighting was a delayed SMS.
+
+**Fix plan (if confirmed):** make `admin-action` non-mutating on GET. The link should
+open a branded confirm page ("אשר תור / דחה תור" button); the actual
+`change_appointment_status` runs only on an explicit POST from that page (carry the
+HMAC token in the form). Prefetchers can't trigger a POST, so bookings never
+auto-approve — still two taps from the SMS. Add an e2e/unit guard. Deploy +
+`npm run verify:deploy`.
+
 ## Background — three different SMS, three different recipients
 The system sends SMS for different roles. On a single test phone they all pile onto one
 device, which is the likely source of confusion.
