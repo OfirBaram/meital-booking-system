@@ -78,7 +78,7 @@ Mobile-First, JS מודולרי, feature-branch workflow (אין commit ישיר
 Actions אדמין (כולן דורשות ADMIN_TOKEN): getTemplate, saveTemplate, generateSlots, blockDates, sendReminders, getSystemInfo, healthCheck, createBackup.
 
 ## 10. Quota Baseline
-Twilio trial = 50 SMS/יום. מחזור הזמנה מלא = 3 SMS + תזכורת = 4 → **~12 הזמנות/יום**. חובה לשדרג ל-Twilio Paid לפני פרודקשן. GAS: UrlFetch 20k/יום, ריצה 6 דק', 20 triggers.
+Twilio **Paid (pay-as-you-go)** — אין תקרת trial. מחזור הזמנה מלא = 3 SMS + תזכורת = 4. GAS: UrlFetch 20k/יום, ריצה 6 דק', 20 triggers.
 
 ---
 
