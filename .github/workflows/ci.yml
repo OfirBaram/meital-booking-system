@@ -127,3 +127,45 @@ jobs:
 
       - name: Run backend tests
         run: npm run test:backend
+
+  # ─── Job 4: Deploy Drift Guard ─────────────────────────────────────────────
+  # Catches the 2026-05-30 class of bug: an Edge Function whose code is committed
+  # but never deployed (push != deploy). Compares each function's last git commit
+  # against the live `supabase functions list`. Self-skips when the project token
+  # is not configured, so forks / contributors without it are never blocked.
+  #
+  # To enable: add repo secret SUPABASE_ACCESS_TOKEN (Account → Access Tokens).
+  deploy-drift:
+    name: Deploy Drift Guard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history — per-file commit times must be accurate
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify Edge Functions are deployed (no drift)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: callmnxlcganwugxwiym
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "SUPABASE_ACCESS_TOKEN not set — skipping deploy-drift check."
+            echo "Add it under Settings → Secrets and variables → Actions to enable this guard."
+            exit 0
+          fi
+          npm run verify:deploy
