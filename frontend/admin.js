@@ -1,66 +1,40 @@
 'use strict';
 
 import APP_CONFIG from './config.js';
+import {
+  esc, fmtPhone,
+  LABELS, STATUS_CLS, SERVICE_NAME, DAY_NAMES_HE, SB_STATUS_LABEL, SB_STATUS_CLS,
+  buildCard, buildSwipeCard,
+  renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
+} from './admin-render.js';
+import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './admin-calendar.js';
+import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
+import { initCardSwipe } from './admin-gestures.js';
 
-// ── Config ───────────────────────────────────────────────────────
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
 const LS_TS       = 'meital_admin_ts';
 const SESSION_TTL = 24 * 60 * 60 * 1000;
 
-// ── State ────────────────────────────────────────────────────────
 const S = {
-  token:    localStorage.getItem(LS_TOKEN) || '',
+  token:          localStorage.getItem(LS_TOKEN) || '',
   bookings: [],
   filter:   'all',
   dateJump: '',
-  tab:      'bookings',
+  tab:      'calendar',
   template: [],
   autoSms:  true,
   _smsSendTarget: null,
-  diarySlots:        [],   // [{ id, date, time, status }] — Supabase slots for diary view
-  clients:           [],   // [{ id, phone, full_name, created_at }]
-  clientHistory:     null, // { client:{...}, appointments:[...] }
+  diarySlots:        [],
+  clients:           [],
+  clientHistory:     null,
   clientSearch:      '',
   _clientSearchTimer: null,
+  calData:  {},
+  calMonth: new Date(),
+  slotCache: {},
 };
 
-// ── Display helpers ───────────────────────────────────────────────
-const LABELS    = {
-  Pending:'ממתין',   Approved:'מאושר',  Rejected:'נדחה',   Cancelled:'בוטל',
-  pending:'ממתין',   approved:'מאושר',  rejected:'נדחה',   cancelled:'בוטל',
-};
-const STATUS_CLS = {
-  Pending:   'bg-amber-100 text-amber-700',
-  Approved:  'bg-green-100 text-green-700',
-  Rejected:  'bg-red-100 text-red-600',
-  Cancelled: 'bg-gray-100 text-gray-400',
-  pending:   'bg-amber-100 text-amber-700',
-  approved:  'bg-green-100 text-green-700',
-  rejected:  'bg-red-100 text-red-600',
-  cancelled: 'bg-gray-100 text-gray-400',
-};
-const SERVICE_NAME = { gel_classic: "לק ג'ל קלאסי", gel_feet: "לק ג'ל רגליים" };
-const DAY_NAMES_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-const SB_STATUS_LABEL = { available:'פנוי', locked:'נעול', booked:'מוזמן', pending:'ממתין' };
-const SB_STATUS_CLS   = {
-  available: 'bg-green-100 text-green-700',
-  locked:    'bg-gray-100 text-gray-500',
-  booked:    'bg-rose-100 text-rose-600',
-  pending:   'bg-amber-100 text-amber-700',
-};
-
-function esc(s) {
-  return String(s || '').replace(/[&<>"']/g,
-    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-function fmtPhone(p) {
-  const local = String(p || '').replace('+972', '0');
-  return local.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-}
-
-// ── API ───────────────────────────────────────────────────────────
 async function apiCall(action, extra = {}) {
   const r = await fetch(API, {
     method:  'POST',
@@ -71,15 +45,43 @@ async function apiCall(action, extra = {}) {
   return r.json();
 }
 
-// ── Toast ─────────────────────────────────────────────────────────
+async function sbCall(funcName, body) {
+  const r = await fetch(
+    APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
+    {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ adminToken: S.token, ...body }),
+    }
+  );
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
 let _toastTmr;
+let _undoTmr    = null;
+let _pendingUndo = null;
+
 function toast(msg, type = '') {
-  const wrap  = document.getElementById('js-toast');
-  const inner = wrap.querySelector('div');
+  const wrap    = document.getElementById('js-toast');
+  const inner   = wrap.querySelector('div');
+  const msgEl   = document.getElementById('js-toast-msg');
+  const undoBtn = document.getElementById('js-toast-undo');
   clearTimeout(_toastTmr);
-  inner.textContent = msg;
+  // Flush any pending undo — commit it before showing unrelated toast
+  if (_pendingUndo) {
+    clearTimeout(_undoTmr);
+    const prev = _pendingUndo; _pendingUndo = null;
+    prev.commitFn();
+  }
+  if (undoBtn) undoBtn.classList.add('hidden');
+  if (msgEl) msgEl.textContent = msg;
+  else inner.textContent = msg;
   inner.className = [
-    'text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl whitespace-nowrap',
+    'flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto',
     type === 'err' ? 'bg-red-500 text-white' :
     type === 'ok'  ? 'bg-green-600 text-white' :
                      'bg-text-main text-white',
@@ -92,7 +94,53 @@ function toast(msg, type = '') {
   }, 3200);
 }
 
-// ── Auth ──────────────────────────────────────────────────────────
+function toastUndo(label, commitFn, onUndo, ttl = 5000) {
+  // Flush previous pending commit before showing new toast
+  if (_pendingUndo) {
+    clearTimeout(_undoTmr);
+    const prev = _pendingUndo; _pendingUndo = null;
+    prev.commitFn();
+  }
+  clearTimeout(_toastTmr);
+
+  const wrap    = document.getElementById('js-toast');
+  const inner   = wrap.querySelector('div');
+  const msgEl   = document.getElementById('js-toast-msg');
+  let   undoBtn = document.getElementById('js-toast-undo');
+
+  if (msgEl) msgEl.textContent = label;
+  inner.className = 'flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto bg-text-main text-white';
+  wrap.classList.remove('hidden');
+  wrap.classList.add('toast-in');
+
+  _pendingUndo = { commitFn };
+
+  // Replace button to clear stale listeners (cloneNode trick)
+  if (undoBtn) {
+    const fresh = undoBtn.cloneNode(true);
+    undoBtn.parentNode.replaceChild(fresh, undoBtn);
+    undoBtn = fresh;
+    undoBtn.classList.remove('hidden');
+    undoBtn.addEventListener('click', () => {
+      clearTimeout(_undoTmr);
+      _pendingUndo = null;
+      wrap.classList.add('hidden');
+      wrap.classList.remove('toast-in');
+      const b2 = document.getElementById('js-toast-undo');
+      if (b2) b2.classList.add('hidden');
+      onUndo && onUndo();
+    }, { once: true });
+  }
+
+  _undoTmr = setTimeout(() => {
+    _pendingUndo = null;
+    wrap.classList.add('hidden');
+    wrap.classList.remove('toast-in');
+    const b2 = document.getElementById('js-toast-undo');
+    if (b2) b2.classList.add('hidden');
+    commitFn();
+  }, ttl);
+}
 function sessionValid() {
   const ts = parseInt(localStorage.getItem(LS_TS) || '0', 10);
   return ts > 0 && (Date.now() - ts) < SESSION_TTL;
@@ -110,6 +158,7 @@ function showDash() {
 
 function logout() {
   S.token = '';
+  S.slotCache = {};
   localStorage.removeItem(LS_TOKEN);
   localStorage.removeItem(LS_TS);
   showLogin();
@@ -130,7 +179,12 @@ async function login() {
 
   S.token = token;
   try {
-    const data = await apiCall('listBookings', { token: S.token });
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
     if (!data.success) throw new Error(data.error || 'auth');
     localStorage.setItem(LS_TOKEN, token);
     localStorage.setItem(LS_TS, String(Date.now()));
@@ -139,6 +193,7 @@ async function login() {
     hideSkeleton();
     render();
     updateStats();
+    loadAndRenderCalendar();
   } catch (_) {
     S.token = '';
     err.classList.remove('hidden');
@@ -149,20 +204,23 @@ async function login() {
   }
 }
 
-// ── Load ──────────────────────────────────────────────────────────
 async function load(silent = false) {
   if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
   try {
-    const data = await apiCall('listBookings', { token: S.token });
-    if (!data.success) {
-      if (data.error === 'unauthorized' || data.code === 403) { logout(); return; }
-      throw new Error(data.error || 'error');
-    }
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+    );
+    if (r.status === 403) { logout(); return; }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    if (!data.success) throw new Error(data.error || 'error');
     S.bookings = data.bookings || [];
     render();
     updateStats();
     if (S.tab === 'pulse') renderPulse();
+    if (S.tab === 'calendar') renderVisibleCalendar();
   } catch (e) {
     if (e.message !== 'unauthorized') toast('שגיאה בטעינת ההזמנות', 'err');
   } finally {
@@ -181,10 +239,9 @@ function hideSkeleton() {
   document.getElementById('js-cards').classList.remove('hidden');
 }
 
-// ── Tab navigation ────────────────────────────────────────────────
 function setTab(tab) {
   S.tab = tab;
-  ['bookings','pulse','slots','diary','clients'].forEach(t => {
+  ['calendar','bookings','pulse','slots','diary','clients'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -195,9 +252,18 @@ function setTab(tab) {
     ].join(' ');
   });
   if (tab === 'pulse')  renderPulse();
-  if (tab === 'slots')  loadTemplate();
+  // Restart entrance animation on the newly visible tab
+  const _tabEl = document.getElementById('tab-' + tab);
+  if (_tabEl) {
+    _tabEl.classList.remove('tab-entering');
+    void _tabEl.offsetWidth;
+    _tabEl.classList.add('tab-entering');
+    setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
+  }
+
+  if (tab === 'slots')    loadTemplate();
+  if (tab === 'calendar') loadAndRenderCalendar();
   if (tab === 'diary')  {
-    // Auto-load diary with default 14-day window on first open
     const fromEl = document.getElementById('js-diary-from');
     const toEl   = document.getElementById('js-diary-to');
     if (fromEl && !fromEl.value) {
@@ -212,7 +278,6 @@ function setTab(tab) {
   if (tab === 'clients' && S.clients.length === 0) loadClients('');
 }
 
-// ── Render — Bookings tab ─────────────────────────────────────────
 function updateStats() {
   const today = new Date().toISOString().slice(0, 10);
   document.getElementById('stat-pending').textContent =
@@ -236,10 +301,9 @@ function isFinished(b) {
 function visible() {
   let rows = S.bookings;
 
-  // Date-jump filter (Daily Planner)
   if (S.dateJump) {
     rows = rows.filter(b => b.date === S.dateJump);
-    return rows; // show all statuses for the chosen date
+    return rows;
   }
 
   if (S.filter === 'history')
@@ -261,49 +325,16 @@ function render() {
     return;
   }
   empty.classList.add('hidden');
-  cards.innerHTML = rows.map(buildCard).join('');
+  cards.innerHTML = rows.map(buildSwipeCard).join('');
   cards.classList.remove('hidden');
   cards.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', onAction));
+  cards.querySelectorAll('.swipe-wrapper').forEach(w =>
+    initCardSwipe(w, { onCommit: _commitCardAction }));
+  // Staggered entrance animation
+  cards.classList.remove('cards-entering');
+  void cards.offsetWidth;
+  cards.classList.add('cards-entering');
 }
-
-function buildCard(b) {
-  const badge = `<span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_CLS[b.status] || 'bg-gray-100 text-gray-500'}">${LABELS[b.status] || b.status}</span>`;
-  const date  = (b.date || '').replace(/-/g, '/');
-  let btns = '';
-  if (b.status === 'Pending') {
-    btns = `
-      <button data-action="Approved"  data-id="${b.id}" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">✅ אשר</button>
-      <button data-action="Rejected"  data-id="${b.id}" class="flex-1 bg-red-400  hover:bg-red-500  text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">❌ דחה</button>`;
-  } else if (b.status === 'Approved') {
-    btns = `
-      <button data-action="Cancelled" data-id="${b.id}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">🚫 בטל</button>`;
-  }
-  const smsBtn = `<button data-action="sms" data-id="${b.id}" data-phone="${esc(b.phone)}" data-name="${esc(b.name)}"
-    title="\u05e9\u05dc\u05d7 SMS \u05d9\u05d3\u05e0\u05d9" data-qa="btn-send-sms"
-    class="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-  </button>`;
-  return `
-<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in" data-booking="${b.id}">
-  <div class="flex items-start justify-between mb-1.5">
-    <div><div class="font-bold text-sm text-text-main">${esc(b.name)}</div>
-    <div class="text-xs text-text-muted mt-0.5">${esc(fmtPhone(b.phone))}</div></div>
-    <div class="flex items-center gap-1">${badge}${smsBtn}</div>
-  </div>
-  <div class="text-xs font-medium text-text-main mb-0.5">${esc(b.serviceName)}</div>
-  <div class="text-xs text-text-muted mb-3">📅 ${date} &nbsp;·&nbsp; 🕐 ${esc(b.time)}</div>
-  ${btns ? `<div class="flex gap-2">${btns}</div>` : ''}
-</div>`;
-}
-
-// ── Action handler ────────────────────────────────────────────────
-const CONFIRM_MSG = {
-  Approved: 'לאשר את ההזמנה?',
-  Rejected: 'לדחות את ההזמנה?',
-  Cancelled: 'לבטל את ההזמנה?\nהאירוע ביומן Google יימחק.',
-};
-const OK_MSG    = { Approved:'ההזמנה אושרה ✅', Rejected:'ההזמנה נדחתה', Cancelled:'ההזמנה בוטלה' };
-const BTN_LABEL = { Approved:'✅ אשר', Rejected:'❌ דחה', Cancelled:'🚫 בטל' };
 
 async function onAction(e) {
   const btn    = e.currentTarget;
@@ -313,25 +344,9 @@ async function onAction(e) {
     openSmsModal({ id, phone: btn.dataset.phone, name: btn.dataset.name });
     return;
   }
-  if (!confirm(CONFIRM_MSG[target] || 'להמשיך?')) return;
-
-  const card = btn.closest('[data-booking]');
-  card.querySelectorAll('button').forEach(b => { b.disabled = true; });
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span>';
-
-  try {
-    const data = await apiCall('changeStatus', { bookingId: id, targetStatus: target });
-    if (!data.success) throw new Error(data.error || 'error');
-    toast(OK_MSG[target] || 'עודכן', 'ok');
-    await load(true);
-  } catch (err) {
-    toast('שגיאה: ' + err.message, 'err');
-    card.querySelectorAll('button').forEach(b => { b.disabled = false; });
-    btn.textContent = BTN_LABEL[target] || target;
-  }
+  _commitCardAction(id, target);
 }
 
-// ── Filter pills ──────────────────────────────────────────────────
 function setFilter(f) {
   S.filter   = f;
   S.dateJump = '';
@@ -346,20 +361,16 @@ function setFilter(f) {
   render();
 }
 
-// ── Business Pulse ────────────────────────────────────────────────
 function renderPulse() {
   const now   = new Date();
   const today = now.toISOString().slice(0, 10);
 
-  // ISO week start (Sunday)
   const dow       = now.getDay();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow);
-  const weekKey   = weekStart.toISOString().slice(0, 10);
+  const weekKey  = weekStart.toISOString().slice(0, 10);
 
-  // Month boundaries
-  const monthKey  = today.slice(0, 7); // YYYY-MM
+  const monthKey  = today.slice(0, 7);
 
-  // 7-day window
   const in7Days   = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
 
   const weekCount     = S.bookings.filter(b => b.date >= weekKey && b.date <= today && b.status !== 'Rejected' && b.status !== 'Cancelled').length;
@@ -367,12 +378,11 @@ function renderPulse() {
   const upcomingCount = S.bookings.filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status)).length;
   const cancelCount   = S.bookings.filter(b => b.status === 'Rejected' || b.status === 'Cancelled').length;
 
-  document.getElementById('pulse-week').textContent      = weekCount;
+  document.getElementById('pulse-week').textContent       = weekCount;
   document.getElementById('pulse-month').textContent     = monthCount;
   document.getElementById('pulse-upcoming').textContent  = upcomingCount;
   document.getElementById('pulse-cancelled').textContent = cancelCount;
 
-  // Service breakdown
   const svcCount = {};
   S.bookings.forEach(b => {
     if (b.status === 'Rejected' || b.status === 'Cancelled') return;
@@ -394,7 +404,6 @@ function renderPulse() {
     </div>`;
   }).join('') || '<p class="text-xs text-text-muted">אין נתונים</p>';
 
-  // Upcoming list
   const upcoming = S.bookings
     .filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status))
     .sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1)
@@ -412,19 +421,28 @@ function renderPulse() {
         </div>`).join('');
 }
 
-// ── Slot Manager — Template ───────────────────────────────────────
-async function loadTemplate() {
+const DEFAULT_TEMPLATE = [
+  { dayOfWeek: 0, dayName: 'ראשון',  active: true,  startTimes: [] },
+  { dayOfWeek: 1, dayName: 'שני',    active: true,  startTimes: [] },
+  { dayOfWeek: 2, dayName: 'שלישי',  active: true,  startTimes: [] },
+  { dayOfWeek: 3, dayName: 'רביעי',  active: true,  startTimes: [] },
+  { dayOfWeek: 4, dayName: 'חמישי',  active: true,  startTimes: [] },
+  { dayOfWeek: 5, dayName: 'שישי',   active: false, startTimes: [] },
+  { dayOfWeek: 6, dayName: 'שבת',    active: false, startTimes: [] },
+];
+
+function loadTemplate() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
   document.getElementById('js-save-template').disabled = true;
   loadSystemInfo();
   try {
-    const data = await apiCall('getTemplate');
-    if (!data.success) throw new Error(data.error);
-    S.template = data.template || [];
+    const saved = localStorage.getItem('meital_slot_template');
+    S.template = saved ? JSON.parse(saved) : DEFAULT_TEMPLATE.map(r => ({ ...r }));
     renderTemplate();
   } catch (e) {
-    toast('שגיאה בטעינת התבנית', 'err');
+    S.template = DEFAULT_TEMPLATE.map(r => ({ ...r }));
+    renderTemplate();
   } finally {
     document.getElementById('js-template-skeleton').classList.add('hidden');
     document.getElementById('js-template-rows').classList.remove('hidden');
@@ -434,14 +452,13 @@ async function loadTemplate() {
 
 function renderTemplate() {
   const container = document.getElementById('js-template-rows');
-  // Only show Sun-Thu (0-4) by default; Fri/Sat shown but pre-disabled
   container.innerHTML = S.template.map((row, i) => {
     const timesStr = (row.startTimes || []).join(', ');
     return `
 <div class="flex items-center gap-2 py-2 border-b border-secondary/15 last:border-0">
   <label class="flex items-center gap-1.5 shrink-0 w-20">
     <input type="checkbox" data-tmpl-idx="${i}" class="tmpl-active accent-primary"
-      ${row.active ? 'checked' : ''} ${row.dayOfWeek >= 5 ? 'disabled' : ''}>
+       ${row.active ? 'checked' : ''} ${row.dayOfWeek >= 5 ? 'disabled' : ''}>
     <span class="text-xs font-semibold text-text-main">${esc(row.dayName)}</span>
   </label>
   <input type="text" data-tmpl-times="${i}" placeholder="09:00, 11:00, 14:00"
@@ -451,7 +468,6 @@ function renderTemplate() {
 </div>`;
   }).join('');
 
-  // Toggle times input when checkbox changes
   container.querySelectorAll('.tmpl-active').forEach(cb => {
     cb.addEventListener('change', () => {
       const idx   = parseInt(cb.dataset.tmplIdx, 10);
@@ -462,7 +478,7 @@ function renderTemplate() {
   });
 }
 
-async function saveTemplate() {
+function saveTemplate() {
   const container = document.getElementById('js-template-rows');
   const payload   = S.template.map((row, i) => {
     const cb    = container.querySelector('[data-tmpl-idx="' + i + '"]');
@@ -470,17 +486,16 @@ async function saveTemplate() {
     const active = cb ? cb.checked : row.active;
     const rawTimes = input ? input.value : '';
     const startTimes = rawTimes.split(',').map(t => t.trim()).filter(t => /^\d{1,2}:\d{2}$/.test(t));
-    return { dayOfWeek: row.dayOfWeek, startTimes, active };
+    return { dayOfWeek: row.dayOfWeek, dayName: row.dayName, startTimes, active };
   });
 
   const btn = document.getElementById('js-save-template');
   btn.disabled = true;
   btn.innerHTML = '<span class="w-4 h-4 spinner"></span>';
   try {
-    const data = await apiCall('saveTemplate', { template: payload });
-    if (!data.success) throw new Error(data.error);
+    localStorage.setItem('meital_slot_template', JSON.stringify(payload));
     toast('תבנית נשמרה ✅', 'ok');
-    S.template = payload.map((e, i) => ({ ...S.template[i], ...e }));
+    S.template = payload;
   } catch (e) {
     toast('שגיאה בשמירת התבנית', 'err');
   } finally {
@@ -489,53 +504,48 @@ async function saveTemplate() {
   }
 }
 
-// ── Slot Manager — Generate & Block ──────────────────────────────
 async function generateSlots() {
   const startDate = document.getElementById('js-gen-start').value;
   const endDate   = document.getElementById('js-gen-end').value;
   if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) { toast('תאריך לא תקין', 'err'); return; }
   if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
+
+  const template = S.template.filter(r => r.active && r.startTimes?.length > 0);
+  if (template.length === 0) { toast('לא נוצרו תורים — הגדר שעות בתבנית השבועית תחילה', 'err'); return; }
 
   const btn = document.getElementById('js-gen-submit');
   btn.disabled = true;
   btn.innerHTML = '<span class="w-4 h-4 spinner"></span> יוצר...';
   try {
-    const data = await apiCall('generateSlots', { startDate, endDate });
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/generate-slots`,
+      {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ adminToken: S.token, startDate, endDate, template }),
+      }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
     if (!data.success) throw new Error(data.error);
-    toast('נוצרו ' + data.added + ' חריצים חדשים ✅', 'ok');
+    if (data.added === 0) {
+      toast('לא נוצרו תורים חדשים — הכול כבר קיים', 'ok');
+    } else {
+      toast('נוצרו ' + data.added + ' תורים חדשים ✅', 'ok');
+    }
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = 'צור חריצים';
+    btn.innerHTML = 'צור תורים';
   }
 }
 
-async function blockDates() {
-  const startDate = document.getElementById('js-block-start').value;
-  const endDate   = document.getElementById('js-block-end').value;
-  if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
-  if (endDate < startDate)    { toast('תאריך הסיום חייב להיות אחרי ההתחלה', 'err'); return; }
 
-  const range = startDate === endDate ? startDate.replace(/-/g, '/') : startDate.replace(/-/g,'/') + ' – ' + endDate.replace(/-/g,'/');
-  if (!confirm('לחסום את כל החריצים הפנויים בין ' + range + '?')) return;
-
-  const btn = document.getElementById('js-block-submit');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> חוסם...';
-  try {
-    const data = await apiCall('blockDates', { startDate, endDate });
-    if (!data.success) throw new Error(data.error);
-    toast('נחסמו ' + data.blocked + ' חריצים ✅', 'ok');
-  } catch (e) {
-    toast('שגיאה: ' + e.message, 'err');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'חסום תאריכים';
-  }
-}
-
-// ── Reminders ─────────────────────────────────────────────────────
 async function loadSystemInfo() {
   try {
     const data = await apiCall('getSystemInfo');
@@ -570,7 +580,6 @@ async function sendReminders() {
   }
 }
 
-// ── Manual SMS modal ─────────────────────────────────────────────────────
 function openSmsModal(booking) {
   S._smsSendTarget = booking;
   document.getElementById('js-sms-recipient').textContent =
@@ -611,7 +620,6 @@ async function sendManualSMS() {
   }
 }
 
-// ── Auto-SMS master toggle ──────────────────────────────────────────────
 async function loadAutoSmsToggle() {
   try {
     const data = await apiCall('getAutoSms');
@@ -643,156 +651,216 @@ async function toggleAutoSms() {
   }
 }
 
-// ── Slot inventory ──────────────────────────────────────────────────────────────
-async function loadSlotInventory() {
-  const el = document.getElementById('js-diary-slots');
-  if (!el) return;
-  el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
-  try {
-    const data = await apiCall('getSlotInventory');
-    if (!data.success) throw new Error(data.error);
-    renderSlotInventory(data.slots || []);
-  } catch (e) {
-    el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
-  }
-}
 
-function renderSlotInventory(slots) {
-  const el = document.getElementById('js-diary-slots');
-  if (!slots.length) {
-    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין חריצים בתקופה הנבחרת</div>';
-    return;
-  }
-  const byDate = {};
-  slots.forEach(s => { if (!byDate[s.date]) byDate[s.date] = []; byDate[s.date].push(s); });
-  el.innerHTML = Object.entries(byDate)
-    .sort(([a], [b]) => a < b ? -1 : 1)
-    .map(([date, daySlots]) => {
-      const label = date.replace(/-/g, '/');
-      const rows = daySlots.map(s => {
-        const isAvail   = s.status === 'Available';
-        const isBlock   = s.status === 'Blocked';
-        const canToggle = isAvail || isBlock;
-        const hl        = s.recentlyCancelled ? ' ring-2 ring-amber-300 rounded-xl px-1' : '';
-        const stCls     = isAvail ? 'text-green-600 bg-green-50' : isBlock ? 'text-gray-400 bg-gray-50' : 'text-text-muted bg-secondary/20';
-        const stLabel   = isAvail ? 'פנוי' : isBlock ? 'חסום' : esc(s.status);
-        const btnLabel  = isAvail ? 'חסום' : 'שחרר';
-        const btnCls    = isAvail ? 'bg-red-100 text-red-500 hover:bg-red-200' : 'bg-green-100 text-green-600 hover:bg-green-200';
-        return '<div class="flex items-center justify-between py-2 border-b border-secondary/15 last:border-0' + hl + '" data-qa="slot-row">'
-          + '<div class="flex items-center gap-2">'
-          + (s.recentlyCancelled ? '<span title="בוטל לאחרונה">🔄</span>' : '')
-          + '<span class="text-sm font-medium text-text-main">' + esc(s.time) + '</span>'
-          + '<span class="text-xs px-2 py-0.5 rounded-full ' + stCls + '">' + stLabel + '</span></div>'
-          + (canToggle
-            ? '<button data-action="toggle-slot" data-date="' + esc(s.date) + '" data-time="' + esc(s.time) + '"'
-            + ' class="' + btnCls + ' text-xs font-bold px-3 py-1.5 rounded-xl transition-colors active:scale-95"'
-            + ' data-qa="btn-toggle-slot">' + btnLabel + '</button>'
-            : '')
-          + '</div>';
-      }).join('');
-      return '<div class="mb-3"><div class="text-xs font-bold text-text-muted mb-1">' + label + '</div>'
-        + '<div class="bg-secondary/10 rounded-xl px-3">' + rows + '</div></div>';
-    }).join('');
-  el.querySelectorAll('[data-action="toggle-slot"]').forEach(btn =>
-    btn.addEventListener('click', () => toggleSlot(btn.dataset.date, btn.dataset.time)));
-}
-
-async function toggleSlot(date, time) {
-  try {
-    const data = await apiCall('toggleSlotStatus', { date, time });
-    if (!data.success) {
-      if (data.error === 'cannot_toggle') {
-        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
-      }
-      throw new Error(data.error || 'error');
-    }
-    const lbl = data.newStatus === 'Available' ? 'שוחרר ✅' : 'חסום ✅';
-    toast(date.replace(/-/g, '/') + ' ' + time + ' — ' + lbl, 'ok');
-    await loadSlotInventory();
-  } catch (e) {
-    toast('שגיאה: ' + e.message, 'err');
-  }
-}
-
-// ── SMS communication log ────────────────────────────────────────────────
 async function loadSmsLog() {
   const el = document.getElementById('js-sms-log');
   if (!el) return;
   el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
   try {
-    const data = await apiCall('getSmsLog');
+    const data = await sbCall('sms-log', {});
     if (!data.success) throw new Error(data.error);
-    renderSmsLog(data.entries || []);
+    renderSmsLog(data.entries || [], el);
   } catch (e) {
     el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
   }
 }
 
-function renderSmsLog(entries) {
-  const el = document.getElementById('js-sms-log');
-  if (!entries.length) {
-    el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין רשומות</div>';
-    return;
-  }
-  el.innerHTML = entries.map(e => {
-    const icon = e.status === 'SENT' ? '✅' : e.status === 'MOCK' ? '🧪' : e.status === 'SKIPPED' ? '⏭️' : '❌';
-    return '<div class="flex items-start gap-2 py-2 border-b border-secondary/15 last:border-0" data-qa="log-entry">'
-      + '<span class="shrink-0 mt-0.5">' + icon + '</span>'
-      + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-center justify-between gap-2 mb-0.5">'
-      + '<span class="text-xs font-semibold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
-      + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
-      + '</div>'
-      + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
-      + '</div></div>';
-  }).join('');
+
+function renderVisibleCalendar() {
+  const y   = S.calMonth.getFullYear();
+  const mo  = S.calMonth.getMonth() + 1;
+  const key = y + '-' + String(mo).padStart(2, '0');
+  S.calData = buildCalData(S.bookings, S.slotCache[key] || []);
+  renderCalendar(
+    document.getElementById('js-cal-grid'),
+    document.getElementById('js-cal-title'),
+    y, mo, S.calData,
+    { onDayClick: onCalDayClick }
+  );
 }
 
-// ── Auto-refresh (60 s) ───────────────────────────────────────────
-
-async function runHealthCheck() {
-  const btn  = document.getElementById('js-health-submit');
-  const list = document.getElementById('health-checks');
-  const icon = document.getElementById('health-overall');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="w-4 h-4 spinner"></span> בודק...';
-  list.innerHTML = '<p class="text-text-muted text-xs">בודק...</p>';
-  icon.textContent = '';
-  try {
-    const data = await apiCall('healthCheck');
-    if (!data.success) throw new Error(data.error);
-    const EMOJI = { ok: '\u2705', warn: '\u26A0\uFE0F', error: '\u274C' };
-    icon.textContent = EMOJI[data.overall] || '';
-    list.innerHTML = (data.checks || []).map(c =>
-      '<div class="flex items-start gap-2">'
-      + '<span class="shrink-0">' + (EMOJI[c.status] || '?') + '</span>'
-      + '<span class="text-text-muted">' + c.label
-      + (c.detail ? ' <span class="text-text-body">— ' + c.detail + '</span>' : '')
-      + '</span></div>'
-    ).join('');
-  } catch (e) {
-    icon.textContent = '\u274C';
-    list.innerHTML = '<p class="text-red-500 text-xs">' + e.message + '</p>';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'בדוק עכשיו';
+async function loadAndRenderCalendar() {
+  const y   = S.calMonth.getFullYear();
+  const mo  = S.calMonth.getMonth() + 1;
+  const key = y + '-' + String(mo).padStart(2, '0');
+  if (!S.slotCache[key]) {
+    const lastDay = new Date(y, mo, 0).getDate();
+    const from = key + '-01';
+    const to   = key + '-' + String(lastDay).padStart(2, '0');
+    try {
+      const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: from, dateTo: to });
+      S.slotCache[key] = (r.success && r.slots) ? r.slots : [];
+    } catch { S.slotCache[key] = []; }
   }
+  renderVisibleCalendar();
+}
+
+let _sheetOpenDate = null;
+
+function _todayISO() {
+  const n = new Date();
+  return n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0')
+    + '-' + String(n.getDate()).padStart(2, '0');
+}
+
+/** Build the full day-sheet payload: bookings (calData), the day's slots, and isPast. */
+function _dayPayload(dateStr) {
+  const month    = dateStr.substring(0, 7);
+  const daySlots = (S.slotCache[month] || []).filter(s => s.date === dateStr);
+  return {
+    dateStr,
+    entry:  S.calData[dateStr] || null,
+    slots:  daySlots,
+    isPast: dateStr < _todayISO(),
+  };
+}
+
+function onCalDayClick(dateStr, entry) {
+  _sheetOpenDate = dateStr;
+  _updatePeekStrip(dateStr, entry);
+  openSheet('day', _dayPayload(dateStr));
+}
+
+function _updatePeekStrip(dateStr, entry) {
+  const peekDate    = document.getElementById('js-cal-peek-date');
+  const peekContent = document.getElementById('js-cal-peek-content');
+  const peekBtn     = document.getElementById('js-cal-peek-add');
+  if (peekDate) {
+    const d = new Date(dateStr + 'T00:00:00');
+    peekDate.textContent = DAY_NAMES_HE[d.getDay()] + ' ' + d.getDate() + '/' + (d.getMonth() + 1);
+  }
+  if (peekContent) {
+    const { pendingCount, approvedCount, freeSlotCount } = calDayStatus(entry);
+    const parts = [];
+    if (pendingCount > 0) {
+      parts.push('<span class="font-semibold text-amber-600">' + pendingCount +
+        (pendingCount === 1 ? ' ממתינה לאישור' : ' ממתינות לאישור') + '</span>');
+    }
+    if (approvedCount > 0) {
+      parts.push('<span class="font-semibold text-green-600">' + approvedCount +
+        (approvedCount === 1 ? ' מאושרת' : ' מאושרות') + '</span>');
+    }
+    if (freeSlotCount > 0) {
+      parts.push('<span class="font-semibold text-rose-500">' + freeSlotCount +
+        (freeSlotCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
+    }
+    peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
+  }
+  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.peekDate = dateStr; }
+}
+
+function _commitCardAction(id, target) {
+  const wrapper  = document.querySelector('[data-swipe-id="' + id + '"]');
+  const card     = wrapper ? wrapper.querySelector('.swipe-card') : null;
+  const booking  = S.bookings.find(b => b.id === id);
+  const prevStatus = booking ? booking.status : null;
+  if (booking) booking.status = target;
+
+  if (wrapper && card) {
+    const dir = (target === 'Approved') ? 1 : -1;
+    card.style.transition = 'transform 0.22s ease-in';
+    card.style.transform  = 'translate3d(' + (dir * 115) + '%, 0, 0)';
+    wrapper.style.overflow   = 'hidden';
+    wrapper.style.transition = 'max-height 0.28s 0.1s, margin-bottom 0.28s 0.1s, opacity 0.2s 0.08s';
+    setTimeout(() => {
+      wrapper.style.maxHeight    = '0';
+      wrapper.style.marginBottom = '0';
+      wrapper.style.opacity      = '0';
+    }, 40);
+  }
+
+  const OK = {
+    Approved:  'ההזמנה אושרה',
+    Rejected:  'ההזמנה נדחתה',
+    Cancelled: 'ההזמנה בוטלה',
+  };
+  toastUndo(
+    OK[target] || 'עודכן',
+    async () => {
+      try {
+        const r = await fetch(
+          `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+        );
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'error');
+        // GAS side-effects (SMS + Calendar) — fire-and-forget
+        // Approval failures surface as a warning so Meital can verify the calendar manually
+        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+          console.warn('[changeStatus GAS side-effects failed]', e.message);
+          if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
+        });
+        await load(true);
+      } catch (e) {
+        if (booking && prevStatus) booking.status = prevStatus;
+        toast('שגיאה: ' + e.message, 'err');
+        await load(true);
+      }
+    },
+    () => {
+      if (booking && prevStatus) booking.status = prevStatus;
+      render();
+    }
+  );
+}
+
+function _commitSheetAction(id, target) {
+  const booking = S.bookings.find(b => b.id === id);
+  if (!booking) return;
+  const prevStatus = booking.status;
+
+  // Optimistic update + close the sheet so the admin immediately sees the
+  // calendar with the day's status changed (dot/tint updates in place).
+  booking.status = target;
+  renderVisibleCalendar();
+  closeSheet();
+
+  const OK = { Approved: 'ההזמנה אושרה ✓', Rejected: 'ההזמנה נדחתה', Cancelled: 'ההזמנה בוטלה' };
+  toastUndo(
+    OK[target] || 'עודכן',
+    async () => {
+      try {
+        const r = await fetch(
+          APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
+          { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+        );
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || 'error');
+        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+          console.warn('[changeStatus GAS side-effects failed]', e.message);
+          if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
+        });
+        await load(true);            // refresh underlying data; calendar re-renders
+      } catch (e) {
+        if (booking) booking.status = prevStatus;
+        renderVisibleCalendar();
+        toast('שגיאה: ' + e.message, 'err');
+        await load(true);
+      }
+    },
+    () => {
+      // Undo — revert the optimistic change; calendar reflects it instantly.
+      if (booking) booking.status = prevStatus;
+      renderVisibleCalendar();
+    }
+  );
 }
 
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
 
-// ── Init ──────────────────────────────────────────────────────────
 async function init() {
-  // Auth listeners
   document.getElementById('js-login-btn').addEventListener('click', login);
   document.getElementById('js-token-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') login();
   });
   document.getElementById('js-logout-btn').addEventListener('click', logout);
 
-  // Refresh
   document.getElementById('js-refresh-btn').addEventListener('click', async () => {
     const icon = document.getElementById('js-refresh-icon');
     icon.style.animation = 'spin 0.6s linear infinite';
@@ -801,12 +869,10 @@ async function init() {
     setTimeout(() => { icon.style.animation = ''; }, 800);
   });
 
-  // Filter pills
   document.querySelectorAll('.filter-pill').forEach(btn =>
     btn.addEventListener('click', () => setFilter(btn.dataset.filter)));
   setFilter('all');
 
-  // Daily planner date jump
   document.getElementById('js-date-jump').addEventListener('change', e => {
     S.dateJump = e.target.value;
     render();
@@ -817,32 +883,47 @@ async function init() {
     render();
   });
 
-  // Bottom nav tabs
   document.querySelectorAll('.nav-tab').forEach(btn =>
     btn.addEventListener('click', () => setTab(btn.dataset.tab)));
 
-  // Slot manager
+  document.getElementById('js-cal-prev').addEventListener('click', () => {
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
+    loadAndRenderCalendar();
+  });
+  document.getElementById('js-cal-next').addEventListener('click', () => {
+    S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() - 1, 1);
+    loadAndRenderCalendar();
+  });
+  const todayBtn = document.getElementById('js-cal-today');
+  if (todayBtn) todayBtn.addEventListener('click', () => {
+    S.calMonth = new Date();
+    loadAndRenderCalendar();
+  });
+
+  const peekAddBtn = document.getElementById('js-cal-peek-add');
+  if (peekAddBtn) {
+    peekAddBtn.addEventListener('click', () => {
+      const d = peekAddBtn.dataset.peekDate;
+      if (!d) return;
+      if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', _dayPayload(d)); }
+    });
+  }
+
   document.getElementById('js-save-template').addEventListener('click', saveTemplate);
   document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
-  document.getElementById('js-block-submit').addEventListener('click', blockDates);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
-  document.getElementById('js-health-submit').addEventListener('click', runHealthCheck);
 
-  // Auto-SMS toggle
   document.getElementById('js-auto-sms-btn').addEventListener('click', toggleAutoSms);
 
-  // SMS modal
   document.getElementById('js-sms-close').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-cancel').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
 
-  // Diary tab — slot manager
   document.getElementById('js-diary-load').addEventListener('click', loadDiarySlots);
   document.getElementById('js-add-slot-btn').addEventListener('click', addDiarySlot);
   document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
 
-  // Clients tab
   document.getElementById('js-client-search-btn').addEventListener('click', () =>
     loadClients(document.getElementById('js-client-search').value.trim()));
   document.getElementById('js-client-search').addEventListener('keydown', e => {
@@ -859,16 +940,75 @@ async function init() {
     document.getElementById('js-clients-list').classList.remove('hidden');
   });
 
-  // Session restore
+  initSheet();
+
+  document.addEventListener('sheet:action', e => {
+    const { action, id, date } = e.detail;
+    if (action === 'addSlot') {
+      const slotDate = date;
+      const slotTime = e.detail.time || '';
+      if (!slotTime) { toast('בחרי שעה להוספה', 'warn'); return; }
+      (async () => {
+        try {
+          const r = await sbCall('admin-slots', { action: 'addSlot', date: slotDate, time: slotTime });
+          if (!r.success) throw new Error(r.error);
+          if (r.already_exists) {
+            toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
+          } else {
+            toast('החריץ נוסף ✓', 'ok');
+            // Close the sheet and reveal the calendar with the new free slot.
+            closeSheet();
+            delete S.slotCache[slotDate.substring(0, 7)];
+            await load(true);
+            await loadAndRenderCalendar();
+          }
+        } catch (err) {
+          toast('שגיאה בהוספת החריץ', 'err');
+        }
+      })();
+      return;
+    }
+    if (action === 'deleteSlot' || action === 'blockSlot') {
+      const slotId = Number(e.detail.slotId);
+      if (!slotId) return;
+      const dayDate = _sheetOpenDate;
+      (async () => {
+        try {
+          // deleteSlot removes the slot; blockSlot flips available↔locked (toggleSlot).
+          const apiAction = action === 'deleteSlot' ? 'deleteSlot' : 'toggleSlot';
+          const r = await sbCall('admin-slots', { action: apiAction, slotId });
+          if (!r.success) throw new Error(r.error);
+          toast(action === 'deleteSlot' ? 'החריץ נמחק' : 'החריץ נחסם', 'ok');
+          if (dayDate) delete S.slotCache[dayDate.substring(0, 7)];
+          await load(true);
+          await loadAndRenderCalendar();
+          // Slot management keeps the popup open — re-open with fresh day data.
+          if (dayDate && isSheetOpen()) openSheet('day', _dayPayload(dayDate));
+        } catch (err) {
+          toast('שגיאה בעדכון החריץ', 'err');
+        }
+      })();
+      return;
+    }
+    const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
+    if (STATUS_MAP[action]) _commitSheetAction(id, STATUS_MAP[action]);
+  });
+
   if (S.token && sessionValid()) {
     try {
-      const data = await apiCall('listBookings', { token: S.token });
+      const r = await fetch(
+        `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+      );
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
       if (!data.success) throw new Error(data.error);
       S.bookings = data.bookings || [];
       showDash();
       hideSkeleton();
       render();
       updateStats();
+      loadAndRenderCalendar();
       loadAutoSmsToggle();
     } catch (_) {
       logout();
@@ -880,9 +1020,6 @@ async function init() {
   startAutoRefresh();
 }
 
-
-// ── Diary Tab — Slot Manager ──────────────────────────────────────
-
 async function loadDiarySlots() {
   const fromEl = document.getElementById('js-diary-from');
   const toEl   = document.getElementById('js-diary-to');
@@ -893,77 +1030,19 @@ async function loadDiarySlots() {
   const btn = document.getElementById('js-diary-load');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
   try {
-    const r = await apiCall('adminGetSlots', { dateFrom: from, dateTo: to });
+    const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: from, dateTo: to });
     if (!r.success) throw new Error(r.error);
     S.diarySlots = r.slots;
-    renderDiarySlots(r.slots);
+    renderDiarySlots(r.slots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
   } catch (e) {
-    toast('שגיאה בטעינת החריצים', 'err');
+    toast('שגיאה בטעינת התורים', 'err');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'טען חריצים'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'טען תורים'; }
   }
-}
-
-function renderDiarySlots(slots) {
-  const container = document.getElementById('js-diary-slots');
-  if (!container) return;
-  if (!slots || !slots.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין חריצים בטווח זה</div>';
-    return;
-  }
-
-  // Group by date
-  const byDate = {};
-  slots.forEach(s => {
-    if (!byDate[s.date]) byDate[s.date] = [];
-    byDate[s.date].push(s);
-  });
-
-  const html = Object.keys(byDate).map(date => {
-    const d      = new Date(date + 'T12:00:00');
-    const dayName = 'יום ' + DAY_NAMES_HE[d.getDay()];
-    const parts   = date.split('-');
-    const heDate  = parts[2] + '/' + parts[1] + '/' + parts[0];
-
-    const rows = byDate[date].map(s => {
-      const canAct = s.status !== 'booked' && s.status !== 'pending';
-      const toggleIcon = s.status === 'locked' ? '🔓' : '🔒';
-      const badgeCls   = SB_STATUS_CLS[s.status]   || 'bg-gray-100 text-gray-500';
-      const badgeLabel = SB_STATUS_LABEL[s.status] || s.status;
-      return (
-        '<div data-slot-id="' + s.id + '" class="flex items-center justify-between py-2 border-b border-secondary/20 last:border-0">' +
-          '<div class="flex items-center gap-2">' +
-            '<span class="font-semibold text-sm text-text-main">' + esc(s.time) + '</span>' +
-            '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>' +
-          '</div>' +
-          '<div class="flex items-center gap-1">' +
-            '<button data-action-btn onclick="toggleDiarySlot(' + s.id + ',\'' + s.status + ')" ' +
-              (canAct ? '' : 'disabled ') +
-              'class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">' +
-              toggleIcon +
-            '</button>' +
-            '<button data-action-btn onclick="deleteDiarySlot(' + s.id + ')" ' +
-              (canAct ? '' : 'disabled ') +
-              'class="text-base p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">🗑</button>' +
-          '</div>' +
-        '</div>'
-      );
-    }).join('');
-
-    return (
-      '<div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4 card-in">' +
-        '<div class="text-xs font-bold text-text-muted mb-2">' + dayName + ', ' + heDate + '</div>' +
-        rows +
-      '</div>'
-    );
-  }).join('');
-
-  container.innerHTML = html;
 }
 
 async function toggleDiarySlot(slotId, currentStatus) {
   const newStatus = currentStatus === 'available' ? 'locked' : 'available';
-  // Optimistic update
   const row = document.querySelector('[data-slot-id="' + slotId + '"]');
   if (row) {
     const badge = row.querySelector('[data-status-badge]');
@@ -975,31 +1054,32 @@ async function toggleDiarySlot(slotId, currentStatus) {
     if (toggleBtn) toggleBtn.textContent = newStatus === 'locked' ? '🔓' : '🔒';
   }
   try {
-    const r = await apiCall('adminToggleSlot', { slotId });
-    if (!r.success) throw new Error(r.error);
-    const entry = S.diarySlots.find(s => s.id === slotId);
-    if (entry) entry.status = r.newStatus;
-    // update onclick attribute to reflect new status
-    if (row) row.querySelector('[data-action-btn]').setAttribute('onclick',
-      "toggleDiarySlot(" + slotId + ",'" + r.newStatus + "')");
+    const r = await sbCall('admin-slots', { action: 'toggleSlot', slotId });
+    if (!r.success) {
+      if (r.error === 'cannot_toggle') {
+        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
+      }
+      throw new Error(r.error || 'error');
+    }
+    const lbl = newStatus === 'locked' ? 'חסום ✅' : 'שוחרר ✅';
+    toast('חריץ עודכן — ' + lbl, 'ok');
+    await loadDiarySlots();
   } catch (e) {
-    // Revert
-    renderDiarySlots(S.diarySlots);
+    renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
     toast('שגיאה בשינוי הסטטוס', 'err');
   }
 }
 
 async function deleteDiarySlot(slotId) {
-  if (!confirm('למחוק את החריץ הזה? הפעולה אינה הפיכה.')) return;
   try {
-    const r = await apiCall('adminDeleteSlot', { slotId });
+    const r = await sbCall('admin-slots', { action: 'deleteSlot', slotId });
     if (!r.success) {
       if (r.error === 'cannot_delete_active') toast('לא ניתן למחוק חריץ תפוס', 'warn');
       else throw new Error(r.error);
       return;
     }
     S.diarySlots = S.diarySlots.filter(s => s.id !== slotId);
-    renderDiarySlots(S.diarySlots);
+    renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
     toast('החריץ נמחק ✓', 'ok');
   } catch (e) {
     toast('שגיאה במחיקת החריץ', 'err');
@@ -1019,13 +1099,12 @@ async function addDiarySlot() {
   const btn = document.getElementById('js-add-slot-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
   try {
-    const r = await apiCall('adminAddSlot', { date, time });
+    const r = await sbCall('admin-slots', { action: 'addSlot', date, time });
     if (!r.success) throw new Error(r.error);
     if (r.already_exists) {
       toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
     } else {
       toast('החריץ נוסף בהצלחה ✓', 'ok');
-      // Reload if the new slot falls within the current view range
       const fromVal = document.getElementById('js-diary-from') ? document.getElementById('js-diary-from').value : '';
       const toVal   = document.getElementById('js-diary-to')   ? document.getElementById('js-diary-to').value   : '';
       if (fromVal && toVal && date >= fromVal && date <= toVal) await loadDiarySlots();
@@ -1037,57 +1116,23 @@ async function addDiarySlot() {
   }
 }
 
-// ── Clients Tab ───────────────────────────────────────────────────
-
 async function loadClients(search) {
   S.clientSearch = search || '';
   const container = document.getElementById('js-clients-list');
   if (!container) return;
   container.innerHTML = '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
   try {
-    const r = await apiCall('adminGetClients', { search: S.clientSearch });
+    const r = await sbCall('admin-clients', { action: 'getClients', search: S.clientSearch });
     if (!r.success) throw new Error(r.error);
     S.clients = r.clients;
-    renderClientList(r.clients);
+    renderClientList(r.clients, container, { onSelect: loadClientHistory });
   } catch (e) {
     toast('שגיאה בטעינת לקוחות', 'err');
     container.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
 }
 
-function renderClientList(clients) {
-  const container = document.getElementById('js-clients-list');
-  if (!container) return;
-  if (!clients || !clients.length) {
-    container.innerHTML =
-      '<div class="text-center py-14 text-text-muted">' +
-        '<div class="text-3xl mb-2">🔍</div>' +
-        '<div class="text-sm">לא נמצאו לקוחות</div>' +
-      '</div>';
-    return;
-  }
-  container.innerHTML = clients.map(c => {
-    const joined = c.created_at
-      ? new Date(c.created_at).toLocaleDateString('he-IL', { month: '2-digit', year: 'numeric' })
-      : '';
-    return (
-      '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in ' +
-           'cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]" ' +
-           'onclick="loadClientHistory(\'' + esc(c.phone) + '\')">' +
-        '<div class="flex items-center justify-between">' +
-          '<div>' +
-            '<div class="font-bold text-sm text-text-main">' + esc(c.full_name || '(ללא שם)') + '</div>' +
-            '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(c.phone)) + '</div>' +
-          '</div>' +
-          '<div class="text-xs text-text-muted">' + esc(joined) + '</div>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join('');
-}
-
 async function loadClientHistory(phone) {
-  // Switch to history panel
   const listPanel    = document.getElementById('js-clients-list');
   const histPanel    = document.getElementById('js-client-history');
   const histList     = document.getElementById('js-history-list');
@@ -1097,80 +1142,42 @@ async function loadClientHistory(phone) {
     '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
 
   try {
-    const r = await apiCall('adminGetClientHistory', { clientPhone: phone });
+    const r = await sbCall('admin-clients', { action: 'getClientHistory', clientPhone: phone });
     if (!r.success) throw new Error(r.error);
     S.clientHistory = r;
     const nameEl  = document.getElementById('js-history-name');
     const phoneEl = document.getElementById('js-history-phone');
     if (nameEl)  nameEl.textContent  = r.client.full_name || '(ללא שם)';
     if (phoneEl) phoneEl.textContent = fmtPhone(r.client.phone);
-    renderClientHistory(r.appointments);
+    renderClientHistory(r.appointments, histList, { onDecision: _processHistoryDecision });
   } catch (e) {
     toast('שגיאה בטעינת היסטוריה', 'err');
     if (histList) histList.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
 }
 
-function renderClientHistory(appointments) {
-  const container = document.getElementById('js-history-list');
-  if (!container) return;
-  if (!appointments || !appointments.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין הזמנות קודמות</div>';
-    return;
-  }
-  container.innerHTML = appointments.map(a => {
-    const statusLabel = LABELS[a.status]   || a.status;
-    const statusCls   = STATUS_CLS[a.status] || 'bg-gray-100 text-gray-400';
-    const dateParts   = a.date ? a.date.split('-') : [];
-    const heDate      = dateParts.length === 3 ? dateParts[2] + '/' + dateParts[1] + '/' + dateParts[0] : '—';
-    const isPending   = a.status === 'pending' || a.status === 'Pending';
-
-    const actionBtns = isPending
-      ? '<div class="flex gap-2 mt-2">' +
-          '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Approved\')" ' +
-            'class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
-            '✅ אשר' +
-          '</button>' +
-          '<button data-action-btn data-appt-id="' + esc(a.id) + '" ' +
-            'onclick="_processHistoryDecision(\'' + esc(a.id) + '\',\'' + esc(a.admin_token) + '\',\'Rejected\')" ' +
-            'class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">' +
-            '❌ דחה' +
-          '</button>' +
-        '</div>'
-      : '';
-
-    return (
-      '<div data-appt-row class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in">' +
-        '<div class="flex items-start justify-between mb-1">' +
-          '<div>' +
-            '<div class="font-bold text-sm text-text-main">' + esc(heDate) + ' בשעה ' + esc(a.time || '—') + '</div>' +
-            '<div class="text-xs text-text-muted mt-0.5">' + esc(a.treatment_name || '') + '</div>' +
-          '</div>' +
-          '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ' + statusCls + '">' + statusLabel + '</span>' +
-        '</div>' +
-        actionBtns +
-      '</div>'
-    );
-  }).join('');
-}
-
 async function _processHistoryDecision(bookingId, adminToken, decision) {
-  // Use 'adminAction' (handleAdminActionV2) with the appointment HMAC token.
-  // changeStatus cannot find Supabase appointments — it reads Sheets only.
   const btns = document.querySelectorAll('[data-appt-id="' + bookingId + '"]');
   btns.forEach(b => { b.disabled = true; });
 
   try {
-    const r = await apiCall('adminAction', { bookingId, token: adminToken, decision });
-    if (!r.success) {
-      if (r.error === 'already_processed') toast('ההזמנה כבר טופלה', 'warn');
-      else throw new Error(r.error);
+    const r = await fetch(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId, targetStatus: decision }) }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const sbData = await r.json();
+    if (!sbData.success) {
+      if (sbData.error === 'invalid_transition') toast('ההזמנה כבר טופלה', 'warn');
+      else throw new Error(sbData.error);
       btns.forEach(b => { b.disabled = false; });
       return;
     }
+    // GAS side-effects (SMS + Calendar) — fire-and-forget; log failures only
+    apiCall('adminAction', { bookingId, token: adminToken, decision }).catch(e =>
+      console.warn('[adminAction GAS side-effects failed]', e.message)
+    );
     toast(decision === 'Approved' ? 'ההזמנה אושרה ✓' : 'ההזמנה נדחתה', 'ok');
-    // Optimistic status update in DOM
     const newStatus   = decision === 'Approved' ? 'approved' : 'rejected';
     const statusLabel = LABELS[newStatus];
     const statusCls   = STATUS_CLS[newStatus];
@@ -1181,7 +1188,6 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
       if (badge) { badge.textContent = statusLabel; badge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ' + statusCls; }
       row.querySelectorAll('[data-action-btn]').forEach(b => b.remove());
     });
-    // Sync in-memory state
     if (S.clientHistory && S.clientHistory.appointments) {
       const appt = S.clientHistory.appointments.find(a => a.id === bookingId);
       if (appt) appt.status = newStatus;
@@ -1192,12 +1198,5 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
   }
 }
 
-// Inline onclick="" attributes in generated HTML resolve against global scope.
-// admin.js is loaded as an ES module (<script type="module">), so its top-level
-// functions are NOT attached to window — expose the ones referenced from markup.
-window.toggleDiarySlot         = toggleDiarySlot;
-window.deleteDiarySlot         = deleteDiarySlot;
-window.loadClientHistory       = loadClientHistory;
-window._processHistoryDecision = _processHistoryDecision;
 
 document.addEventListener('DOMContentLoaded', init);

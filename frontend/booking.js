@@ -53,6 +53,7 @@ const State = {
   service: null,
   date: null,
   time: null,
+  slotId: null,
   name: '',
   phone: '',
   bookingId: null,
@@ -153,7 +154,7 @@ const LS = {
 };
 
 // ═══════════════════════════════════════════════════
-// API LAYER  (stubs for GAS backend)
+// API LAYER
 // ═══════════════════════════════════════════════════
 
 const FETCH_TIMEOUT_MS = 30_000;
@@ -172,55 +173,71 @@ async function fetchWithTimeout(url, options = {}) {
 }
 
 async function apiGetSlots(year, month) {
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const url = `${APP_CONFIG.API_URL}?action=getSlots&year=${year}&month=${month}`;
-    const r   = await fetchWithTimeout(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/get-slots?year=${year}&month=${month}`,
+      { headers: { 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` } }
+    );
+    return r.json();
   }
   return mockSlots(year, month);
 }
 
+// Converts any Israeli mobile format to E.164 before sending to the backend.
+// State.phone is stored as digits-only (e.g. "0542290881"); the backend
+// normalizePhone() already handles both formats, but sending E.164 from the
+// frontend makes the wire format unambiguous and easier to read in logs.
+function toE164(digits) {
+  const d = (digits || '').replace(/\D/g, '');
+  if (d.startsWith('972') && d.length === 12) return '+' + d;
+  if (d.startsWith('05')  && d.length === 10)  return '+972' + d.slice(1);
+  return digits; // pass through unchanged if format is unrecognised
+}
+
 async function apiSendOTP(phone) {
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ action: 'sendOTP', phone }),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/send-otp`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ phone: toE164(phone) }),
+      }
+    );
+    return r.json();
   }
   return { success: true };
 }
 
 async function apiVerifyAndBook(otp) {
-  const ts = toISO8601Jerusalem(State.date, State.time);
-  if (APP_CONFIG.API_URL && !APP_CONFIG.IS_MOCK_MODE) {
-    const payload = {
-      action: 'verifyAndBook',
-      otp,
-      booking: {
-        id:          State.bookingId,
-        name:        State.name,
-        phone:       State.phone,
-        service:     State.service.id,
-        serviceName: State.service.name,
-        date:        State.date,
-        time:        State.time,
-        timestamp:   ts.tagged,
-        timezone:    ts.timezone,
-        duration:    State.service.duration,
-        status:      'Pending',
-      },
-    };
-    const r = await fetchWithTimeout(APP_CONFIG.API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify(payload),
-    });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return JSON.parse(await r.text());
+  if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const r = await fetchWithTimeout(
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/verify-and-book`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          otp,
+          booking: {
+            id:          State.bookingId,
+            name:        State.name,
+            phone:       toE164(State.phone),
+            service:     State.service.id,
+            serviceName: State.service.name,
+            date:        State.date,
+            time:        State.time,
+            duration:    State.service.duration,
+          },
+        }),
+      }
+    );
+    return r.json();
   }
 
   await delay(750);
@@ -434,9 +451,6 @@ async function loadMonthSlots(year, month) {
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
-      const _slotCount = Object.values(res.slots || {}).reduce((n, a) => n + a.length, 0);
-      console.log('[DEBUG] Slots received: ' + _slotCount + ' for ' + year + '-' + month + ' | days: ' + JSON.stringify(Object.keys(res.slots || {})));
-      if (_slotCount === 0) console.log('[DEBUG] Slots received: 0');
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
@@ -466,11 +480,16 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  slotsGrid.innerHTML = times.map(t => `
-    <div class="time-slot ${State.time === t ? 'selected' : ''}" data-time="${t}" data-qa="slot-btn">
-      <span class="font-semibold text-sm">${t}</span>
+  slotsGrid.innerHTML = times.map(t => {
+    const time = typeof t === 'string' ? t : t.time;
+    const id   = typeof t === 'string' ? '' : t.id;
+    return `
+    <div class="time-slot ${State.time === time ? 'selected' : ''}"
+         data-time="${time}" data-slot-id="${id}" data-qa="slot-btn">
+      <span class="font-semibold text-sm">${time}</span>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════
@@ -564,12 +583,21 @@ function renderConfirmation() {
     </div>
   `).join('');
 
+  // Demoted to a quiet reference line — a raw UUID is support metadata, not client UX.
+  // Full UUID stays in the DOM for traceability (and the E2E gate that asserts it).
   document.getElementById('js-confirm-id').innerHTML = `
-    <p class="text-[10px] text-text-muted text-center font-light">מזהה הזמנה</p>
-    <p class="text-[10px] font-mono text-text-muted/60 text-center mt-0.5 tracking-wider">${State.bookingId}</p>
+    <p class="text-[10px] text-text-muted/50 text-center font-light tracking-wide">
+      אסמכתא: <span class="font-mono">${State.bookingId}</span>
+    </p>
   `;
 
   document.getElementById('js-nav').classList.add('hidden');
+
+  // A11y: move focus to the heading so screen-reader users are told the request
+  // was sent (focus was on the now-hidden OTP box). preventScroll keeps showStep's
+  // scroll-to-top intact.
+  const heading = document.getElementById('js-confirm-heading');
+  if (heading) heading.focus({ preventScroll: true });
 }
 
 // ═══════════════════════════════════════════════════
@@ -681,8 +709,10 @@ async function handleNext() {
       renderOTPInputs();
       startResendTimer();
     } else if (res.error === 'rate_limited') {
-      const secs = res.retryAfterSecs || 30;
+      const secs = res.retryAfter || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
+    } else if (res.error === 'quota_exceeded') {
+      toast('שירות השליחה אינו זמין כרגע. נסי שוב מאוחר יותר.', 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
@@ -721,13 +751,21 @@ async function submitOTP(otp) {
   if (res.success) {
     showStep(5);
     renderConfirmation();
-  } else if (res.error === 'slot_not_available' || res.error === 'slot_locked') {
+  } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
-    State.date = null;
-    State.time = null;
-    State.prefetchedMonths = new Set(); // force fresh slot data on next load
-    setTimeout(() => showStep(2), 2500);
+    State.date            = null;
+    State.time            = null;
+    State.slotId          = null;
+    State.slots           = {};           // clear stale cache so the unavailable slot disappears
+    State.prefetchedMonths = new Set();
+    setTimeout(() => {
+      showStep(2);
+      // Reload fresh availability so the user can't re-select the same gone slot
+      if (State.calMonth) {
+        loadMonthSlots(State.calMonth.getFullYear(), State.calMonth.getMonth() + 1);
+      }
+    }, 2500);
   } else {
     document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
     document.getElementById('js-otp-error').classList.remove('hidden');
@@ -816,7 +854,7 @@ const LEGAL_CONTENT = {
       <h3 class="font-semibold mt-3">מידע שנאסף</h3>
       <p>האתר אוסף <strong>שם מלא ומספר טלפון בלבד</strong>, לצורך תיאום תורים. המידע אינו משמש למטרות שיווקיות ואינו מועבר לצדדים שלישיים — למעט שירות SMS (Twilio) לאימות זהות בתהליך ההזמנה.</p>
       <h3 class="font-semibold mt-3">אחסון המידע</h3>
-      <p>פרטי ההזמנות נשמרים ב-Google Sheets מאובטח, הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
+      <p>פרטי ההזמנות נשמרים במסד נתונים מאובטח (Supabase), הנגיש לבעלת הסטודיו בלבד. המידע נשמר לתקופה הדרושה לצרכים תפעוליים.</p>
       <h3 class="font-semibold mt-3">זכויות המשתמש</h3>
       <p>ניתן לבקש עיון, תיקון או מחיקה של המידע האישי בכל עת בפנייה ישירה:</p>
       <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
@@ -956,8 +994,9 @@ function wireEvents() {
   document.getElementById('js-calendar').addEventListener('click', e => {
     const day = e.target.closest('[data-date]');
     if (!day || day.classList.contains('disabled')) return;
-    State.date = day.dataset.date;
-    State.time = null;
+    State.date   = day.dataset.date;
+    State.time   = null;
+    State.slotId = null;
     renderCalendar();
     renderSlots(State.date);
     updateNav();
@@ -966,7 +1005,8 @@ function wireEvents() {
   document.getElementById('js-slots').addEventListener('click', e => {
     const slot = e.target.closest('[data-time]');
     if (!slot) return;
-    State.time = slot.dataset.time;
+    State.time   = slot.dataset.time;
+    State.slotId = slot.dataset.slotId ? parseInt(slot.dataset.slotId, 10) : null;
     renderSlots(State.date);
     updateNav();
   });
@@ -988,8 +1028,10 @@ function wireEvents() {
       startResendTimer();
       toast('קוד חדש נשלח 📲');
     } else if (res.error === 'rate_limited') {
-      const secs = res.retryAfterSecs || 30;
+      const secs = res.retryAfter || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
+    } else if (res.error === 'quota_exceeded') {
+      toast('שירות השליחה אינו זמין כרגע. נסי שוב מאוחר יותר.', 'error');
     } else {
       toast('שגיאה בשליחת SMS. בדקי את המספר ונסי שוב.', 'error');
     }
@@ -1005,14 +1047,16 @@ function wireEvents() {
     document.getElementById('inp-name').focus();
     updateNav();
   });
-
-  document.getElementById('js-book-again').addEventListener('click', resetApp);
 }
 
+// resetApp — start a fresh booking. The "book another" button was removed from
+// the pending-confirmation screen (the WhatsApp CTA replaced it), so this is no
+// longer wired to any control; kept for programmatic reuse / tests.
 function resetApp() {
   State.service   = null;
   State.date      = null;
   State.time      = null;
+  State.slotId    = null;
   State.name      = '';
   State.phone     = '';
   State.bookingId        = null;
@@ -1043,6 +1087,10 @@ async function prefetchSlots() {
 }
 
 function init() {
+  if (APP_CONFIG.IS_MAINTENANCE_MODE) {
+    document.getElementById('js-maintenance').classList.remove('hidden');
+    return;
+  }
   renderProgress();
   renderDayHeaders();
   renderServices();

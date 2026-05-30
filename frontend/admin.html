@@ -2,6 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
+  <link rel="icon" type="image/webp" href="./meital_profile_header.webp">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#FAF5F0">
   <title>לוח הבקרה — מיטל שבע ברעם</title>
@@ -33,27 +34,25 @@
     };
   </script>
 
+  <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind = {
-      config: {
-        theme: {
-          extend: {
-            colors: {
-              primary:      '#A67C8E',
-              'primary-dk': '#8B6175',
-              'primary-lt': '#C4A0B0',
-              secondary:    '#DDC3A5',
-              cream:        '#FAF5F0',
-              'text-main':  '#4A2E3A',
-              'text-muted': '#9B8090',
-            },
-            fontFamily: { heebo: ['Heebo', 'sans-serif'] },
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary:      '#A67C8E',
+            'primary-dk': '#8B6175',
+            'primary-lt': '#C4A0B0',
+            secondary:    '#DDC3A5',
+            cream:        '#FAF5F0',
+            'text-main':  '#4A2E3A',
+            'text-muted': '#9B8090',
           },
+          fontFamily: { heebo: ['Heebo', 'sans-serif'] },
         },
       },
     };
   </script>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
@@ -74,9 +73,181 @@
     @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
     .toast-in { animation: toastIn 0.25s ease both; }
 
+
+    /* ── Bottom Sheet ──────────────────────────────────────────────────── */
+    @keyframes sheetSlideUp   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes sheetSlideDown { from { transform: translateY(0); }    to { transform: translateY(100%); } }
+    @keyframes backdropFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes backdropFadeOut { from { opacity: 1; } to { opacity: 0; } }
+    .sheet-panel { will-change: transform; }
+    .sheet-entering { animation: sheetSlideUp   0.32s cubic-bezier(0.32,0.72,0,1) both; }
+    .sheet-exiting  { animation: sheetSlideDown 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+    .backdrop-in  { animation: backdropFadeIn  0.22s ease both; }
+    .backdrop-out { animation: backdropFadeOut 0.22s ease both; }
+
+    /* ── Calendar cells ─────────────────────────────────────────────────── */
+    .cal-cell {
+      aspect-ratio: 1/1; border-radius: 0.625rem; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+      min-height: 40px; position: relative; transition: background-color 0.1s;
+      -webkit-tap-highlight-color: transparent; user-select: none;
+    }
+    .cal-cell:active       { transform: scale(0.86); transition: transform 0.07s; }
+    .cal-cell.today        { background: #A67C8E; color: #fff; font-weight: 900; border-radius: 0.75rem; }
+    .cal-cell.cal-selected { background: #F3EBF0; color: #A67C8E; font-weight: 700; }
+    /* Other-month overflow days: clearly "blocked / not this month" — flat cool
+       grey with a faint diagonal hatch, non-interactive. */
+    .cal-cell.other-month  {
+      pointer-events: none; color: #C5BDC2;
+      background: repeating-linear-gradient(45deg, #F2EEF1, #F2EEF1 4px, #EBE5EA 4px, #EBE5EA 8px);
+    }
+    .cal-cell.other-month .cal-count,
+    .cal-cell.other-month .cal-free-dot { display: none; }
+    /* Past days: distinct cool-grey wash so history reads as past (status tints
+       still win via higher specificity for past days that had bookings). */
+    .cal-cell.past         { opacity: 0.6; background: #F1EDF0; color: #B3A8AE; }
+    .cal-cell.blocked      { opacity: 0.28; pointer-events: none; }
+    .cal-dots { display: flex; gap: 2px; justify-content: center; }
+    .cal-dot  { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Day status: whole-cell tint (current-month, non-today) ─────────────
+       Priority is set in admin-calendar.js calDayStatus.tone:
+       pending → approved → free. Pending is amber + ring (it's actionable). */
+    .cal-cell.has-pending:not(.today)  { background: #FCEED9; box-shadow: inset 0 0 0 1.5px #E3A04A; }
+    .cal-cell.has-approved:not(.today) { background: #DCEFE1; }
+    .cal-cell.has-free:not(.today)     { background: #F8DEE9; }
+    @keyframes pendingGlow {
+      0%,100% { box-shadow: inset 0 0 0 1.5px #E3A04A; }
+      55%     { box-shadow: inset 0 0 0 1.5px #E3A04A, 0 0 0 3px rgba(227,160,74,0.32); }
+    }
+    /* Pulse only draws the eye to today + upcoming pending; past pending stays a calm static ring. */
+    .cal-cell.has-pending:not(.today):not(.past) { animation: pendingGlow 2.6s ease-in-out 0.4s infinite; }
+
+    /* Count pill — active bookings (Pending/Approved). Sits under the day number. */
+    .cal-count {
+      min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 800; line-height: 1; color: #fff;
+    }
+    .cal-count-pending  { background: #E8972E; }
+    .cal-count-approved { background: #2E9E54; }
+    /* On the solid Dust-Rose "today" cell, render the pill on a white chip. */
+    .cal-cell.today .cal-count          { background: #fff; }
+    .cal-cell.today .cal-count-pending  { color: #C2781E; }
+    .cal-cell.today .cal-count-approved { color: #1F7D40; }
+
+    /* Rose free-slot marker — open capacity, even on a day that also has bookings. */
+    .cal-free-dot {
+      position: absolute; top: 4px; inset-inline-start: 5px;
+      width: 6px; height: 6px; border-radius: 50%; background: #F2789F;
+    }
+    .cal-cell.today .cal-free-dot { background: #fff; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .cal-cell.has-pending:not(.today) { animation: none; }
+    }
+
+    /* ── Calendar legend ────────────────────────────────────────────────── */
+    .cal-legend {
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
+      width: fit-content; max-width: 100%; margin-inline: auto;
+      padding: 7px 16px; background: #FBF7F4; border: 1px solid rgba(166,124,142,0.12);
+      border-radius: 999px;
+    }
+    .cal-legend span { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; color: #8A7E84; }
+    .cal-legend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+    /* ── Swipe cards ────────────────────────────────────────────────────── */
+    .swipe-wrapper { position: relative; overflow: hidden; border-radius: 1rem; }
+    .swipe-card {
+      position: relative; will-change: transform; touch-action: pan-y;
+      transition: transform 0.38s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .swipe-card.dragging { transition: none; }
+    .swipe-reveal {
+      position: absolute; inset: 0; display: flex; align-items: center;
+      border-radius: 1rem; font-weight: 700; font-size: .875rem; color: #fff;
+      padding: 0 1.25rem; opacity: 0; transition: opacity 0.12s; pointer-events: none;
+    }
+    .swipe-reveal.approve { background: #22c55e; justify-content: flex-end; }
+    .swipe-reveal.reject  { background: #f87171; justify-content: flex-start; }
+
     /* Bottom nav safe area */
     .bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
     main { padding-bottom: 5rem; }
+    /* ── Tab content entrance ─────────────────────────────────────── */
+    @keyframes tabIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+    main.tab-entering { animation: tabIn 0.18s ease-out both; }
+
+    /* ── Staggered booking card entrance ──────────────────────────── */
+    /* Suppress inner card-in while outer wrapper animates */
+    .cards-entering .swipe-wrapper .card-in { animation: none; }
+    .cards-entering .swipe-wrapper           { animation: cardIn 0.18s ease both; }
+    .cards-entering .swipe-wrapper:nth-child(2) { animation-delay:  30ms; }
+    .cards-entering .swipe-wrapper:nth-child(3) { animation-delay:  60ms; }
+    .cards-entering .swipe-wrapper:nth-child(4) { animation-delay:  90ms; }
+    .cards-entering .swipe-wrapper:nth-child(5) { animation-delay: 120ms; }
+    .cards-entering .swipe-wrapper:nth-child(n+6) { animation-delay: 150ms; }
+    /* Plain non-swipe cards (Rejected/Cancelled in history view) */
+    .cards-entering > [data-booking]:nth-child(2) { animation-delay:  30ms; }
+    .cards-entering > [data-booking]:nth-child(3) { animation-delay:  60ms; }
+    .cards-entering > [data-booking]:nth-child(4) { animation-delay:  90ms; }
+    .cards-entering > [data-booking]:nth-child(n+5) { animation-delay: 120ms; }
+
+    /* ── Calendar month-change entrance ──────────────────────────── */
+    @keyframes calCellIn { from { opacity:0; transform:scale(0.88); } to { opacity:1; transform:scale(1); } }
+    /* Override todayPulse during entrance so cells share the same animation */
+    .cal-entering .cal-cell,
+    .cal-entering .cal-cell.today { animation: calCellIn 0.13s ease-out both; }
+    .cal-entering .cal-cell:nth-child(7n+2) { animation-delay: 14ms; }
+    .cal-entering .cal-cell:nth-child(7n+3) { animation-delay: 28ms; }
+    .cal-entering .cal-cell:nth-child(7n+4) { animation-delay: 42ms; }
+    .cal-entering .cal-cell:nth-child(7n+5) { animation-delay: 56ms; }
+    .cal-entering .cal-cell:nth-child(7n+6) { animation-delay: 70ms; }
+    .cal-entering .cal-cell:nth-child(7n)   { animation-delay: 84ms; }
+
+    /* ── Today cell ambient pulse (kicks in after entrance) ──────── */
+    @keyframes todayPulse {
+      0%,100% { box-shadow: 0 0 0 0   rgba(166,124,142,0.45); }
+      60%     { box-shadow: 0 0 0 7px rgba(166,124,142,0);   }
+    }
+    .cal-cell.today { animation: todayPulse 2.8s ease-in-out 0.5s infinite; }
+
+    /* ── Sheet drag handle pill ───────────────────────────────────── */
+    .sheet-handle-pill {
+      width: 2.5rem; height: 4px; border-radius: 9999px;
+      background: rgba(176,148,160,0.50);
+      transition: width 0.2s cubic-bezier(0.34,1.56,0.64,1),
+                  background-color 0.12s ease;
+    }
+    #js-sheet-handle:active .sheet-handle-pill {
+      width: 4rem; background: rgba(166,124,142,0.65);
+    }
+
+    /* ── Swipe card drag elevation ───────────────────────────────── */
+    .swipe-card.dragging {
+      box-shadow: 0 10px 28px -6px rgba(74,46,58,0.20),
+                  0 4px  10px -4px rgba(74,46,58,0.12);
+    }
+
+    /* ── Active nav tab dot indicator ────────────────────────────── */
+    @keyframes dotAppear { from { transform:scale(0); opacity:0; } to { transform:scale(1); opacity:1; } }
+    .nav-tab.text-primary::after {
+      content: ''; display: block;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: currentColor; margin-top: 2px;
+      animation: dotAppear 0.18s cubic-bezier(0.34,1.56,0.64,1) both;
+    }
+
+    /* ── prefers-reduced-motion: disable all non-essential motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration:        0.01ms !important;
+        animation-iteration-count: 1      !important;
+        transition-duration:       0.01ms !important;
+      }
+    }
+
   </style>
 </head>
 <body class="min-h-screen bg-cream">
@@ -147,8 +318,94 @@
       </div>
     </header>
 
+    <!-- ── TAB: CALENDAR (visual month view, default tab) ── -->
+    <main id="tab-calendar" class="max-w-2xl mx-auto px-4 pt-3 pb-2">
+
+      <!-- Month navigator -->
+      <div class="flex items-center justify-between mb-3 px-1">
+        <button id="js-cal-next" data-qa="btn-cal-next" aria-label="חודש הבא"
+          class="w-9 h-9 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
+        <h2 id="js-cal-title" class="text-base font-black text-text-main tracking-tight select-none">...</h2>
+        <button id="js-cal-prev" data-qa="btn-cal-prev" aria-label="חודש קודם"
+          class="w-9 h-9 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Jump back to the current month -->
+      <div class="flex justify-center mb-2">
+        <button id="js-cal-today" data-qa="btn-cal-today"
+          class="text-xs font-semibold text-primary hover:text-primary-dk px-3 py-1 rounded-full hover:bg-cream active:scale-95 transition-all">
+          היום
+        </button>
+      </div>
+
+      <!-- Status legend — at-a-glance key, always visible above the grid -->
+      <div id="js-cal-legend" class="cal-legend mb-3" data-qa="cal-legend">
+        <span><i style="background:#E3A04A"></i>ממתין לאישור</span>
+        <span><i style="background:#2E9E54"></i>מאושר</span>
+        <span><i style="background:#F2789F"></i>זמן פנוי</span>
+      </div>
+
+      <!-- Day-of-week header (RTL: Sunday=rightmost, rendered first in DOM) -->
+      <div class="grid grid-cols-7 mb-1 px-0.5 select-none">
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1">א</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ב</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ג</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ד</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ה</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40">ו</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40">ש</div>
+      </div>
+
+      <!-- Calendar grid — populated by admin-calendar.js; 35 skeleton cells shown meanwhile -->
+      <div id="js-cal-grid" class="grid grid-cols-7 gap-0.5 px-0.5">
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
+        <div class="cal-cell animate-pulse bg-secondary/10"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/10"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
+        <div class="cal-cell animate-pulse bg-secondary/10"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/10"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/20"></div>
+        <div class="cal-cell animate-pulse bg-secondary/20"></div><div class="cal-cell animate-pulse bg-secondary/10"></div>
+        <div class="cal-cell animate-pulse bg-secondary/10"></div>
+      </div>
+
+      <!-- Selected-day peek strip -->
+      <div id="js-cal-peek" class="mt-3 bg-white rounded-2xl border border-secondary/30 shadow-sm overflow-hidden">
+        <div class="px-4 py-3 flex items-center justify-between">
+          <div id="js-cal-peek-date" class="text-xs font-bold text-text-muted uppercase tracking-widest">בחרי יום</div>
+          <button id="js-cal-peek-add" data-qa="btn-cal-add-slot"
+            class="hidden text-xs font-bold px-3 py-1.5 bg-primary text-white rounded-xl hover:bg-primary-dk active:scale-95 transition-all flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"/>
+            </svg>
+            הוסף שעה
+          </button>
+        </div>
+        <div id="js-cal-peek-content" class="px-4 pb-3 text-xs text-text-muted">
+          לחצי על יום בלוח השנה לצפייה בהזמנות
+        </div>
+      </div>
+    </main>
+
     <!-- ── TAB: BOOKINGS ── -->
-    <main id="tab-bookings" class="max-w-2xl mx-auto px-4 pt-5">
+    <main id="tab-bookings" class="hidden max-w-2xl mx-auto px-4 pt-5">
 
       <!-- Stats -->
       <div class="grid grid-cols-3 gap-3 mb-5">
@@ -276,29 +533,7 @@
         </div>
         <button id="js-gen-submit"
           class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          צור חריצים
-        </button>
-      </div>
-
-      <!-- Vacation Override -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-1">חסימת תאריכים — חופשה</div>
-        <p class="text-xs text-text-muted mb-3">חוסם את כל החריצים הפנויים בטווח הנבחר.</p>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">מתאריך</label>
-            <input id="js-block-start" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">עד תאריך</label>
-            <input id="js-block-end" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-        </div>
-        <button id="js-block-submit"
-          class="w-full bg-red-400 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          חסום תאריכים
+          צור תורים
         </button>
       </div>
 
@@ -319,20 +554,6 @@
         </button>
       </div>
 
-      <!-- HEALTH MONITOR CARD (Phase 4) -->
-      <div class="card rounded-2xl p-4 shadow-sm border border-secondary/20 mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-bold text-base">בדיקת תקינות מערכת</h2>
-          <span id="health-overall" class="text-lg"></span>
-        </div>
-        <div id="health-checks" class="space-y-1.5 text-sm mb-3">
-          <p class="text-text-muted text-xs">לחץ כדי לבדוק...</p>
-        </div>
-        <button id="js-health-submit"
-          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          בדוק עכשיו
-        </button>
-      </div>
     </main>
 
     <!-- ── TAB: DIARY (ניהול יומן + תקשורת) ── -->
@@ -356,13 +577,13 @@
         </div>
         <button id="js-diary-load"
           class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px] text-sm">
-          טען חריצים
+          טען תורים
         </button>
       </div>
 
       <!-- Slot list grouped by date -->
       <div id="js-diary-slots" data-qa="slot-inventory" class="space-y-4 mb-4">
-        <div class="text-xs text-text-muted text-center py-8">בחרי טווח תאריכים ולחצי "טען חריצים"</div>
+        <div class="text-xs text-text-muted text-center py-8">בחרי טווח תאריכים ולחצי "טען תורים"</div>
       </div>
 
       <!-- Add single slot -->
@@ -428,7 +649,7 @@
           <button id="js-back-to-clients"
             class="p-2 rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
           </button>
           <div>
@@ -443,8 +664,16 @@
     <!-- ════════ BOTTOM NAVIGATION ════════ -->
     <nav class="bottom-nav fixed bottom-0 inset-x-0 z-40 bg-white border-t border-secondary/30">
       <div class="max-w-2xl mx-auto flex">
-        <button data-tab="bookings" data-qa="nav-tab-bookings"
+        <button data-tab="calendar" data-qa="nav-tab-calendar"
           class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-primary transition-all">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span class="text-[10px] font-bold">יומן</span>
+        </button>
+        <button data-tab="bookings" data-qa="nav-tab-bookings"
+          class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
           </svg>
@@ -484,6 +713,42 @@
 
   </div>
 
+    <!-- ════ BOTTOM SHEET OVERLAY ════ -->
+    <div id="js-sheet" class="fixed inset-0 z-50 hidden" role="dialog" aria-modal="true" aria-labelledby="js-sheet-title">
+      <!-- Backdrop -->
+      <div id="js-sheet-backdrop" class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+
+      <!-- Panel -->
+      <div id="js-sheet-panel" class="sheet-panel absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
+           style="max-height:92vh;">
+
+        <!-- Drag handle -->
+        <div id="js-sheet-handle" class="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing shrink-0 touch-none select-none">
+          <div class="sheet-handle-pill"></div>
+        </div>
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 pb-3 shrink-0">
+          <h3 id="js-sheet-title" class="font-black text-base text-text-main"></h3>
+          <button id="js-sheet-close" data-qa="btn-sheet-close"
+            class="w-8 h-8 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="h-px bg-secondary/20 shrink-0 mx-5"></div>
+
+        <!-- Scrollable content -->
+        <div id="js-sheet-content" class="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-3"></div>
+
+        <!-- Footer (action buttons, shown by JS) -->
+        <div id="js-sheet-footer" class="hidden px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shrink-0 border-t border-secondary/20"></div>
+      </div>
+    </div>
+
+
   <!-- ════ MANUAL SMS MODAL ════ -->
   <div id="js-sms-modal" data-qa="modal-sms" class="fixed inset-0 z-50 hidden flex items-end justify-center sm:items-center">
     <div id="js-sms-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
@@ -510,9 +775,14 @@
     </div>
   </div>
 
-  <!-- Toast -->
-  <div id="js-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none hidden">
-    <div class="text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl whitespace-nowrap bg-text-main text-white"></div>
+  <!-- Toast (supports plain + undo-capable toasts) -->
+  <div id="js-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden">
+    <div class="flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto bg-text-main text-white">
+      <span id="js-toast-msg" class="whitespace-nowrap"></span>
+      <button id="js-toast-undo"
+        class="hidden shrink-0 text-xs font-black tracking-wide underline underline-offset-2
+               opacity-80 hover:opacity-100 active:scale-95 transition-all whitespace-nowrap">בטל</button>
+    </div>
   </div>
 
   <script type="module" src="./admin.js"></script>
