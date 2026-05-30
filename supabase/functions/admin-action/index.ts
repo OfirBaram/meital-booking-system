@@ -10,7 +10,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { verifyHmacToken } from '../_shared/crypto.ts'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
-import { sendTwilioSms, twilioCredsFromEnv } from '../_shared/sms.ts'
+import { twilioCredsFromEnv } from '../_shared/sms.ts'
+import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'
 
 const ACTION_TO_STATUS: Record<string, ClientStatus> = {
   approve: 'approved',
@@ -48,11 +49,12 @@ async function notifyClient(supabase: any, bookingId: string, status: ClientStat
     console.warn('[admin-action] notify-skip: lookup failed', error?.message ?? 'not found')
     return
   }
-  const creds = twilioCredsFromEnv()
-  if (!creds) { console.error('[admin-action] notify-skip: Twilio secrets missing'); return }
+  const context = statusToContext(status)
+  if (!context) { console.warn('[admin-action] notify-skip: unmapped status ' + status); return }
   const body = buildClientStatusSms(status, { serviceName: bk.serviceName, date: bk.date, time: bk.time })
-  await sendTwilioSms(bk.phone, body, creds)
-  console.log('[admin-action] client-sms-sent status=' + status + ' to=****' + String(bk.phone).slice(-4))
+  const creds  = twilioCredsFromEnv()
+  const result = await sendAndLogSms(supabase, { to: bk.phone, body, context, creds, appointmentId: bookingId })
+  console.log('[admin-action] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }
 
 Deno.serve(async (req) => {

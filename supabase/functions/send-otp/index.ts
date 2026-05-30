@@ -1,5 +1,6 @@
 // @deno-types="https://esm.sh/@supabase/supabase-js@2?dts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildSmsLogRow } from '../_shared/notify.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -203,9 +204,17 @@ Deno.serve(async (req) => {
     if (!twilioRes.ok) {
       const detail = await twilioRes.text()
       console.error('[send-otp] step:twilio-fail status=' + twilioRes.status + ' body=' + detail.slice(0, 300))
+      supabase.from('communication_logs').insert(buildSmsLogRow({
+        phone, context: 'OTP', status: 'ERROR', messageBody: smsBody,
+        detail: 'Twilio ' + twilioRes.status + ': ' + detail.slice(0, 300),
+      })).then(() => {}, () => {})
       await supabase.from('otp_requests').delete().eq('id', inserted.id)
       return json({ success: false, error: 'sms_failed' }, 502)
     }
+
+    supabase.from('communication_logs').insert(buildSmsLogRow({
+      phone, context: 'OTP', status: 'SENT', messageBody: smsBody,
+    })).then(() => {}, () => {})
 
     console.log('[send-otp] step:complete')
     return json({ success: true })

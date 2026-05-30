@@ -36,7 +36,31 @@ Deno.serve(async (req) => {
 
     if (error) throw error
 
-    return json({ success: true, bookings: data ?? [] })
+    const bookings = data ?? []
+
+    // Attach the latest client-facing SMS delivery status per booking so the
+    // admin console can show whether each client was actually notified.
+    const ids = bookings.map((b: { id: string }) => b.id).filter(Boolean)
+    const smsByAppt: Record<string, string> = {}
+    if (ids.length > 0) {
+      const { data: logs } = await supabase
+        .from('communication_logs')
+        .select('appointment_id, status, created_at')
+        .in('appointment_id', ids)
+        .in('context', ['ClientApproval', 'ClientRejection', 'ClientCancellation'])
+        .order('created_at', { ascending: false })
+      for (const row of logs ?? []) {
+        if (row.appointment_id && !(row.appointment_id in smsByAppt)) {
+          smsByAppt[row.appointment_id] = row.status
+        }
+      }
+    }
+    const enriched = bookings.map((b: Record<string, unknown>) => ({
+      ...b,
+      smsStatus: smsByAppt[b.id as string] ?? null,
+    }))
+
+    return json({ success: true, bookings: enriched })
   } catch (err) {
     console.error('[list-bookings]', err)
     return json({ success: false, error: 'internal_error' }, 500)

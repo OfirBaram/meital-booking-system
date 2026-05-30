@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
-import { sendTwilioSms, twilioCredsFromEnv } from '../_shared/sms.ts'
+import { twilioCredsFromEnv } from '../_shared/sms.ts'
+import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -31,21 +32,26 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
     return
   }
 
-  const creds = twilioCredsFromEnv()
-  if (!creds) {
-    console.error('[change-status] notify-skip: Twilio secrets missing')
+  const status  = targetStatus.toLowerCase() as ClientStatus
+  const context = statusToContext(status)
+  if (!context) {
+    console.warn('[change-status] notify-skip: unmapped status ' + status)
     return
   }
 
-  const status = targetStatus.toLowerCase() as ClientStatus
-  const body   = buildClientStatusSms(status, {
+  const body = buildClientStatusSms(status, {
     serviceName: bk.serviceName,
     date:        bk.date,
     time:        bk.time,
   })
 
-  await sendTwilioSms(bk.phone, body, creds)
-  console.log('[change-status] client-sms-sent status=' + status + ' to=****' + String(bk.phone).slice(-4))
+  // Send + record the outcome to communication_logs (SENT / ERROR / MOCK) so a
+  // Twilio failure is visible in the admin console instead of being swallowed.
+  const creds  = twilioCredsFromEnv()
+  const result = await sendAndLogSms(supabase, {
+    to: bk.phone, body, context, creds, appointmentId: bookingId,
+  })
+  console.log('[change-status] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }
 
 Deno.serve(async (req) => {

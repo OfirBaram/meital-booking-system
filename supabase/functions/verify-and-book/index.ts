@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildAdminNewBookingSms } from '../_shared/messages.ts'
-import { sendTwilioSms } from '../_shared/sms.ts'
+import { sendAndLogSms } from '../_shared/notify.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +45,8 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-async function sendAdminSms(params: {
+// deno-lint-ignore no-explicit-any
+async function sendAdminSms(supabase: any, params: {
   adminPhone:    string
   accountSid:    string
   authToken:     string
@@ -74,7 +75,10 @@ async function sendAdminSms(params: {
     name, phone, serviceName, date, time, approveUrl, rejectUrl,
   })
 
-  await sendTwilioSms(adminPhone, body, { accountSid, authToken, fromNumber })
+  const creds = accountSid && authToken && fromNumber ? { accountSid, authToken, fromNumber } : null
+  await sendAndLogSms(supabase, {
+    to: adminPhone, body, context: 'AdminNotify', creds, appointmentId: bookingId,
+  })
 }
 
 // ── Boot diagnostic ───────────────────────────────────────────────────
@@ -326,7 +330,7 @@ Deno.serve(async (req) => {
     console.log('[verify-and-book] step:booking-created booking_id=' + booking.id)
 
     // ── Step 9: admin SMS (fire-and-forget) ─────────────────────────
-    sendAdminSms({
+    sendAdminSms(supabase, {
       adminPhone:    Deno.env.get('ADMIN_PHONE')!,
       accountSid:    Deno.env.get('TWILIO_ACCOUNT_SID')!,
       authToken:     Deno.env.get('TWILIO_AUTH_TOKEN')!,
