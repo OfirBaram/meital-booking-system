@@ -54,16 +54,20 @@ describe('buildAdminNewBookingSms', () => {
   const msg = buildAdminNewBookingSms({
     name: 'דנה', phone: '+972541234567', serviceName: 'לק ג׳ל',
     date: '2026-06-28', time: '18:30',
-    approveUrl: 'https://x.supabase.co/functions/v1/admin-action?action=approve&bookingId=1&token=ab',
-    rejectUrl:  'https://x.supabase.co/functions/v1/admin-action?action=reject&bookingId=1&token=ab',
   });
-  it('contains the Hebrew day name', () => {
+  it('contains the booking details and the Hebrew day name', () => {
+    expect(msg).toContain('דנה');
+    expect(msg).toContain('+972541234567');
+    expect(msg).toContain('לק ג׳ל');
     expect(msg).toContain('יום ראשון, 28.06.2026 בשעה 18:30');
   });
-  it('contains clickable https links and never "undefined"', () => {
-    expect(msg).toContain('https://x.supabase.co/functions/v1/admin-action?action=approve');
-    expect(msg).toContain('https://x.supabase.co/functions/v1/admin-action?action=reject');
+  it('is LINK-FREE so carriers do not content-filter it, and never says "undefined"', () => {
+    // The whole point of this builder: no URL anywhere (carrier spam filtering).
+    expect(msg).not.toMatch(/https?:\/\//);
     expect(msg).not.toContain('undefined');
+  });
+  it('directs the admin to the dashboard to act', () => {
+    expect(msg).toContain('דשבורד');
   });
 });
 
