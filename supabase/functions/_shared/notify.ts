@@ -9,6 +9,7 @@
 
 import { sendTwilioSms, type TwilioCreds } from './sms.ts'
 import { buildAdminFailureAlertSms } from './messages.ts'
+// 2026-05-31: ADMIN_PHONE E.164 normalization deploy (see _shared/phone.ts).
 
 // Client-facing contexts where a delivery failure means a real client expected a
 // message and didn't get it — worth proactively alerting the admin about. OTP
