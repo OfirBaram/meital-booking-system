@@ -17,6 +17,7 @@ import { verifyHmacToken } from '../_shared/crypto.ts'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
 import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'
+import { toDialable } from '../_shared/phone.ts'
 
 const ACTION_TO_STATUS: Record<string, ClientStatus> = {
   approve: 'approved',
@@ -109,7 +110,7 @@ async function notifyClient(supabase: any, bookingId: string, status: ClientStat
   const creds  = twilioCredsFromEnv()
   const result = await sendAndLogSms(supabase, {
     to: bk.phone, body, context, creds, appointmentId: bookingId,
-    alertAdminPhone: Deno.env.get('ADMIN_PHONE'), clientLabel: bk.name,
+    alertAdminPhone: toDialable(Deno.env.get('ADMIN_PHONE')), clientLabel: bk.name,
   })
   console.log('[admin-action] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }
