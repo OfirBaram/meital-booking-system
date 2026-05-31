@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
 import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'
+import { toDialable } from '../_shared/phone.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -50,7 +51,7 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
   const creds  = twilioCredsFromEnv()
   const result = await sendAndLogSms(supabase, {
     to: bk.phone, body, context, creds, appointmentId: bookingId,
-    alertAdminPhone: Deno.env.get('ADMIN_PHONE'), clientLabel: bk.name,
+    alertAdminPhone: toDialable(Deno.env.get('ADMIN_PHONE')), clientLabel: bk.name,
   })
   console.log('[change-status] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
 }

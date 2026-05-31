@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildAdminNewBookingSms } from '../_shared/messages.ts'
 import { sendAndLogSms } from '../_shared/notify.ts'
+import { toDialable } from '../_shared/phone.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -331,7 +332,7 @@ Deno.serve(async (req) => {
 
     // ── Step 9: admin SMS (fire-and-forget) ─────────────────────────
     sendAdminSms(supabase, {
-      adminPhone:    Deno.env.get('ADMIN_PHONE')!,
+      adminPhone:    toDialable(Deno.env.get('ADMIN_PHONE')),
       accountSid:    Deno.env.get('TWILIO_ACCOUNT_SID')!,
       authToken:     Deno.env.get('TWILIO_AUTH_TOKEN')!,
       fromNumber:    Deno.env.get('TWILIO_FROM_NUMBER')!,
