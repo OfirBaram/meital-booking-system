@@ -94,7 +94,7 @@ Twilio trial = 50 SMS/יום. מחזור הזמנה מלא = 3 SMS + תזכור�
 | Python 3.12 (Bash) | ✅ | `/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe` — הכלי המרכזי לעריכת קבצים |
 | Python 3.12 (PowerShell) | ✅ | `python` ב-PATH |
 | Node/npm/npx/Playwright/Vitest | ✅ | **רצים מקומית** (CLAUDE.md הישן טען שלא — זה לא נכון). שחזר כשלי CI מקומית במקום לנחש |
-| gh CLI | ❌ | לא מותקן |
+| gh CLI | ✅ | מותקן ומאומת (v2.93.0, חשבון OfirBaram, scope `repo`). שמש ליצירת PR-ים. |
 
 ## 12. File Patch Protocol — חובה
 ה-Edit/Write המובנים **mis-resolve** את נתיב ה-U+200F לתיקייה שגויה ("File has not been read yet"). ערוך קבצי JS/HTML **רק** דרך כלי ה-patch של Python, עם נתיבים שנפתרו ע"י git/find:
