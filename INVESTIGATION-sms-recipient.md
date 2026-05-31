@@ -54,11 +54,17 @@ bots issue GET only, so they can no longer auto-approve. Admin flow is now: tap 
 → confirm page → tap "אשר/דחה עכשיו". Chosen defensively regardless of the test outcome,
 because a state-mutating GET is wrong on its own.
 
-**Still to do:** deploy + `npm run verify:deploy`, then verify live —
-`curl <approve link>` (GET) must show the confirm page and leave the booking **Pending**;
-only the button (POST) approves. NOT deployed yet (awaiting go-ahead / the decisive test).
-No clean Vitest unit is possible (the file calls `Deno.serve` at top level); verify via
-the live curl + a real two-step approve.
+**DEPLOYED 2026-05-31 10:56 UTC.** Root cause of "still reproduces" was a **deploy
+gap**: dd8bd9c (confirm-page-on-GET) was committed 2026-05-30 14:45 but the live
+`admin-action` was still the 08:18 version that auto-approves on a bare GET.
+`bash scripts/deploy-functions.sh` + `npm run verify:deploy` now report all 11
+functions **in sync**. The prefetch-auto-approve path is closed in production.
+
+**Still to do — decisive live smoke test (needs Ofir):** with a CLEAN DB, book once,
+enter OTP, **tap nothing**, wait ~1 min → the booking must stay **Pending** and NO
+"approved" SMS should arrive. Then tap the approve link → confirm page → tap the
+button → only then does it approve + the client gets the SMS. No clean Vitest unit is
+possible (the file calls `Deno.serve` at top level); verify via the live two-step.
 
 ## Background — three different SMS, three different recipients
 The system sends SMS for different roles. On a single test phone they all pile onto one
