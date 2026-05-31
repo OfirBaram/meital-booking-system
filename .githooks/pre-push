@@ -1,0 +1,62 @@
+#!/usr/bin/env sh
+# pre-push deploy-drift gate.
+#
+# WHY: push != deploy. On 2026-05-30 (and again 2026-05-31, the admin-action
+# auto-approve stopper) a function fix was committed but never deployed, so the
+# bug kept reproducing in prod while every test stayed green. This hook makes a
+# push that leaves a committed-but-undeployed Edge Function impossible to ship
+# silently.
+#
+# Behaviour:
+#   - Only runs when the commits being pushed actually touch supabase/functions/
+#     (so frontend/docs pushes are never slowed or blocked).
+#   - verify:deploy exit 1 (real DRIFT)      -> BLOCK the push.
+#   - verify:deploy exit 2 (CLI can't check) -> WARN and allow (offline / not
+#     logged into the supabase CLI is not a reason to wedge a push).
+#   - Bypass in a true emergency: git push --no-verify
+set -u
+
+z40=0000000000000000000000000000000000000000
+touches_functions=0
+
+# stdin: <local ref> <local sha> <remote ref> <remote sha> per pushed ref.
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$z40" ] && continue            # branch deletion — nothing to check
+  if [ "$remote_sha" = "$z40" ]; then
+    # New branch on the remote: diff against the upstream default if we can, else
+    # just inspect the tip commit. Keep it cheap and never fail the loop.
+    base="$(git merge-base "$local_sha" origin/main 2>/dev/null || true)"
+    range="${base:+$base..}$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  if git diff --name-only "$range" 2>/dev/null | grep -q '^supabase/functions/'; then
+    touches_functions=1
+    break
+  fi
+done
+
+if [ "$touches_functions" -eq 0 ]; then
+  exit 0
+fi
+
+echo "▶ pre-push: edge functions changed — checking deploy drift (npm run verify:deploy)…"
+npm run --silent verify:deploy
+code=$?
+
+if [ "$code" -eq 1 ]; then
+  echo ""
+  echo "✖ PUSH BLOCKED — committed Edge Function changes are NOT deployed (see drift above)."
+  echo "  Deploy first:  bash scripts/deploy-functions.sh && npm run verify:deploy"
+  echo "  Emergency bypass (you accept shipping undeployed code):  git push --no-verify"
+  exit 1
+fi
+
+if [ "$code" -eq 2 ]; then
+  echo ""
+  echo "⚠ pre-push: could not verify deploy state (supabase CLI not linked/logged in or offline)."
+  echo "  Allowing the push — but confirm functions are deployed before relying on them."
+  exit 0
+fi
+
+exit 0
