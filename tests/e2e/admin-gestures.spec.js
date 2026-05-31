@@ -274,3 +274,29 @@ test('approve reveal layer becomes visible during rightward drag', async ({ page
 
   await page.mouse.up()
 })
+
+// ─── 10. Real tap on a card button is NOT swallowed by the swipe handler ──────
+
+test('a real click on the delete button removes the card and shows an undo toast', async ({ page }) => {
+  const jsErrors = []
+  page.on('pageerror', err => jsErrors.push(err.message))
+
+  await setupMocks(page)
+  await page.goto('/admin.html')
+  await loginAndGoToBookings(page)
+
+  // One Pending swipe card is present.
+  await expect(page.locator('.swipe-wrapper')).toHaveCount(1)
+
+  // A REAL click (not dispatchEvent) must reach onAction now that the swipe
+  // handler ignores taps on interactive controls. Before the fix this click
+  // was swallowed by setPointerCapture and nothing happened.
+  await page.locator('button[data-qa="btn-delete"]').first().click()
+
+  // Optimistic delete: card gone, undo toast visible.
+  await expect(page.locator('.swipe-wrapper')).toHaveCount(0, { timeout: 2_000 })
+  await expect(page.locator('#js-toast')).toContainText('נמחקה', { timeout: 2_000 })
+  await expect(page.locator('#js-toast-undo')).toBeVisible()
+
+  expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
+})

@@ -27,6 +27,28 @@ export const SMS_STATUS_LABEL = {
   MOCK:  '🧪 SMS (הדמיה)',
 };
 
+// SMS Center — Hebrew labels for the communication_logs context + status enums.
+export const SMS_CONTEXT_LABEL = {
+  OTP:                'קוד אימות',
+  AdminNotify:        'התראת אדמין',
+  ClientApproval:     'אישור ללקוחה',
+  ClientRejection:    'דחייה ללקוחה',
+  ClientCancellation: 'ביטול ללקוחה',
+  DailyReminder:      'תזכורת יומית',
+  Admin:              'אדמין',
+};
+
+export const SMS_STATUS_TEXT = {
+  SENT: 'נשלח', ERROR: 'נכשל', MOCK: 'הדמיה', SKIPPED: 'דולג',
+};
+
+export const SMS_STATUS_CHIP = {
+  SENT:    'bg-green-100 text-green-700',
+  ERROR:   'bg-red-100 text-red-600',
+  MOCK:    'bg-amber-100 text-amber-700',
+  SKIPPED: 'bg-gray-100 text-gray-500',
+};
+
 export const SB_STATUS_LABEL = { available:'פנוי', locked:'נעול', booked:'מוזמן', pending:'ממתין' };
 
 export const SB_STATUS_CLS = {
@@ -78,14 +100,37 @@ export function buildCard(b) {
     + ' d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>'
     + '</svg></button>';
 
-  return '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in" data-booking="' + esc(b.id) + '">'
-    + '<div class="flex items-start justify-between mb-1.5">'
-    + '<div><div class="font-bold text-sm text-text-main">' + esc(b.name) + '</div>'
+  // Quick contact + soft-delete controls. tel:/wa.me use the raw E.164 number;
+  // delete is a delegated data-action handled in admin.js (onAction).
+  const dialNum = String(b.phone || '').replace(/[^\d+]/g, '');
+  const waNum   = dialNum.replace(/^\+/, '');
+  const callBtn = '<a href="tel:' + esc(dialNum) + '" title="חייגי" data-qa="btn-call"'
+    + ' class="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
+    + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+    + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+    + ' d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.7 21 3 14.3 3 6V5z"/>'
+    + '</svg></a>';
+  const waBtn = '<a href="https://wa.me/' + esc(waNum) + '" target="_blank" rel="noopener" title="וואטסאפ" data-qa="btn-wa"'
+    + ' class="p-1.5 rounded-lg text-green-500 hover:text-green-600 hover:bg-cream active:scale-95 transition-all">'
+    + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+    + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+    + ' d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.42-4.03 8-9 8a9.9 9.9 0 01-4.26-.95L3 20l1.4-3.72A7.9 7.9 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"/>'
+    + '</svg></a>';
+  const delBtn = '<button data-action="delete" data-id="' + esc(b.id) + '" title="מחק הזמנה" data-qa="btn-delete"'
+    + ' class="p-1.5 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-50 active:scale-95 transition-all">'
+    + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+    + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+    + ' d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-1.99-1.86L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>'
+    + '</svg></button>';
+
+  return '<div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-sm card-in" data-booking="' + esc(b.id) + '">'
+    + '<div class="flex items-start justify-between mb-2.5">'
+    + '<div><div class="font-black text-[15px] text-text-main">' + esc(b.name) + '</div>'
     + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(b.phone)) + '</div></div>'
-    + '<div class="flex items-center gap-1">' + badge + smsBtn + '</div>'
+    + '<div class="flex items-center gap-0.5">' + badge + callBtn + waBtn + smsBtn + delBtn + '</div>'
     + '</div>'
-    + '<div class="text-xs font-medium text-text-main mb-0.5">' + esc(b.serviceName) + '</div>'
-    + '<div class="text-xs text-text-muted mb-3">📅 ' + date + ' &nbsp;·&nbsp; 🕐 ' + esc(b.time) + '</div>'
+    + '<div class="text-[13px] font-semibold text-text-main mb-1">' + esc(b.serviceName) + '</div>'
+    + '<div class="text-xs text-text-muted mb-3.5">📅 ' + date + ' &nbsp;·&nbsp; 🕐 ' + esc(b.time) + '</div>'
     + (b.smsStatus
         ? '<div class="text-xs mb-2" data-qa="sms-status" data-sms-status="' + esc(b.smsStatus) + '">'
           + esc(SMS_STATUS_LABEL[b.smsStatus] || ('SMS: ' + b.smsStatus)) + '</div>'
@@ -190,7 +235,7 @@ export function renderDiarySlots(slots, container, { onToggle, onDelete }) {
 // Migrated: onclick on card div → data-action="select-client"
 // callbacks: { onSelect(phone: string) }
 
-export function renderClientList(clients, container, { onSelect }) {
+export function renderClientList(clients, container, { onSelect, stats, onSms } = {}) {
   if (!container) return;
   if (!clients || !clients.length) {
     container.innerHTML = '<div class="text-center py-14 text-text-muted">'
@@ -200,25 +245,61 @@ export function renderClientList(clients, container, { onSelect }) {
     return;
   }
 
+  const byPhone = stats || {};
+
   container.innerHTML = clients.map(c => {
-    const joined = c.created_at
-      ? new Date(c.created_at).toLocaleDateString('he-IL', { month: '2-digit', year: 'numeric' })
-      : '';
-    return '<div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in'
+    const st      = byPhone[c.phone] || {};
+    const dialNum = String(c.phone || '').replace(/[^\d+]/g, '');
+    const waNum   = dialNum.replace(/^\+/, '');
+
+    const chip = 'text-[10px] font-bold px-2 py-0.5 rounded-full';
+    const chips = [];
+    if (st.visits)    chips.push('<span class="' + chip + ' bg-green-100 text-green-700">' + st.visits + (st.visits === 1 ? ' ביקור' : ' ביקורים') + '</span>');
+    if (st.upcoming)  chips.push('<span class="' + chip + ' bg-rose-100 text-rose-600">' + st.upcoming + ' קרובות</span>');
+    if (st.cancelled) chips.push('<span class="' + chip + ' bg-gray-100 text-gray-500">' + st.cancelled + ' בוטלו</span>');
+    if (st.lastVisit) chips.push('<span class="' + chip + ' bg-secondary/30 text-text-muted">אחרון ' + esc(st.lastVisit) + '</span>');
+    const chipsHtml = chips.length ? '<div class="flex flex-wrap gap-1.5 mt-2.5">' + chips.join('') + '</div>' : '';
+
+    const callBtn = '<a href="tel:' + esc(dialNum) + '" data-contact title="חייגי"'
+      + ' class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
+      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+      + ' d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.7 21 3 14.3 3 6V5z"/>'
+      + '</svg></a>';
+    const waBtn = '<a href="https://wa.me/' + esc(waNum) + '" target="_blank" rel="noopener" data-contact title="וואטסאפ"'
+      + ' class="p-2 rounded-lg text-green-500 hover:text-green-600 hover:bg-cream active:scale-95 transition-all">'
+      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+      + ' d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.42-4.03 8-9 8a9.9 9.9 0 01-4.26-.95L3 20l1.4-3.72A7.9 7.9 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"/>'
+      + '</svg></a>';
+    const smsBtn = '<button type="button" data-contact data-client-sms data-phone="' + esc(c.phone) + '" title="שלח SMS"'
+      + ' class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
+      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
+      + ' d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>'
+      + '</svg></button>';
+
+    return '<div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-soft card-in'
       + ' cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]"'
       + ' data-action="select-client" data-phone="' + esc(c.phone) + '">'
-      + '<div class="flex items-center justify-between">'
-      + '<div>'
-      + '<div class="font-bold text-sm text-text-main">' + esc(c.full_name || '(ללא שם)') + '</div>'
+      + '<div class="flex items-center justify-between gap-2">'
+      + '<div class="min-w-0">'
+      + '<div class="font-black text-[15px] text-text-main truncate">' + esc(c.full_name || '(ללא שם)') + '</div>'
       + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(c.phone)) + '</div>'
       + '</div>'
-      + '<div class="text-xs text-text-muted">' + esc(joined) + '</div>'
+      + '<div class="flex items-center gap-0.5 shrink-0">' + smsBtn + callBtn + waBtn + '</div>'
       + '</div>'
+      + chipsHtml
       + '</div>';
   }).join('');
 
   container.querySelectorAll('[data-action="select-client"]').forEach(card =>
     card.addEventListener('click', () => onSelect(card.dataset.phone)));
+  // Contact links must not bubble up and open the history panel.
+  container.querySelectorAll('[data-contact]').forEach(a =>
+    a.addEventListener('click', e => e.stopPropagation()));
+  container.querySelectorAll('[data-client-sms]').forEach(b =>
+    b.addEventListener('click', () => onSms && onSms(b.dataset.phone, '')));
 }
 
 // ─── renderClientHistory ──────────────────────────────────────────────────────
@@ -281,7 +362,11 @@ export function renderClientHistory(appointments, container, { onDecision }) {
 export function renderSmsLog(entries, container) {
   if (!container) return;
   if (!entries || !entries.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-4">אין רשומות</div>';
+    container.innerHTML = '<div class="text-center py-12 text-text-muted">'
+      + '<div class="text-4xl mb-2">📭</div>'
+      + '<div class="text-sm font-medium">אין רשומות</div>'
+      + '<div class="text-xs mt-1">נסי לשנות את הסינון</div>'
+      + '</div>';
     return;
   }
   container.innerHTML = entries.map(e => {
@@ -289,18 +374,25 @@ export function renderSmsLog(entries, container) {
                : e.status === 'MOCK'    ? '🧪'
                : e.status === 'SKIPPED' ? '⏭️'
                : '❌';
-    return '<div class="flex items-start gap-2 py-2 border-b border-secondary/15 last:border-0" data-qa="log-entry">'
-      + '<span class="shrink-0 mt-0.5">' + icon + '</span>'
+    const statusText = SMS_STATUS_TEXT[e.status]  || esc(e.status);
+    const statusCls  = SMS_STATUS_CHIP[e.status]  || 'bg-gray-100 text-gray-500';
+    const ctxLabel   = SMS_CONTEXT_LABEL[e.context] || esc(e.context || 'אחר');
+    return '<div class="flex items-start gap-3 py-3 border-b border-secondary/15 last:border-0 cursor-pointer hover:bg-cream/60 rounded-lg px-1 -mx-1 transition-colors" data-qa="log-entry" data-phone="' + esc(e.to) + '">'
+      + '<span class="shrink-0 mt-0.5 text-base">' + icon + '</span>'
       + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-center justify-between gap-2 mb-0.5">'
-      + '<span class="text-xs font-semibold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
+      + '<div class="flex items-center justify-between gap-2 mb-1">'
+      + '<span class="text-xs font-bold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
       + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
       + '</div>'
-      + '<div class="text-xs text-text-muted truncate">' + esc(e.context) + ' · ' + esc(e.snippet) + '</div>'
+      + '<div class="flex items-center gap-1.5 mb-1 flex-wrap">'
+      + '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + statusCls + '">' + statusText + '</span>'
+      + '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/30 text-text-muted">' + ctxLabel + '</span>'
+      + '</div>'
+      + '<div class="text-xs text-text-muted truncate">' + esc(e.snippet) + '</div>'
       // For failures, surface the reason (e.g. the Twilio error) so the admin
       // can see WHY a client was not notified, not just that it failed.
       + (e.status === 'ERROR' && e.detail
-          ? '<div class="text-[11px] text-red-500 mt-0.5 break-words" data-qa="log-detail">' + esc(e.detail) + '</div>'
+          ? '<div class="text-[11px] text-red-500 mt-1 break-words" data-qa="log-detail">' + esc(e.detail) + '</div>'
           : '')
       + '</div></div>';
   }).join('');

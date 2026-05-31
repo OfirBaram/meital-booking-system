@@ -148,7 +148,7 @@ test.describe('renderDiarySlots — no inline onclick in DOM', () => {
     const jsErrors = []
     page.on('pageerror', err => jsErrors.push(err.message))
 
-    await loginAndGoTo(page, 'diary')
+    await loginAndGoTo(page, 'slots')
 
     // Wait for slots to load
     await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]').first())
@@ -162,7 +162,7 @@ test.describe('renderDiarySlots — no inline onclick in DOM', () => {
   })
 
   test('all four slot rows render with correct statuses', async ({ page }) => {
-    await loginAndGoTo(page, 'diary')
+    await loginAndGoTo(page, 'slots')
     await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]').first())
       .toBeVisible({ timeout: 5_000 })
 
@@ -189,7 +189,7 @@ test.describe('renderDiarySlots — no inline onclick in DOM', () => {
       },
     })
     await page.goto('/admin.html')
-    await loginAndGoTo(page, 'diary')
+    await loginAndGoTo(page, 'slots')
 
     await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]:not([disabled])').first())
       .toBeVisible({ timeout: 5_000 })
@@ -207,7 +207,7 @@ test.describe('renderDiarySlots — no inline onclick in DOM', () => {
 
     await setupMocks(page)
     await page.goto('/admin.html')
-    await loginAndGoTo(page, 'diary')
+    await loginAndGoTo(page, 'slots')
 
     await expect(page.locator('#js-diary-slots [data-action="delete-diary-slot"]:not([disabled])').first())
       .toBeVisible({ timeout: 5_000 })

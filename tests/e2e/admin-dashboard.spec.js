@@ -222,11 +222,19 @@ test.describe('Admin dashboard — nav tabs', () => {
     expect(jsErrors, 'JS errors while switching tabs: ' + jsErrors.join(' | ')).toHaveLength(0)
   })
 
-  test('diary tab shows date range picker controls', async ({ page }) => {
+  test('SMS tab shows the SMS center controls', async ({ page }) => {
     await page.locator('[data-qa="nav-tab-diary"]').click()
-    await expect(page.locator('#js-diary-from')).toBeVisible({ timeout: 3_000 })
-    await expect(page.locator('#js-diary-to')).toBeVisible()
-    await expect(page.locator('#js-diary-load')).toBeVisible()
+    await expect(page.locator('#js-sms-search')).toBeVisible({ timeout: 3_000 })
+    await expect(page.locator('.sms-status-pill').first()).toBeVisible()
+    await expect(page.locator('#js-sms-context')).toBeVisible()
+    await expect(page.locator('#js-sms-log')).toBeVisible()
+  })
+
+  test('slots tab shows the single-day slot controls', async ({ page }) => {
+    await page.locator('[data-qa="nav-tab-slots"]').click()
+    await expect(page.locator('#js-diary-date')).toBeVisible({ timeout: 3_000 })
+    await expect(page.locator('#js-diary-prev')).toBeVisible()
+    await expect(page.locator('#js-add-slot-btn')).toBeVisible()
   })
 
   test('clients tab shows search input', async ({ page }) => {
