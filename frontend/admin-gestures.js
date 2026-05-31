@@ -64,6 +64,11 @@ export function initCardSwipe(wrapper, opts = {}) {
 
   card.addEventListener('pointerdown', e => {
     if (e.button !== undefined && e.button !== 0) return
+    // Don't hijack taps that land on an interactive control — let their native
+    // click fire (approve / reject / SMS / call / WhatsApp / delete). Without
+    // this guard, setPointerCapture below swallows the tap and the button never
+    // reacts (the classic "I click and nothing happens, no error" bug).
+    if (e.target && e.target.closest && e.target.closest('button, a')) return
     startX = e.clientX
     active = true
     card.setPointerCapture(e.pointerId)
