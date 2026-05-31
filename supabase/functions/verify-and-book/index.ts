@@ -52,29 +52,21 @@ async function sendAdminSms(supabase: any, params: {
   accountSid:    string
   authToken:     string
   fromNumber:    string
-  actionBaseUrl: string  // e.g. https://<ref>.supabase.co/functions/v1/admin-action
   name:          string
   phone:         string
   serviceName:   string
   date:          string
   time:          string
   bookingId:     string
-  adminToken:    string
 }): Promise<void> {
   const {
-    adminPhone, accountSid, authToken, fromNumber, actionBaseUrl,
-    name, phone, serviceName, date, time, bookingId, adminToken,
+    adminPhone, accountSid, authToken, fromNumber,
+    name, phone, serviceName, date, time, bookingId,
   } = params
 
-  // One-tap links to the admin-action Edge Function. Always a real https URL
-  // (SUPABASE_URL is always present) — never "undefined" — so phones linkify it.
-  const qs         = `bookingId=${encodeURIComponent(bookingId)}&token=${encodeURIComponent(adminToken)}`
-  const approveUrl = `${actionBaseUrl}?action=approve&${qs}`
-  const rejectUrl  = `${actionBaseUrl}?action=reject&${qs}`
-
-  const body = buildAdminNewBookingSms({
-    name, phone, serviceName, date, time, approveUrl, rejectUrl,
-  })
+  // LINK-FREE on purpose: carriers content-filter link-heavy admin SMS (see
+  // buildAdminNewBookingSms). The admin approves/rejects from the dashboard.
+  const body = buildAdminNewBookingSms({ name, phone, serviceName, date, time })
 
   const creds = accountSid && authToken && fromNumber ? { accountSid, authToken, fromNumber } : null
   await sendAndLogSms(supabase, {
@@ -331,19 +323,20 @@ Deno.serve(async (req) => {
     console.log('[verify-and-book] step:booking-created booking_id=' + booking.id)
 
     // ── Step 9: admin SMS (fire-and-forget) ─────────────────────────
+    // Link-free heads-up; admin approves/rejects in the dashboard. admin_token
+    // is still stored on the appointment so the admin-action link path remains
+    // usable, it's just no longer pushed via SMS (carrier link filtering).
     sendAdminSms(supabase, {
       adminPhone:    toDialable(Deno.env.get('ADMIN_PHONE')),
       accountSid:    Deno.env.get('TWILIO_ACCOUNT_SID')!,
       authToken:     Deno.env.get('TWILIO_AUTH_TOKEN')!,
       fromNumber:    Deno.env.get('TWILIO_FROM_NUMBER')!,
-      actionBaseUrl: Deno.env.get('SUPABASE_URL')!.replace(/\/$/, '') + '/functions/v1/admin-action',
       name:          booking.name.trim(),
       phone,
       serviceName: booking.serviceName,
       date:        booking.date,
       time:        booking.time,
       bookingId:   booking.id,
-      adminToken,
     }).catch(e => console.warn('[verify-and-book] admin-sms-fail:', e.message))
 
     console.log('[verify-and-book] step:complete booking_id=' + booking.id)

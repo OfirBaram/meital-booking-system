@@ -71,21 +71,27 @@ export interface AdminMsgFields {
   serviceName: string
   date:        string  // YYYY-MM-DD
   time:        string  // HH:MM
-  approveUrl:  string
-  rejectUrl:   string
 }
 
-/** Admin notification SMS for a new pending booking, with one-tap links. */
+/**
+ * Admin notification SMS for a new pending booking — deliberately LINK-FREE.
+ *
+ * WHY: the earlier version carried two long https://...supabase.co token URLs.
+ * Israeli mobile carriers content-filter link-heavy A2P SMS as spam (the OTP, a
+ * short link-free message to the SAME number, always arrived; this one was
+ * silently dropped even though Twilio logged it SENT). A plain text heads-up has
+ * no URL to filter on, so it gets through. The admin approves/rejects in the
+ * dashboard (which already lists the booking) — no one-tap link needed.
+ */
 export function buildAdminNewBookingSms(f: AdminMsgFields): string {
   return [
-    '📅 הזמנה חדשה ממתינה לאישור:',
+    '📅 הזמנה חדשה ממתינה לאישור!',
     `שם: ${(f.name ?? '').trim()}`,
     `טלפון: ${(f.phone ?? '').trim()}`,
     `שירות: ${(f.serviceName ?? '').trim()}`,
     `תאריך: ${fullDateLabel(f.date)} בשעה ${f.time}`,
     '',
-    `✅ לאישור: ${f.approveUrl}`,
-    `❌ לדחייה: ${f.rejectUrl}`,
+    'לאישור או דחייה — היכנסי לדשבורד הניהול 💅',
   ].join('\n')
 }
 
