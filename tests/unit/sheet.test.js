@@ -33,8 +33,8 @@ describe('INITIAL_SHEET_STATE', () => {
   it('payload is null', () => {
     expect(INITIAL_SHEET_STATE.payload).toBeNull()
   })
-  it('default snap is half', () => {
-    expect(INITIAL_SHEET_STATE.snap).toBe('half')
+  it('default snap is full', () => {
+    expect(INITIAL_SHEET_STATE.snap).toBe('full')
   })
   it('has exactly the four expected keys', () => {
     expect(Object.keys(INITIAL_SHEET_STATE).sort()).toEqual(['open','payload','snap','type'].sort())
@@ -84,9 +84,9 @@ describe('sheetReducer — OPEN', () => {
     expect(s.payload).toBe(p)
   })
 
-  it('defaults snap to "half" when action.snap is omitted', () => {
+  it('defaults snap to "full" when action.snap is omitted', () => {
     const s = sheetReducer(BASE, { type: 'OPEN', sheetType: 'day', payload: null })
-    expect(s.snap).toBe('half')
+    expect(s.snap).toBe('full')
   })
 
   it('accepts snap="peek"', () => {
@@ -104,9 +104,9 @@ describe('sheetReducer — OPEN', () => {
     expect(s.snap).toBe('full')
   })
 
-  it('falls back to "half" for an unknown snap value', () => {
+  it('falls back to "full" for an unknown snap value', () => {
     const s = sheetReducer(BASE, { type: 'OPEN', sheetType: 'day', payload: null, snap: 'mega' })
-    expect(s.snap).toBe('half')
+    expect(s.snap).toBe('full')
   })
 
   it('a second OPEN replaces the previous state (no stacking)', () => {
@@ -147,8 +147,8 @@ describe('sheetReducer — CLOSE', () => {
     expect(sheetReducer(OPEN_STATE, { type: 'CLOSE' }).payload).toBeNull()
   })
 
-  it('resets snap to "half"', () => {
-    expect(sheetReducer(OPEN_STATE, { type: 'CLOSE' }).snap).toBe('half')
+  it('resets snap to "full"', () => {
+    expect(sheetReducer(OPEN_STATE, { type: 'CLOSE' }).snap).toBe('full')
   })
 
   it('produces a state equal to INITIAL_SHEET_STATE', () => {

@@ -214,9 +214,10 @@ test.describe('Calendar Clarity — add-slot updates the calendar', () => {
     // Empty day → no tint before adding
     await expect(cell(page, D_EMPTY)).not.toHaveClass(/has-free/)
 
-    // Open the day sheet and add a slot via the inline footer picker
+    // Open the day sheet and add a slot via the slots tab picker
     await cell(page, D_EMPTY).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    await page.locator('[data-tab-target="slots"]').click()
     await page.locator('#js-slot-time-select').selectOption('10:00')
     await page.locator('[data-sheet-action="addSlot"]').click()
 
@@ -297,6 +298,7 @@ test.describe('Calendar Clarity — day popup control-center', () => {
 
     await cell(page, today).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    await page.locator('[data-tab-target="slots"]').click()
     const delBtn = page.locator('[data-sheet-action="deleteSlot"][data-slot-id="7"]')
     await expect(delBtn).toBeVisible()
 
@@ -317,6 +319,7 @@ test.describe('Calendar Clarity — day popup control-center', () => {
 
     await cell(page, today).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    await page.locator('[data-tab-target="slots"]').click()
 
     const opt = page.locator('#js-slot-time-select option[value="10:00"]')
     await expect(opt).toContainText('תפוס')
@@ -351,6 +354,7 @@ test.describe('Calendar Clarity — day popup control-center', () => {
 
     await cell(page, today).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+    await page.locator('[data-tab-target="slots"]').click()
     const blockBtn = page.locator('[data-sheet-action="blockSlot"][data-slot-id="9"]')
     await expect(blockBtn).toBeVisible()
 

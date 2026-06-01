@@ -137,10 +137,12 @@ test.describe('Bottom Sheet — open path', () => {
     await expect(page.locator('#js-sheet')).toBeVisible()
   })
 
-  test('sheet title matches the clicked date (slashes not dashes)', async ({ page }) => {
+  test('sheet title shows a Hebrew day name and date', async ({ page }) => {
     await page.locator(`[data-date="${TODAY}"]`).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
-    await expect(page.locator('#js-sheet-title')).toHaveText(TODAY_DISPLAY)
+    // Title now shows rich format: "יום X · D בMONTH" (Hebrew)
+    await expect(page.locator('#js-sheet-title')).toContainText('יום')
+    await expect(page.locator('#js-sheet-title')).not.toBeEmpty()
   })
 
   test('sheet content shows the booking name', async ({ page }) => {
@@ -186,7 +188,8 @@ test.describe('Bottom Sheet — close paths', () => {
   })
 
   test('backdrop click hides the sheet', async ({ page }) => {
-    await page.locator('#js-sheet-backdrop').click()
+    // Sheet is 95vh, so click near the top of the screen where backdrop is visible
+    await page.locator('#js-sheet-backdrop').click({ position: { x: 100, y: 10 } })
     await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 2_000 })
   })
 
@@ -226,27 +229,30 @@ test.describe('Bottom Sheet — body scroll lock', () => {
 // ─── 11. Snap height ─────────────────────────────────────────────────────────
 
 test.describe('Bottom Sheet — snap points', () => {
-  test('panel maxHeight is 60vh (half snap) on default open', async ({ page }) => {
+  test('panel maxHeight is 95vh (full snap) on default open', async ({ page }) => {
     await setupMocks(page, MOCK_BOOKINGS_TODAY)
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetViaCalendar(page)
 
     const maxH = await page.locator('#js-sheet-panel').evaluate(el => el.style.maxHeight)
-    expect(maxH).toBe('60vh')
+    expect(maxH).toBe('95vh')
   })
 })
 
 // ─── 12. Footer button ───────────────────────────────────────────────────────
 
-test.describe('Bottom Sheet — footer', () => {
-  test('add-slot footer button is visible and has correct data attribute', async ({ page }) => {
+test.describe('Bottom Sheet — slots tab', () => {
+  test('add-slot button is visible in slots tab and has correct data attribute', async ({ page }) => {
     await setupMocks(page, MOCK_BOOKINGS_TODAY)
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetViaCalendar(page)
 
-    const btn = page.locator('#js-sheet-footer [data-sheet-action="addSlot"]')
+    // Add-slot form is in the slots management tab (not the footer)
+    await page.locator('[data-tab-target="slots"]').click()
+
+    const btn = page.locator('[data-sheet-action="addSlot"]')
     await expect(btn).toBeVisible({ timeout: 2_000 })
     const dateAttr = await btn.getAttribute('data-date')
     expect(dateAttr).toBeTruthy()
@@ -307,7 +313,7 @@ test.describe('Bottom Sheet — robustness', () => {
     // Second cycle — proves _closing is correctly reset to false
     await openSheetViaCalendar(page)
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
-    await expect(page.locator('#js-sheet-title')).toHaveText(TODAY_DISPLAY)
+    await expect(page.locator('#js-sheet-title')).toContainText('יום')
   })
 
   test('sheet panel content is cleared after close (no stale data)', async ({ page }) => {

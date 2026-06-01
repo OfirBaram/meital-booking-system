@@ -34,13 +34,13 @@ export const INITIAL_SHEET_STATE = {
   open:    false,
   type:    null,
   payload: null,
-  snap:    'half',
+  snap:    'full',
 }
 
 export const SNAP_HEIGHTS = {
   peek: '35vh',
   half: '60vh',
-  full: '92vh',
+  full: '95vh',
 }
 
 const VALID_SNAPS = new Set(['peek', 'half', 'full'])
@@ -94,7 +94,7 @@ export function sheetReducer(state, action) {
         open:    true,
         type:    action.sheetType,
         payload: action.payload !== undefined ? action.payload : null,
-        snap:    VALID_SNAPS.has(action.snap) ? action.snap : 'half',
+        snap:    VALID_SNAPS.has(action.snap) ? action.snap : 'full',
       }
     case 'CLOSE':
       return { ...INITIAL_SHEET_STATE }
@@ -130,15 +130,36 @@ export function initSheet() {
   const sheetContent = document.getElementById('js-sheet-content')
   if (sheetContent) {
     sheetContent.addEventListener('click', e => {
-      // Booking buttons carry data-id; free-slot buttons carry data-slot-id.
+      // Tab switching — data-tab-target buttons toggle panel visibility
+      const tabBtn = e.target.closest('[data-tab-target]')
+      if (tabBtn) {
+        const target = tabBtn.dataset.tabTarget
+        sheetContent.querySelectorAll('[data-tab-target]').forEach(b => {
+          const isActive = b.dataset.tabTarget === target
+          b.classList.toggle('bg-white',        isActive)
+          b.classList.toggle('text-text-main',  isActive)
+          b.classList.toggle('shadow-sm',       isActive)
+          b.classList.toggle('text-text-muted', !isActive)
+          b.classList.toggle('font-bold',       isActive)
+        })
+        sheetContent.querySelectorAll('[data-tab-panel]').forEach(p => {
+          p.classList.toggle('hidden', p.dataset.tabPanel !== target)
+        })
+        return
+      }
+
+      // Sheet action buttons — dispatch event to admin.js
       const btn = e.target.closest('[data-sheet-action]')
       if (!btn) return
+      const action = btn.dataset.sheetAction
+      const timeEl = document.getElementById('js-slot-time-select')
       document.dispatchEvent(new CustomEvent('sheet:action', {
         detail: {
-          action: btn.dataset.sheetAction,
+          action,
           id:     btn.dataset.id     || '',
           date:   btn.dataset.date   || '',
           slotId: btn.dataset.slotId || '',
+          time:   (action === 'addSlot' && timeEl) ? timeEl.value : '',
         },
         bubbles: false,
       }))
@@ -148,7 +169,7 @@ export function initSheet() {
   _initDrag()
 }
 
-export function openSheet(type, payload, snap = 'half') {
+export function openSheet(type, payload, snap = 'full') {
   if (_closing) {
     // FIX-3: record latest intent; _animateClose's onDone will execute it
     _pendingOpen = { type, payload, snap }
@@ -179,7 +200,7 @@ function _doOpen(type, payload, snap) {
   _animateOpen()
 }
 
-// ── Content rendering ─────────────────────────────────────────────────────────
+// ── Content rendering ──────────────────────────────────
 
 function _renderContent() {
   const titleEl   = document.getElementById('js-sheet-title')
@@ -192,143 +213,195 @@ function _renderContent() {
   }
 }
 
+// ── Date / service / contact helpers ───────────────────
+
+const _HE_DAYS   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת']
+const _HE_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר']
+
+function _fmtDayDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return {
+    dayName:   'יום ' + _HE_DAYS[d.getDay()],
+    shortDate: d.getDate() + ' ב' + _HE_MONTHS[d.getMonth()],
+  }
+}
+
+const _SVC_EMOJI    = { gel_classic: '💅', gel_feet: '🦶' }
+const _SVC_DURATION = { gel_classic: 90,   gel_feet: 120   }
+const _SVC_LABEL    = { gel_classic: "לק ג'ל קלאסי", gel_feet: "לק ג'ל רגליים" }
+
+function _svcLine(b) {
+  const svc      = b.service || ''
+  const emoji    = _SVC_EMOJI[svc]              || '💅'
+  const duration = b.duration_min || _SVC_DURATION[svc] || ''
+  const label    = b.serviceName  || _SVC_LABEL[svc]    || svc
+  return emoji + ' ' + _esc(String(label)) + (duration ? ' · ' + duration + " דק'" : '')
+}
+
+function _waHref(phone) {
+  const digits = String(phone || '').replace(/[^0-9]/g, '')
+  const intl   = digits.startsWith('972') ? digits
+               : digits.startsWith('0')   ? '972' + digits.slice(1)
+               : digits
+  return 'https://wa.me/' + intl
+}
+
+function _fmtPhoneLocal(phone) {
+  return String(phone || '').replace('+972', '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
+}
+
+// ── Day sheet renderer ─────────────────────────────────
+
 function _renderDay(titleEl, contentEl, footerEl, payload) {
   if (!payload) return
   const { dateStr, entry, slots = [], isPast = false } = payload
-  titleEl.textContent = (dateStr || '').replace(/-/g, '/')
 
   const bookings  = (entry && entry.bookings) ? entry.bookings : []
   const freeSlots = (slots || []).filter(s => String(s.status).toLowerCase() === 'available')
-  const pending   = bookings.filter(b => b.status === 'Pending').length
-  const approved  = bookings.filter(b => b.status === 'Approved').length
+  const blocked   = (slots || []).filter(s => String(s.status).toLowerCase() === 'blocked')
+  const pending   = bookings.filter(b => b.status === 'Pending')
+  const approved  = bookings.filter(b => b.status === 'Approved')
 
-  // A day is "empty" when there is nothing actionable to show: no bookings and
-  // (for non-past days) no free slots. Past days never show the free-slot section.
-  const hasContent = bookings.length > 0 || (!isPast && freeSlots.length > 0)
+  const dt = _fmtDayDate(dateStr)
+  titleEl.innerHTML =
+    '<div class="leading-snug">'
+    + '<span class="font-black text-text-main">' + _esc(dt.dayName) + '</span>'
+    + '<span class="text-text-muted font-medium text-sm"> · ' + _esc(dt.shortDate) + '</span>'
+    + (isPast ? '<span class="mr-2 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-400 align-middle">עבר</span>' : '')
+    + '</div>'
 
-  if (!hasContent) {
-    contentEl.innerHTML =
-      '<div class="flex flex-col items-center justify-center py-12 text-center">'
-      + '<div class="text-4xl mb-3">💅</div>'
-      + '<p class="text-sm font-medium text-text-muted">אין הזמנות ביום זה</p>'
+  const chips = []
+  if (pending.length)   chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">' + pending.length + ' ממתינות</span>')
+  if (approved.length)  chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">' + approved.length + ' מאושרות</span>')
+  if (freeSlots.length) chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-600">' + freeSlots.length + ' פנויות</span>')
+
+  const bookTabLabel  = 'הזמנות' + (bookings.length ? ' (' + bookings.length + ')' : '')
+  const slotsTabCount = freeSlots.length + blocked.length
+  const slotsTabLabel = 'ניהול זמנים' + (slotsTabCount ? ' (' + slotsTabCount + ')' : '')
+
+  const approveAllBanner = pending.length > 1
+    ? '<div class="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">'
+      + '<div>'
+      + '<div class="text-xs font-black text-amber-700">' + pending.length + ' הזמנות ממתינות לאישור</div>'
+      + '<div class="text-[10px] text-amber-500 font-medium mt-0.5">אישור אחד לכולן</div>'
       + '</div>'
-  } else {
-    const parts = []
-
-    // Compact summary line, mirroring the calendar peek strip.
-    const sum = []
-    if (pending)          sum.push('<span class="text-amber-600 font-bold">' + pending + ' ממתינות</span>')
-    if (approved)         sum.push('<span class="text-green-600 font-bold">' + approved + ' מאושרות</span>')
-    if (freeSlots.length) sum.push('<span class="text-rose-500 font-bold">' + freeSlots.length + ' פנוי</span>')
-    if (sum.length) {
-      parts.push('<div class="text-xs text-text-muted flex flex-wrap items-center gap-x-2 gap-y-1">'
-        + sum.join('<span class="opacity-30">•</span>') + '</div>')
-    }
-
-    // Bookings — all statuses, sorted by time. Declined/Cancelled render as
-    // calm history rows (no action buttons) so the day's history stays visible.
-    if (bookings.length) {
-      const sorted = bookings.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-      parts.push(sorted.map(_bookingRow).join(''))
-    }
-
-    // Free slots — manageable (delete / block). Hidden on past days.
-    if (!isPast && freeSlots.length) {
-      const sortedFree = freeSlots.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-      parts.push(
-        '<div class="pt-1">'
-        + '<div class="text-[11px] font-bold text-text-muted mb-1.5">זמנים פנויים</div>'
-        + sortedFree.map(_freeSlotRow).join('')
+      + '<button data-sheet-action="approveAll" class="text-xs font-black bg-amber-500 text-white px-3.5 py-2 rounded-xl hover:bg-amber-600 active:scale-95 transition-all whitespace-nowrap">✓ אשר הכל</button>'
+      + '</div>'
+    : (pending.length === 1
+      ? '<div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-2.5 mb-3">'
+        + '<span class="text-amber-500 text-sm">⏳</span>'
+        + '<span class="text-xs text-amber-700 font-bold">הזמנה ממתינה לאישורך</span>'
         + '</div>'
-      )
-    }
+      : '')
 
-    contentEl.innerHTML = parts.join('')
+  const sorted      = bookings.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+  const activeRows  = sorted.filter(b => b.status === 'Pending' || b.status === 'Approved')
+  const historyRows = sorted.filter(b => b.status === 'Rejected' || b.status === 'Cancelled')
+
+  let bookingsHtml = ''
+  if (activeRows.length) bookingsHtml += activeRows.map(_bookingRow).join('')
+  if (historyRows.length) {
+    bookingsHtml +=
+      '<div class="pt-1">'
+      + '<div class="flex items-center gap-2 my-3">'
+      + '<div class="flex-1 h-px bg-secondary/20"></div>'
+      + '<span class="text-[10px] font-bold text-text-muted px-1">היסטוריה</span>'
+      + '<div class="flex-1 h-px bg-secondary/20"></div>'
+      + '</div>'
+      + historyRows.map(_bookingRow).join('')
+      + '</div>'
   }
+  if (!bookings.length) {
+    bookingsHtml =
+      '<div class="flex flex-col items-center justify-center py-14 text-center">'
+      + '<div class="text-5xl mb-3">💅</div>'
+      + '<p class="text-sm font-bold text-text-muted">אין הזמנות ביום זה</p>'
+      + ((!isPast && freeSlots.length)
+          ? '<p class="text-xs text-rose-400 mt-1.5 font-medium">יש ' + freeSlots.length + ' זמנים פנויים</p>'
+          : '')
+      + '</div>'
+  }
+
+  let slotsHtml = ''
+  if (!isPast) {
+    const used = usedTimeSet(bookings, slots)
+    const opts = slotTimeOptions().map(t =>
+      '<option value="' + t + '">' + t + (used.has(t) ? ' · תפוס' : '') + '</option>'
+    ).join('')
+    slotsHtml +=
+      '<div class="bg-cream rounded-2xl p-4 border border-secondary/30 mb-4">'
+      + '<div class="text-xs font-black text-text-muted mb-2.5">+ הוסף חריץ חדש</div>'
+      + '<div class="flex gap-2 items-center">'
+      + '<select id="js-slot-time-select" class="flex-1 border border-secondary/50 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">' + opts + '</select>'
+      + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '" class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all text-sm whitespace-nowrap">הוסף</button>'
+      + '</div>'
+      + '</div>'
+  }
+  if (freeSlots.length) {
+    const sortedFree = freeSlots.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+    slotsHtml += '<div class="text-[11px] font-black text-text-muted mb-2">זמנים פנויים</div>'
+              + sortedFree.map(_freeSlotRow).join('')
+  }
+  if (blocked.length) {
+    const sortedBlocked = blocked.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+    slotsHtml += '<div class="text-[11px] font-black text-text-muted mt-4 mb-2">חסומים</div>'
+              + sortedBlocked.map(_blockedSlotRow).join('')
+  }
+  if (!freeSlots.length && !blocked.length) {
+    slotsHtml += isPast
+      ? '<div class="flex flex-col items-center justify-center py-10 text-center"><p class="text-sm font-medium text-text-muted">יום עבר — לא ניתן לנהל חריצים</p></div>'
+      : '<div class="py-4 text-center text-xs text-text-muted">אין חריצים מוגדרים ליום זה</div>'
+  }
+
+  contentEl.innerHTML =
+    (chips.length ? '<div class="flex flex-wrap gap-1.5 mb-4">' + chips.join('') + '</div>' : '')
+    + '<div class="flex gap-1 mb-4 bg-secondary/10 rounded-2xl p-1">'
+    + '<button data-tab-target="bookings" class="tab-btn flex-1 text-xs font-bold py-2.5 rounded-xl bg-white text-text-main shadow-sm transition-all">' + bookTabLabel + '</button>'
+    + '<button data-tab-target="slots"    class="tab-btn flex-1 text-xs font-bold py-2.5 rounded-xl text-text-muted transition-all">' + slotsTabLabel + '</button>'
+    + '</div>'
+    + '<div data-tab-panel="bookings">' + approveAllBanner + bookingsHtml + '</div>'
+    + '<div data-tab-panel="slots" class="hidden">' + slotsHtml + '</div>'
 
   if (footerEl) {
-    // Past days cannot accept new slots — hide the add-slot footer entirely.
-    if (isPast) {
-      footerEl.innerHTML = ''
-      footerEl.classList.add('hidden')
-      return
-    }
-    const used = usedTimeSet(bookings, slots)
-    const opts = slotTimeOptions().map(function (t) {
-      return '<option value="' + t + '">' + t + (used.has(t) ? ' • תפוס' : '') + '</option>'
-    }).join('')
-    footerEl.innerHTML =
-      '<div class="flex gap-2 items-center">'
-      + '<label class="text-xs text-text-muted shrink-0">שעה:</label>'
-      + '<select id="js-slot-time-select"'
-      + ' class="flex-1 border border-secondary/50 rounded-xl px-3 py-2 text-sm bg-surface'
-      + ' focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">'
-      + opts
-      + '</select>'
-      + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '"'
-      + ' class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl'
-      + ' hover:bg-primary-dk active:scale-[0.98] transition-all text-sm whitespace-nowrap">'
-      + '+ הוסף'
-      + '</button>'
-      + '</div>'
-    footerEl.classList.remove('hidden')
-    const _addSlotBtn = footerEl.querySelector('[data-sheet-action="addSlot"]')
-    if (_addSlotBtn) _addSlotBtn.addEventListener('click', _onSheetAction)
+    footerEl.innerHTML = ''
+    footerEl.classList.add('hidden')
   }
 }
 
-/** A free (Available) slot row with block + delete controls. */
-function _freeSlotRow(s) {
-  const id = _esc(s.id)
-  return (
-    '<div class="flex items-center justify-between bg-rose-50 border border-rose-100 rounded-xl px-3 py-2 mb-1.5"'
-    + ' data-slot-id="' + id + '">'
-    + '<span class="text-sm font-medium text-rose-600">' + _esc(s.time || '') + ' · פנוי</span>'
-    + '<div class="flex gap-1.5">'
-    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '"'
-    + ' class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-white text-text-muted'
-    + ' border border-secondary/40 hover:bg-cream active:scale-95 transition-all">חסום</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ"'
-    + ' class="w-7 h-7 flex items-center justify-center rounded-lg bg-white text-red-400'
-    + ' border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">✕</button>'
-    + '</div>'
-    + '</div>'
-  )
-}
+// ── Booking row ───────────────────────────────────────────────
 
 function _bookingRow(b) {
   const BADGE = {
     Pending:   'bg-amber-100 text-amber-700',
     Approved:  'bg-green-100 text-green-700',
-    Rejected:  'bg-red-100 text-red-600',
-    Cancelled: 'bg-gray-100 text-gray-400',
+    Rejected:  'bg-red-100   text-red-600',
+    Cancelled: 'bg-gray-100  text-gray-400',
   }
-  const LABEL = {
-    Pending: 'ממתין', Approved: 'מאושר', Rejected: 'נדחה', Cancelled: 'בוטל',
-  }
-  const badge = BADGE[b.status] || 'bg-gray-100 text-gray-500'
-  const label = LABEL[b.status] || _esc(b.status)
-  const phone = String(b.phone || '').replace('+972', '0')
-    .replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3')
-  const svc = b.serviceName || b.service || ''
-  const actionsHtml = _bookingActions(b)
+  const LABEL = { Pending: 'ממתין', Approved: 'מאושר', Rejected: 'נדחה', Cancelled: 'בוטל' }
+
+  const badge      = BADGE[b.status] || 'bg-gray-100 text-gray-500'
+  const label      = LABEL[b.status] || _esc(b.status)
+  const id         = _esc(b.id)
+  const phone      = _fmtPhoneLocal(b.phone)
+  const isTerminal = b.status === 'Rejected' || b.status === 'Cancelled'
 
   return (
-    '<div class="bg-cream rounded-2xl p-3.5 border border-secondary/30 shadow-sm card-in"'
-    + ' data-booking="' + _esc(b.id) + '">'
-    + '<div class="flex items-start justify-between mb-1.5">'
-    + '<div>'
-    + '<div class="font-bold text-sm text-text-main leading-tight">' + _esc(b.name) + '</div>'
-    + '<div class="text-xs text-text-muted mt-0.5">' + _esc(phone) + '</div>'
+    '<div class="' + (isTerminal ? 'opacity-60 ' : '') + 'bg-cream rounded-2xl border border-secondary/30 shadow-sm card-in mb-3 overflow-hidden" data-booking="' + id + '">'  
+    + '<div class="flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-secondary/15">'
+    + '<span class="font-black text-base text-text-main tabular-nums">' + _esc(b.time || '--:--') + '</span>'
+    + '<span class="text-[10px] font-bold px-2.5 py-1 rounded-full ' + badge + '">' + label + '</span>'
     + '</div>'
-    + '<span class="text-[10px] font-semibold px-2.5 py-0.5 rounded-full ' + badge + '">'
-    + label + '</span>'
+    + '<div class="px-4 pt-3 pb-3.5">'
+    + '<div class="font-black text-sm text-text-main mb-1.5">' + _esc(b.name) + '</div>'
+    + '<div class="text-xs text-text-muted mb-3">' + _svcLine(b) + '</div>'
+    + (!isTerminal
+      ? '<div class="flex gap-2 mb-3">'
+        + '<a href="tel:' + _esc(b.phone || '') + '" class="flex items-center gap-1.5 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-xl hover:bg-primary/20 transition-colors no-underline">📞 ' + _esc(phone) + '</a>'
+        + '<a href="' + _waHref(b.phone) + '" target="_blank" rel="noopener" class="flex items-center gap-1.5 text-xs text-emerald-700 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl hover:bg-emerald-100 transition-colors no-underline">💬 WhatsApp</a>'
+        + '</div>'
+      : '')
+    + _bookingActions(b)
     + '</div>'
-    + '<div class="flex items-center gap-3 text-xs text-text-muted">'
-    + '<span class="font-medium">' + _esc(b.time || '') + '</span>'
-    + '<span>' + _esc(svc) + '</span>'
-    + '</div>'
-    + actionsHtml
     + '</div>'
   )
 }
@@ -337,39 +410,58 @@ function _bookingActions(b) {
   const id = _esc(b.id)
   if (b.status === 'Pending') {
     return (
-      '<div class="flex gap-2 mt-2.5">'
+      '<div class="flex gap-2">'
       + '<button data-sheet-action="approve" data-id="' + id + '"'
-      + ' class="flex-1 bg-green-500 text-white text-xs font-bold py-2 rounded-xl'
-      + ' hover:bg-green-600 active:scale-95 transition-all">אשר ✓</button>'
+      + ' class="flex-1 bg-green-500 text-white text-xs font-black py-3 rounded-xl'
+      + ' hover:bg-green-600 active:scale-95 transition-all">✓ אשר</button>'
       + '<button data-sheet-action="reject" data-id="' + id + '"'
-      + ' class="flex-1 bg-red-400 text-white text-xs font-bold py-2 rounded-xl'
-      + ' hover:bg-red-500 active:scale-95 transition-all">דחה ✕</button>'
+      + ' class="flex-1 bg-red-100 text-red-600 text-xs font-black py-3 rounded-xl'
+      + ' hover:bg-red-200 active:scale-95 transition-all">✕ דחה</button>'
       + '</div>'
     )
   }
   if (b.status === 'Approved') {
     return (
-      '<div class="mt-2.5">'
-      + '<button data-sheet-action="cancel" data-id="' + id + '"'
-      + ' class="w-full bg-gray-100 text-gray-500 text-xs font-bold py-2 rounded-xl'
+      '<button data-sheet-action="cancel" data-id="' + id + '"'
+      + ' class="w-full bg-gray-100 text-gray-500 text-xs font-bold py-2.5 rounded-xl'
       + ' hover:bg-gray-200 active:scale-95 transition-all">בטל הזמנה</button>'
-      + '</div>'
     )
   }
   return ''
 }
 
-function _onSheetAction(e) {
-  const btn    = e.currentTarget
-  const action = btn.dataset.sheetAction || btn.dataset.action || ''
-  const id     = btn.dataset.id   || ''
-  const date   = btn.dataset.date || ''
-  const timeEl = document.getElementById('js-slot-time-select')
-  const time   = (action === 'addSlot' && timeEl) ? timeEl.value : ''
-  document.dispatchEvent(new CustomEvent('sheet:action', {
-    detail: { action, id, date, time },
-    bubbles: false,
-  }))
+// ── Slot rows ─────────────────────────────────────────────────
+
+function _freeSlotRow(s) {
+  const id = _esc(s.id)
+  return (
+    '<div class="flex items-center justify-between bg-rose-50 border border-rose-100 rounded-xl px-4 py-3 mb-2" data-slot-id="' + id + '">'  
+    + '<div>'
+    + '<div class="text-sm font-black text-rose-600">' + _esc(s.time || '') + '</div>'
+    + '<div class="text-[11px] text-rose-400 font-medium mt-0.5">פנוי להזמנה</div>'
+    + '</div>'
+    + '<div class="flex gap-2">'
+    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-text-muted border border-secondary/40 hover:bg-cream active:scale-95 transition-all">🔒 חסום</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '</div>'
+    + '</div>'
+  )
+}
+
+function _blockedSlotRow(s) {
+  const id = _esc(s.id)
+  return (
+    '<div class="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 mb-2" data-slot-id="' + id + '">'  
+    + '<div>'
+    + '<div class="text-sm font-black text-gray-500">' + _esc(s.time || '') + '</div>'
+    + '<div class="text-[11px] text-gray-400 font-medium mt-0.5">חסום</div>'
+    + '</div>'
+    + '<div class="flex gap-2">'
+    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '</div>'
+    + '</div>'
+  )
 }
 
 // ── Animations ────────────────────────────────────────────────────────────────

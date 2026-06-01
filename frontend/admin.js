@@ -1117,7 +1117,7 @@ function _dayPayload(dateStr) {
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
   _updatePeekStrip(dateStr, entry);
-  openSheet('day', _dayPayload(dateStr));
+  openSheet('day', _dayPayload(dateStr), 'full');
 }
 
 function _updatePeekStrip(dateStr, entry) {
@@ -1251,6 +1251,35 @@ function _commitSheetAction(id, target) {
       renderVisibleCalendar();
     }
   );
+}
+
+async function _commitApproveAll(pendingIds) {
+  closeSheet();
+  const prevStatuses = {};
+  pendingIds.forEach(id => {
+    const b = S.bookings.find(b => b.id === id);
+    if (b) { prevStatuses[id] = b.status; b.status = 'Approved'; }
+  });
+  renderVisibleCalendar();
+  toast('אושרו ' + pendingIds.length + ' הזמנות ✓', 'ok');
+  try {
+    await Promise.all(pendingIds.map(id =>
+      fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Approved' }),
+      }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+    ));
+    await load(true);
+  } catch (e) {
+    pendingIds.forEach(id => {
+      const b = S.bookings.find(b => b.id === id);
+      if (b && prevStatuses[id]) b.status = prevStatuses[id];
+    });
+    renderVisibleCalendar();
+    toast('שגיאה: ' + e.message, 'err');
+    await load(true);
+  }
 }
 
 function startAutoRefresh() {
@@ -1420,6 +1449,13 @@ async function init() {
           toast('שגיאה בעדכון החריץ', 'err');
         }
       })();
+      return;
+    }
+    if (action === 'approveAll') {
+      const dayEntry = S.calData[_sheetOpenDate];
+      const pending  = ((dayEntry && dayEntry.bookings) ? dayEntry.bookings : [])
+        .filter(b => b.status === 'Pending');
+      if (pending.length) _commitApproveAll(pending.map(b => b.id));
       return;
     }
     const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };

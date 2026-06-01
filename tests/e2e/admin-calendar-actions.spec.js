@@ -446,6 +446,7 @@ test.describe('Inline slot picker in sheet footer', () => {
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
+    await page.locator('[data-tab-target="slots"]').click()
 
     await expect(page.locator('#js-slot-time-select')).toBeVisible({ timeout: 2_000 })
     await expect(page.locator('[data-sheet-action="addSlot"]')).toBeVisible({ timeout: 2_000 })
@@ -478,6 +479,7 @@ test.describe('Inline slot picker in sheet footer', () => {
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
+    await page.locator('[data-tab-target="slots"]').click()
 
     await page.locator('#js-slot-time-select').selectOption('10:30')
     await page.locator('[data-sheet-action="addSlot"]').click()
@@ -498,6 +500,7 @@ test.describe('Inline slot picker in sheet footer', () => {
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
+    await page.locator('[data-tab-target="slots"]').click()
 
     await page.locator('[data-sheet-action="addSlot"]').click()
 
@@ -576,6 +579,7 @@ test.describe('Zero-error gate', () => {
     await page.goto('/admin.html')
     await loginAndWait(page)
     await openSheetForDate(page, TODAY)
+    await page.locator('[data-tab-target="slots"]').click()
 
     await page.locator('#js-slot-time-select').selectOption('09:00')
     await page.locator('[data-sheet-action="addSlot"]').click()
