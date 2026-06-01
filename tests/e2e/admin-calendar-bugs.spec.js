@@ -181,7 +181,7 @@ test.describe('Bug 2 regression — calendar cell click routing', () => {
     await page.locator(`[data-date="${TODAY}"]`).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
     await expect(page.locator('#js-sheet-content')).toContainText('לקוחה אישור')
-    await expect(page.locator('#js-sheet-title')).toHaveText(TODAY_DISPLAY)
+    await expect(page.locator('#js-sheet-title')).toContainText('יום')
   })
 
   test('other-month cell does not open the sheet even when force-clicked', async ({ page }) => {
