@@ -590,106 +590,6 @@
       </div>
     </main>
 
-    <!-- ── TAB: SLOT MANAGER ── -->
-    <main id="tab-slots" class="hidden max-w-2xl mx-auto px-4 pt-5">
-      <h2 class="text-base font-black text-text-main mb-4">ניהול זמנים</h2>
-
-      <!-- Weekly Template -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 overflow-hidden">
-        <div class="px-4 pt-4 pb-2 flex items-center justify-between">
-          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תבנית שבועית</div>
-          <button id="js-save-template"
-            class="text-xs font-bold px-3 py-1.5 bg-primary text-white rounded-xl hover:bg-primary-dk active:scale-95 transition-all disabled:opacity-50"
-            disabled>שמור</button>
-        </div>
-        <div id="js-template-skeleton" class="px-4 pb-4 space-y-2">
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-        </div>
-        <div id="js-template-rows" class="hidden px-4 pb-4 space-y-2"></div>
-      </div>
-
-      <!-- Generate Slots -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">יצירת חריצי זמן</div>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">מתאריך</label>
-            <input id="js-gen-start" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">עד תאריך</label>
-            <input id="js-gen-end" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-        </div>
-        <button id="js-gen-submit"
-          class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          צור תורים
-        </button>
-      </div>
-
-      <!-- Single-day slot manager (one day per action) -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-soft mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">ניהול יום בודד</div>
-        <div class="flex items-center gap-2 mb-2">
-          <button id="js-diary-prev" data-qa="diary-prev" aria-label="יום קודם"
-            class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-          <input id="js-diary-date" data-qa="diary-date" type="date"
-            class="flex-1 min-w-0 border border-secondary/60 rounded-xl px-3 py-2 text-sm text-center text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          <button id="js-diary-next" data-qa="diary-next" aria-label="יום הבא"
-            class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-            </svg>
-          </button>
-        </div>
-        <div id="js-diary-day-label" class="text-center text-sm font-bold text-text-main mb-1"></div>
-        <div class="flex gap-2 items-center mt-3 pt-3 border-t border-secondary/20">
-          <label class="text-xs text-text-muted shrink-0 font-semibold">הוסף שעה</label>
-          <input id="js-add-slot-time" type="time" step="1800"
-            class="flex-1 min-w-0 border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          <button id="js-add-slot-btn"
-            class="shrink-0 bg-primary text-white font-bold px-4 py-2 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 text-sm min-h-[40px]">
-            + הוסף
-          </button>
-        </div>
-      </div>
-
-      <!-- Selected day's slots -->
-      <div id="js-diary-slots" data-qa="slot-inventory" class="space-y-4 mb-4">
-        <div class="text-xs text-text-muted text-center py-8">טוען…</div>
-      </div>
-
-      <!-- Daily Reminders -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תזכורות יומיות</div>
-          <span id="js-reminder-last" class="text-xs text-text-muted">טוען...</span>
-        </div>
-        <p class="text-xs text-text-muted mb-3">שולח SMS לכל לקוחה עם תור מחר. רץ אוטומטית ב-08:00.</p>
-        <div class="flex items-center gap-2 bg-cream rounded-xl px-3 py-2.5 mb-3">
-          <span class="text-lg shrink-0">🔔</span>
-          <span id="js-reminder-preview" class="text-xs text-text-main font-semibold leading-snug">—</span>
-        </div>
-        <label class="flex items-center gap-2 mb-3 cursor-pointer">
-          <input id="js-reminder-force" type="checkbox" class="accent-primary">
-          <span class="text-xs text-text-muted">שלח גם אם כבר נשלח היום</span>
-        </label>
-        <button id="js-reminder-submit"
-          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          שלח תזכורות למחר
-        </button>
-      </div>
-
-    </main>
-
     <!-- ── TAB: SMS CENTER (כל ההודעות במערכת) ── -->
     <main id="tab-diary" class="hidden max-w-2xl mx-auto px-4 pt-5">
       <div class="flex items-center justify-between mb-4">
@@ -781,6 +681,90 @@
     <main id="tab-clients" class="hidden max-w-2xl mx-auto px-4 pt-5">
       <h2 class="text-base font-black text-text-main mb-4">לקוחות</h2>
 
+
+      <!-- ── Automation Section ── -->
+      <div class="mb-4 space-y-3" id="js-automation-section">
+
+        <!-- Daily Reminders -->
+        <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🔔</span>
+              <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תזכורות יומיות</div>
+            </div>
+            <span id="js-reminder-last" class="text-xs text-text-muted">טוען...</span>
+          </div>
+          <p class="text-xs text-text-muted mb-3">שולח SMS לכל לקוחה עם תור מחר. רץ אוטומטית ב-08:00.</p>
+          <div class="flex items-center gap-2 bg-cream rounded-xl px-3 py-2.5 mb-3">
+            <span class="text-lg shrink-0">🔔</span>
+            <span id="js-reminder-preview" class="text-xs text-text-main font-semibold leading-snug">—</span>
+          </div>
+          <label class="flex items-center gap-2 mb-3 cursor-pointer">
+            <input id="js-reminder-force" type="checkbox" class="accent-primary">
+            <span class="text-xs text-text-muted">שלח גם אם כבר נשלח היום</span>
+          </label>
+          <button id="js-reminder-submit"
+            class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
+            שלח תזכורות למחר
+          </button>
+        </div>
+
+        <!-- Auto-block Slots -->
+        <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⏰</span>
+              <div class="text-xs font-bold text-text-muted uppercase tracking-widest">חסימת זמנים אוטומטית</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0" title="הפעל/כבה חסימה אוטומטית">
+              <input id="js-autoblock-toggle" type="checkbox" class="sr-only peer" checked>
+              <div class="w-11 h-6 bg-secondary/50 rounded-full peer transition-colors
+                           peer-checked:bg-primary
+                           after:content-[''] after:absolute after:top-0.5 after:start-0.5
+                           after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                           peer-checked:after:translate-x-5 after:shadow-sm"></div>
+            </label>
+          </div>
+          <p class="text-xs text-text-muted mb-3">חוסמת חריצים פנויים למחרת מדי ערב. מונעת הזמנות ברגע האחרון.</p>
+          <div id="js-autoblock-settings" class="space-y-2 transition-opacity">
+            <div class="flex items-center gap-3 bg-cream rounded-xl px-3 py-2.5">
+              <span class="text-xs text-text-muted shrink-0 font-semibold">שעת חסימה</span>
+              <select id="js-autoblock-time" data-qa="sel-autoblock-time"
+                class="flex-1 text-sm font-bold text-text-main bg-transparent border-0 focus:outline-none cursor-pointer appearance-none">
+                <option value="16">16:00</option>
+                <option value="17">17:00</option>
+                <option value="18">18:00</option>
+                <option value="19">19:00</option>
+                <option value="20" selected>20:00</option>
+                <option value="21">21:00</option>
+                <option value="22">22:00</option>
+                <option value="23">23:00</option>
+              </select>
+              <span class="text-xs text-text-muted shrink-0">בכל ערב</span>
+            </div>
+            <div class="flex gap-2">
+              <button id="js-autoblock-save" data-qa="btn-autoblock-save"
+                class="flex-1 bg-primary hover:bg-primary-dk text-white font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 text-sm min-h-[40px]">
+                שמור הגדרות
+              </button>
+              <button id="js-autoblock-run" data-qa="btn-autoblock-run"
+                class="shrink-0 bg-secondary/40 hover:bg-secondary/60 text-text-muted font-bold px-4 py-2 rounded-xl active:scale-[0.98] transition-all text-xs min-h-[40px]"
+                title="הפעל חסימה עכשיו ידנית">
+                הפעל עכשיו
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section divider -->
+      <div class="flex items-center gap-3 mb-4 px-1">
+        <div class="flex-1 h-px bg-secondary/25"></div>
+        <span class="text-[10px] font-bold text-text-muted tracking-wider">לקוחות</span>
+        <div class="flex-1 h-px bg-secondary/25"></div>
+      </div>
+
       <!-- Search -->
       <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
         <div class="flex gap-2">
@@ -863,13 +847,6 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
           <span class="text-[10px] font-semibold">דופק עסקי</span>
-        </button>
-        <button data-tab="slots" data-qa="nav-tab-slots"
-          class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          <span class="text-[10px] font-semibold">זמנים</span>
         </button>
         <button data-tab="diary" data-qa="nav-tab-diary"
           class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">

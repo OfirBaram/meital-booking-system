@@ -200,8 +200,8 @@ test.describe('Admin dashboard — nav tabs', () => {
     await doLogin(page)
   })
 
-  test('all 5 nav tabs are present', async ({ page }) => {
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+  test('all 5 nav tabs are present (slots removed)', async ({ page }) => {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       await expect(
         page.locator('[data-qa="nav-tab-' + tab + '"]'),
         'nav tab "' + tab + '" missing',
@@ -213,7 +213,7 @@ test.describe('Admin dashboard — nav tabs', () => {
     const jsErrors = []
     page.on('pageerror', err => jsErrors.push(err.message))
 
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       await page.locator('[data-qa="nav-tab-' + tab + '"]').click()
       // Brief settle — let any async init run
       await page.waitForTimeout(300)
@@ -230,11 +230,11 @@ test.describe('Admin dashboard — nav tabs', () => {
     await expect(page.locator('#js-sms-log')).toBeVisible()
   })
 
-  test('slots tab shows the single-day slot controls', async ({ page }) => {
-    await page.locator('[data-qa="nav-tab-slots"]').click()
-    await expect(page.locator('#js-diary-date')).toBeVisible({ timeout: 3_000 })
-    await expect(page.locator('#js-diary-prev')).toBeVisible()
-    await expect(page.locator('#js-add-slot-btn')).toBeVisible()
+  test('clients tab shows automation section (reminders + auto-block)', async ({ page }) => {
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+    await expect(page.locator('#js-automation-section')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-reminder-submit')).toBeVisible()
+    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toBeVisible()
   })
 
   test('clients tab shows search input', async ({ page }) => {
@@ -393,7 +393,7 @@ test.describe('Admin dashboard — client management', () => {
     await expect(page.locator('#js-client-history')).toBeVisible({ timeout: 5_000 })
 
     // All 5 nav tabs are still present and switchable afterwards
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       const navTab = page.locator('[data-qa="nav-tab-' + tab + '"]')
       await expect(navTab, 'nav tab "' + tab + '" missing after client flow').toBeVisible()
       await navTab.click()

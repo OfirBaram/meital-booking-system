@@ -127,98 +127,13 @@ test.describe('Zero pageerror on each tab render', () => {
     page['_jsErrors'] = jsErrors
   })
 
-  for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+  for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
     test(`tab "${tab}" renders without JS errors`, async ({ page }) => {
       await loginAndGoTo(page, tab)
       const errs = page['_jsErrors']
       expect(errs, `JS errors on tab "${tab}": ` + errs.join(' | ')).toHaveLength(0)
     })
   }
-})
-
-// ─── 2. renderDiarySlots — no onclick= in DOM ────────────────────────────────
-
-test.describe('renderDiarySlots — no inline onclick in DOM', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMocks(page)
-    await page.goto('/admin.html')
-  })
-
-  test('diary slot container has zero onclick= attributes after render', async ({ page }) => {
-    const jsErrors = []
-    page.on('pageerror', err => jsErrors.push(err.message))
-
-    await loginAndGoTo(page, 'slots')
-
-    // Wait for slots to load
-    await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]').first())
-      .toBeVisible({ timeout: 5_000 })
-
-    // No onclick in the rendered container
-    const onclickCount = await page.locator('#js-diary-slots [onclick]').count()
-    expect(onclickCount, 'onclick= attributes found in diary slots').toBe(0)
-
-    expect(jsErrors).toHaveLength(0)
-  })
-
-  test('all four slot rows render with correct statuses', async ({ page }) => {
-    await loginAndGoTo(page, 'slots')
-    await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]').first())
-      .toBeVisible({ timeout: 5_000 })
-
-    // Booked and Pending slots render but their buttons are disabled
-    const toggleBtns = page.locator('#js-diary-slots [data-action="toggle-diary-slot"]')
-    await expect(toggleBtns).toHaveCount(4)
-
-    const disabledBtns = page.locator('#js-diary-slots [data-action="toggle-diary-slot"]:disabled')
-    await expect(disabledBtns).toHaveCount(2) // booked + pending
-  })
-
-  test('clicking a toggle-diary-slot button calls the API without JS error', async ({ page }) => {
-    const jsErrors = []
-    page.on('pageerror', err => jsErrors.push(err.message))
-    const apiCalls = []
-
-    await setupMocks(page, {
-      toggleSlot: (route, body) => {
-        apiCalls.push(body.slotId)
-        return route.fulfill({
-          status: 200, contentType: 'application/json',
-          body: JSON.stringify({ success: true, newStatus: 'locked' }),
-        })
-      },
-    })
-    await page.goto('/admin.html')
-    await loginAndGoTo(page, 'slots')
-
-    await expect(page.locator('#js-diary-slots [data-action="toggle-diary-slot"]:not([disabled])').first())
-      .toBeVisible({ timeout: 5_000 })
-
-    await page.locator('#js-diary-slots [data-action="toggle-diary-slot"]:not([disabled])').first().click()
-    await page.waitForTimeout(500)
-
-    expect(apiCalls.length, 'adminToggleSlot not called').toBeGreaterThan(0)
-    expect(jsErrors, 'JS errors after toggle click: ' + jsErrors.join(' | ')).toHaveLength(0)
-  })
-
-  test('clicking delete-diary-slot shows confirm dialog', async ({ page }) => {
-    const jsErrors = []
-    page.on('pageerror', err => jsErrors.push(err.message))
-
-    await setupMocks(page)
-    await page.goto('/admin.html')
-    await loginAndGoTo(page, 'slots')
-
-    await expect(page.locator('#js-diary-slots [data-action="delete-diary-slot"]:not([disabled])').first())
-      .toBeVisible({ timeout: 5_000 })
-
-    // Dismiss the confirm dialog immediately (prevents actual deletion)
-    page.once('dialog', dialog => dialog.dismiss())
-    await page.locator('#js-diary-slots [data-action="delete-diary-slot"]:not([disabled])').first().click()
-    await page.waitForTimeout(300)
-
-    expect(jsErrors).toHaveLength(0)
-  })
 })
 
 // ─── 3. renderClientList — no onclick= in DOM ────────────────────────────────
