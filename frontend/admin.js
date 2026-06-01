@@ -37,7 +37,7 @@ const S = {
   clientFilter: 'all',
   dateJump: '',
   tab:      'calendar',
-  template: [],
+  autoBlock: { enabled: true, time: 20 },
   autoSms:  true,
   _smsSendTarget: null,
   smsEntries:        [],
@@ -258,7 +258,7 @@ function hideSkeleton() {
 
 function setTab(tab) {
   S.tab = tab;
-  ['calendar','bookings','pulse','slots','diary','clients'].forEach(t => {
+  ['calendar','bookings','pulse','diary','clients'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -278,16 +278,14 @@ function setTab(tab) {
     setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
   }
 
-  if (tab === 'slots') {
-    loadTemplate();
-    const dateEl = document.getElementById('js-diary-date');
-    if (dateEl && !dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
-    loadDiarySlots();
-    updateReminderPreview();
-  }
   if (tab === 'calendar') loadAndRenderCalendar();
   if (tab === 'diary')    loadSmsLog();
-  if (tab === 'clients' && S.clients.length === 0) loadClients('');
+  if (tab === 'clients') {
+    if (S.clients.length === 0) loadClients('');
+    loadSystemInfo();
+    updateReminderPreview();
+    loadAutoBlockConfig();
+  }
 }
 
 function updateStats() {
@@ -677,7 +675,8 @@ function _pulseOpenDate(dateStr) {
   render();
 }
 
-const DEFAULT_TEMPLATE = [
+// DEFAULT_TEMPLATE removed (slots tab deleted)
+const DEFAULT_TEMPLATE_UNUSED = [
   { dayOfWeek: 0, dayName: 'ראשון',  active: true,  startTimes: [] },
   { dayOfWeek: 1, dayName: 'שני',    active: true,  startTimes: [] },
   { dayOfWeek: 2, dayName: 'שלישי',  active: true,  startTimes: [] },
@@ -687,7 +686,7 @@ const DEFAULT_TEMPLATE = [
   { dayOfWeek: 6, dayName: 'שבת',    active: false, startTimes: [] },
 ];
 
-function loadTemplate() {
+function loadTemplate_unused() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
   document.getElementById('js-save-template').disabled = true;
@@ -706,7 +705,7 @@ function loadTemplate() {
   }
 }
 
-function renderTemplate() {
+function renderTemplate_unused() {
   const container = document.getElementById('js-template-rows');
   container.innerHTML = S.template.map((row, i) => {
     const timesStr = (row.startTimes || []).join(', ');
@@ -734,7 +733,7 @@ function renderTemplate() {
   });
 }
 
-function saveTemplate() {
+function saveTemplate_unused() {
   const container = document.getElementById('js-template-rows');
   const payload   = S.template.map((row, i) => {
     const cb    = container.querySelector('[data-tmpl-idx="' + i + '"]');
@@ -760,7 +759,7 @@ function saveTemplate() {
   }
 }
 
-async function generateSlots() {
+async function generateSlots_unused() {
   const startDate = document.getElementById('js-gen-start').value;
   const endDate   = document.getElementById('js-gen-end').value;
   if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
@@ -846,6 +845,63 @@ async function sendReminders() {
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'שלח תזכורות למחר';
+  }
+}
+
+
+async function loadAutoBlockConfig() {
+  try {
+    const data = await apiCall('getAutoBlockConfig');
+    if (!data.success) return;
+    S.autoBlock.enabled = data.enabled !== false;
+    S.autoBlock.time    = typeof data.time === 'number' ? data.time : 20;
+    const toggle  = document.getElementById('js-autoblock-toggle');
+    const timeEl  = document.getElementById('js-autoblock-time');
+    if (toggle) toggle.checked = S.autoBlock.enabled;
+    if (timeEl) timeEl.value   = String(S.autoBlock.time);
+    _setAutoBlockSettingsVisibility(S.autoBlock.enabled);
+  } catch (_) {}
+}
+
+function _setAutoBlockSettingsVisibility(enabled) {
+  const settings = document.getElementById('js-autoblock-settings');
+  if (!settings) return;
+  settings.style.opacity       = enabled ? '1' : '0.45';
+  settings.style.pointerEvents = enabled ? '' : 'none';
+}
+
+async function saveAutoBlockConfig(enabled, time) {
+  const btn = document.getElementById('js-autoblock-save');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="w-4 h-4 spinner"></span>'; }
+  try {
+    const data = await apiCall('saveAutoBlockConfig', { enabled, time });
+    if (!data.success) throw new Error(data.error);
+    S.autoBlock.enabled = enabled;
+    S.autoBlock.time    = time;
+    _setAutoBlockSettingsVisibility(enabled);
+    toast((enabled ? 'חסימה אוטומטית פעילה' : 'חסימה אוטומטית כבויה') + ' — הגדרות נשמרו ✅', 'ok');
+  } catch (e) {
+    toast('שגיאה בשמירת הגדרות: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'שמור הגדרות'; }
+  }
+}
+
+async function runAutoBlock() {
+  const btn = document.getElementById('js-autoblock-run');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="w-4 h-4 spinner"></span>'; }
+  try {
+    const data = await apiCall('runAutoBlock');
+    if (!data.success) throw new Error(data.error);
+    if (data.skipped) {
+      toast('חסימה אוטומטית כבויה — אפשר במתג למעלה', '');
+    } else {
+      toast('נחסמו ' + data.blocked + ' חריצים למחר ✅', 'ok');
+    }
+  } catch (e) {
+    toast('שגיאה בהפעלת חסימה: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'הפעל עכשיו'; }
   }
 }
 
@@ -1212,7 +1268,6 @@ async function init() {
     const icon = document.getElementById('js-refresh-icon');
     icon.style.animation = 'spin 0.6s linear infinite';
     await load();
-    if (S.tab === 'slots') loadTemplate();
     setTimeout(() => { icon.style.animation = ''; }, 800);
   });
 
@@ -1262,23 +1317,23 @@ async function init() {
     });
   }
 
-  document.getElementById('js-save-template').addEventListener('click', saveTemplate);
-  document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
-
+  document.getElementById('js-autoblock-toggle').addEventListener('change', () => {
+    const enabled = document.getElementById('js-autoblock-toggle').checked;
+    _setAutoBlockSettingsVisibility(enabled);
+  });
+  document.getElementById('js-autoblock-save').addEventListener('click', () => {
+    const enabled = document.getElementById('js-autoblock-toggle').checked;
+    const time    = parseInt(document.getElementById('js-autoblock-time').value, 10);
+    saveAutoBlockConfig(enabled, time);
+  });
+  document.getElementById('js-autoblock-run').addEventListener('click', runAutoBlock);
 
   document.getElementById('js-sms-close').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-cancel').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
 
-  const diaryDateEl = document.getElementById('js-diary-date');
-  if (diaryDateEl) diaryDateEl.addEventListener('change', loadDiarySlots);
-  const diaryPrevEl = document.getElementById('js-diary-prev');
-  const diaryNextEl = document.getElementById('js-diary-next');
-  if (diaryPrevEl) diaryPrevEl.addEventListener('click', () => _shiftDiaryDay(-1));
-  if (diaryNextEl) diaryNextEl.addEventListener('click', () => _shiftDiaryDay(1));
-  document.getElementById('js-add-slot-btn').addEventListener('click', addDiarySlot);
   document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
 
   // SMS center filters
@@ -1396,14 +1451,14 @@ async function init() {
   startAutoRefresh();
 }
 
-function _updateDiaryDayLabel(date) {
+function _updateDiaryDayLabel_unused(date) {
   const el = document.getElementById('js-diary-day-label');
   if (!el || !date) return;
   const d = new Date(date + 'T12:00:00');
   el.textContent = 'יום ' + DAY_NAMES_HE[d.getDay()] + ' · ' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
 }
 
-function _shiftDiaryDay(delta) {
+function _shiftDiaryDay_unused(delta) {
   const el = document.getElementById('js-diary-date');
   if (!el) return;
   const base = el.value || new Date().toISOString().slice(0, 10);
@@ -1413,8 +1468,7 @@ function _shiftDiaryDay(delta) {
   loadDiarySlots();
 }
 
-// Loads slots for the single selected day (one day per action -- by design).
-async function loadDiarySlots() {
+async function loadDiarySlots_unused() {
   const dateEl = document.getElementById('js-diary-date');
   const date   = dateEl ? dateEl.value : '';
   if (!date) return;
@@ -1432,7 +1486,7 @@ async function loadDiarySlots() {
   }
 }
 
-async function toggleDiarySlot(slotId, currentStatus) {
+async function toggleDiarySlot_unused(slotId, currentStatus) {
   const newStatus = currentStatus === 'available' ? 'locked' : 'available';
   const row = document.querySelector('[data-slot-id="' + slotId + '"]');
   if (row) {
@@ -1461,7 +1515,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
   }
 }
 
-async function deleteDiarySlot(slotId) {
+async function deleteDiarySlot_unused(slotId) {
   try {
     const r = await sbCall('admin-slots', { action: 'deleteSlot', slotId });
     if (!r.success) {
@@ -1477,7 +1531,7 @@ async function deleteDiarySlot(slotId) {
   }
 }
 
-async function addDiarySlot() {
+async function addDiarySlot_unused() {
   const dateEl = document.getElementById('js-diary-date');
   const timeEl = document.getElementById('js-add-slot-time');
   const date   = dateEl ? dateEl.value : '';
