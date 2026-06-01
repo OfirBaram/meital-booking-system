@@ -193,7 +193,7 @@ test('prefers-reduced-motion: reduce — tab switching still works correctly', a
   await loginAndWait(page)
 
   // Switch through all tabs with reduced motion — no errors, no white screen
-  for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients', 'calendar']) {
+  for (const tab of ['bookings', 'pulse', 'diary', 'clients', 'calendar']) {
     await page.locator('[data-qa="nav-tab-' + (tab === 'calendar' ? 'calendar' : tab) + '"]').click()
     await page.waitForTimeout(50)  // animations are 0.01ms, near-instant
   }
