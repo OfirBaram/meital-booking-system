@@ -5,6 +5,7 @@
   <link rel="icon" type="image/webp" href="./meital_profile_header.webp">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#FBF6F1">
+  <link rel="manifest" href="./manifest.json">
   <title>לוח הבקרה — מיטל שבע ברעם</title>
 
   <!-- Graceful degradation: catch any JS load/parse error before a white screen -->
@@ -924,5 +925,6 @@
   </div>
 
   <script type="module" src="./admin.js"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>
