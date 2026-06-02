@@ -42,9 +42,10 @@ const _year    = _now.getFullYear()
 const _month   = _now.getMonth() + 1            // 1-based
 const _dow0    = new Date(_year, _month - 1, 1).getDay()  // day-of-week of 1st
 
+const _fmtLocal = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0")
 const OVERFLOW_DATE = _dow0 > 0
-  ? new Date(_year, _month - 1, 0).toISOString().slice(0, 10)   // last day of prev month
-  : new Date(_year, _month, 1).toISOString().slice(0, 10)        // first day of next month
+  ? _fmtLocal(new Date(_year, _month - 1, 0))   // last day of prev month
+  : _fmtLocal(new Date(_year, _month, 1))         // first day of next month
 
 const TODAY_DISPLAY = TODAY.replace(/-/g, '/')
 
