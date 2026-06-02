@@ -48,6 +48,25 @@ const STEP_LABELS = [
 // APPLICATION STATE
 // ═══════════════════════════════════════════════════
 
+/**
+ * @typedef {{
+ *   step: 1|2|3|4|5,
+ *   service: string|null,
+ *   date: string|null,
+ *   time: string|null,
+ *   slotId: string|null,
+ *   name: string,
+ *   phone: string,
+ *   bookingId: string|null,
+ *   calMonth: Date|null,
+ *   slots: Record<string, string[]>,
+ *   loading: boolean,
+ *   prefetchedMonths: Set<string>,
+ *   otpCooldownUntil: number
+ * }} AppState
+ */
+
+/** @type {AppState} */
 const State = {
   step: 1,
   service: null,
