@@ -7,6 +7,7 @@
   <meta name="description" content="הזמנת תורים אונליין לסטודיו לציפורניים של מיטל שבע ברמת גן">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="alternate icon" href="./favicon.ico">
+  <link rel="manifest" href="./manifest.json">
   <title>Meital Sheva - Boutique Nail Studio | הזמנת תור</title>
 
   <link rel="stylesheet" href="./styles/tailwind.css">
@@ -470,5 +471,6 @@
   </div>
 
   <script type="module" src="./booking.js"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>
