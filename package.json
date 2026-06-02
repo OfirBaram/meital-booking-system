@@ -23,6 +23,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "lit-html": "^3.3.3",
     "pg": "^8.21.0"
   }
 }
