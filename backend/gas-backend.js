@@ -1,3 +1,5 @@
+console.log("[gas-backend] script loaded");
+
 /**
  * Meital Boutique Booking — Google Apps Script Backend
  * =====================================================
