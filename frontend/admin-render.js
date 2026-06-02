@@ -1,5 +1,7 @@
 'use strict';
 
+import { html, render, nothing } from 'lit-html';
+
 // ─── Core domain types ────────────────────────────────────────────────────────
 
 /**
@@ -215,8 +217,9 @@ export function buildSwipeCard(b) {
 
 export function renderDiarySlots(slots, container, { onToggle, onDelete }) {
   if (!container) return;
+  delete container._$litPart$; container.textContent = '';
   if (!slots || !slots.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין תורים בטווח זה</div>';
+    render(html`<div class="text-xs text-text-muted text-center py-8">אין תורים בטווח זה</div>`, container);
     return;
   }
 
@@ -226,51 +229,46 @@ export function renderDiarySlots(slots, container, { onToggle, onDelete }) {
     byDate[s.date].push(s);
   });
 
-  const html = Object.keys(byDate).sort().map(date => {
+  render(html`${Object.keys(byDate).sort().map(date => {
     const d       = new Date(date + 'T12:00:00');
     const dayName = 'יום ' + DAY_NAMES_HE[d.getDay()];
-    const parts   = date.split('-');
-    const heDate  = parts[2] + '/' + parts[1] + '/' + parts[0];
-
-    const rows = byDate[date].map(s => {
-      const canAct     = s.status !== 'booked' && s.status !== 'pending';
-      const toggleIcon = s.status === 'locked' ? '🔓' : '🔒';
-      const badgeCls   = SB_STATUS_CLS[s.status]   || 'bg-gray-100 text-gray-500';
-      const badgeLabel = SB_STATUS_LABEL[s.status] || esc(s.status);
-      const disAttr    = canAct ? '' : ' disabled';
-
-      return '<div data-slot-id="' + esc(String(s.id)) + '"'
-        + ' class="flex items-center justify-between py-2 border-b border-secondary/20 last:border-0">'
-        + '<div class="flex items-center gap-2">'
-        + '<span class="font-semibold text-sm text-text-main">' + esc(s.time) + '</span>'
-        + '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + badgeCls + '">' + badgeLabel + '</span>'
-        + '</div>'
-        + '<div class="flex items-center gap-1">'
-        + '<button data-action-btn data-action="toggle-diary-slot"'
-        + ' data-slot-id="' + esc(String(s.id)) + '" data-slot-status="' + esc(s.status) + '"'
-        + disAttr
-        + ' class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">'
-        + toggleIcon + '</button>'
-        + '<button data-action-btn data-action="delete-diary-slot"'
-        + ' data-slot-id="' + esc(String(s.id)) + '"'
-        + disAttr
-        + ' class="text-base p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">🗑</button>'
-        + '</div>'
-        + '</div>';
-    }).join('');
-
-    return '<div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4 card-in">'
-      + '<div class="text-xs font-bold text-text-muted mb-2">' + dayName + ', ' + heDate + '</div>'
-      + rows
-      + '</div>';
-  }).join('');
-
-  container.innerHTML = html;
-
-  container.querySelectorAll('[data-action="toggle-diary-slot"]').forEach(btn =>
-    btn.addEventListener('click', () => onToggle(+btn.dataset.slotId, btn.dataset.slotStatus)));
-  container.querySelectorAll('[data-action="delete-diary-slot"]').forEach(btn =>
-    btn.addEventListener('click', () => onDelete(+btn.dataset.slotId)));
+    const [y, mo, da] = date.split('-');
+    const heDate  = da + '/' + mo + '/' + y;
+    return html`
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4 card-in">
+        <div class="text-xs font-bold text-text-muted mb-2">${dayName}, ${heDate}</div>
+        ${byDate[date].map(s => {
+          const canAct     = s.status !== 'booked' && s.status !== 'pending';
+          const toggleIcon = s.status === 'locked' ? '🔓' : '🔒';
+          const badgeCls   = SB_STATUS_CLS[s.status]   || 'bg-gray-100 text-gray-500';
+          const badgeLabel = SB_STATUS_LABEL[s.status] || s.status;
+          return html`
+            <div data-slot-id=${String(s.id)}
+                 class="flex items-center justify-between py-2 border-b border-secondary/20 last:border-0">
+              <div class="flex items-center gap-2">
+                <span class="font-semibold text-sm text-text-main">${s.time}</span>
+                <span data-status-badge
+                      class="text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeCls}">${badgeLabel}</span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button data-action-btn
+                        data-action="toggle-diary-slot"
+                        data-slot-id=${String(s.id)}
+                        data-slot-status=${s.status}
+                        ?disabled=${!canAct}
+                        @click=${() => onToggle(+s.id, s.status)}
+                        class="text-lg p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">${toggleIcon}</button>
+                <button data-action-btn
+                        data-action="delete-diary-slot"
+                        data-slot-id=${String(s.id)}
+                        ?disabled=${!canAct}
+                        @click=${() => onDelete(+s.id)}
+                        class="text-base p-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed">🗑</button>
+              </div>
+            </div>`;
+        })}
+      </div>`;
+  })}`, container);
 }
 
 // ─── renderClientList ─────────────────────────────────────────────────────────
@@ -279,69 +277,70 @@ export function renderDiarySlots(slots, container, { onToggle, onDelete }) {
 
 export function renderClientList(clients, container, { onSelect, stats, onSms } = {}) {
   if (!container) return;
+  delete container._$litPart$; container.textContent = '';
   if (!clients || !clients.length) {
-    container.innerHTML = '<div class="text-center py-14 text-text-muted">'
-      + '<div class="text-3xl mb-2">🔍</div>'
-      + '<div class="text-sm">לא נמצאו לקוחות</div>'
-      + '</div>';
+    render(html`
+      <div class="text-center py-14 text-text-muted">
+        <div class="text-3xl mb-2">🔍</div>
+        <div class="text-sm">לא נמצאו לקוחות</div>
+      </div>`, container);
     return;
   }
 
   const byPhone = stats || {};
 
-  container.innerHTML = clients.map(c => {
+  render(html`${clients.map(c => {
     const st      = byPhone[c.phone] || {};
     const dialNum = String(c.phone || '').replace(/[^\d+]/g, '');
     const waNum   = dialNum.replace(/^\+/, '');
+    const chip    = 'text-[10px] font-bold px-2 py-0.5 rounded-full';
+    const chips   = [
+      st.visits    && html`<span class="${chip} bg-green-100 text-green-700">${st.visits}${st.visits === 1 ? ' ביקור' : ' ביקורים'}</span>`,
+      st.upcoming  && html`<span class="${chip} bg-rose-100 text-rose-600">${st.upcoming} קרובות</span>`,
+      st.cancelled && html`<span class="${chip} bg-gray-100 text-gray-500">${st.cancelled} בוטלו</span>`,
+      st.lastVisit && html`<span class="${chip} bg-secondary/30 text-text-muted">אחרון ${st.lastVisit}</span>`,
+    ].filter(Boolean);
 
-    const chip = 'text-[10px] font-bold px-2 py-0.5 rounded-full';
-    const chips = [];
-    if (st.visits)    chips.push('<span class="' + chip + ' bg-green-100 text-green-700">' + st.visits + (st.visits === 1 ? ' ביקור' : ' ביקורים') + '</span>');
-    if (st.upcoming)  chips.push('<span class="' + chip + ' bg-rose-100 text-rose-600">' + st.upcoming + ' קרובות</span>');
-    if (st.cancelled) chips.push('<span class="' + chip + ' bg-gray-100 text-gray-500">' + st.cancelled + ' בוטלו</span>');
-    if (st.lastVisit) chips.push('<span class="' + chip + ' bg-secondary/30 text-text-muted">אחרון ' + esc(st.lastVisit) + '</span>');
-    const chipsHtml = chips.length ? '<div class="flex flex-wrap gap-1.5 mt-2.5">' + chips.join('') + '</div>' : '';
-
-    const callBtn = '<a href="tel:' + esc(dialNum) + '" data-contact title="חייגי"'
-      + ' class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
-      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
-      + ' d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.7 21 3 14.3 3 6V5z"/>'
-      + '</svg></a>';
-    const waBtn = '<a href="https://wa.me/' + esc(waNum) + '" target="_blank" rel="noopener" data-contact title="וואטסאפ"'
-      + ' class="p-2 rounded-lg text-green-500 hover:text-green-600 hover:bg-cream active:scale-95 transition-all">'
-      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
-      + ' d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.42-4.03 8-9 8a9.9 9.9 0 01-4.26-.95L3 20l1.4-3.72A7.9 7.9 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"/>'
-      + '</svg></a>';
-    const smsBtn = '<button type="button" data-contact data-client-sms data-phone="' + esc(c.phone) + '" title="שלח SMS"'
-      + ' class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
-      + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
-      + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
-      + ' d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>'
-      + '</svg></button>';
-
-    return '<div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-soft card-in'
-      + ' cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]"'
-      + ' data-action="select-client" data-phone="' + esc(c.phone) + '">'
-      + '<div class="flex items-center justify-between gap-2">'
-      + '<div class="min-w-0">'
-      + '<div class="font-black text-[15px] text-text-main truncate">' + esc(c.full_name || '(ללא שם)') + '</div>'
-      + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(c.phone)) + '</div>'
-      + '</div>'
-      + '<div class="flex items-center gap-0.5 shrink-0">' + smsBtn + callBtn + waBtn + '</div>'
-      + '</div>'
-      + chipsHtml
-      + '</div>';
-  }).join('');
-
-  container.querySelectorAll('[data-action="select-client"]').forEach(card =>
-    card.addEventListener('click', () => onSelect(card.dataset.phone)));
-  // Contact links must not bubble up and open the history panel.
-  container.querySelectorAll('[data-contact]').forEach(a =>
-    a.addEventListener('click', e => e.stopPropagation()));
-  container.querySelectorAll('[data-client-sms]').forEach(b =>
-    b.addEventListener('click', () => onSms && onSms(b.dataset.phone, '')));
+    return html`
+      <div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-soft card-in cursor-pointer hover:border-primary/40 transition-colors active:scale-[0.99]"
+           data-action="select-client"
+           data-phone=${c.phone}
+           @click=${() => onSelect(c.phone)}>
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="font-black text-[15px] text-text-main truncate">${c.full_name || '(ללא שם)'}</div>
+            <div class="text-xs text-text-muted mt-0.5">${fmtPhone(c.phone)}</div>
+          </div>
+          <div class="flex items-center gap-0.5 shrink-0">
+            <button type="button" data-contact title="שלח SMS"
+                    @click=${e => { e.stopPropagation(); onSms && onSms(c.phone, ''); }}
+                    class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+              </svg>
+            </button>
+            <a href=${'tel:' + dialNum} data-contact title="חייגי"
+               @click=${e => e.stopPropagation()}
+               class="p-2 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.7 21 3 14.3 3 6V5z"/>
+              </svg>
+            </a>
+            <a href=${'https://wa.me/' + waNum} target="_blank" rel="noopener" data-contact title="וואטסאפ"
+               @click=${e => e.stopPropagation()}
+               class="p-2 rounded-lg text-green-500 hover:text-green-600 hover:bg-cream active:scale-95 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.42-4.03 8-9 8a9.9 9.9 0 01-4.26-.95L3 20l1.4-3.72A7.9 7.9 0 013 12c0-4.42 4.03-8 9-8s9 3.58 9 8z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+        ${chips.length ? html`<div class="flex flex-wrap gap-1.5 mt-2.5">${chips}</div>` : nothing}
+      </div>`;
+  })}`, container);
 }
 
 // ─── renderClientHistory ──────────────────────────────────────────────────────
@@ -350,13 +349,14 @@ export function renderClientList(clients, container, { onSelect, stats, onSms } 
 
 export function renderClientHistory(appointments, container, { onDecision }) {
   if (!container) return;
+  delete container._$litPart$; container.textContent = '';
   if (!appointments || !appointments.length) {
-    container.innerHTML = '<div class="text-xs text-text-muted text-center py-8">אין הזמנות קודמות</div>';
+    render(html`<div class="text-xs text-text-muted text-center py-8">אין הזמנות קודמות</div>`, container);
     return;
   }
 
-  container.innerHTML = appointments.map(a => {
-    const statusLabel = LABELS[a.status]    || esc(a.status);
+  render(html`${appointments.map(a => {
+    const statusLabel = LABELS[a.status]     || a.status;
     const statusCls   = STATUS_CLS[a.status] || 'bg-gray-100 text-gray-400';
     const dateParts   = a.date ? a.date.split('-') : [];
     const heDate      = dateParts.length === 3
@@ -364,38 +364,39 @@ export function renderClientHistory(appointments, container, { onDecision }) {
       : '—';
     const isPending   = a.status === 'pending' || a.status === 'Pending';
 
-    const actionBtns = isPending
-      ? '<div class="flex gap-2 mt-2">'
-        + '<button data-action-btn data-action="history-decide"'
-        + ' data-appt-id="' + esc(a.id) + '"'
-        + ' data-admin-token="' + esc(a.admin_token) + '"'
-        + ' data-decision="Approved"'
-        + ' class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">'
-        + '✅ אשר</button>'
-        + '<button data-action-btn data-action="history-decide"'
-        + ' data-appt-id="' + esc(a.id) + '"'
-        + ' data-admin-token="' + esc(a.admin_token) + '"'
-        + ' data-decision="Rejected"'
-        + ' class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">'
-        + '❌ דחה</button>'
-        + '</div>'
-      : '';
-
-    return '<div data-appt-row class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in">'
-      + '<div class="flex items-start justify-between mb-1">'
-      + '<div>'
-      + '<div class="font-bold text-sm text-text-main">' + esc(heDate) + ' בשעה ' + esc(a.time || '—') + '</div>'
-      + '<div class="text-xs text-text-muted mt-0.5">' + esc(a.treatment_name || '') + '</div>'
-      + '</div>'
-      + '<span data-status-badge class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ' + statusCls + '">' + statusLabel + '</span>'
-      + '</div>'
-      + actionBtns
-      + '</div>';
-  }).join('');
-
-  container.querySelectorAll('[data-action="history-decide"]').forEach(btn =>
-    btn.addEventListener('click', () =>
-      onDecision(btn.dataset.apptId, btn.dataset.adminToken, btn.dataset.decision)));
+    return html`
+      <div data-appt-row class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm card-in">
+        <div class="flex items-start justify-between mb-1">
+          <div>
+            <div class="font-bold text-sm text-text-main">${heDate} בשעה ${a.time || '—'}</div>
+            <div class="text-xs text-text-muted mt-0.5">${a.treatment_name || ''}</div>
+          </div>
+          <span data-status-badge
+                class="text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusCls}">${statusLabel}</span>
+        </div>
+        ${isPending ? html`
+          <div class="flex gap-2 mt-2">
+            <button data-action-btn
+                    data-action="history-decide"
+                    data-appt-id=${a.id}
+                    data-admin-token=${a.admin_token}
+                    data-decision="Approved"
+                    @click=${() => onDecision(a.id, a.admin_token, 'Approved')}
+                    class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">
+              ✅ אשר
+            </button>
+            <button data-action-btn
+                    data-action="history-decide"
+                    data-appt-id=${a.id}
+                    data-admin-token=${a.admin_token}
+                    data-decision="Rejected"
+                    @click=${() => onDecision(a.id, a.admin_token, 'Rejected')}
+                    class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60">
+              ❌ דחה
+            </button>
+          </div>` : nothing}
+      </div>`;
+  })}`, container);
 }
 
 // ─── renderSmsLog ─────────────────────────────────────────────────────────────
@@ -403,39 +404,44 @@ export function renderClientHistory(appointments, container, { onDecision }) {
 
 export function renderSmsLog(entries, container) {
   if (!container) return;
+  delete container._$litPart$; container.textContent = '';
   if (!entries || !entries.length) {
-    container.innerHTML = '<div class="text-center py-12 text-text-muted">'
-      + '<div class="text-4xl mb-2">📭</div>'
-      + '<div class="text-sm font-medium">אין רשומות</div>'
-      + '<div class="text-xs mt-1">נסי לשנות את הסינון</div>'
-      + '</div>';
+    render(html`
+      <div class="text-center py-12 text-text-muted">
+        <div class="text-4xl mb-2">📭</div>
+        <div class="text-sm font-medium">אין רשומות</div>
+        <div class="text-xs mt-1">נסי לשנות את הסינון</div>
+      </div>`, container);
     return;
   }
-  container.innerHTML = entries.map(e => {
-    const icon = e.status === 'SENT'    ? '✅'
-               : e.status === 'MOCK'    ? '🧪'
-               : e.status === 'SKIPPED' ? '⏭️'
-               : '❌';
-    const statusText = SMS_STATUS_TEXT[e.status]  || esc(e.status);
-    const statusCls  = SMS_STATUS_CHIP[e.status]  || 'bg-gray-100 text-gray-500';
-    const ctxLabel   = SMS_CONTEXT_LABEL[e.context] || esc(e.context || 'אחר');
-    return '<div class="flex items-start gap-3 py-3 border-b border-secondary/15 last:border-0 cursor-pointer hover:bg-cream/60 rounded-lg px-1 -mx-1 transition-colors" data-qa="log-entry" data-phone="' + esc(e.to) + '">'
-      + '<span class="shrink-0 mt-0.5 text-base">' + icon + '</span>'
-      + '<div class="flex-1 min-w-0">'
-      + '<div class="flex items-center justify-between gap-2 mb-1">'
-      + '<span class="text-xs font-bold text-text-main truncate">' + esc(fmtPhone(e.to)) + '</span>'
-      + '<span class="text-[10px] text-text-muted shrink-0">' + esc(e.ts) + '</span>'
-      + '</div>'
-      + '<div class="flex items-center gap-1.5 mb-1 flex-wrap">'
-      + '<span class="text-[10px] font-bold px-2 py-0.5 rounded-full ' + statusCls + '">' + statusText + '</span>'
-      + '<span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/30 text-text-muted">' + ctxLabel + '</span>'
-      + '</div>'
-      + '<div class="text-xs text-text-muted truncate">' + esc(e.snippet) + '</div>'
-      // For failures, surface the reason (e.g. the Twilio error) so the admin
-      // can see WHY a client was not notified, not just that it failed.
-      + (e.status === 'ERROR' && e.detail
-          ? '<div class="text-[11px] text-red-500 mt-1 break-words" data-qa="log-detail">' + esc(e.detail) + '</div>'
-          : '')
-      + '</div></div>';
-  }).join('');
+
+  render(html`${entries.map(e => {
+    const icon       = e.status === 'SENT'    ? '✅'
+                     : e.status === 'MOCK'    ? '🧪'
+                     : e.status === 'SKIPPED' ? '⏭️'
+                     : '❌';
+    const statusText = SMS_STATUS_TEXT[e.status]    || e.status;
+    const statusCls  = SMS_STATUS_CHIP[e.status]    || 'bg-gray-100 text-gray-500';
+    const ctxLabel   = SMS_CONTEXT_LABEL[e.context] || e.context || 'אחר';
+    return html`
+      <div class="flex items-start gap-3 py-3 border-b border-secondary/15 last:border-0 cursor-pointer hover:bg-cream/60 rounded-lg px-1 -mx-1 transition-colors"
+           data-qa="log-entry"
+           data-phone=${e.to}>
+        <span class="shrink-0 mt-0.5 text-base">${icon}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-1">
+            <span class="text-xs font-bold text-text-main truncate">${fmtPhone(e.to)}</span>
+            <span class="text-[10px] text-text-muted shrink-0">${e.ts}</span>
+          </div>
+          <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${statusCls}">${statusText}</span>
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/30 text-text-muted">${ctxLabel}</span>
+          </div>
+          <div class="text-xs text-text-muted truncate">${e.snippet}</div>
+          ${e.status === 'ERROR' && e.detail
+            ? html`<div class="text-[11px] text-red-500 mt-1 break-words" data-qa="log-detail">${e.detail}</div>`
+            : nothing}
+        </div>
+      </div>`;
+  })}`, container);
 }
