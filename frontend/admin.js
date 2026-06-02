@@ -27,6 +27,34 @@ function persistHidden() {
   try { localStorage.setItem(LS_HIDDEN, JSON.stringify([...S.hidden])); } catch (_) {}
 }
 
+/**
+ * @typedef {{
+ *   token: string,
+ *   bookings: Booking[],
+ *   hidden: Set<string>,
+ *   filter: 'all'|'pending'|'approved'|'rejected'|'cancelled',
+ *   bookSearch: string,
+ *   clientSort: string,
+ *   clientFilter: string,
+ *   dateJump: string,
+ *   tab: string,
+ *   autoBlock: { enabled: boolean, time: number },
+ *   autoSms: boolean,
+ *   _smsSendTarget: string|null,
+ *   smsEntries: object[],
+ *   smsFilter: object,
+ *   diarySlots: Slot[],
+ *   clients: object[],
+ *   clientHistory: object|null,
+ *   clientSearch: string,
+ *   _clientSearchTimer: number|null,
+ *   calData: Record<string, CalEntry>,
+ *   calMonth: Date,
+ *   slotCache: Record<string, Slot[]>
+ * }} AdminState
+ */
+
+/** @type {AdminState} */
 const S = {
   token:          localStorage.getItem(LS_TOKEN) || '',
   bookings: [],

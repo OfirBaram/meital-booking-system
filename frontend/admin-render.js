@@ -2,6 +2,48 @@
 
 import { html, render, nothing } from 'lit-html';
 
+// ─── Core domain types ────────────────────────────────────────────────────────
+
+/**
+ * @typedef {'available' | 'blocked' | 'booked' | 'pending'} SlotStatus
+ * Supabase slot status — always lowercase.
+ * Never compare against 'Available' (capital A) — that breaks the calendar tint.
+ */
+
+/**
+ * @typedef {'Pending' | 'Approved' | 'Rejected' | 'Cancelled'} BookingStatus
+ * Booking status — always Title Case (capital first letter).
+ * Slot statuses are lowercase; booking statuses are not. Mixing them silently
+ * breaks status badges and calendar tints.
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   name: string,
+ *   phone: string,
+ *   service: string,
+ *   serviceName: string,
+ *   date: string,
+ *   time: string,
+ *   timestamp: string,
+ *   duration: number,
+ *   status: BookingStatus,
+ *   calendarEventId?: string,
+ *   adminToken?: string
+ * }} Booking
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   date: string,
+ *   start_time: string,
+ *   end_time: string,
+ *   status: SlotStatus
+ * }} Slot
+ */
+
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
 export const DAY_NAMES_HE   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
