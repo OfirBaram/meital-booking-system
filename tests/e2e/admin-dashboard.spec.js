@@ -17,11 +17,12 @@
  * Rule: ALL selectors use [data-qa="..."] where available; fall back to
  *       element IDs only for elements the admin.html spec guarantees.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
 const GAS_GLOB    = 'https://script.google.com/macros/s/**'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN  = 'test-admin-token-32chars-exactly'
 
 /** Minimal booking list response that makes login succeed. */
@@ -31,8 +32,14 @@ const MOCK_BOOKINGS = {
     {
       id: 'uuid-1', name: 'לקוחה א', phone: '0501111111',
       service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
-      date: '2099-12-01', time: '10:00', status: 'Approved',
+      date: '2099-12-01', time: '10:00', status: 'Pending',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90,
+    },
+    {
+      id: 'uuid-2', name: 'לקוחה ב', phone: '0502222222',
+      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      date: '2099-12-15', time: '11:00', status: 'Approved',
+      timestamp: '2099-11-15T11:00:00+03:00', duration: 90,
     },
   ],
 }
@@ -53,7 +60,7 @@ const MOCK_CLIENTS = {
  * Wire up GAS route interception for admin.html.
  * All admin actions succeed with minimal stub data.
  */
-async function setupAdminMocks(page, overrides = {}) {
+async function setupAdminMocks(page, overrides = {}, sbOverrides = {}) {
   await page.route(GAS_GLOB, async (route, request) => {
     if (request.method() !== 'POST') return route.continue()
 
@@ -66,14 +73,28 @@ async function setupAdminMocks(page, overrides = {}) {
     if (overrides[body.action]) return overrides[body.action](route, body)
 
     switch (body.action) {
-      case 'listBookings':      return respond(MOCK_BOOKINGS)
-      case 'adminGetSlots':     return respond(MOCK_SLOTS)
-      case 'adminGetClients':   return respond(MOCK_CLIENTS)
-      case 'getSmsLog':         return respond({ success: true, logs: [] })
-      case 'getSystemInfo':     return respond({ success: true, reminderLastRun: null })
-      case 'getTemplate':       return respond({ success: true, template: [] })
-      default:                  return respond({ success: false, error: 'not_mocked' })
+      case 'listBookings':  return respond(MOCK_BOOKINGS)
+      case 'getSystemInfo': return respond({ success: true, reminderLastRun: null })
+      default:              return respond({ success: true })
     }
+  })
+
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    const url = request.url()
+    const path = url.split('/').pop()
+    if (sbOverrides[path]) return sbOverrides[path](route, request)
+    let sbBody = {}
+    try { sbBody = JSON.parse(request.postData()) } catch { /* */ }
+    const action = sbBody.action || ''
+    if (overrides[action]) return overrides[action](route, sbBody)
+    const respond = (data) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(data) })
+    if (url.endsWith('/list-bookings'))  return respond(MOCK_BOOKINGS)
+    if (url.endsWith('/change-status'))  return respond({ success: true })
+    if (url.endsWith('/admin-slots'))    return respond(action === 'getSlots' ? MOCK_SLOTS : { success: true })
+    if (url.endsWith('/admin-clients'))  return respond(action === 'getClients' ? MOCK_CLIENTS : { success: true, appointments: [] })
+    if (url.endsWith('/sms-log'))        return respond({ success: true, entries: [] })
+    return respond({ success: true, added: 3 })
   })
 }
 
@@ -94,8 +115,8 @@ test.describe('Admin dashboard — parse & load safety', () => {
     await setupAdminMocks(page)
     await page.goto('/admin.html')
 
-    // Give scripts time to execute
-    await page.waitForLoadState('networkidle')
+    // networkidle flakes when SB local Docker holds long-polls open; wait on the login panel instead.
+    await expect(page.locator('#js-login')).toBeVisible({ timeout: 10_000 })
 
     expect(jsErrors, 'JS errors on load: ' + jsErrors.join(' | ')).toHaveLength(0)
   })
@@ -127,9 +148,35 @@ test.describe('Admin dashboard — login flow', () => {
     await expect(page.locator('#js-dash')).toBeVisible()
   })
 
+  test('backend HTTP 500 on list-bookings shows login error — not a crash', async ({ page }) => {
+    // Regression: bookings_view was dropped from the live DB (migration tracked but view missing),
+    // causing every list-bookings call to throw "relation not found" → HTTP 500, even when the
+    // password is correct. This test catches that class of failure: correct password + backend 500
+    // must show the login error row, not a white screen or JS crash.
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    await setupAdminMocks(page, {}, {
+      'list-bookings': (route) => route.fulfill({
+        status:      500,
+        contentType: 'application/json',
+        body:        JSON.stringify({ success: false, error: 'internal_error' }),
+      }),
+    })
+    await page.goto('/admin.html')
+    await page.locator('#js-token-input').fill(FAKE_TOKEN)
+    await page.locator('#js-login-btn').click()
+
+    await expect(page.locator('#js-login-err')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-dash')).toBeHidden()
+    await expect(page.locator('#js-crash-banner')).toBeHidden()
+    expect(jsErrors, 'JS errors on 500: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+
   test('failed login (unauthorized) shows error message and stays on login', async ({ page }) => {
-    await setupAdminMocks(page, {
-      listBookings: (route) => route.fulfill({
+    // login() now calls SB list-bookings, not GAS listBookings — override the SB route
+    await setupAdminMocks(page, {}, {
+      'list-bookings': (route) => route.fulfill({
         status:      200,
         contentType: 'application/json',
         body:        JSON.stringify({ success: false, error: 'unauthorized' }),
@@ -153,8 +200,8 @@ test.describe('Admin dashboard — nav tabs', () => {
     await doLogin(page)
   })
 
-  test('all 5 nav tabs are present', async ({ page }) => {
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+  test('all 5 nav tabs are present (slots removed)', async ({ page }) => {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       await expect(
         page.locator('[data-qa="nav-tab-' + tab + '"]'),
         'nav tab "' + tab + '" missing',
@@ -166,7 +213,7 @@ test.describe('Admin dashboard — nav tabs', () => {
     const jsErrors = []
     page.on('pageerror', err => jsErrors.push(err.message))
 
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       await page.locator('[data-qa="nav-tab-' + tab + '"]').click()
       // Brief settle — let any async init run
       await page.waitForTimeout(300)
@@ -175,11 +222,19 @@ test.describe('Admin dashboard — nav tabs', () => {
     expect(jsErrors, 'JS errors while switching tabs: ' + jsErrors.join(' | ')).toHaveLength(0)
   })
 
-  test('diary tab shows date range picker controls', async ({ page }) => {
+  test('SMS tab shows the SMS center controls', async ({ page }) => {
     await page.locator('[data-qa="nav-tab-diary"]').click()
-    await expect(page.locator('#js-diary-from')).toBeVisible({ timeout: 3_000 })
-    await expect(page.locator('#js-diary-to')).toBeVisible()
-    await expect(page.locator('#js-diary-load')).toBeVisible()
+    await expect(page.locator('#js-sms-search')).toBeVisible({ timeout: 3_000 })
+    await expect(page.locator('.sms-status-pill').first()).toBeVisible()
+    await expect(page.locator('#js-sms-context')).toBeVisible()
+    await expect(page.locator('#js-sms-log')).toBeVisible()
+  })
+
+  test('clients tab shows automation section (reminders + auto-block)', async ({ page }) => {
+    await page.locator('[data-qa="nav-tab-clients"]').click()
+    await expect(page.locator('#js-automation-section')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-reminder-submit')).toBeVisible()
+    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toBeVisible()
   })
 
   test('clients tab shows search input', async ({ page }) => {
@@ -254,7 +309,7 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients: jsonRoute(MOCK_CLIENTS_FULL),
+      getClients: jsonRoute(MOCK_CLIENTS_FULL),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -275,8 +330,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -300,8 +355,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute({ success: false, error: 'client_not_found' }),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute({ success: false, error: 'client_not_found' }),
     })
     await page.goto('/admin.html')
     await doLogin(page)
@@ -323,8 +378,8 @@ test.describe('Admin dashboard — client management', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupAdminMocks(page, {
-      adminGetClients:       jsonRoute(MOCK_CLIENTS_FULL),
-      adminGetClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
+      getClients:       jsonRoute(MOCK_CLIENTS_FULL),
+      getClientHistory: jsonRoute(MOCK_CLIENT_HISTORY),
     })
     await page.goto('/admin.html')
 
@@ -338,7 +393,7 @@ test.describe('Admin dashboard — client management', () => {
     await expect(page.locator('#js-client-history')).toBeVisible({ timeout: 5_000 })
 
     // All 5 nav tabs are still present and switchable afterwards
-    for (const tab of ['bookings', 'pulse', 'slots', 'diary', 'clients']) {
+    for (const tab of ['bookings', 'pulse', 'diary', 'clients']) {
       const navTab = page.locator('[data-qa="nav-tab-' + tab + '"]')
       await expect(navTab, 'nav tab "' + tab + '" missing after client flow').toBeVisible()
       await navTab.click()

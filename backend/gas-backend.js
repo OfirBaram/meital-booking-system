@@ -35,16 +35,17 @@ const CFG = {
 
 function prop(key) {
   if (key === undefined || key === null) {
-    throw new Error(
-      'prop() called with undefined key — a CFG getter is referencing an undefined variable.'
-    );
+    Logger.log('[prop] BAD KEY: value=' + String(key) + ' typeof=' + typeof key);
+    var stack = '';
+    try { stack = new Error().stack || ''; } catch (e) {}
+    Logger.log('[prop] stack: ' + stack);
+    console.error('[prop] BAD KEY value=' + String(key), new Error('prop-bad-key'));
+    return null;
   }
-  const val = PropertiesService.getScriptProperties().getProperty(key);
+  var val = PropertiesService.getScriptProperties().getProperty(key);
   if (!val) {
-    throw new Error(
-      'Missing script property: "' + key + '"' +
-      ' — go to Project Settings → Script Properties and add it.'
-    );
+    Logger.log('[prop] not set: ' + key);
+    return null;
   }
   return val;
 }
@@ -330,8 +331,11 @@ function doPost(e) {
       case 'getTemplate':   return jsonOk(handleGetTemplate(body));
       case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
       case 'generateSlots': return jsonOk(handleGenerateSlots(body));
-      case 'blockDates':    return jsonOk(handleBlockDates(body));
-      case 'sendReminders': return jsonOk(handleSendReminders(body));
+      case 'blockDates':    return jsonOk(IS_SUPABASE_ENABLED ? handleBlockDatesV2(body) : handleBlockDates(body));
+      case 'sendReminders':        return jsonOk(handleSendReminders(body));
+      case 'getAutoBlockConfig':  return jsonOk(handleGetAutoBlockConfig(body));
+      case 'saveAutoBlockConfig': return jsonOk(handleSaveAutoBlockConfig(body));
+      case 'runAutoBlock':        return jsonOk(handleRunAutoBlock(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
       case 'clearSlotsCache': return jsonOk(handleClearSlotsCache(body));
@@ -348,6 +352,7 @@ function doPost(e) {
       case 'adminToggleSlot':       return jsonOk(handleAdminToggleSlotV2(body));
       case 'adminGetClients':       return jsonOk(handleAdminGetClientsV2(body));
       case 'adminGetClientHistory': return jsonOk(handleAdminGetClientHistoryV2(body));
+      case 'adminDebugInspect': return jsonOk(handleAdminDebugInspect(body));
       case '__ping__':     return jsonOk({ success: true, pong: true, ts: new Date().toISOString() });
       case 'runFlowTest': {
         try {
@@ -382,7 +387,9 @@ function doGet(e) {
     if (action === 'getSlots') {
       Logger.log('[doGet] Routing getSlots GET request');
       try {
-        const result = handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
+        const result = IS_SUPABASE_ENABLED
+          ? handleGetSlotsV2({ year: e.parameter.year, month: e.parameter.month })
+          : handleGetSlots({ year: e.parameter.year, month: e.parameter.month, noCache: e.parameter.noCache });
         return ContentService
           .createTextOutput(JSON.stringify(result))
           .setMimeType(ContentService.MimeType.JSON);
@@ -741,20 +748,15 @@ function handleVerifyAndBook(body) {
 
     // ── 6. Write Bookings_Log row ──
     const now = nowISO();
-    logSheet().appendRow([
-      bookingId,
-      booking.name,
-      phone,
-      booking.service,
-      booking.serviceName,
-      booking.date,
-      booking.time,
-      now,
-      booking.duration,
-      'Pending',
-      '',              // CalendarEventId — filled on approval
-      adminToken,
-    ]);
+    var _logSh1 = logSheet();
+    var _logRow1 = _logSh1.getLastRow() + 1;
+    _logSh1.getRange(_logRow1, LOG_COL.DATE, 1, 2).setNumberFormat('@');
+    _logSh1.getRange(_logRow1, 1, 1, 12).setValues([[
+      bookingId, booking.name, phone,
+      booking.service, booking.serviceName,
+      toDateStr(booking.date), toTimeStr(booking.time),
+      now, booking.duration, 'Pending', '', adminToken,
+    ]]);
     SpreadsheetApp.flush();
 
     // ── 7. Send admin SMS with approve / reject links ──
@@ -927,26 +929,45 @@ function processRejection(logSh, row, rowIdx, bookingId) {
 /**
  * Creates a calendar event on approval.
  * Returns the event ID (stored in Bookings_Log for later management).
+ *
+ * Accepts two parameter shapes:
+ *   Legacy (processApproval — Sheets path):
+ *     { date: 'YYYY-MM-DD', time: 'HH:MM', duration: <min>,
+ *       clientName, serviceName, bookingId }
+ *   V2 (handleAdminActionV2 in SupabaseLayer.js):
+ *     { summary, description, startTime: Date, endTime: Date }
+ *
+ * The two shapes existed in parallel without reconciliation —
+ * calling V2 with the legacy destructure produced a silent
+ * TypeError that the surrounding catch swallowed, so approvals
+ * completed but no calendar event was ever created.
  */
-function createCalendarEvent({ date, time, duration, clientName, serviceName, bookingId }) {
+function createCalendarEvent(params) {
   const cal = CalendarApp.getCalendarById(CFG.CAL_ID);
   if (!cal) throw new Error('Calendar not found: ' + CFG.CAL_ID);
 
-  const [year, month, day] = date.split('-').map(Number);
-  const [hour, min]        = time.split(':').map(Number);
+  let start, end, title, description;
 
-  const start = new Date(year, month - 1, day, hour, min, 0);
-  const end   = new Date(start.getTime() + duration * 60 * 1000);
+  if (params.startTime && params.endTime) {
+    // V2 shape — Date objects + pre-built title/description.
+    start       = new Date(params.startTime);
+    end         = new Date(params.endTime);
+    title       = params.summary || 'הזמנה';
+    description = params.description || '';
+  } else {
+    // Legacy shape — construct Date from date+time+duration strings.
+    const [year, month, day] = params.date.split('-').map(Number);
+    const [hour, min]        = params.time.split(':').map(Number);
+    start       = new Date(year, month - 1, day, hour, min, 0);
+    end         = new Date(start.getTime() + params.duration * 60 * 1000);
+    title       = `💅 ${params.serviceName} — ${params.clientName}`;
+    description = `הזמנה #${params.bookingId}\nלקוחה: ${params.clientName}\nשירות: ${params.serviceName}`;
+  }
 
-  const event = cal.createEvent(
-    `💅 ${serviceName} — ${clientName}`,
-    start,
-    end,
-    {
-      description: `הזמנה #${bookingId}\nלקוחה: ${clientName}\nשירות: ${serviceName}`,
-      status: 'confirmed',
-    }
-  );
+  const event = cal.createEvent(title, start, end, {
+    description: description,
+    status:      'confirmed',
+  });
 
   Logger.log('[createCalendarEvent] Created event: ' + event.getId());
   return event.getId();
@@ -1161,6 +1182,32 @@ function generateOTP() {
 }
 
 /** RFC 4122 UUID v4 in GAS (no crypto.randomUUID available) */
+
+// Converts a value that may be a Date object (from getValues()) or a string to HH:mm.
+// getValues() silently converts time-formatted Sheet cells to Date objects;
+// String(dateObj) produces "Sat Dec 30 1899..." which Sheets re-parses as a date.
+function toTimeStr(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'HH:mm');
+  }
+  var s = String(val || '');
+  var m = s.match(/(\d{1,2}:\d{2})/);
+  return m ? m[1] : s;
+}
+
+// Converts a value that may be a Date object or a string to YYYY-MM-DD.
+function toDateStr(val) {
+  if (val instanceof Date) {
+    return Utilities.formatDate(val, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(val || '');
+}
+
+/**
+ * Walks a payload recursively and logs any field whose value is a Date object
+ * or a string containing the 1899-epoch artifacts ('1899' or 'Dec').
+ * Call just before a return statement to verify the outgoing payload is clean.
+ */
 function uuid4() {
   const rand = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0');
   return [
@@ -1453,6 +1500,32 @@ function runBackendTests() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// DEBUG / ADMIN OPERATIONS (read-only deployment fingerprint)
+// ═══════════════════════════════════════════════════════════════
+
+function handleAdminDebugInspect(body) {
+  if (!validateAdmin(body && body.token)) return { success: false, error: "unauthorized" };
+
+  // Probe whether the deployed bundle includes the mirror fix.
+  // Reading the function definition string is safe and bypasses naming concerns.
+  var mirrorHasUpsertSlot = false;
+  try {
+    mirrorHasUpsertSlot = (typeof SheetMirrorService !== "undefined") &&
+                          (typeof SheetMirrorService.upsertSlot === "function");
+  } catch (e) {}
+
+  return {
+    success: true,
+    pong: "debug-inspect-alive",
+    ts: new Date().toISOString(),
+    serverTimeIsrael: Utilities.formatDate(new Date(), "Asia/Jerusalem", "yyyy-MM-dd HH:mm:ss"),
+    isTestMode: (typeof IS_TEST_MODE !== "undefined") ? IS_TEST_MODE : null,
+    isSupabaseEnabled: (typeof IS_SUPABASE_ENABLED !== "undefined") ? IS_SUPABASE_ENABLED : null,
+    mirrorHasUpsertSlot: mirrorHasUpsertSlot
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // QA / TEST UTILITIES
 // ═══════════════════════════════════════════════════════════════
 
@@ -1559,7 +1632,10 @@ function testFullBookingFlow() {
   try {
     // ── Step 1: insert a test slot ────────────────────────────────
     Logger.log('\n[Step 1] Inserting test slot into Weekly_Slots...');
-    slotSh.appendRow([testDate, 'TEST', testTime, testEnd, 'Available']);
+    var _tr1 = slotSh.getLastRow() + 1;
+    var _rng1 = slotSh.getRange(_tr1, 1, 1, 5);
+    _rng1.setNumberFormat('@');
+    _rng1.setValues([[toDateStr(testDate), 'TEST', toTimeStr(testTime), toTimeStr(testEnd), 'Available']]);
     SpreadsheetApp.flush();
     const slot1 = findSlotRow(testDate, testTime);
     assert('1a: slot found in sheet',    slot1 !== null ? 'found' : 'not found', 'found');
@@ -1734,6 +1810,205 @@ function verifyConfig() {
     ? '[verifyConfig] All checks PASSED'
     : '[verifyConfig] FAILED — fix issues above before taking live bookings');
   Logger.log('══════════════ verifyConfig END ══════════════');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ONE-SHOT BACKFILL — created 2026-05-23
+// Fixes calendar_event_id=NULL on appointments approved during the
+// V2 shape-mismatch window. Safe to delete after a verified run.
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * One-shot backfill: create Google Calendar events for any approved
+ * appointment whose calendar_event_id IS NULL.
+ *
+ * Idempotent: each row is patched only if it still has NULL after the
+ * Calendar event is successfully created. Errors per row are logged
+ * and skipped — the script never aborts mid-batch.
+ *
+ * Skips past appointments (start_time < now) by default — they don't
+ * belong in the calendar. Flip SKIP_PAST to false to backfill them too.
+ *
+ * Safe to delete after a successful run is verified.
+ */
+function backfillMissingCalendarEvents() {
+  const SKIP_PAST = true;
+  const report = { found: 0, fixed: 0, skipped: 0, errors: [] };
+
+  const rows = SupabaseService.select('appointments',
+    'status=eq.approved' +
+    '&calendar_event_id=is.null' +
+    '&select=id,client_id,slot_id,treatment_name,duration_min' +
+    '&order=created_at.asc');
+
+  if (!rows) {
+    Logger.log('[backfill] Supabase select failed');
+    return { success: false, error: 'supabase_unavailable' };
+  }
+
+  report.found = rows.length;
+  Logger.log('[backfill] Found ' + rows.length +
+             ' approved appointments with NULL calendar_event_id');
+
+  rows.forEach(function (appt) {
+    try {
+      const clientRows = SupabaseService.select('clients',
+        'id=eq.' + appt.client_id + '&select=phone,full_name');
+      const client = clientRows && clientRows[0];
+      if (!client) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'client_not_found' });
+        return;
+      }
+
+      const slotRows = SupabaseService.select('slots',
+        'id=eq.' + appt.slot_id + '&select=start_time,end_time');
+      const slot = slotRows && slotRows[0];
+      if (!slot) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'slot_not_found' });
+        return;
+      }
+
+      const startDt = new Date(slot.start_time);
+      const endDt   = new Date(slot.end_time);
+
+      if (SKIP_PAST && startDt < new Date()) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'in_past' });
+        return;
+      }
+
+      // Legacy shape — same path processApproval uses (well-tested).
+      const calEventId = CalService.createEvent({
+        date:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'yyyy-MM-dd'),
+        time:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'HH:mm'),
+        duration:    appt.duration_min || 90,
+        clientName:  client.full_name,
+        serviceName: appt.treatment_name,
+        bookingId:   appt.id,
+      });
+
+      if (!calEventId) {
+        report.skipped++;
+        report.errors.push({ id: appt.id, reason: 'no_event_id_returned' });
+        return;
+      }
+
+      // Persist in Supabase.
+      SupabaseService.update('appointments', 'id=eq.' + appt.id, {
+        calendar_event_id: calEventId,
+      });
+
+      // Mirror to Bookings_Log so Sheets stays consistent.
+      SheetMirrorService.upsertBooking({
+        id:                appt.id,
+        client_name:       client.full_name,
+        client_phone:      client.phone,
+        treatment_name:    appt.treatment_name,
+        duration_min:      appt.duration_min,
+        date_label:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'yyyy-MM-dd'),
+        time_label:        Utilities.formatDate(startDt, 'Asia/Jerusalem', 'HH:mm'),
+        status:            'Approved',
+        calendar_event_id: calEventId,
+      });
+
+      report.fixed++;
+      Logger.log('[backfill] Fixed ' + appt.id + ' -> ' + calEventId);
+
+      // Pacing — well under Calendar quota.
+      Utilities.sleep(150);
+    } catch (e) {
+      report.skipped++;
+      report.errors.push({ id: appt.id, reason: e.message });
+      Logger.log('[backfill] FAILED ' + appt.id + ': ' + e.message);
+    }
+  });
+
+  Logger.log('[backfill] DONE: found=' + report.found +
+             ' fixed=' + report.fixed +
+             ' skipped=' + report.skipped);
+  return { success: true, report: report };
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-BLOCK SLOTS — blocks available slots for tomorrow at configured time
+// ═══════════════════════════════════════════════════════════════
+
+function handleGetAutoBlockConfig(body) {
+  var props   = PropertiesService.getScriptProperties();
+  var enabled = props.getProperty('AUTO_BLOCK_ENABLED');
+  var time    = props.getProperty('AUTO_BLOCK_TIME');
+  return {
+    success: true,
+    enabled: (enabled !== 'false'),
+    time:    parseInt(time || '20', 10),
+  };
+}
+
+function handleSaveAutoBlockConfig(body) {
+  var enabled = (body.enabled !== false);
+  var hour    = parseInt(body.time, 10);
+  if (isNaN(hour) || hour < 0 || hour > 23) hour = 20;
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('AUTO_BLOCK_ENABLED', enabled ? 'true' : 'false');
+  props.setProperty('AUTO_BLOCK_TIME', String(hour));
+  _installAutoBlockTrigger(hour, enabled);
+  log('[autoBlock] Config saved: enabled=' + enabled + ', hour=' + hour);
+  return { success: true, enabled: enabled, time: hour };
+}
+
+function handleRunAutoBlock(body) {
+  return autoBlockSlots();
+}
+
+function _installAutoBlockTrigger(hour, enabled) {
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === 'autoBlockSlots'; })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+  if (enabled) {
+    ScriptApp.newTrigger('autoBlockSlots').timeBased().atHour(hour).everyDays(1).create();
+    Logger.log('[autoBlock] Trigger installed at ' + hour + ':00 daily.');
+  } else {
+    Logger.log('[autoBlock] Trigger removed (disabled).');
+  }
+}
+
+/**
+ * GAS time trigger: called at the configured hour each day.
+ * Calls the auto-block-slots edge function to lock tomorrow's available slots.
+ */
+function autoBlockSlots() {
+  var props   = PropertiesService.getScriptProperties();
+  var enabled = (props.getProperty('AUTO_BLOCK_ENABLED') !== 'false');
+  if (!enabled) {
+    log('[autoBlock] Skipped (disabled).');
+    return { success: true, skipped: true, reason: 'disabled' };
+  }
+  var SUPABASE_URL = props.getProperty('SUPABASE_URL');
+  var ANON_KEY     = props.getProperty('SUPABASE_ANON_KEY');
+  var ADMIN_TOKEN  = props.getProperty('ADMIN_TOKEN');
+  if (!SUPABASE_URL || !ANON_KEY || !ADMIN_TOKEN) {
+    log('[autoBlock] Missing SUPABASE_URL / SUPABASE_ANON_KEY / ADMIN_TOKEN');
+    return { success: false, error: 'missing_config' };
+  }
+  try {
+    var resp = UrlFetchApp.fetch(SUPABASE_URL + '/functions/v1/auto-block-slots', {
+      method:             'post',
+      contentType:        'application/json',
+      headers:            { 'Authorization': 'Bearer ' + ANON_KEY },
+      payload:            JSON.stringify({ adminToken: ADMIN_TOKEN }),
+      muteHttpExceptions: true,
+    });
+    var data = JSON.parse(resp.getContentText());
+    if (!data.success) throw new Error(data.error || 'edge_function_error');
+    log('[autoBlock] Blocked ' + data.blocked + ' slots for tomorrow (' + data.date + ').');
+    return { success: true, blocked: data.blocked, date: data.date };
+  } catch (e) {
+    log('[autoBlock] ERROR: ' + e.message);
+    return { success: false, error: e.message };
+  }
 }
 
 function installTriggers() {
@@ -2329,7 +2604,10 @@ function handleCreateBooking(body) {
       var parts    = body.time.split(':').map(Number);
       var endMins  = parts[0] * 60 + parts[1] + durMins;
       var endTime  = ('0' + Math.floor(endMins / 60)).slice(-2) + ':' + ('0' + (endMins % 60)).slice(-2);
-      slotsSheet().appendRow([body.date, dayName, body.time, endTime, 'Available']);
+      var _slotSh = slotsSheet();
+      var _slotRange = _slotSh.getRange(_slotSh.getLastRow() + 1, 1, 1, 5);
+      _slotRange.setNumberFormat('@');
+      _slotRange.setValues([[toDateStr(body.date), String(dayName), toTimeStr(body.time), toTimeStr(endTime), 'Available']]);
       SpreadsheetApp.flush();
       Logger.log('[createBooking] Auto-created slot: ' + body.date + ' ' + body.time + '-' + endTime);
       slotRow = findSlotRow(body.date, body.time);
@@ -2351,12 +2629,15 @@ function handleCreateBooking(body) {
     const adminToken = signAdminToken(bookingId);
     const now        = nowISO();
 
-    logSheet().appendRow([
+    var _logSh2 = logSheet();
+    var _logRow2 = _logSh2.getLastRow() + 1;
+    _logSh2.getRange(_logRow2, LOG_COL.DATE, 1, 2).setNumberFormat('@');
+    _logSh2.getRange(_logRow2, 1, 1, 12).setValues([[
       bookingId, body.name, phone,
       body.service, body.serviceName,
-      body.date, body.time, now, dur,
+      toDateStr(body.date), toTimeStr(body.time), now, dur,
       'Pending', '', adminToken,
-    ]);
+    ]]);
     SpreadsheetApp.flush();
     Logger.log('[createBooking] Row written — id=' + bookingId);
 
@@ -2586,21 +2867,33 @@ function templateSheet() {
 }
 
 function handleGetTemplate(body) {
-  if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
-  var sh   = templateSheet();
-  var data = sh.getDataRange().getValues();
-  var rows = [];
-  for (var r = 1; r < data.length; r++) {
-    var row = data[r];
-    var rawTimes = String(row[2] || '').trim();
-    rows.push({
-      dayOfWeek:  parseInt(row[0], 10),
-      dayName:    String(row[1] || '').trim(),
-      startTimes: rawTimes ? rawTimes.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [],
-      active:     String(row[3] || '').trim().toUpperCase() === 'TRUE',
-    });
+  try {
+    if (!validateAdmin(body.token)) return { success: false, error: 'unauthorized', code: 403 };
+    var sh = templateSheet();
+    // getDisplayValues() returns every cell as its visible string, bypassing Date conversion entirely.
+    // A time-formatted cell that holds 1899-epoch Date shows "09:00" here — exactly what we need.
+    var data = sh.getDataRange().getDisplayValues();
+    var rows = [];
+    for (var r = 1; r < data.length; r++) {
+      var row = data[r];
+      var timesStr = String(row[2] || '').trim();
+      rows.push({
+        dayOfWeek:  parseInt(row[0], 10),
+        dayName:    String(row[1] || '').trim(),
+        startTimes: timesStr
+          ? timesStr.split(',').map(function(t) {
+              var m = t.trim().match(/\d{2}:\d{2}/);
+              return m ? m[0] : null;
+            }).filter(Boolean)
+          : [],
+        active: String(row[3] || '').trim().toUpperCase() === 'TRUE',
+      });
+    }
+    return { success: true, template: rows };
+  } catch (e) {
+    Logger.log('[handleGetTemplate] ERROR: ' + e.message);
+    return { success: false, error: 'internal_error', message: e.message };
   }
-  return { success: true, template: rows };
 }
 
 function handleSaveTemplate(body) {
@@ -2609,13 +2902,17 @@ function handleSaveTemplate(body) {
   var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   var sh = templateSheet();
   sh.clearContents();
-  sh.appendRow(['DayOfWeek', 'DayName', 'StartTimes', 'Active']);
+  // Build all rows including header, then write in one batch with text format on StartTimes (col 3)
+  var allRows = [['DayOfWeek', 'DayName', 'StartTimes', 'Active']];
   for (var i = 0; i < body.template.length; i++) {
     var entry = body.template[i];
     var dow   = parseInt(entry.dayOfWeek, 10);
-    sh.appendRow([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
+    allRows.push([dow, DAY_NAMES[dow] || String(dow), (entry.startTimes || []).join(', '), entry.active ? 'TRUE' : 'FALSE']);
   }
+  sh.getRange(1, 3, allRows.length, 1).setNumberFormat('@');
+  sh.getRange(1, 1, allRows.length, 4).setValues(allRows);
   SpreadsheetApp.flush();
+
   log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'תבנית שעות עודכנה');
   return { success: true };
 }
@@ -2640,7 +2937,8 @@ function handleGenerateSlots(body) {
   var DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   var cur   = new Date(body.startDate + 'T00:00:00');
   var end   = new Date(body.endDate   + 'T00:00:00');
-  var added = 0;
+  var added   = 0;
+  var newRows = [];
   while (cur <= end) {
     var dow     = cur.getDay();
     var dateStr = Utilities.formatDate(cur, TZ, 'yyyy-MM-dd');
@@ -2648,22 +2946,39 @@ function handleGenerateSlots(body) {
     for (var t = 0; t < template.length; t++) {
       if (template[t].dayOfWeek === dow) { tmplRow = template[t]; break; }
     }
+    Logger.log(
+      '[generateSlots] date=%s dow=%s(%s) tmplRow=%s active=%s times=%s',
+      dateStr,
+      dow, typeof dow,
+      tmplRow ? 'found(dow=' + tmplRow.dayOfWeek + ' type=' + typeof tmplRow.dayOfWeek + ')' : 'null',
+      tmplRow ? String(tmplRow.active) : 'n/a',
+      tmplRow ? JSON.stringify(tmplRow.startTimes) : 'n/a'
+    );
     if (tmplRow && tmplRow.active && tmplRow.startTimes.length > 0) {
       for (var s = 0; s < tmplRow.startTimes.length; s++) {
-        var startTime = tmplRow.startTimes[s];
+        var startTime = tmplRow.startTimes[s].trim();
+        if (!startTime || startTime.indexOf(':') === -1) continue;
+        var parts = startTime.split(':').map(Number);
+        if (isNaN(parts[0]) || isNaN(parts[1])) continue;
         if (!existSet[dateStr + '|' + startTime]) {
-          var parts   = startTime.split(':').map(Number);
-          var endHr   = parts[0] + 2;
+          var endHr  = parts[0] + 2;
           if (endHr >= 24) endHr = 23;
-          var endMin  = parts[1];
+          var endMin = parts[1];
           var endTime = (endHr < 10 ? '0' + endHr : String(endHr)) + ':' + (endMin < 10 ? '0' + endMin : String(endMin));
-          slotSh.appendRow([dateStr, DAY_NAMES[dow], startTime, endTime, 'Available']);
+          newRows.push([toDateStr(dateStr), String(DAY_NAMES[dow]), toTimeStr(startTime), toTimeStr(endTime), 'Available']);
           existSet[dateStr + '|' + startTime] = true;
           added++;
         }
       }
     }
     cur.setDate(cur.getDate() + 1);
+  }
+  if (newRows.length > 0) {
+    var firstNewRow = slotSh.getLastRow() + 1;
+    var range = slotSh.getRange(firstNewRow, 1, newRows.length, 5);
+    range.setNumberFormat('@');
+    Logger.log('DEBUG: Writing to sheet. Rows content: ' + JSON.stringify(newRows));
+    range.setValues(newRows);
   }
   SpreadsheetApp.flush();
   log(LOG_LEVEL.SUCCESS, ACTION.BACKUP, 'נוצרו ' + added + ' חריצי זמן (' + body.startDate + ' – ' + body.endDate + ')');
@@ -2812,7 +3127,10 @@ function runFullFlowTest() {
 
   try {
     // -- Step 1: seed an Available slot --
-    slotSh.appendRow([testDate, 'TEST', testTime, '09:00', 'Available']);
+    var _tr2 = slotSh.getLastRow() + 1;
+    var _rng2 = slotSh.getRange(_tr2, 1, 1, 5);
+    _rng2.setNumberFormat('@');
+    _rng2.setValues([[toDateStr(testDate), 'TEST', toTimeStr(testTime), toTimeStr('09:00'), 'Available']]);
     SpreadsheetApp.flush();
     step('1. Test slot seeded (Available)', findSlotRow(testDate, testTime) !== null,
          testDate + ' ' + testTime);

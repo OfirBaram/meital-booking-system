@@ -10,12 +10,15 @@
  *
  * Rule: ALL selectors MUST use [data-qa="..."] — never CSS class or ID selectors.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../support/test-base.js'
 
 // ─── Mock infrastructure ──────────────────────────────────────────────────────
 
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const TEST_GAS_URL = 'https://script.google.com/macros/s/TEST_MOCK_ID/exec'
+
+const SB_FUNC_GLOB = 'https://supabase.test.mock/functions/v1/**'
+const TEST_SB_URL  = 'https://supabase.test.mock'
 
 function makeMockSlots(year, month) {
   const slots = {}
@@ -36,14 +39,12 @@ async function setupMocks(page, overrides = {}) {
     route.fulfill({
       status:      200,
       contentType: 'application/javascript',
-      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", VERSION: "2.0.0", IS_MOCK_MODE: false };\nexport default APP_CONFIG;\n`,
+      body: `const APP_CONFIG = { API_URL: "${TEST_GAS_URL}", SUPABASE_URL: "${TEST_SB_URL}", SUPABASE_ANON_KEY: "test-anon-key", VERSION: "2.0.0", IS_MOCK_MODE: false };\nexport default APP_CONFIG;\n`,
     })
   )
 
   await page.route(GAS_GLOB, async (route, request) => {
-    const method = request.method()
-
-    if (method === 'GET') {
+    if (request.method() === 'GET') {
       const url   = new URL(request.url())
       const year  = parseInt(url.searchParams.get('year'),  10)
       const month = parseInt(url.searchParams.get('month'), 10)
@@ -53,24 +54,33 @@ async function setupMocks(page, overrides = {}) {
         body:        JSON.stringify(makeMockSlots(year, month)),
       })
     }
-
-    if (method === 'POST') {
-      let body = {}
-      try { body = JSON.parse(request.postData()) } catch { /* ignore */ }
-
-      if (body.action === 'sendOTP' && overrides.sendOTP)
-        return overrides.sendOTP(route)
-      if (body.action === 'verifyAndBook' && overrides.verifyAndBook)
-        return overrides.verifyAndBook(route)
-
-      if (body.action === 'sendOTP')
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
-      if (body.action === 'verifyAndBook')
-        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, bookingId: 'test-uuid', status: 'Pending' }) })
-
-      return route.fulfill({ status: 400, body: '{}' })
-    }
     return route.continue()
+  })
+
+  await page.route(SB_FUNC_GLOB, async (route, request) => {
+    // Strip query params before comparing — get-slots has ?year=&month=
+    const path = new URL(request.url()).pathname.split('/').pop()
+
+    if (path === 'get-slots') {
+      const u     = new URL(request.url())
+      const year  = parseInt(u.searchParams.get('year'),  10)
+      const month = parseInt(u.searchParams.get('month'), 10)
+      return route.fulfill({
+        status:      200,
+        contentType: 'application/json',
+        body:        JSON.stringify(makeMockSlots(year, month)),
+      })
+    }
+
+    if (path === 'send-otp' && overrides.sendOTP) return overrides.sendOTP(route)
+    if (path === 'verify-and-book' && overrides.verifyAndBook) return overrides.verifyAndBook(route)
+
+    if (path === 'send-otp')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+    if (path === 'verify-and-book')
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, bookingId: 'test-uuid', status: 'Pending' }) })
+
+    return route.fulfill({ status: 400, body: '{}' })
   })
 }
 
@@ -102,10 +112,18 @@ async function goToStep4(page) {
 }
 
 async function fillOTP(page, code) {
-  const inputs = page.locator('[data-qa="otp-digit"]')
-  for (let i = 0; i < code.length; i++) {
-    await inputs.nth(i).fill(code[i])
-  }
+  // booking.js renderOTPInputs() schedules setTimeout(focus(0), 300) which races
+  // with sequential .nth(i).fill() in Chromium; dispatching the input events from
+  // page context is synchronous and immune to the focus race.
+  await page.evaluate((digits) => {
+    const inputs = document.querySelectorAll('[data-qa="otp-digit"]')
+    for (let i = 0; i < digits.length; i++) {
+      const inp = inputs[i]
+      if (!inp) return
+      inp.value = digits[i]
+      inp.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  }, code)
 }
 
 // ─── 1. Input sanitization ────────────────────────────────────────────────────
@@ -339,14 +357,18 @@ test.describe('data-qa structural smoke — every functional element is reachabl
     await expect(page.locator('[data-qa="btn-otp-resend"]')).toBeVisible()
   })
 
-  test('step 5: confirmation rows and book-again button', async ({ page }) => {
+  test('step 5: confirmation rows + WhatsApp CTA, no book-again button', async ({ page }) => {
     await goToStep4(page)
     await fillOTP(page, '246810')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
     await expect(page.locator('[data-qa="confirm-details"]')).toBeVisible()
     await expect(page.locator('[data-qa="confirm-id"]')).toBeVisible()
     await expect(page.locator('[data-qa="confirm-row"]').first()).toBeVisible()
-    await expect(page.locator('[data-qa="btn-book-again"]')).toBeVisible()
+    // The "book another" button was replaced by a WhatsApp-to-Meital CTA.
+    await expect(page.locator('[data-qa="btn-book-again"]')).toHaveCount(0)
+    const wa = page.locator('[data-qa="btn-whatsapp"]')
+    await expect(wa).toBeVisible()
+    await expect(wa).toHaveAttribute('href', /wa\.me|api\.whatsapp\.com\/send/)
   })
 
   test('footer: privacy and accessibility modal triggers', async ({ page }) => {

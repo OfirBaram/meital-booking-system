@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/webp" href="./meital_profile_header.webp">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#FAF5F0">
+  <meta name="theme-color" content="#FBF6F1">
+  <link rel="manifest" href="./manifest.json">
   <title>לוח הבקרה — מיטל שבע ברעם</title>
 
   <!-- Graceful degradation: catch any JS load/parse error before a white screen -->
@@ -34,35 +35,51 @@
     };
   </script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary:      '#A67C8E',
-            'primary-dk': '#8B6175',
-            'primary-lt': '#C4A0B0',
-            secondary:    '#DDC3A5',
-            cream:        '#FAF5F0',
-            'text-main':  '#4A2E3A',
-            'text-muted': '#9B8090',
-          },
-          fontFamily: { heebo: ['Heebo', 'sans-serif'] },
-        },
-      },
-    };
+  <script type="importmap">
+  { "imports": { "lit-html": "https://esm.sh/lit-html@3" } }
   </script>
+
+  <link rel="stylesheet" href="./styles/tailwind.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
 
   <style>
     * { -webkit-tap-highlight-color: transparent; }
-    body { font-family: 'Heebo', sans-serif; background-color: #FAF5F0; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
+    body { font-family: 'Heebo', sans-serif; background-color: #FBF6F1; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-track { background: #FAF5F0; }
-    ::-webkit-scrollbar-thumb { background: #DDC3A5; border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: #FBF6F1; }
+    ::-webkit-scrollbar-thumb { background: #E2C9AE; border-radius: 2px; }
+
+    /* Warm-friendly cards: soften every existing shadow-sm card in one place
+       so the whole console reads gentler without touching each element. */
+    .shadow-sm { box-shadow: 0 2px 14px -6px rgba(74,46,58,0.12), 0 1px 4px -2px rgba(74,46,58,0.06) !important; }
+
+    /* ── Premium boutique layer ───────────────────────────────────────────
+       Airy rhythm, soft oversized cards, calm rose accents, elegant titles.
+       Scoped to #js-dash so the login screen is untouched. */
+    #js-dash main { padding-top: 0.75rem; }
+    /* Larger, softer white cards everywhere (rounded-2xl is the shared pattern) */
+    #js-dash .bg-white.rounded-2xl { border-radius: 1.4rem; }
+    #js-dash .shadow-sm,
+    #js-dash .shadow-soft {
+      box-shadow: 0 10px 30px -16px rgba(74,46,58,0.24), 0 2px 8px -4px rgba(74,46,58,0.05) !important;
+    }
+    /* Section headers: Hebrew dislikes letter-spacing — drop the uppercase
+       tracking and give a calm, slightly larger label with a small rose tick. */
+    #js-dash .uppercase.tracking-widest {
+      text-transform: none !important; letter-spacing: 0 !important;
+      font-size: 0.82rem !important; color: #7A6470 !important; font-weight: 800 !important;
+      display: inline-flex; align-items: center; gap: 0.45rem;
+    }
+    #js-dash .uppercase.tracking-widest::before {
+      content: ''; width: 14px; height: 2px; border-radius: 2px;
+      background: linear-gradient(90deg, #A67C8E, #C4A0B0); display: inline-block;
+    }
+    /* Page <h2> titles — larger, elegant */
+    #js-dash main > h2 { font-size: 1.15rem; font-weight: 900; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
+    /* Slightly more breathing room between stacked cards */
+    #js-dash main > .space-y-3 > * + * { margin-top: 0.85rem; }
 
     @keyframes cardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
     .card-in { animation: cardIn 0.2s ease both; }
@@ -283,12 +300,12 @@
     <header class="bg-white border-b border-secondary/30 sticky top-0 z-40">
       <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-primary-lt flex items-center justify-center shrink-0">
-            <span class="text-white font-black text-sm leading-none">מ</span>
+          <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary to-primary-lt flex items-center justify-center shrink-0 shadow-sm">
+            <span class="text-white font-black text-lg leading-none">מ</span>
           </div>
           <div class="leading-tight">
-            <div class="text-sm font-bold text-text-main">לוח הבקרה</div>
-            <div class="text-xs text-text-muted">מיטל שבע ברעם</div>
+            <div class="text-[15px] font-black text-text-main">שלום מיטל 👋</div>
+            <div id="js-header-sub" class="text-xs text-text-muted">לוח הבקרה</div>
           </div>
         </div>
         <div class="flex items-center gap-1">
@@ -298,14 +315,6 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
             </svg>
-          </button>
-          <!-- Auto-SMS master toggle -->
-          <button id="js-auto-sms-btn" data-qa="toggle-auto-sms" title="שליחת SMS אוטומטית"
-            class="flex items-center gap-1 p-2 rounded-xl transition-all hover:bg-cream active:scale-95">
-            <span class="text-[10px] font-semibold text-text-muted hidden sm:block">SMS</span>
-            <div id="js-auto-sms-track" class="relative w-9 h-5 rounded-full transition-colors bg-primary">
-              <div id="js-auto-sms-thumb" class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform left-[calc(100%-1.125rem)]"></div>
-            </div>
           </button>
           <button id="js-logout-btn" title="יציאה"
             class="p-2.5 rounded-xl text-text-muted hover:text-red-400 hover:bg-cream active:scale-95 transition-all">
@@ -408,18 +417,22 @@
     <main id="tab-bookings" class="hidden max-w-2xl mx-auto px-4 pt-5">
 
       <!-- Stats -->
-      <div class="grid grid-cols-3 gap-3 mb-5">
-        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
-          <div id="stat-pending" class="text-2xl font-black text-amber-500">—</div>
-          <div class="text-xs text-text-muted font-medium">ממתינות</div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="stat-pending" class="text-[2rem] leading-none font-black text-amber-500">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">ממתינות</div>
         </div>
-        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
-          <div id="stat-today" class="text-2xl font-black text-primary">—</div>
-          <div class="text-xs text-text-muted font-medium">היום</div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="stat-approved" class="text-[2rem] leading-none font-black text-green-600">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">מאושרות</div>
         </div>
-        <div class="bg-white rounded-2xl p-3 text-center border border-secondary/30 shadow-sm">
-          <div id="stat-total" class="text-2xl font-black text-text-main">—</div>
-          <div class="text-xs text-text-muted font-medium">סה"כ</div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="stat-today" class="text-[2rem] leading-none font-black text-primary">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">היום</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="stat-total" class="text-[2rem] leading-none font-black text-text-main">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">סה"כ</div>
         </div>
       </div>
 
@@ -429,6 +442,12 @@
         <input id="js-date-jump" type="date"
           class="flex-1 min-w-0 border border-secondary/60 rounded-xl px-3 py-1.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
         <button id="js-date-clear" class="text-xs text-text-muted hover:text-primary transition-colors shrink-0">נקה</button>
+      </div>
+
+      <!-- In-list search -->
+      <div class="mb-3">
+        <input id="js-book-search" type="search" dir="rtl" placeholder="חיפוש לפי שם או טלפון…"
+          class="w-full border border-secondary/60 rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
       </div>
 
       <!-- Filter pills -->
@@ -452,9 +471,16 @@
           </div>
         </div>
         <div id="js-cards" class="space-y-3 hidden"></div>
-        <div id="js-empty" class="hidden text-center py-14 text-text-muted">
-          <div class="text-4xl mb-3">💅</div>
-          <div class="text-sm font-medium">אין הזמנות להצגה</div>
+        <div id="js-empty" class="hidden text-center py-20 text-text-muted">
+          <div class="mb-4 flex justify-center">
+            <div class="w-16 h-16 rounded-2xl bg-secondary/25 flex items-center justify-center">
+              <svg class="w-8 h-8 text-primary-lt" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+          </div>
+          <div class="text-base font-bold text-text-main mb-1">אין הזמנות להצגה</div>
+          <div class="text-xs text-text-muted">הזמנות חדשות יופיעו כאן אוטומטית</div>
         </div>
       </div>
     </main>
@@ -463,159 +489,174 @@
     <main id="tab-pulse" class="hidden max-w-2xl mx-auto px-4 pt-5">
       <h2 class="text-base font-black text-text-main mb-4">דופק עסקי</h2>
 
-      <!-- KPI row -->
-      <div class="grid grid-cols-2 gap-3 mb-5">
-        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm">
-          <div id="pulse-week" class="text-3xl font-black text-primary">—</div>
-          <div class="text-xs text-text-muted font-medium mt-1">הזמנות השבוע</div>
+      <!-- Hero KPIs (with week/month deltas) -->
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div class="flex items-end justify-between gap-1">
+            <div id="pulse-week" class="text-3xl font-black text-primary leading-none">—</div>
+            <span id="pulse-week-delta" class="text-xs font-bold"></span>
+          </div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">הזמנות השבוע</div>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm">
-          <div id="pulse-month" class="text-3xl font-black text-text-main">—</div>
-          <div class="text-xs text-text-muted font-medium mt-1">הזמנות החודש</div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div class="flex items-end justify-between gap-1">
+            <div id="pulse-month" class="text-3xl font-black text-text-main leading-none">—</div>
+            <span id="pulse-month-delta" class="text-xs font-bold"></span>
+          </div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">הזמנות החודש</div>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm">
-          <div id="pulse-upcoming" class="text-3xl font-black text-green-600">—</div>
-          <div class="text-xs text-text-muted font-medium mt-1">קרובות (7 ימים)</div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div id="pulse-upcoming" class="text-3xl font-black text-green-600 leading-none">—</div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">קרובות (7 ימים)</div>
         </div>
-        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm">
-          <div id="pulse-cancelled" class="text-3xl font-black text-red-400">—</div>
-          <div class="text-xs text-text-muted font-medium mt-1">בוטלו / נדחו</div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div id="pulse-approval" class="text-3xl font-black text-primary leading-none">—</div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">אחוז אישור</div>
         </div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div id="pulse-hours" class="text-3xl font-black text-text-main leading-none">—</div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">שעות עבודה החודש</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div id="pulse-cancelled" class="text-3xl font-black text-red-400 leading-none">—</div>
+          <div class="text-xs text-text-muted font-medium mt-1.5">בוטלו / נדחו</div>
+        </div>
+      </div>
+
+      <!-- Bookings trend (8 weeks) -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">הזמנות ב-8 השבועות האחרונים</div>
+        <div id="pulse-trend" class="flex items-end justify-between gap-1.5 h-28"></div>
+      </div>
+
+      <!-- Status mix -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">תמהיל סטטוסים</div>
+        <div id="pulse-statusmix-bar" class="flex h-3 rounded-full overflow-hidden bg-secondary/20 mb-3"></div>
+        <div id="pulse-statusmix-legend" class="grid grid-cols-2 gap-y-2 gap-x-4 text-xs"></div>
+      </div>
+
+      <!-- Insights: busiest day + hour -->
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div class="text-xs text-text-muted font-semibold mb-1">היום העמוס</div>
+          <div id="pulse-busiest" class="text-lg font-black text-primary-dk">—</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
+          <div class="text-xs text-text-muted font-semibold mb-1">השעה העמוסה</div>
+          <div id="pulse-busiest-hour" class="text-lg font-black text-primary-dk">—</div>
+        </div>
+      </div>
+
+      <!-- New vs returning -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">לקוחות חדשות מול חוזרות</div>
+        <div id="pulse-newret-bar" class="flex h-3 rounded-full overflow-hidden bg-secondary/20 mb-2"></div>
+        <div id="pulse-newret-legend" class="flex justify-between text-xs text-text-muted"></div>
       </div>
 
       <!-- Service breakdown -->
-      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm mb-4">
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mb-4">
         <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">פירוט לפי שירות</div>
-        <div id="pulse-services" class="space-y-2"></div>
+        <div id="pulse-services" class="space-y-2.5"></div>
       </div>
 
-      <!-- Upcoming bookings list -->
-      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-sm">
+      <!-- Top clients -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">לקוחות מובילות</div>
+        <div id="pulse-top-clients" class="space-y-2 text-sm"></div>
+      </div>
+
+      <!-- Upcoming bookings list (actionable) -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft">
         <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">הזמנות קרובות</div>
-        <div id="pulse-upcoming-list" class="space-y-2 text-sm"></div>
+        <div id="pulse-upcoming-list" class="space-y-1 text-sm"></div>
       </div>
     </main>
 
-    <!-- ── TAB: SLOT MANAGER ── -->
-    <main id="tab-slots" class="hidden max-w-2xl mx-auto px-4 pt-5">
-      <h2 class="text-base font-black text-text-main mb-4">ניהול זמנים</h2>
-
-      <!-- Weekly Template -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 overflow-hidden">
-        <div class="px-4 pt-4 pb-2 flex items-center justify-between">
-          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תבנית שבועית</div>
-          <button id="js-save-template"
-            class="text-xs font-bold px-3 py-1.5 bg-primary text-white rounded-xl hover:bg-primary-dk active:scale-95 transition-all disabled:opacity-50"
-            disabled>שמור</button>
-        </div>
-        <div id="js-template-skeleton" class="px-4 pb-4 space-y-2">
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-          <div class="h-8 bg-secondary/20 rounded-xl animate-pulse w-full"></div>
-        </div>
-        <div id="js-template-rows" class="hidden px-4 pb-4 space-y-2"></div>
-      </div>
-
-      <!-- Generate Slots -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">יצירת חריצי זמן</div>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">מתאריך</label>
-            <input id="js-gen-start" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">עד תאריך</label>
-            <input id="js-gen-end" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-        </div>
-        <button id="js-gen-submit"
-          class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          צור תורים
-        </button>
-      </div>
-
-      <!-- Daily Reminders -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תזכורות יומיות</div>
-          <span id="js-reminder-last" class="text-xs text-text-muted">טוען...</span>
-        </div>
-        <p class="text-xs text-text-muted mb-3">שולח SMS לכל לקוחה עם תור מחר. רץ אוטומטית ב-08:00.</p>
-        <label class="flex items-center gap-2 mb-3 cursor-pointer">
-          <input id="js-reminder-force" type="checkbox" class="accent-primary">
-          <span class="text-xs text-text-muted">שלח גם אם כבר נשלח היום</span>
-        </label>
-        <button id="js-reminder-submit"
-          class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
-          שלח תזכורות למחר
-        </button>
-      </div>
-
-    </main>
-
-    <!-- ── TAB: DIARY (ניהול יומן + תקשורת) ── -->
+    <!-- ── TAB: SMS CENTER (כל ההודעות במערכת) ── -->
     <main id="tab-diary" class="hidden max-w-2xl mx-auto px-4 pt-5">
-      <h2 class="text-base font-black text-text-main mb-4">ניהול יומן</h2>
-
-      <!-- Date range picker -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">טווח תצוגה</div>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">מתאריך</label>
-            <input id="js-diary-from" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">עד תאריך</label>
-            <input id="js-diary-to" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-        </div>
-        <button id="js-diary-load"
-          class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px] text-sm">
-          טען תורים
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-black text-text-main">מרכז הודעות SMS</h2>
+        <button id="js-log-refresh" data-qa="btn-log-refresh"
+          class="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary-dk active:scale-95 transition-all px-3 py-1.5 rounded-xl hover:bg-cream">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          רענן
         </button>
       </div>
 
-      <!-- Slot list grouped by date -->
-      <div id="js-diary-slots" data-qa="slot-inventory" class="space-y-4 mb-4">
-        <div class="text-xs text-text-muted text-center py-8">בחרי טווח תאריכים ולחצי "טען תורים"</div>
+      <!-- KPI summary -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="sms-total" class="text-[2rem] leading-none font-black text-primary">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">סה"כ הודעות</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="sms-sent" class="text-[2rem] leading-none font-black text-green-600">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">נשלחו</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="sms-failed" class="text-[2rem] leading-none font-black text-red-500">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">נכשלו</div>
+        </div>
+        <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
+          <div id="sms-rate" class="text-[2rem] leading-none font-black text-text-main">—</div>
+          <div class="text-[11px] text-text-muted font-semibold mt-1.5">אחוז הצלחה</div>
+        </div>
       </div>
 
-      <!-- Add single slot -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4 mb-4">
-        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">הוספת חריץ בודד</div>
-        <div class="flex gap-2 mb-3">
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">תאריך</label>
-            <input id="js-add-slot-date" type="date"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
-          <div class="flex-1">
-            <label class="block text-xs text-text-muted mb-1">שעה</label>
-            <input id="js-add-slot-time" type="time" step="1800"
-              class="w-full border border-secondary/60 rounded-xl px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-          </div>
+      <!-- Filters -->
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-soft p-4 mb-4 space-y-3">
+        <input id="js-sms-search" type="search" dir="rtl" placeholder="חיפוש לפי מספר טלפון…"
+          class="w-full border border-secondary/60 rounded-xl px-4 py-2.5 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button class="sms-status-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-status="all">הכל</button>
+          <button class="sms-status-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-status="SENT">נשלחו</button>
+          <button class="sms-status-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-status="ERROR">נכשלו</button>
+          <button class="sms-status-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-status="MOCK">הדמיה</button>
         </div>
-        <button id="js-add-slot-btn"
-          class="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px] text-sm">
-          + הוסף חריץ
-        </button>
+        <div class="flex gap-2">
+          <select id="js-sms-context"
+            class="flex-1 text-sm text-text-main bg-white border border-secondary/60 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+            <option value="all">כל סוגי ההודעות</option>
+            <option value="OTP">קוד אימות</option>
+            <option value="ClientApproval">אישור ללקוחה</option>
+            <option value="ClientRejection">דחייה ללקוחה</option>
+            <option value="ClientCancellation">ביטול ללקוחה</option>
+            <option value="DailyReminder">תזכורת יומית</option>
+            <option value="AdminNotify">התראת אדמין</option>
+          </select>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button class="sms-range-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-range="today">היום</button>
+          <button class="sms-range-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-range="7">7 ימים</button>
+          <button class="sms-range-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-range="30">30 יום</button>
+          <button class="sms-range-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-sms-range="all">הכל</button>
+        </div>
       </div>
 
-      <!-- Communication Log -->
-      <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 overflow-hidden">
-        <div class="px-4 pt-4 pb-2 flex items-center justify-between">
-          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">יומן תקשורת SMS</div>
-          <button id="js-log-refresh" data-qa="btn-log-refresh"
-            class="text-xs text-primary hover:text-primary-dk font-semibold transition-colors active:scale-95">רענן</button>
+      <!-- Analytics: breakdown by type -->
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-soft p-4 mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">פילוח לפי סוג</div>
+        <div id="js-sms-by-context" class="space-y-2.5"></div>
+      </div>
+
+      <!-- Analytics: daily activity trend -->
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-soft p-4 mb-4">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">פעילות ב-14 הימים האחרונים</div>
+        <div id="js-sms-trend" class="flex items-end justify-between gap-1 h-24"></div>
+      </div>
+
+      <!-- Message history list -->
+      <div class="bg-white rounded-2xl border border-secondary/30 shadow-soft mb-4 overflow-hidden">
+        <div class="px-4 pt-4 pb-1">
+          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">היסטוריית הודעות</div>
         </div>
-        <div id="js-sms-log" data-qa="sms-log" class="px-4 pb-4">
-          <div class="text-xs text-text-muted text-center py-4">טוען...</div>
+        <div id="js-sms-log" data-qa="sms-log" class="px-4 pb-2">
+          <div class="text-xs text-text-muted text-center py-8">טוען…</div>
         </div>
       </div>
     </main>
@@ -623,6 +664,90 @@
     <!-- ── TAB: CLIENTS (לקוחות והזמנות) ── -->
     <main id="tab-clients" class="hidden max-w-2xl mx-auto px-4 pt-5">
       <h2 class="text-base font-black text-text-main mb-4">לקוחות</h2>
+
+
+      <!-- ── Automation Section ── -->
+      <div class="mb-4 space-y-3" id="js-automation-section">
+
+        <!-- Daily Reminders -->
+        <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span class="text-base">🔔</span>
+              <div class="text-xs font-bold text-text-muted uppercase tracking-widest">תזכורות יומיות</div>
+            </div>
+            <span id="js-reminder-last" class="text-xs text-text-muted">טוען...</span>
+          </div>
+          <p class="text-xs text-text-muted mb-3">שולח SMS לכל לקוחה עם תור מחר. רץ אוטומטית ב-08:00.</p>
+          <div class="flex items-center gap-2 bg-cream rounded-xl px-3 py-2.5 mb-3">
+            <span class="text-lg shrink-0">🔔</span>
+            <span id="js-reminder-preview" class="text-xs text-text-main font-semibold leading-snug">—</span>
+          </div>
+          <label class="flex items-center gap-2 mb-3 cursor-pointer">
+            <input id="js-reminder-force" type="checkbox" class="accent-primary">
+            <span class="text-xs text-text-muted">שלח גם אם כבר נשלח היום</span>
+          </label>
+          <button id="js-reminder-submit"
+            class="w-full bg-primary hover:bg-primary-dk text-white font-bold py-2.5 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 flex items-center justify-center gap-2 min-h-[44px]">
+            שלח תזכורות למחר
+          </button>
+        </div>
+
+        <!-- Auto-block Slots -->
+        <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm p-4">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-base">⏰</span>
+              <div class="text-xs font-bold text-text-muted uppercase tracking-widest">חסימת זמנים אוטומטית</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer shrink-0" title="הפעל/כבה חסימה אוטומטית">
+              <input id="js-autoblock-toggle" type="checkbox" class="sr-only peer" checked>
+              <div class="w-11 h-6 bg-secondary/50 rounded-full peer transition-colors
+                           peer-checked:bg-primary
+                           after:content-[''] after:absolute after:top-0.5 after:start-0.5
+                           after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                           peer-checked:after:translate-x-5 after:shadow-sm"></div>
+            </label>
+          </div>
+          <p class="text-xs text-text-muted mb-3">חוסמת חריצים פנויים למחרת מדי ערב. מונעת הזמנות ברגע האחרון.</p>
+          <div id="js-autoblock-settings" class="space-y-2 transition-opacity">
+            <div class="flex items-center gap-3 bg-cream rounded-xl px-3 py-2.5">
+              <span class="text-xs text-text-muted shrink-0 font-semibold">שעת חסימה</span>
+              <select id="js-autoblock-time" data-qa="sel-autoblock-time"
+                class="flex-1 text-sm font-bold text-text-main bg-transparent border-0 focus:outline-none cursor-pointer appearance-none">
+                <option value="16">16:00</option>
+                <option value="17">17:00</option>
+                <option value="18">18:00</option>
+                <option value="19">19:00</option>
+                <option value="20" selected>20:00</option>
+                <option value="21">21:00</option>
+                <option value="22">22:00</option>
+                <option value="23">23:00</option>
+              </select>
+              <span class="text-xs text-text-muted shrink-0">בכל ערב</span>
+            </div>
+            <div class="flex gap-2">
+              <button id="js-autoblock-save" data-qa="btn-autoblock-save"
+                class="flex-1 bg-primary hover:bg-primary-dk text-white font-bold py-2 rounded-xl active:scale-[0.98] transition-all disabled:opacity-60 text-sm min-h-[40px]">
+                שמור הגדרות
+              </button>
+              <button id="js-autoblock-run" data-qa="btn-autoblock-run"
+                class="shrink-0 bg-secondary/40 hover:bg-secondary/60 text-text-muted font-bold px-4 py-2 rounded-xl active:scale-[0.98] transition-all text-xs min-h-[40px]"
+                title="הפעל חסימה עכשיו ידנית">
+                הפעל עכשיו
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section divider -->
+      <div class="flex items-center gap-3 mb-4 px-1">
+        <div class="flex-1 h-px bg-secondary/25"></div>
+        <span class="text-[10px] font-bold text-text-muted tracking-wider">לקוחות</span>
+        <div class="flex-1 h-px bg-secondary/25"></div>
+      </div>
 
       <!-- Search -->
       <div class="bg-white rounded-2xl border border-secondary/30 shadow-sm mb-4 p-4">
@@ -634,6 +759,25 @@
             חפש
           </button>
         </div>
+      </div>
+
+      <!-- Summary + sort (siblings of the list, not children) -->
+      <div class="flex items-center justify-between gap-2 mb-3 px-1">
+        <div id="js-clients-summary" class="text-xs text-text-muted leading-snug"></div>
+        <select id="js-client-sort"
+          class="shrink-0 text-xs font-semibold text-text-main bg-white border border-secondary/60 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+          <option value="recent">אחרונים</option>
+          <option value="visits">הכי הרבה ביקורים</option>
+          <option value="name">שם א-ת</option>
+        </select>
+      </div>
+
+      <!-- Client filter pills -->
+      <div class="flex gap-2 mb-3 overflow-x-auto pb-1">
+        <button class="client-filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-client-filter="all">הכל</button>
+        <button class="client-filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-client-filter="upcoming">עם תור קרוב</button>
+        <button class="client-filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-client-filter="returning">חוזרות</button>
+        <button class="client-filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all" data-client-filter="inactive">ללא תור עתידי</button>
       </div>
 
       <!-- Client list panel -->
@@ -652,11 +796,13 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
           </button>
-          <div>
-            <div id="js-history-name" class="text-base font-black text-text-main"></div>
+          <div class="min-w-0">
+            <div id="js-history-name" class="text-base font-black text-text-main truncate"></div>
             <div id="js-history-phone" class="text-xs text-text-muted"></div>
           </div>
         </div>
+        <!-- Per-client quick stats -->
+        <div id="js-history-stats" class="grid grid-cols-3 gap-2 mb-4"></div>
         <div id="js-history-list" class="space-y-3"></div>
       </div>
     </main>
@@ -686,19 +832,12 @@
           </svg>
           <span class="text-[10px] font-semibold">דופק עסקי</span>
         </button>
-        <button data-tab="slots" data-qa="nav-tab-slots"
-          class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-          </svg>
-          <span class="text-[10px] font-semibold">זמנים</span>
-        </button>
         <button data-tab="diary" data-qa="nav-tab-diary"
           class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 12a8 8 0 01-11.6 7.13L3 21l1.87-6.4A8 8 0 1121 12z"/>
           </svg>
-          <span class="text-[10px] font-semibold">יומן</span>
+          <span class="text-[10px] font-semibold">SMS</span>
         </button>
         <button data-tab="clients" data-qa="nav-tab-clients"
           class="nav-tab flex-1 flex flex-col items-center gap-0.5 py-2.5 text-text-muted transition-all">
@@ -720,7 +859,7 @@
 
       <!-- Panel -->
       <div id="js-sheet-panel" class="sheet-panel absolute bottom-0 inset-x-0 max-w-2xl mx-auto bg-white rounded-t-3xl shadow-2xl flex flex-col"
-           style="max-height:92vh;">
+           style="max-height:95vh;">
 
         <!-- Drag handle -->
         <div id="js-sheet-handle" class="pt-3 pb-1 flex justify-center cursor-grab active:cursor-grabbing shrink-0 touch-none select-none">
@@ -728,8 +867,8 @@
         </div>
 
         <!-- Header -->
-        <div class="flex items-center justify-between px-5 pb-3 shrink-0">
-          <h3 id="js-sheet-title" class="font-black text-base text-text-main"></h3>
+        <div class="flex items-start justify-between px-5 pb-2 shrink-0">
+          <div id="js-sheet-title" class="flex-1 min-w-0 font-black text-base text-text-main"></div>
           <button id="js-sheet-close" data-qa="btn-sheet-close"
             class="w-8 h-8 flex items-center justify-center rounded-xl text-text-muted hover:text-primary hover:bg-cream active:scale-90 transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -786,5 +925,6 @@
   </div>
 
   <script type="module" src="./admin.js"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>

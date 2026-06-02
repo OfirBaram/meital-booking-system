@@ -4,6 +4,7 @@ import APP_CONFIG from './config.js';
 import {
   esc, fmtPhone,
   LABELS, STATUS_CLS, SERVICE_NAME, DAY_NAMES_HE, SB_STATUS_LABEL, SB_STATUS_CLS,
+  SMS_CONTEXT_LABEL,
   buildCard, buildSwipeCard,
   renderDiarySlots, renderClientList, renderClientHistory, renderSmsLog,
 } from './admin-render.js';
@@ -14,17 +15,61 @@ import { initCardSwipe } from './admin-gestures.js';
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
 const LS_TS       = 'meital_admin_ts';
+const LS_HIDDEN   = 'meital_admin_hidden';
 const SESSION_TTL = 24 * 60 * 60 * 1000;
 
+// Soft-deleted booking IDs — hidden from every admin view (frontend-only).
+function loadHidden() {
+  try { return new Set(JSON.parse(localStorage.getItem(LS_HIDDEN) || '[]')); }
+  catch { return new Set(); }
+}
+function persistHidden() {
+  try { localStorage.setItem(LS_HIDDEN, JSON.stringify([...S.hidden])); } catch (_) {}
+}
+
+/**
+ * @typedef {{
+ *   token: string,
+ *   bookings: Booking[],
+ *   hidden: Set<string>,
+ *   filter: 'all'|'pending'|'approved'|'rejected'|'cancelled',
+ *   bookSearch: string,
+ *   clientSort: string,
+ *   clientFilter: string,
+ *   dateJump: string,
+ *   tab: string,
+ *   autoBlock: { enabled: boolean, time: number },
+ *   autoSms: boolean,
+ *   _smsSendTarget: string|null,
+ *   smsEntries: object[],
+ *   smsFilter: object,
+ *   diarySlots: Slot[],
+ *   clients: object[],
+ *   clientHistory: object|null,
+ *   clientSearch: string,
+ *   _clientSearchTimer: number|null,
+ *   calData: Record<string, CalEntry>,
+ *   calMonth: Date,
+ *   slotCache: Record<string, Slot[]>
+ * }} AdminState
+ */
+
+/** @type {AdminState} */
 const S = {
   token:          localStorage.getItem(LS_TOKEN) || '',
   bookings: [],
+  hidden:   loadHidden(),
   filter:   'all',
+  bookSearch: '',
+  clientSort: 'recent',
+  clientFilter: 'all',
   dateJump: '',
   tab:      'calendar',
-  template: [],
+  autoBlock: { enabled: true, time: 20 },
   autoSms:  true,
   _smsSendTarget: null,
+  smsEntries:        [],
+  smsFilter:         { status: 'all', context: 'all', range: 'all', day: '', search: '' },
   diarySlots:        [],
   clients:           [],
   clientHistory:     null,
@@ -241,7 +286,7 @@ function hideSkeleton() {
 
 function setTab(tab) {
   S.tab = tab;
-  ['calendar','bookings','pulse','slots','diary','clients'].forEach(t => {
+  ['calendar','bookings','pulse','diary','clients'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -261,30 +306,31 @@ function setTab(tab) {
     setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
   }
 
-  if (tab === 'slots')    loadTemplate();
   if (tab === 'calendar') loadAndRenderCalendar();
-  if (tab === 'diary')  {
-    const fromEl = document.getElementById('js-diary-from');
-    const toEl   = document.getElementById('js-diary-to');
-    if (fromEl && !fromEl.value) {
-      const today  = new Date().toISOString().slice(0, 10);
-      const plus14 = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
-      fromEl.value = today;
-      toEl.value   = plus14;
-      loadDiarySlots();
-    }
-    loadSmsLog();
+  if (tab === 'diary')    loadSmsLog();
+  if (tab === 'clients') {
+    if (S.clients.length === 0) loadClients('');
+    loadSystemInfo();
+    updateReminderPreview();
+    loadAutoBlockConfig();
   }
-  if (tab === 'clients' && S.clients.length === 0) loadClients('');
 }
 
 function updateStats() {
   const today = new Date().toISOString().slice(0, 10);
-  document.getElementById('stat-pending').textContent =
-    S.bookings.filter(b => b.status === 'Pending').length;
-  document.getElementById('stat-today').textContent =
-    S.bookings.filter(b => b.date === today && ['Pending','Approved'].includes(b.status)).length;
-  document.getElementById('stat-total').textContent = S.bookings.length;
+  const rows  = liveBookings();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const pending = rows.filter(b => b.status === 'Pending').length;
+  set('stat-pending',  pending);
+  set('stat-today',    rows.filter(b => b.date === today && ['Pending','Approved'].includes(b.status)).length);
+  set('stat-approved', rows.filter(b => b.date >= today && b.status === 'Approved').length);
+  set('stat-total',    rows.length);
+
+  // Live header greeting subtitle
+  const sub = document.getElementById('js-header-sub');
+  if (sub) sub.textContent = pending
+    ? (pending + (pending === 1 ? ' ממתינה לאישור' : ' ממתינות לאישור'))
+    : 'הכול מעודכן ✓';
 }
 
 function isStale(b) {
@@ -298,12 +344,29 @@ function isFinished(b) {
   return b.status === 'Rejected' || b.status === 'Cancelled';
 }
 
+// All bookings that are not soft-deleted — the single source for every view.
+function liveBookings() {
+  return S.bookings.filter(b => !S.hidden.has(b.id));
+}
+
+// Free-text match over name + phone for the in-tab booking search box.
+function matchSearch(b) {
+  const q = S.bookSearch.trim().toLowerCase();
+  if (!q) return true;
+  if (String(b.name || '').toLowerCase().includes(q)) return true;
+  const qDigits = q.replace(/\D/g, '');
+  if (qDigits) {
+    const phone = String(b.phone || '').replace(/\D/g, '');
+    if (phone.includes(qDigits)) return true;
+  }
+  return false;
+}
+
 function visible() {
-  let rows = S.bookings;
+  let rows = liveBookings().filter(matchSearch);
 
   if (S.dateJump) {
-    rows = rows.filter(b => b.date === S.dateJump);
-    return rows;
+    return rows.filter(b => b.date === S.dateJump);
   }
 
   if (S.filter === 'history')
@@ -344,7 +407,58 @@ async function onAction(e) {
     openSmsModal({ id, phone: btn.dataset.phone, name: btn.dataset.name });
     return;
   }
+  if (target === 'delete') {
+    deleteBooking(id);
+    return;
+  }
   _commitCardAction(id, target);
+}
+
+// Soft-delete: hide the booking from every admin view (persisted locally). If it
+// is still live (Pending/Approved) it is also Cancelled server-side so the slot
+// frees. Reversible for 5s via the undo toast.
+function deleteBooking(id) {
+  const booking = S.bookings.find(b => b.id === id);
+  if (!booking) return;
+  const wasActive = booking.status === 'Pending' || booking.status === 'Approved';
+
+  S.hidden.add(id);
+  render();
+  updateStats();
+  renderVisibleCalendar();
+  if (S.tab === 'pulse') renderPulse();
+
+  toastUndo(
+    'ההזמנה נמחקה',
+    async () => {
+      persistHidden();
+      if (!wasActive) return;
+      try {
+        const r = await fetch(
+          APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
+          { method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Cancelled' }) }
+        );
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        if (!data.success && data.error !== 'invalid_transition') throw new Error(data.error || 'error');
+        apiCall('changeStatus', { bookingId: id, targetStatus: 'Cancelled' }).catch(e =>
+          console.warn('[deleteBooking GAS side-effects failed]', e.message));
+        await load(true);            // refresh; the now-Cancelled row stays hidden
+        persistHidden();
+      } catch (e) {
+        console.warn('[deleteBooking cancel failed]', e.message);
+      }
+    },
+    () => {
+      S.hidden.delete(id);
+      render();
+      updateStats();
+      renderVisibleCalendar();
+      if (S.tab === 'pulse') renderPulse();
+    }
+  );
 }
 
 function setFilter(f) {
@@ -361,67 +475,236 @@ function setFilter(f) {
   render();
 }
 
+const SERVICE_DURATION = { gel_classic: 90, gel_feet: 120 };
+function bookingDuration(b) {
+  return b.duration_min || b.duration || SERVICE_DURATION[b.service] || 90;
+}
+
+// Up/down delta badge vs a previous period.
+function _setDelta(id, cur, prev) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!prev && !cur) { el.textContent = ''; return; }
+  const diff = cur - prev;
+  if (diff === 0) { el.textContent = '—'; el.className = 'text-xs font-bold text-text-muted'; return; }
+  const up  = diff > 0;
+  const pct = prev ? Math.round(Math.abs(diff) / prev * 100) : 100;
+  el.textContent = (up ? '▲' : '▼') + ' ' + pct + '%';
+  el.className = 'text-xs font-bold ' + (up ? 'text-green-600' : 'text-red-400');
+}
+
+const PULSE_STATUS = {
+  Pending:   { label: 'ממתינות', color: '#E8972E' },
+  Approved:  { label: 'מאושרות', color: '#2E9E54' },
+  Rejected:  { label: 'נדחו',    color: '#EF6B6B' },
+  Cancelled: { label: 'בוטלו',   color: '#B8AEB4' },
+};
+
+function renderStatusMix(counts) {
+  const bar = document.getElementById('pulse-statusmix-bar');
+  const leg = document.getElementById('pulse-statusmix-legend');
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  if (bar) {
+    bar.innerHTML = total === 0 ? ''
+      : Object.entries(counts).filter(([, n]) => n > 0).map(([k, n]) =>
+          '<div style="width:' + (n / total * 100) + '%;background:' + PULSE_STATUS[k].color + '" title="' + PULSE_STATUS[k].label + ': ' + n + '"></div>'
+        ).join('');
+  }
+  if (leg) {
+    leg.innerHTML = Object.entries(counts).map(([k, n]) =>
+      '<div class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background:' + PULSE_STATUS[k].color + '"></i>'
+      + '<span class="text-text-muted">' + PULSE_STATUS[k].label + '</span>'
+      + '<span class="text-text-main font-bold mr-auto">' + n + '</span></div>'
+    ).join('');
+  }
+}
+
+function renderPulseTrend(all, weekStart) {
+  const el = document.getElementById('pulse-trend');
+  if (!el) return;
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const ws = new Date(weekStart); ws.setDate(weekStart.getDate() - i * 7);
+    const we = new Date(ws);        we.setDate(ws.getDate() + 6);
+    const a = ws.toISOString().slice(0, 10);
+    const b = we.toISOString().slice(0, 10);
+    const count = all.filter(x => x.status !== 'Rejected' && x.status !== 'Cancelled' && x.date >= a && x.date <= b).length;
+    weeks.push({ label: ws.getDate() + '/' + (ws.getMonth() + 1), count });
+  }
+  const max = Math.max(1, ...weeks.map(w => w.count));
+  el.innerHTML = weeks.map((w, i) => {
+    const h = Math.max(4, Math.round(w.count / max * 100));
+    const isLast = i === weeks.length - 1;
+    return '<div class="flex-1 flex flex-col items-center justify-end gap-1 h-full" title="' + w.label + ': ' + w.count + '">'
+      + '<span class="text-[9px] font-bold ' + (w.count ? 'text-primary' : 'text-text-muted') + '">' + w.count + '</span>'
+      + '<div class="w-full rounded-t-md ' + (isLast ? 'bg-primary' : 'bg-primary/50') + '" style="height:' + h + '%"></div>'
+      + '<span class="text-[8px] text-text-muted">' + w.label + '</span>'
+      + '</div>';
+  }).join('');
+}
+
 function renderPulse() {
   const now   = new Date();
   const today = now.toISOString().slice(0, 10);
+  const all   = liveBookings();
+  const isActive = b => b.status !== 'Rejected' && b.status !== 'Cancelled';
 
   const dow       = now.getDay();
   const weekStart = new Date(now); weekStart.setDate(now.getDate() - dow);
-  const weekKey  = weekStart.toISOString().slice(0, 10);
+  const weekKey   = weekStart.toISOString().slice(0, 10);
+  const lastWeekStart = new Date(weekStart); lastWeekStart.setDate(weekStart.getDate() - 7);
+  const lastWeekKey   = lastWeekStart.toISOString().slice(0, 10);
+  const monthKey      = today.slice(0, 7);
+  const lastMonthKey  = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7);
+  const in7Days       = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
 
-  const monthKey  = today.slice(0, 7);
+  const weekCount      = all.filter(b => isActive(b) && b.date >= weekKey && b.date <= today).length;
+  const lastWeekCount  = all.filter(b => isActive(b) && b.date >= lastWeekKey && b.date < weekKey).length;
+  const monthCount     = all.filter(b => isActive(b) && b.date && b.date.startsWith(monthKey)).length;
+  const lastMonthCount = all.filter(b => isActive(b) && b.date && b.date.startsWith(lastMonthKey)).length;
+  const upcomingCount  = all.filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status)).length;
 
-  const in7Days   = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  const pending   = all.filter(b => b.status === 'Pending').length;
+  const approved  = all.filter(b => b.status === 'Approved').length;
+  const rejected  = all.filter(b => b.status === 'Rejected').length;
+  const cancelled = all.filter(b => b.status === 'Cancelled').length;
+  const cancelCount = rejected + cancelled;
+  const decided     = approved + rejected;
+  const approvalPct = decided ? Math.round(approved / decided * 100) : 0;
 
-  const weekCount     = S.bookings.filter(b => b.date >= weekKey && b.date <= today && b.status !== 'Rejected' && b.status !== 'Cancelled').length;
-  const monthCount    = S.bookings.filter(b => b.date && b.date.startsWith(monthKey) && b.status !== 'Rejected' && b.status !== 'Cancelled').length;
-  const upcomingCount = S.bookings.filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status)).length;
-  const cancelCount   = S.bookings.filter(b => b.status === 'Rejected' || b.status === 'Cancelled').length;
+  const monthMinutes = all.filter(b => isActive(b) && b.date && b.date.startsWith(monthKey))
+    .reduce((sum, b) => sum + bookingDuration(b), 0);
+  const monthHours = Math.round(monthMinutes / 60 * 10) / 10;
 
-  document.getElementById('pulse-week').textContent       = weekCount;
-  document.getElementById('pulse-month').textContent     = monthCount;
-  document.getElementById('pulse-upcoming').textContent  = upcomingCount;
-  document.getElementById('pulse-cancelled').textContent = cancelCount;
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('pulse-week',      weekCount);
+  setTxt('pulse-month',     monthCount);
+  setTxt('pulse-upcoming',  upcomingCount);
+  setTxt('pulse-approval',  approvalPct + '%');
+  setTxt('pulse-hours',     monthHours);
+  setTxt('pulse-cancelled', cancelCount);
+  _setDelta('pulse-week-delta',  weekCount,  lastWeekCount);
+  _setDelta('pulse-month-delta', monthCount, lastMonthCount);
+
+  // Busiest day + hour (active bookings only)
+  const dowCount  = [0, 0, 0, 0, 0, 0, 0];
+  const hourCount = {};
+  all.forEach(b => {
+    if (!isActive(b) || !b.date) return;
+    const d = new Date(b.date + 'T12:00:00');
+    if (!isNaN(d.getTime())) dowCount[d.getDay()]++;
+    if (b.time) { const h = String(b.time).slice(0, 2); hourCount[h] = (hourCount[h] || 0) + 1; }
+  });
+  const maxDow = Math.max(...dowCount);
+  setTxt('pulse-busiest', maxDow > 0 ? ('יום ' + DAY_NAMES_HE[dowCount.indexOf(maxDow)]) : '—');
+  const topHour = Object.entries(hourCount).sort((a, b) => b[1] - a[1])[0];
+  setTxt('pulse-busiest-hour', topHour ? (topHour[0] + ':00') : '—');
+
+  renderPulseTrend(all, weekStart);
+  renderStatusMix({ Pending: pending, Approved: approved, Rejected: rejected, Cancelled: cancelled });
+
+  // New vs returning clients (by active-booking count per phone)
+  const visits = {};
+  all.forEach(b => { if (!isActive(b)) return; const k = _digits(b.phone); if (k) visits[k] = (visits[k] || 0) + 1; });
+  const returning = Object.values(visits).filter(n => n >= 2).length;
+  const newOnce   = Object.values(visits).filter(n => n === 1).length;
+  const nrTotal   = returning + newOnce;
+  const nrBar = document.getElementById('pulse-newret-bar');
+  const nrLeg = document.getElementById('pulse-newret-legend');
+  if (nrBar) nrBar.innerHTML = nrTotal === 0 ? ''
+    : '<div style="width:' + (returning / nrTotal * 100) + '%;background:#A67C8E"></div>'
+    + '<div style="width:' + (newOnce / nrTotal * 100) + '%;background:#DDC3A5"></div>';
+  if (nrLeg) nrLeg.innerHTML =
+    '<span><i class="w-2.5 h-2.5 rounded-full inline-block align-middle" style="background:#A67C8E"></i> חוזרות: <b class="text-text-main">' + returning + '</b></span>'
+    + '<span><i class="w-2.5 h-2.5 rounded-full inline-block align-middle" style="background:#DDC3A5"></i> חדשות: <b class="text-text-main">' + newOnce + '</b></span>';
 
   const svcCount = {};
-  S.bookings.forEach(b => {
-    if (b.status === 'Rejected' || b.status === 'Cancelled') return;
+  all.forEach(b => {
+    if (!isActive(b)) return;
     const name = b.serviceName || SERVICE_NAME[b.service] || b.service || 'אחר';
     svcCount[name] = (svcCount[name] || 0) + 1;
   });
   const total = Object.values(svcCount).reduce((a, b) => a + b, 0) || 1;
   const svcEl = document.getElementById('pulse-services');
-  svcEl.innerHTML = Object.entries(svcCount).sort((a,b) => b[1]-a[1]).map(([name, n]) => {
+  if (svcEl) svcEl.innerHTML = Object.entries(svcCount).sort((a,b) => b[1]-a[1]).map(([name, n]) => {
     const pct = Math.round(n / total * 100);
     return `<div>
       <div class="flex justify-between text-xs mb-1">
         <span class="text-text-main font-medium">${esc(name)}</span>
         <span class="text-text-muted">${n} (${pct}%)</span>
       </div>
-      <div class="h-1.5 bg-secondary/30 rounded-full overflow-hidden">
+      <div class="h-2 bg-secondary/30 rounded-full overflow-hidden">
         <div class="h-full bg-primary rounded-full transition-all" style="width:${pct}%"></div>
       </div>
     </div>`;
   }).join('') || '<p class="text-xs text-text-muted">אין נתונים</p>';
 
-  const upcoming = S.bookings
+  // Top clients — ranked by active booking count (from the loaded bookings).
+  const byClient = {};
+  all.forEach(b => {
+    if (!isActive(b)) return;
+    const key = _digits(b.phone);
+    if (!key) return;
+    const e = byClient[key] || (byClient[key] = { name: b.name || '(ללא שם)', count: 0 });
+    e.count++;
+    if (b.name) e.name = b.name;
+  });
+  const topClients = Object.values(byClient).sort((a, b) => b.count - a.count).slice(0, 5);
+  const topEl = document.getElementById('pulse-top-clients');
+  if (topEl) {
+    topEl.innerHTML = topClients.length === 0
+      ? '<p class="text-xs text-text-muted">אין נתונים</p>'
+      : topClients.map((c, i) => `
+          <div class="flex items-center justify-between py-1.5 border-b border-secondary/20 last:border-0">
+            <span class="font-medium text-text-main text-xs">${i + 1}. ${esc(c.name)}</span>
+            <span class="text-xs text-text-muted">${c.count} ${c.count === 1 ? 'תור' : 'תורים'}</span>
+          </div>`).join('');
+  }
+
+  const upcoming = all
     .filter(b => b.date > today && b.date <= in7Days && ['Pending','Approved'].includes(b.status))
     .sort((a, b) => (a.date + a.time) < (b.date + b.time) ? -1 : 1)
     .slice(0, 8);
   const listEl = document.getElementById('pulse-upcoming-list');
-  listEl.innerHTML = upcoming.length === 0
-    ? '<p class="text-xs text-text-muted">אין הזמנות קרובות</p>'
-    : upcoming.map(b => `
-        <div class="flex items-center justify-between py-1.5 border-b border-secondary/20 last:border-0">
-          <div>
-            <span class="font-medium text-text-main text-xs">${esc(b.name)}</span>
-            <span class="text-text-muted text-xs mr-2">${esc(b.serviceName)}</span>
-          </div>
-          <span class="text-xs text-text-muted">${(b.date||'').replace(/-/g,'/')} ${esc(b.time)}</span>
-        </div>`).join('');
+  if (listEl) {
+    listEl.innerHTML = upcoming.length === 0
+      ? '<p class="text-xs text-text-muted">אין הזמנות קרובות</p>'
+      : upcoming.map(b => `
+          <div data-pulse-row data-date="${esc(b.date)}"
+               class="flex items-center justify-between gap-2 py-1.5 px-1 border-b border-secondary/20 last:border-0 rounded-lg hover:bg-cream cursor-pointer transition-colors">
+            <div class="min-w-0">
+              <span class="font-medium text-text-main text-xs">${esc(b.name)}</span>
+              <span class="text-text-muted text-xs mr-1">${esc(b.serviceName)}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs text-text-muted">${(b.date||'').replace(/-/g,'/')} ${esc(b.time)}</span>
+              <button data-pulse-del data-id="${esc(b.id)}" title="מחק הזמנה"
+                class="p-1 rounded-lg text-text-muted hover:text-red-500 hover:bg-red-50 active:scale-95 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-1.99-1.86L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>
+                </svg>
+              </button>
+            </div>
+          </div>`).join('');
+    listEl.querySelectorAll('[data-pulse-row]').forEach(row =>
+      row.addEventListener('click', () => _pulseOpenDate(row.dataset.date)));
+    listEl.querySelectorAll('[data-pulse-del]').forEach(btn =>
+      btn.addEventListener('click', e => { e.stopPropagation(); deleteBooking(btn.dataset.id); }));
+  }
 }
 
-const DEFAULT_TEMPLATE = [
+// Tapping an upcoming row focuses that date in the Bookings tab.
+function _pulseOpenDate(dateStr) {
+  if (!dateStr) return;
+  S.dateJump = dateStr;
+  const jump = document.getElementById('js-date-jump');
+  if (jump) jump.value = dateStr;
+  setTab('bookings');
+  render();
+}
+
+// DEFAULT_TEMPLATE removed (slots tab deleted)
+const DEFAULT_TEMPLATE_UNUSED = [
   { dayOfWeek: 0, dayName: 'ראשון',  active: true,  startTimes: [] },
   { dayOfWeek: 1, dayName: 'שני',    active: true,  startTimes: [] },
   { dayOfWeek: 2, dayName: 'שלישי',  active: true,  startTimes: [] },
@@ -431,7 +714,7 @@ const DEFAULT_TEMPLATE = [
   { dayOfWeek: 6, dayName: 'שבת',    active: false, startTimes: [] },
 ];
 
-function loadTemplate() {
+function loadTemplate_unused() {
   document.getElementById('js-template-skeleton').classList.remove('hidden');
   document.getElementById('js-template-rows').classList.add('hidden');
   document.getElementById('js-save-template').disabled = true;
@@ -450,7 +733,7 @@ function loadTemplate() {
   }
 }
 
-function renderTemplate() {
+function renderTemplate_unused() {
   const container = document.getElementById('js-template-rows');
   container.innerHTML = S.template.map((row, i) => {
     const timesStr = (row.startTimes || []).join(', ');
@@ -478,7 +761,7 @@ function renderTemplate() {
   });
 }
 
-function saveTemplate() {
+function saveTemplate_unused() {
   const container = document.getElementById('js-template-rows');
   const payload   = S.template.map((row, i) => {
     const cb    = container.querySelector('[data-tmpl-idx="' + i + '"]');
@@ -504,7 +787,7 @@ function saveTemplate() {
   }
 }
 
-async function generateSlots() {
+async function generateSlots_unused() {
   const startDate = document.getElementById('js-gen-start').value;
   const endDate   = document.getElementById('js-gen-end').value;
   if (!startDate || !endDate) { toast('יש לבחור תאריך התחלה וסיום', 'err'); return; }
@@ -558,6 +841,18 @@ async function loadSystemInfo() {
   } catch (_) {}
 }
 
+// How many clients will get a reminder tomorrow (approved bookings dated tomorrow).
+function updateReminderPreview() {
+  const el = document.getElementById('js-reminder-preview');
+  if (!el) return;
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const n = liveBookings().filter(b => b.status === 'Approved' && b.date === tomorrow).length;
+  el.textContent = n === 0
+    ? 'אין תורים מאושרים למחר — לא יישלחו תזכורות'
+    : (n === 1 ? 'תזכורת אחת תישלח מחר (תור מאושר אחד)'
+               : n + ' תזכורות יישלחו מחר ללקוחות עם תור מאושר');
+}
+
 async function sendReminders() {
   const force = document.getElementById('js-reminder-force').checked;
   const btn   = document.getElementById('js-reminder-submit');
@@ -572,6 +867,7 @@ async function sendReminders() {
       toast('נשלחו ' + data.sent + ' תזכורות ✅', 'ok');
     }
     await loadSystemInfo();
+    updateReminderPreview();
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
@@ -580,12 +876,70 @@ async function sendReminders() {
   }
 }
 
+
+async function loadAutoBlockConfig() {
+  try {
+    const data = await apiCall('getAutoBlockConfig');
+    if (!data.success) return;
+    S.autoBlock.enabled = data.enabled !== false;
+    S.autoBlock.time    = typeof data.time === 'number' ? data.time : 20;
+    const toggle  = document.getElementById('js-autoblock-toggle');
+    const timeEl  = document.getElementById('js-autoblock-time');
+    if (toggle) toggle.checked = S.autoBlock.enabled;
+    if (timeEl) timeEl.value   = String(S.autoBlock.time);
+    _setAutoBlockSettingsVisibility(S.autoBlock.enabled);
+  } catch (_) {}
+}
+
+function _setAutoBlockSettingsVisibility(enabled) {
+  const settings = document.getElementById('js-autoblock-settings');
+  if (!settings) return;
+  settings.style.opacity       = enabled ? '1' : '0.45';
+  settings.style.pointerEvents = enabled ? '' : 'none';
+}
+
+async function saveAutoBlockConfig(enabled, time) {
+  const btn = document.getElementById('js-autoblock-save');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="w-4 h-4 spinner"></span>'; }
+  try {
+    const data = await apiCall('saveAutoBlockConfig', { enabled, time });
+    if (!data.success) throw new Error(data.error);
+    S.autoBlock.enabled = enabled;
+    S.autoBlock.time    = time;
+    _setAutoBlockSettingsVisibility(enabled);
+    toast((enabled ? 'חסימה אוטומטית פעילה' : 'חסימה אוטומטית כבויה') + ' — הגדרות נשמרו ✅', 'ok');
+  } catch (e) {
+    toast('שגיאה בשמירת הגדרות: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'שמור הגדרות'; }
+  }
+}
+
+async function runAutoBlock() {
+  const btn = document.getElementById('js-autoblock-run');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="w-4 h-4 spinner"></span>'; }
+  try {
+    const data = await apiCall('runAutoBlock');
+    if (!data.success) throw new Error(data.error);
+    if (data.skipped) {
+      toast('חסימה אוטומטית כבויה — אפשר במתג למעלה', '');
+    } else {
+      toast('נחסמו ' + data.blocked + ' חריצים למחר ✅', 'ok');
+    }
+  } catch (e) {
+    toast('שגיאה בהפעלת חסימה: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'הפעל עכשיו'; }
+  }
+}
+
 function openSmsModal(booking) {
   S._smsSendTarget = booking;
+  const nm = (booking.name || '').trim();
   document.getElementById('js-sms-recipient').textContent =
-    booking.name + ' (' + fmtPhone(booking.phone) + ')';
+    (nm ? nm + ' ' : '') + '(' + fmtPhone(booking.phone) + ')';
   document.getElementById('js-sms-text').value =
-    'היי ' + booking.name + ', רציתי לעדכן ש…';
+    nm ? ('היי ' + nm + ', רציתי לעדכן ש…') : 'היי, רציתי לעדכן ש…';
   const sendBtn = document.getElementById('js-sms-send');
   sendBtn.disabled = false;
   sendBtn.textContent = 'שלח SMS';
@@ -620,49 +974,122 @@ async function sendManualSMS() {
   }
 }
 
-async function loadAutoSmsToggle() {
-  try {
-    const data = await apiCall('getAutoSms');
-    if (data.success) setAutoSmsUI(data.enabled);
-  } catch (_) {}
-}
-
-function setAutoSmsUI(enabled) {
-  S.autoSms = enabled;
-  const track = document.getElementById('js-auto-sms-track');
-  const thumb = document.getElementById('js-auto-sms-thumb');
-  if (!track || !thumb) return;
-  track.className = 'relative w-9 h-5 rounded-full transition-colors '
-    + (enabled ? 'bg-primary' : 'bg-gray-300');
-  thumb.className = 'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform '
-    + (enabled ? 'left-[calc(100%-1.125rem)]' : 'left-0.5');
-}
-
-async function toggleAutoSms() {
-  const newVal = !S.autoSms;
-  setAutoSmsUI(newVal);
-  try {
-    const data = await apiCall('setAutoSms', { enabled: newVal });
-    if (!data.success) throw new Error(data.error);
-    toast(newVal ? 'SMS אוטומטי מופעל ✅' : 'SMS אוטומטי כבוי', newVal ? 'ok' : '');
-  } catch (e) {
-    setAutoSmsUI(!newVal);
-    toast('שגיאה בשמירת ההגדרה', 'err');
-  }
-}
-
-
 async function loadSmsLog() {
   const el = document.getElementById('js-sms-log');
   if (!el) return;
-  el.innerHTML = '<div class="text-xs text-text-muted text-center py-4">טוען...</div>';
+  el.innerHTML = '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
   try {
     const data = await sbCall('sms-log', {});
     if (!data.success) throw new Error(data.error);
-    renderSmsLog(data.entries || [], el);
+    S.smsEntries = data.entries || [];
+    renderSmsCenter();
   } catch (e) {
-    el.innerHTML = '<div class="text-xs text-red-400 text-center py-4">שגיאה: ' + e.message + '</div>';
+    el.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה: ' + e.message + '</div>';
   }
+}
+
+// ── SMS Center: filtering + analytics ───────────────────────────────────────
+function smsFiltered(ignoreStatus) {
+  const today = new Date().toISOString().slice(0, 10);
+  const f = S.smsFilter;
+  let rows = S.smsEntries.slice();
+  if (!ignoreStatus && f.status !== 'all') rows = rows.filter(e => (e.status || '') === f.status);
+  if (f.context !== 'all') rows = rows.filter(e => (e.context || '') === f.context);
+  if (f.day) {
+    rows = rows.filter(e => (e.ts || '') === f.day);
+  } else if (f.range !== 'all') {
+    const days = f.range === 'today' ? 0 : (f.range === '7' ? 6 : 29);
+    const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    rows = rows.filter(e => (e.ts || '') >= from && (e.ts || '') <= today);
+  }
+  if (f.search) {
+    const q = f.search.replace(/\D/g, '');
+    if (q) rows = rows.filter(e => String(e.to || '').replace(/\D/g, '').includes(q));
+  }
+  return rows;
+}
+
+function _smsPillCls(base, active) {
+  return base + ' shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all ' +
+    (active ? 'bg-primary text-white shadow-sm'
+            : 'bg-cream text-text-muted border border-secondary/40 hover:border-primary hover:text-primary');
+}
+
+function renderSmsCenter() {
+  const list   = smsFiltered(false);   // list, breakdown, trend honour every filter
+  const kpiSet = smsFiltered(true);    // KPIs ignore the status pill (so sent/failed stay meaningful)
+
+  const sent   = kpiSet.filter(e => e.status === 'SENT').length;
+  const failed = kpiSet.filter(e => e.status === 'ERROR').length;
+  const acct   = sent + failed;
+  const rate   = acct ? Math.round(sent / acct * 100) : 100;
+  const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setTxt('sms-total',  kpiSet.length);
+  setTxt('sms-sent',   sent);
+  setTxt('sms-failed', failed);
+  setTxt('sms-rate',   rate + '%');
+
+  document.querySelectorAll('.sms-status-pill').forEach(b =>
+    b.className = _smsPillCls('sms-status-pill', b.dataset.smsStatus === S.smsFilter.status));
+  document.querySelectorAll('.sms-range-pill').forEach(b =>
+    b.className = _smsPillCls('sms-range-pill', b.dataset.smsRange === S.smsFilter.range));
+
+  // Breakdown by context
+  const byCtx = {};
+  list.forEach(e => { const k = e.context || 'אחר'; byCtx[k] = (byCtx[k] || 0) + 1; });
+  const ctxEl = document.getElementById('js-sms-by-context');
+  if (ctxEl) {
+    const rows = Object.entries(byCtx).sort((a, b) => b[1] - a[1]);
+    const max  = rows.length ? rows[0][1] : 1;
+    ctxEl.innerHTML = rows.length === 0
+      ? '<p class="text-xs text-text-muted">אין נתונים בטווח שנבחר</p>'
+      : rows.map(([ctx, n]) => {
+          const label  = SMS_CONTEXT_LABEL[ctx] || ctx;
+          const pct    = Math.round(n / max * 100);
+          const active = S.smsFilter.context === ctx;
+          return '<button type="button" data-sms-ctx="' + esc(ctx) + '"'
+            + ' class="w-full text-right block rounded-lg px-2 py-1.5 -mx-2 transition-all hover:bg-cream ' + (active ? 'ring-1 ring-primary/50 bg-cream' : '') + '">'
+            + '<div class="flex justify-between text-xs mb-1"><span class="text-text-main font-medium">' + esc(label) + (active ? ' ✓' : '') + '</span><span class="text-text-muted font-semibold">' + n + '</span></div>'
+            + '<div class="h-2 bg-secondary/30 rounded-full overflow-hidden"><div class="h-full bg-primary rounded-full transition-all" style="width:' + pct + '%"></div></div>'
+            + '</button>';
+        }).join('');
+    ctxEl.querySelectorAll('[data-sms-ctx]').forEach(b =>
+      b.addEventListener('click', () => {
+        const c = b.dataset.smsCtx;
+        S.smsFilter.context = (S.smsFilter.context === c) ? 'all' : c;
+        const sel = document.getElementById('js-sms-context'); if (sel) sel.value = S.smsFilter.context;
+        renderSmsCenter();
+      }));
+  }
+
+  // Daily activity trend (last 14 days)
+  const trendEl = document.getElementById('js-sms-trend');
+  if (trendEl) {
+    const days = [];
+    for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10));
+    const counts = days.map(d => list.filter(e => (e.ts || '') === d).length);
+    const max = Math.max(1, ...counts);
+    trendEl.innerHTML = days.map((d, i) => {
+      const h = Math.max(4, Math.round(counts[i] / max * 100));
+      const active = S.smsFilter.day === d;
+      return '<button type="button" data-sms-day="' + d + '" class="flex-1 flex flex-col items-center justify-end gap-1 h-full cursor-pointer" title="' + d + ': ' + counts[i] + '">'
+        + '<div class="w-full rounded-t-md transition-all ' + (active ? 'bg-primary ring-2 ring-primary/40' : counts[i] ? 'bg-primary/80 hover:bg-primary' : 'bg-secondary/30') + '" style="height:' + h + '%"></div>'
+        + '<span class="text-[8px] ' + (active ? 'text-primary font-bold' : 'text-text-muted') + '">' + d.slice(8) + '</span>'
+        + '</button>';
+    }).join('');
+    trendEl.querySelectorAll('[data-sms-day]').forEach(b =>
+      b.addEventListener('click', () => {
+        const d = b.dataset.smsDay;
+        S.smsFilter.day = (S.smsFilter.day === d) ? '' : d;
+        renderSmsCenter();
+      }));
+  }
+
+  const logEl = document.getElementById('js-sms-log');
+  renderSmsLog(list, logEl);
+  // Tap a message row to message that number again (resend / contact).
+  if (logEl) logEl.querySelectorAll('[data-qa="log-entry"]').forEach(row =>
+    row.addEventListener('click', () => { const p = row.dataset.phone; if (p) openSmsModal({ phone: p, name: '' }); }));
 }
 
 
@@ -670,7 +1097,7 @@ function renderVisibleCalendar() {
   const y   = S.calMonth.getFullYear();
   const mo  = S.calMonth.getMonth() + 1;
   const key = y + '-' + String(mo).padStart(2, '0');
-  S.calData = buildCalData(S.bookings, S.slotCache[key] || []);
+  S.calData = buildCalData(liveBookings(), S.slotCache[key] || []);
   renderCalendar(
     document.getElementById('js-cal-grid'),
     document.getElementById('js-cal-title'),
@@ -718,7 +1145,7 @@ function _dayPayload(dateStr) {
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
   _updatePeekStrip(dateStr, entry);
-  openSheet('day', _dayPayload(dateStr));
+  openSheet('day', _dayPayload(dateStr), 'full');
 }
 
 function _updatePeekStrip(dateStr, entry) {
@@ -746,7 +1173,11 @@ function _updatePeekStrip(dateStr, entry) {
     }
     peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
   }
-  if (peekBtn) { peekBtn.classList.remove('hidden'); peekBtn.dataset.peekDate = dateStr; }
+  if (peekBtn) {
+    // Past days cannot accept new slots — hide the "add slot" affordance.
+    peekBtn.classList.toggle('hidden', dateStr < _todayISO());
+    peekBtn.dataset.peekDate = dateStr;
+  }
 }
 
 function _commitCardAction(id, target) {
@@ -850,6 +1281,35 @@ function _commitSheetAction(id, target) {
   );
 }
 
+async function _commitApproveAll(pendingIds) {
+  closeSheet();
+  const prevStatuses = {};
+  pendingIds.forEach(id => {
+    const b = S.bookings.find(b => b.id === id);
+    if (b) { prevStatuses[id] = b.status; b.status = 'Approved'; }
+  });
+  renderVisibleCalendar();
+  toast('אושרו ' + pendingIds.length + ' הזמנות ✓', 'ok');
+  try {
+    await Promise.all(pendingIds.map(id =>
+      fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Approved' }),
+      }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+    ));
+    await load(true);
+  } catch (e) {
+    pendingIds.forEach(id => {
+      const b = S.bookings.find(b => b.id === id);
+      if (b && prevStatuses[id]) b.status = prevStatuses[id];
+    });
+    renderVisibleCalendar();
+    toast('שגיאה: ' + e.message, 'err');
+    await load(true);
+  }
+}
+
 function startAutoRefresh() {
   setInterval(() => load(true), 60_000);
 }
@@ -865,7 +1325,6 @@ async function init() {
     const icon = document.getElementById('js-refresh-icon');
     icon.style.animation = 'spin 0.6s linear infinite';
     await load();
-    if (S.tab === 'slots') loadTemplate();
     setTimeout(() => { icon.style.animation = ''; }, 800);
   });
 
@@ -880,6 +1339,12 @@ async function init() {
   document.getElementById('js-date-clear').addEventListener('click', () => {
     S.dateJump = '';
     document.getElementById('js-date-jump').value = '';
+    render();
+  });
+
+  const bookSearchEl = document.getElementById('js-book-search');
+  if (bookSearchEl) bookSearchEl.addEventListener('input', e => {
+    S.bookSearch = e.target.value || '';
     render();
   });
 
@@ -909,20 +1374,34 @@ async function init() {
     });
   }
 
-  document.getElementById('js-save-template').addEventListener('click', saveTemplate);
-  document.getElementById('js-gen-submit').addEventListener('click', generateSlots);
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
-
-  document.getElementById('js-auto-sms-btn').addEventListener('click', toggleAutoSms);
+  document.getElementById('js-autoblock-toggle').addEventListener('change', () => {
+    const enabled = document.getElementById('js-autoblock-toggle').checked;
+    _setAutoBlockSettingsVisibility(enabled);
+  });
+  document.getElementById('js-autoblock-save').addEventListener('click', () => {
+    const enabled = document.getElementById('js-autoblock-toggle').checked;
+    const time    = parseInt(document.getElementById('js-autoblock-time').value, 10);
+    saveAutoBlockConfig(enabled, time);
+  });
+  document.getElementById('js-autoblock-run').addEventListener('click', runAutoBlock);
 
   document.getElementById('js-sms-close').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-cancel').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
 
-  document.getElementById('js-diary-load').addEventListener('click', loadDiarySlots);
-  document.getElementById('js-add-slot-btn').addEventListener('click', addDiarySlot);
   document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
+
+  // SMS center filters
+  document.querySelectorAll('.sms-status-pill').forEach(b =>
+    b.addEventListener('click', () => { S.smsFilter.status = b.dataset.smsStatus; renderSmsCenter(); }));
+  document.querySelectorAll('.sms-range-pill').forEach(b =>
+    b.addEventListener('click', () => { S.smsFilter.range = b.dataset.smsRange; S.smsFilter.day = ''; renderSmsCenter(); }));
+  const smsCtxEl = document.getElementById('js-sms-context');
+  if (smsCtxEl) smsCtxEl.addEventListener('change', e => { S.smsFilter.context = e.target.value; renderSmsCenter(); });
+  const smsSearchEl = document.getElementById('js-sms-search');
+  if (smsSearchEl) smsSearchEl.addEventListener('input', e => { S.smsFilter.search = e.target.value || ''; renderSmsCenter(); });
 
   document.getElementById('js-client-search-btn').addEventListener('click', () =>
     loadClients(document.getElementById('js-client-search').value.trim()));
@@ -939,6 +1418,16 @@ async function init() {
     document.getElementById('js-client-history').classList.add('hidden');
     document.getElementById('js-clients-list').classList.remove('hidden');
   });
+
+  const clientSortEl = document.getElementById('js-client-sort');
+  if (clientSortEl) clientSortEl.addEventListener('change', e => {
+    S.clientSort = e.target.value;
+    if (S.clients.length) renderClients();
+  });
+
+  document.querySelectorAll('.client-filter-pill').forEach(btn =>
+    btn.addEventListener('click', () => setClientFilter(btn.dataset.clientFilter)));
+  setClientFilter('all');
 
   initSheet();
 
@@ -990,6 +1479,13 @@ async function init() {
       })();
       return;
     }
+    if (action === 'approveAll') {
+      const dayEntry = S.calData[_sheetOpenDate];
+      const pending  = ((dayEntry && dayEntry.bookings) ? dayEntry.bookings : [])
+        .filter(b => b.status === 'Pending');
+      if (pending.length) _commitApproveAll(pending.map(b => b.id));
+      return;
+    }
     const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
     if (STATUS_MAP[action]) _commitSheetAction(id, STATUS_MAP[action]);
   });
@@ -1009,7 +1505,6 @@ async function init() {
       render();
       updateStats();
       loadAndRenderCalendar();
-      loadAutoSmsToggle();
     } catch (_) {
       logout();
     }
@@ -1020,28 +1515,42 @@ async function init() {
   startAutoRefresh();
 }
 
-async function loadDiarySlots() {
-  const fromEl = document.getElementById('js-diary-from');
-  const toEl   = document.getElementById('js-diary-to');
-  const from   = fromEl ? fromEl.value : '';
-  const to     = toEl   ? toEl.value   : '';
-  if (!from || !to) { toast('בחרי תחילה טווח תאריכים', 'warn'); return; }
+function _updateDiaryDayLabel_unused(date) {
+  const el = document.getElementById('js-diary-day-label');
+  if (!el || !date) return;
+  const d = new Date(date + 'T12:00:00');
+  el.textContent = 'יום ' + DAY_NAMES_HE[d.getDay()] + ' · ' + d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
+}
 
-  const btn = document.getElementById('js-diary-load');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
+function _shiftDiaryDay_unused(delta) {
+  const el = document.getElementById('js-diary-date');
+  if (!el) return;
+  const base = el.value || new Date().toISOString().slice(0, 10);
+  const d = new Date(base + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  el.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  loadDiarySlots();
+}
+
+async function loadDiarySlots_unused() {
+  const dateEl = document.getElementById('js-diary-date');
+  const date   = dateEl ? dateEl.value : '';
+  if (!date) return;
+  _updateDiaryDayLabel(date);
+  const container = document.getElementById('js-diary-slots');
+  if (container) container.innerHTML = '<div class="text-xs text-text-muted text-center py-8"><span class="spinner w-5 h-5 inline-block"></span></div>';
   try {
-    const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: from, dateTo: to });
+    const r = await sbCall('admin-slots', { action: 'getSlots', dateFrom: date, dateTo: date });
     if (!r.success) throw new Error(r.error);
     S.diarySlots = r.slots;
-    renderDiarySlots(r.slots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
+    renderDiarySlots(r.slots, container, { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
   } catch (e) {
     toast('שגיאה בטעינת התורים', 'err');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'טען תורים'; }
+    if (container) container.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
 }
 
-async function toggleDiarySlot(slotId, currentStatus) {
+async function toggleDiarySlot_unused(slotId, currentStatus) {
   const newStatus = currentStatus === 'available' ? 'locked' : 'available';
   const row = document.querySelector('[data-slot-id="' + slotId + '"]');
   if (row) {
@@ -1070,7 +1579,7 @@ async function toggleDiarySlot(slotId, currentStatus) {
   }
 }
 
-async function deleteDiarySlot(slotId) {
+async function deleteDiarySlot_unused(slotId) {
   try {
     const r = await sbCall('admin-slots', { action: 'deleteSlot', slotId });
     if (!r.success) {
@@ -1086,12 +1595,13 @@ async function deleteDiarySlot(slotId) {
   }
 }
 
-async function addDiarySlot() {
-  const dateEl = document.getElementById('js-add-slot-date');
+async function addDiarySlot_unused() {
+  const dateEl = document.getElementById('js-diary-date');
   const timeEl = document.getElementById('js-add-slot-time');
   const date   = dateEl ? dateEl.value : '';
   const time   = timeEl ? timeEl.value : '';
-  if (!date || !time) { toast('בחרי תאריך ושעה', 'warn'); return; }
+  if (!date) { toast('בחרי יום', 'warn'); return; }
+  if (!time) { toast('בחרי שעה להוספה', 'warn'); return; }
 
   const today = new Date().toISOString().slice(0, 10);
   if (date < today) { toast('לא ניתן להוסיף חריץ בתאריך שעבר', 'warn'); return; }
@@ -1105,15 +1615,97 @@ async function addDiarySlot() {
       toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
     } else {
       toast('החריץ נוסף בהצלחה ✓', 'ok');
-      const fromVal = document.getElementById('js-diary-from') ? document.getElementById('js-diary-from').value : '';
-      const toVal   = document.getElementById('js-diary-to')   ? document.getElementById('js-diary-to').value   : '';
-      if (fromVal && toVal && date >= fromVal && date <= toVal) await loadDiarySlots();
+      if (timeEl) timeEl.value = '';
+      delete S.slotCache[date.substring(0, 7)];
+      await loadDiarySlots();
     }
   } catch (e) {
     toast('שגיאה בהוספת החריץ', 'err');
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '+ הוסף חריץ'; }
+    if (btn) { btn.disabled = false; btn.textContent = '+ הוסף'; }
   }
+}
+
+function _digits(p) { return String(p || '').replace(/\D/g, ''); }
+
+// Per-client stats derived from the already-loaded bookings (keyed by phone digits).
+function computeClientStats() {
+  const today = new Date().toISOString().slice(0, 10);
+  const map = {};
+  liveBookings().forEach(b => {
+    const key = _digits(b.phone);
+    if (!key) return;
+    const s = map[key] || (map[key] = { visits: 0, upcoming: 0, cancelled: 0, lastVisit: '', _last: '' });
+    if (b.status === 'Cancelled' || b.status === 'Rejected') { s.cancelled++; return; }
+    if (b.date && b.date >= today && (b.status === 'Approved' || b.status === 'Pending')) {
+      s.upcoming++;
+    } else if (b.status === 'Approved') {
+      s.visits++;
+      if (b.date && b.date > s._last) {
+        s._last = b.date;
+        const p = b.date.split('-');
+        s.lastVisit = p[2] + '/' + p[1];
+      }
+    }
+  });
+  return map;
+}
+
+function renderClientsSummary(clients, byPhone) {
+  const el = document.getElementById('js-clients-summary');
+  if (!el) return;
+  const total     = clients.length;
+  const returning = clients.filter(c => ((byPhone[c.phone] || {}).visits || 0) >= 2).length;
+  const monthKey  = new Date().toISOString().slice(0, 7);
+  const newThis   = clients.filter(c => c.created_at && String(c.created_at).slice(0, 7) === monthKey).length;
+  el.textContent = total + ' לקוחות · ' + returning + ' חוזרות · ' + newThis + ' חדשות החודש';
+}
+
+function sortClients(clients, byPhone) {
+  const arr = clients.slice();
+  if (S.clientSort === 'visits') {
+    arr.sort((a, b) => ((byPhone[b.phone] || {}).visits || 0) - ((byPhone[a.phone] || {}).visits || 0));
+  } else if (S.clientSort === 'name') {
+    arr.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'he'));
+  }
+  return arr; // 'recent' keeps server order (created_at desc)
+}
+
+// Render the client list from S.clients with computed stats + current sort.
+function clientMatchesFilter(c, byPhone) {
+  const st = byPhone[c.phone] || {};
+  switch (S.clientFilter) {
+    case 'upcoming':  return (st.upcoming || 0) > 0;
+    case 'returning': return (st.visits   || 0) >= 2;
+    case 'inactive':  return (st.upcoming || 0) === 0;
+    default:          return true;
+  }
+}
+
+function setClientFilter(f) {
+  S.clientFilter = f;
+  document.querySelectorAll('.client-filter-pill').forEach(btn => {
+    const active = btn.dataset.clientFilter === f;
+    btn.className = 'client-filter-pill shrink-0 text-xs font-semibold px-4 py-2 rounded-xl transition-all '
+      + (active ? 'bg-primary text-white shadow-sm'
+                : 'bg-white text-text-muted border border-secondary/40 hover:border-primary hover:text-primary');
+  });
+  if (S.clients.length) renderClients();
+}
+
+function renderClients() {
+  const container = document.getElementById('js-clients-list');
+  if (!container) return;
+  const rawStats = computeClientStats();
+  const byPhone  = {};
+  S.clients.forEach(c => { byPhone[c.phone] = rawStats[_digits(c.phone)] || {}; });
+  renderClientsSummary(S.clients, byPhone);
+  const filtered = S.clients.filter(c => clientMatchesFilter(c, byPhone));
+  renderClientList(sortClients(filtered, byPhone), container, {
+    onSelect: loadClientHistory,
+    stats:    byPhone,
+    onSms:    (phone, name) => openSmsModal({ phone, name }),
+  });
 }
 
 async function loadClients(search) {
@@ -1125,11 +1717,26 @@ async function loadClients(search) {
     const r = await sbCall('admin-clients', { action: 'getClients', search: S.clientSearch });
     if (!r.success) throw new Error(r.error);
     S.clients = r.clients;
-    renderClientList(r.clients, container, { onSelect: loadClientHistory });
+    renderClients();
   } catch (e) {
     toast('שגיאה בטעינת לקוחות', 'err');
     container.innerHTML = '<div class="text-xs text-red-400 text-center py-8">שגיאה בטעינה</div>';
   }
+}
+
+function renderClientHistoryStats(appts) {
+  const el = document.getElementById('js-history-stats');
+  if (!el) return;
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const st = a => String(a.status || '').toLowerCase();
+  const total    = appts.length;
+  const approved = appts.filter(a => st(a) === 'approved').length;
+  const upcoming = appts.filter(a => (st(a) === 'pending' || st(a) === 'approved') && a.date && a.date >= todayISO).length;
+  const tile = (label, val) =>
+    '<div class="bg-white rounded-xl p-2.5 text-center border border-secondary/30 shadow-soft">'
+    + '<div class="text-lg font-black text-primary leading-none">' + val + '</div>'
+    + '<div class="text-[10px] text-text-muted font-semibold mt-1">' + label + '</div></div>';
+  el.innerHTML = tile('סה"כ תורים', total) + tile('מאושרות', approved) + tile('קרובות', upcoming);
 }
 
 async function loadClientHistory(phone) {
@@ -1149,6 +1756,7 @@ async function loadClientHistory(phone) {
     const phoneEl = document.getElementById('js-history-phone');
     if (nameEl)  nameEl.textContent  = r.client.full_name || '(ללא שם)';
     if (phoneEl) phoneEl.textContent = fmtPhone(r.client.phone);
+    renderClientHistoryStats(r.appointments || []);
     renderClientHistory(r.appointments, histList, { onDecision: _processHistoryDecision });
   } catch (e) {
     toast('שגיאה בטעינת היסטוריה', 'err');

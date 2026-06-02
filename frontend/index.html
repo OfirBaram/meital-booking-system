@@ -7,32 +7,10 @@
   <meta name="description" content="הזמנת תורים אונליין לסטודיו לציפורניים של מיטל שבע ברמת גן">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="alternate icon" href="./favicon.ico">
+  <link rel="manifest" href="./manifest.json">
   <title>Meital Sheva - Boutique Nail Studio | הזמנת תור</title>
 
-  <!-- Tailwind CDN - Configure BEFORE loading -->
-  <script>
-    tailwind = {
-      config: {
-        theme: {
-          extend: {
-            colors: {
-              primary:      '#A67C8E',
-              'primary-dk': '#8B6175',
-              'primary-lt': '#C4A0B0',
-              secondary:    '#DDC3A5',
-              cream:        '#FAF5F0',
-              'text-main':  '#4A2E3A',
-              'text-muted': '#9B8090',
-            },
-            fontFamily: {
-              heebo: ['Heebo', 'sans-serif'],
-            },
-          },
-        },
-      },
-    };
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./styles/tailwind.css">
 
   <!-- Heebo Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -493,5 +471,6 @@
   </div>
 
   <script type="module" src="./booking.js"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>

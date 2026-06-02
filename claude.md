@@ -1,740 +1,219 @@
-# ✅ מצב מערכת — Phase 6 הושלם חלקית (עודכן 2026-05-20)
+# ✅ מצב מערכת — Phase 6 (עודכן 2026-05-29)
 
 | פרמטר | ערך |
 |---|---|
-| `IS_TEST_MODE` | **`false`** — פרודקשן אמיתי |
+| `IS_TEST_MODE` (backend) | **`false`** — פרודקשן אמיתי |
+| `IS_MOCK_MODE` (frontend) | **`false`** |
 | `IS_SUPABASE_ENABLED` | **`true`** |
-| Smoke Test אחרון | SUCCESS 2026-05-20 |
-| Twilio | ⏳ **ממתין לשדרוג ידני לחשבון Paid** |
-
-### ✅ בוצע
-- `IS_TEST_MODE` הופך ל-`false` בקוד
-- Supabase מחובר ופעיל
-- Daily SMS Reminders מותקנים
+| Twilio | ✅ Paid (pay-as-you-go, אומת 2026-05-30) — אין צורך בשדרוג |
 
 ### ⏳ נותר לביצוע ידני (Phase 6 סיום)
-1. **Twilio** — שדרג לחשבון Paid, אמת שמספר ישראלי שולח ל-+972
-2. **clasp deploy** — דחוף גרסה חדשה ל-GAS לאחר כל שינוי backend
-3. **בדיקת קצה-לקצה חיה** — הזמנה אמיתית עם מספר טלפון ישראלי
+1. **clasp deploy** — דחוף גרסה חדשה ל-GAS אחרי כל שינוי backend (push ≠ deploy; הרץ `clasp deploy -i AKfycbw...`).
+2. **deploy + verify ל-Edge Functions** — אחרי כל שינוי ב-`supabase/functions/`: `bash scripts/deploy-functions.sh` ואז `npm run verify:deploy` (push ≠ deploy — באג ה-SMS של 2026-05-30 היה פער פריסה, לא קוד). ראה skill `deploy-verification`.
+3. **בדיקת קצה-לקצה חיה** — הזמנה אמיתית עם מספר טלפון ישראלי.
+
+> מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase. **SMS ללקוח/אדמין נשלח כעת מ-Supabase Edge Functions** (`change-status`, `admin-action`, `verify-and-book`) — לא מ-GAS (ה-GAS side-effect קרא את ה-Sheet הריק ולכן ה-SMS לא נשלח). GAS נשאר ל-Calendar בלבד. פריסה: `bash scripts/deploy-functions.sh`.
 
 ---
 
-# 💅 Meital Boutique Booking - System Specification & Context
+# 💅 Meital Boutique Booking — Spec & Context
 
-## 1. High-Level Vision
-A premium, lightweight, and secure booking system for a boutique nail studio. 
-Goal: Zero-cost backend maintenance, high-end UX, and total admin control.
+## 1. Vision
+מערכת הזמנות פרימיום, קלה ומאובטחת לסטודיו ציפורניים בוטיק. מטרה: תחזוקת backend בעלות אפס, UX יוקרתי, ושליטת אדמין מלאה.
 
-## 2. Tech Stack (The "Lean" Stack)
-- **Frontend:** Vanilla JS, Tailwind CSS, LocalStorage (Client-side).
-- **Backend:** Google Apps Script (GAS) acting as a REST API.
-- **Database:** Google Sheets.
-- **Calendar:** Google Calendar API (Synced to Meital's Android Galaxy device).
-- **Timezone:** Strict ISO 8601 (Asia/Jerusalem) to prevent DST drift.
-- **SMS:** Twilio API (OTP verification & Admin links).
+## 2. Tech Stack ("Lean")
+- **Frontend:** Vanilla JS, Tailwind CSS, LocalStorage.
+- **Backend:** Supabase (DB חי + Edge Functions) + Google Apps Script (תופעות-לוואי: SMS/Calendar).
+- **Calendar:** Google Calendar API (מסונכרן למכשיר Galaxy של מיטל).
+- **Timezone:** ISO 8601 קפדני (Asia/Jerusalem) למניעת DST drift.
+- **SMS:** Twilio API (אימות OTP + לינקים לאדמין).
+- **מיתוג:** RTL, גופן Heebo, פלטת Dust-Rose (#A67C8E, #DDC3A5, #FAF5F0). "מיטל שבע ברעם — לק ג'ל בוטק". 2 שירותים בלבד: gel_classic (90 דק') ו-gel_feet (120 דק').
 
-## 3. Core Logic & Safety Features
-- **Race Condition Guard:** `LockService.getScriptLock()` + double-check of slot status before write.
-- **Security:** UUID v4 for all booking IDs (No sequential IDs). HMAC-SHA256 signed admin tokens.
-- **Admin Approval:** Two-step confirmation (SMS Link → `doGet` page with Approve/Reject HTML).
-- **User Experience:** RTL support, Heebo font, Luxury Dust-Rose palette (#A67C8E, #DDC3A5, #FAF5F0).
+## 3. Core Logic & Safety
+- **Race Condition Guard:** `LockService.getScriptLock()` + בדיקה כפולה של סטטוס החריץ לפני כתיבה.
+- **Security:** UUID v4 לכל ה-IDs (לא סדרתי). טוקני אדמין חתומים ב-HMAC-SHA256, השוואה timing-safe (XOR loop). כל הסודות ב-`PropertiesService.getScriptProperties()` — לעולם לא בקוד.
+- **OTP:** `CacheService` עם TTL של 5 דק', single-use. Rate limit: cooldown 30 שניות (frontend `State.otpCooldownUntil`).
+- **Admin Approval:** אישור דו-שלבי (SMS link → דף `doGet` עם Approve/Reject).
+- **XSS:** `sanitize()` ב-booking.js בורח מ-`< > & " '` לפני כל innerHTML.
+- **API hardening:** כל קריאות ה-API בודקות `r.ok`, עטופות ב-try/catch, ומציגות רק toast עברי ידידותי (אף פעם לא stack trace).
 
-## 4. Database Schema (Google Sheets)
+## 4. Database Schema (Google Sheets / Supabase mirror)
 
-### Tab: `Weekly_Slots`
-| Col | Header | Values |
-|-----|--------|--------|
-| A | Date | YYYY-MM-DD |
-| B | Day | Hebrew weekday name (e.g. ראשון) |
-| C | Start_Time | HH:MM (24h) |
-| D | End_Time | HH:MM (24h) |
-| E | Status | `Available` / `Pending_Lock` / `Blocked` / `Booked` |
+### `Weekly_Slots` — A:Date(YYYY-MM-DD), B:Day(שם יום עברי), C:Start_Time(HH:MM), D:End_Time(HH:MM), E:Status
+- Status: Available/Pending_Lock/Blocked/Booked. **שים לב:** ב-Supabase הסטטוס **lowercase** (available) — השווה case-insensitive.
+- Pending_Lock = מצב מעבר אטומי בזמן הזמנה. Blocked נכתב ע"י `syncCalendarToSlots()` כשאירוע יומן חופף.
 
-**Notes:**
-- Populate slots manually (or via a setup script) for each working week.
-- `Pending_Lock` is a transient state set atomically by the backend during booking; cleared to `Booked` on admin approval or back to `Available` on rejection.
-- `Blocked` is written by the `syncCalendarToSlots()` time trigger when a personal calendar event overlaps.
+### `Bookings_Log` — A:UUID, B:Name, C:Phone(E.164), D:Service, E:ServiceName, F:Date, G:Time, H:Timestamp_ISO, I:Duration_Min, J:Status(Pending/Approved/Rejected/Cancelled — **Capitalized**), K:CalendarEventId, L:AdminToken(HMAC hex)
 
-### Tab: `Bookings_Log`
-| Col | Header | Notes |
-|-----|--------|-------|
-| A | UUID | RFC 4122 v4, generated by GAS |
-| B | Name | Client full name |
-| C | Phone | E.164 format (+972...) |
-| D | Service | Service ID (e.g. `gel_classic`) |
-| E | ServiceName | Human-readable (e.g. "לק ג'ל קלאסי") |
-| F | Date | YYYY-MM-DD |
-| G | Time | HH:MM |
-| H | Timestamp_ISO | ISO 8601 with Israel offset (+02/+03) |
-| I | Duration_Min | Integer (90 or 120) |
-| J | Status | `Pending` / `Approved` / `Rejected` |
-| K | CalendarEventId | Google Calendar event ID (set on approval) |
-| L | AdminToken | HMAC-SHA256 hex of UUID (for link validation) |
+### טאבים נוספים (נוצרים אוטומטית)
+- `SMS_LOG` — Timestamp/To/Context/Status/Message/Detail.
+- `Audit_Log` — Timestamp/Admin/Action/BookingId/PrevStatus/NewStatus/Detail.
+- `Execution_Log` — לוג עברי קריא ל-`log()`; עמודה G (פרט טכני) מוסתרת כברירת מחדל.
+- `Slot_Template` — תבנית שבועית: DayOfWeek/DayName/StartTimes[]/Active.
 
-### Tab: `SMS_LOG` (auto-created on first SMS)
-| Col | Header | Notes |
-|-----|--------|-------|
-| A | Timestamp | Date of send |
-| B | To | Recipient phone (E.164) |
-| C | Context | `OTP` / `AdminNotify` / `ClientApproval` / `ClientRejection` / `ClientCancellation` |
-| D | Status | `SENT` / `MOCK` / `ERROR` |
-| E | Message | SMS body (truncated at 500 chars) |
-| F | Detail | Twilio SID on success; error message on failure |
+> **סטטוס casing (חשוב):** SLOT = lowercase (available); BOOKING = Capitalized (Pending). ערבוב שובר את ה-UI בשקט. ב-mocks של slot E2E השתמש ב-lowercase.
 
-### Tab: `Audit_Log` (auto-created on first admin action)
-| Col | Header | Notes |
-|-----|--------|-------|
-| A | Timestamp | Date of action |
-| B | Admin | `dashboard` or admin identifier |
-| C | Action | `CreateBooking` / `Approved` / `Rejected` / `Cancelled` / `CreateBackup` |
-| D | BookingId | UUID of affected booking |
-| E | PrevStatus | Status before action |
-| F | NewStatus | Status after action |
-| G | Detail | Free text (max 300 chars) |
+## 5. Dev Guidelines
+Mobile-First, JS מודולרי, feature-branch workflow (אין commit ישיר ל-main), תיעוד מתמשך בקובץ זה.
 
-### Tab: `Execution_Log` (auto-created on first `log()` call)
-| Col | Header | Notes |
-|-----|--------|-------|
-| A | זמן | Timestamp (Date object) |
-| B | פעולה | ACTION constant (Hebrew) — e.g. "שליחת OTP" |
-| C | רמה | LOG_LEVEL constant — ✅ הצלחה / ⚠️ אזהרה / ❌ שגיאה / ℹ️ מידע |
-| D | טלפון | Client phone (E.164) if applicable |
-| E | ID הזמנה | Booking UUID if applicable |
-| F | תיאור | Human-readable Hebrew summary (visible to Meital) |
-| G | פרט טכני (דיבאג) | Technical detail string (hidden by default; Ofir unhides via Sheets) |
+## 6. Script Properties (GAS)
+`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `ADMIN_PHONE`, `HMAC_SECRET`, `SPREADSHEET_ID`, `CALENDAR_ID`, `WEB_APP_URL`, `TIMEZONE`(=Asia/Jerusalem), `ADMIN_TOKEN` (אימות דשבורד אדמין — נפרד מ-HMAC_SECRET), `DAILY_SMS_LIMIT` (אופ', ברירת מחדל 45).
 
-## 5. Development Guidelines
-- Mobile-First design.
-- Modular JavaScript.
-- Feature-branch workflow (No direct commits to main).
-- Continuous documentation in this file.
+## 7. Deployment Checklist (תמצית)
+1. **Sheets** — צור גיליון, טאבים Weekly_Slots+Bookings_Log עם כותרות, מלא חריצים, העתק SPREADSHEET_ID.
+2. **GAS** — הדבק `backend/gas-backend.js`, הגדר את כל ה-Script Properties, Deploy כ-Web App (Execute as: Me, Access: Anyone), העתק URL ל-WEB_APP_URL, הרץ `installTriggers()` פעם אחת (מתקין syncCalendarToSlots ב-01:00 ו-sendDailyReminders ב-08:00).
+3. **Frontend** — הגדר `CONFIG.API_BASE`, פרוס תיקיית frontend/.
+4. **Twilio** — חשבון, מספר/sender ID, סודות.
+5. **E2E חי** — הזמנה מלאה: OTP → admin SMS → Approve → client SMS → Calendar event → Approved ב-log.
+
+## 8. Triggers & Time Functions (GAS)
+- `syncCalendarToSlots()` — יומי 01:00; חלון מתגלגל 30 יום; מסמן Blocked/משחזר Available.
+- `sendDailyReminders()` — יומי 08:00; תזכורת SMS ללקוחות עם הזמנה מאושרת למחר. אידמפוטנטי דרך `REMINDER_LAST_RUN`. quota guard עוצר נקי בלי לכתוב את המפתח (כדי לאפשר retry).
+- `handleSendReminders({force:true})` — מוחק REMINDER_LAST_RUN ושולח שוב.
+- `handleHealthCheck()` — 9 בדיקות לא-הרסניות (properties/sheets/calendar/testMode/smsQuota/recentErrors/triggers/reminderLastRun/pendingBookings) → {overall: ok|warn|error}.
+- `createBackupSnapshot()` — טאב _Backup_YYYYMMDD_HHmm עם עותק של Weekly_Slots+Bookings_Log (action createBackup).
+
+## 9. Admin Dashboard (admin.html/admin.js)
+ניווט תחתון 3 טאבים: **הזמנות** (ניהול + daily planner), **דופק עסקי** (4 KPI tiles, התפלגות שירותים, 8 הזמנות קרובות, כרטיס בדיקת תקינות), **ניהול זמנים** (Weekly Template editor, Generate Slots לטווח תאריכים, Vacation Override/blockDates, כרטיס תזכורות יומיות).
+Actions אדמין (כולן דורשות ADMIN_TOKEN): getTemplate, saveTemplate, generateSlots, blockDates, sendReminders, getSystemInfo, healthCheck, createBackup.
+
+## 10. Quota Baseline
+Twilio **Paid (pay-as-you-go)** — אין תקרת trial. מחזור הזמנה מלא = 3 SMS + תזכורת = 4. GAS: UrlFetch 20k/יום, ריצה 6 דק', 20 triggers.
 
 ---
 
-## 6. Changelog
-
-### v0.1.0 — 2026-05-15 — Frontend Foundation
-**Branch:** `feature/frontend-foundation`
-
-#### Files Created
-| File | Purpose |
-|------|---------|
-| `frontend/index.html` | Full booking UI — RTL, Heebo, Dust-Rose palette, 5-step wizard |
-| `frontend/booking.js` | All booking logic — state, API stubs, OTP, LocalStorage, UUID |
-
-#### Booking Flow (5 Steps)
-1. **Service Selection** — Cards with dynamic duration badge; click-to-select with visual feedback.
-2. **Date & Time** — Hebrew calendar grid with month navigation; available days marked with dot indicators; time-slot grid.
-3. **Personal Details** — Name + phone form; returning-client auto-fill from LocalStorage; live phone validation (Israeli 05X format); "Not me" escape hatch.
-4. **OTP Verification** — 6-box input with auto-advance, backspace navigation, paste support, and auto-submit on last digit; 60-second resend timer.
-5. **Confirmation** — Animated SVG checkmark; full booking summary card including UUID booking ID; "Book another" resets state cleanly.
-
-#### Security Foundations Implemented
-- `uuid4()` — uses `crypto.randomUUID()` with RFC 4122 v4 fallback for all booking IDs.
-- `toISO8601Jerusalem()` — tags all timestamps with `+03:00` and `timezone: 'Asia/Jerusalem'`.
-- Booking payload sends `status: 'Pending'` — backend upgrades to `PENDING_LOCK` atomically on OTP success.
-- No secrets or API keys in frontend code.
-
-#### API Integration (Stubs — activate by setting `CONFIG.API_BASE`)
-| Function | GAS Action | Mock Behaviour |
-|----------|-----------|----------------|
-| `apiGetSlots(year, month)` | `getSlots` | Generates random slots, skips Friday & Saturday |
-| `apiSendOTP(phone)` | `sendOTP` | Logs to console, returns `{ success: true }` |
-| `apiVerifyAndBook(otp)` | `verifyAndBook` | Accepts any OTP except `'000000'`; 750 ms simulated delay |
-
-#### LocalStorage Keys (prefix: `meital_`)
-| Key | Value |
-|-----|-------|
-| `client` | `{ name, phone }` — persisted after first booking for returning-client UX |
-
----
-
-### v0.2.0 — 2026-05-15 — Luxury Boutique Polish
-**Branch:** `feature/frontend-foundation`
-
-#### Changes
-- Rebranded to "מיטל שבע ברעם — לק ג'ל בוטק" throughout; removed all "מייטל" references.
-- Services reduced to exactly 2: `gel_classic` (90 min) and `gel_feet` (120 min). Duration hidden from client-facing UI.
-- Header redesigned: gradient monogram "מ" circle + centered brand name, no emoji.
-- Progress bar: elegant connected stepper with gradient current step, SVG checkmark for completed steps, connector lines.
-- Calendar: Friday (dow===5) AND Saturday (dow===6) disabled. Lighter font weight (400), gradient selected day.
-- Time slots: start time only displayed (end time removed from UI).
-- OTP inputs: `border-radius: 18px`, 1.5px softer border, `scale(1.04)` on focus.
-
----
-
-### v0.3.0 — 2026-05-15 — Backend GAS API
-**Branch:** `feature/backend-gas-api`
-
-#### Files Created
-| File | Purpose |
-|------|---------|
-| `backend/gas-backend.js` | Full Google Apps Script backend — all API actions, Twilio SMS, Calendar sync |
-
-#### API Actions Implemented
-| Action | Handler | Description |
-|--------|---------|-------------|
-| `getSlots` | `handleGetSlots()` | Reads `Weekly_Slots`, returns `{ slots: { 'YYYY-MM-DD': ['HH:MM'] } }` for the requested month |
-| `sendOTP` | `handleSendOTP()` | Generates 6-digit OTP, caches it for 5 min, sends via Twilio SMS |
-| `verifyAndBook` | `handleVerifyAndBook()` | Validates OTP, acquires `LockService` lock, race-checks slot, writes `Bookings_Log`, sends admin SMS |
-| `adminAction` | `handleAdminAction()` | Validates HMAC token, approves or rejects booking, updates Sheets + Calendar, notifies client |
-
-#### Security Model
-- **OTP storage:** `CacheService.getScriptCache()` with 5-minute TTL; single-use (deleted on first valid verification).
-- **Race-condition lock:** `LockService.getScriptLock().waitLock(10000)` — only one booking can be written at a time.
-- **Admin token:** `Utilities.computeHmacSha256Signature(bookingId, HMAC_SECRET)` — hex digest stored in col L of `Bookings_Log`.
-- **Token validation:** timing-safe comparison via XOR loop to prevent timing attacks.
-- **All secrets** stored in `PropertiesService.getScriptProperties()` — never in code.
-
-#### Script Properties Required
-| Key | Description |
-|-----|-------------|
-| `TWILIO_ACCOUNT_SID` | Twilio Account SID |
-| `TWILIO_AUTH_TOKEN` | Twilio Auth Token |
-| `TWILIO_FROM_NUMBER` | Twilio sender number in E.164 (+972...) |
-| `ADMIN_PHONE` | Meital's phone for admin SMS links (E.164) |
-| `HMAC_SECRET` | Random 32+ char string for signing admin tokens |
-| `SPREADSHEET_ID` | Google Sheets document ID (from URL) |
-| `CALENDAR_ID` | Google Calendar ID (`primary` or specific calendar email) |
-| `WEB_APP_URL` | Deployed web app URL (filled after first deployment) |
-| `TIMEZONE` | `Asia/Jerusalem` |
-| `ADMIN_TOKEN` | Random 32+ char hex string for admin dashboard authentication (distinct from `HMAC_SECRET`) |
-| `DAILY_SMS_LIMIT` | *(optional)* Override the daily SMS quota cap (default: 45, leaving a 5-unit buffer below Twilio trial cap of 50) |
-
-#### Google Calendar Integration
-- **On APPROVE:** `createCalendarEvent()` creates a timed event, stores event ID in `Bookings_Log` col K.
-- **Daily sync:** `syncCalendarToSlots()` runs via time trigger (daily at 01:00) — marks slots `Blocked` where personal calendar events overlap, and restores `Available` if events are deleted.
-- **Trigger installation:** run `installTriggers()` once from GAS editor after deployment.
-
----
-
-## 7. Deployment Checklist
-
-### Step 1 — Google Sheets Setup
-1. Create a new Google Spreadsheet.
-2. Add two sheets: `Weekly_Slots` and `Bookings_Log`.
-3. Add headers to row 1 of each sheet (exactly as defined in Section 4).
-4. Populate `Weekly_Slots` with available dates/times for the next 4-8 weeks.
-5. Copy the Spreadsheet ID from the URL (`/d/<SPREADSHEET_ID>/edit`).
-
-### Step 2 — Google Apps Script Deployment
-1. Go to [script.google.com](https://script.google.com) → New Project.
-2. Paste the contents of `backend/gas-backend.js` into the editor.
-3. Go to **Project Settings → Script Properties** → add all 9 keys from the table above.
-4. **Deploy → New Deployment:**
-   - Type: **Web App**
-   - Execute as: **Me**
-   - Who has access: **Anyone**
-5. Copy the Web App URL → paste it as the `WEB_APP_URL` script property.
-6. Run `installTriggers()` once from the editor to enable the daily calendar sync.
-
-### Step 3 — Frontend Wiring
-1. Open `frontend/booking.js`.
-2. Set `CONFIG.API_BASE` to the Web App URL from Step 2.
-3. Deploy the `frontend/` folder to any static host (GitHub Pages, Vercel, Netlify, etc.).
-
-### Step 4 — Twilio Setup
-1. Create a Twilio account at [twilio.com](https://twilio.com).
-2. Buy an Israeli phone number OR use Twilio's alphanumeric sender ID (for Israel: requires approval).
-3. Add the Account SID, Auth Token, and From Number as script properties.
-
-### Step 5 — End-to-End Test
-1. Open the frontend in a browser.
-2. Complete a full booking with a real phone number.
-3. Verify the OTP SMS arrives.
-4. Verify the admin SMS arrives with Approve/Reject links.
-5. Click Approve → verify the client confirmation SMS arrives.
-6. Verify the Google Calendar event was created.
-7. Verify `Bookings_Log` shows `Approved` status and a Calendar Event ID.
-
-
----
-
-## 8. Legal & Accessibility Layer
-
-### Overview
-A zero-dependency legal compliance layer added in `feature/legal-and-accessibility`.
-All content, modal logic, and event wiring live in `frontend/booking.js` and `frontend/index.html`.
-No third-party libraries are used.
-
-### Files Changed
-| File | What was added |
-|------|---------------|
-| `frontend/booking.js` | `LEGAL_CONTENT`, `openModal()`, `closeModal()`, `isModalOpen()`, `setupModalListeners()`, `_modalTrigger` variable |
-| `frontend/index.html` | `<footer>` with two trigger buttons, `#js-modal` dialog with backdrop + panel |
-| `tests/unit/utils.test.js` | 12 unit tests for content resolution and open/close state logic |
-| `tests/e2e/legal.spec.js` | 14 Playwright E2E tests: golden path, keyboard nav, backdrop, mobile regression |
-
-### LEGAL_CONTENT structure (`booking.js`)
-```js
-const LEGAL_CONTENT = {
-  privacy:       { title: 'מדיניות פרטיות',  html: '...' },
-  accessibility: { title: 'הצהרת נגישות', html: '...' },
-}
-```
-Both entries contain an `<a href="mailto:meital_sheva7@hotmail.com">` contact link.
-To update the content, edit the `html` string inside `LEGAL_CONTENT` — no HTML file changes needed.
-
-### Footer → Modal wiring
-The footer (`<footer>` after `</main>`) contains two `<button>` elements:
-- `#js-open-privacy` → calls `openModal('privacy')`
-- `#js-open-accessibility` → calls `openModal('accessibility')`
-
-`setupModalListeners()` is called from `init()` and attaches all listeners:
-- X button (`#js-modal-close`) → `closeModal()`
-- Backdrop (`#js-modal-backdrop`) → `closeModal()`
-- Document keydown `Escape` → `closeModal()` when modal is open
-- Focus trap: Tab / Shift+Tab cycles within `#js-modal-panel`
-
-`_modalTrigger` stores the button that opened the modal so focus can be restored on close (WCAG 2.1 SC 2.4.3).
-
-### Modal dimensions (as of v0.4.0)
-| Property | Value |
-|----------|-------|
-| Max width | `max-w-[380px]` |
-| Max height | `max-h-[70vh]` |
-| Desktop margin | `sm:mx-4 sm:my-8` (ensures backdrop is clickable above/below panel) |
-| Mobile shape | Bottom sheet (`items-end`, `rounded-t-3xl`, full width) |
-| Desktop shape | Centered dialog (`sm:items-center`, `sm:rounded-3xl`) |
-
-**Do not** revert `sm:my-8` — removing it causes the Playwright backdrop click test to fail because the panel covers the center of the backdrop on desktop viewports.
-
----
-
-## 9. QA Mock Phone Bypass
-
-> **Removed in Phase 3.5 (2026-05-18).** The mock phone bypass infrastructure was
-> surgically deleted as a production hardening step. It is no longer present in any
-> file. Do not re-add it.
-
-**What was removed:**
-- `QA_MOCK_PHONE` / `QA_MOCK_OTP` constants and three `if (phone === QA_MOCK_PHONE)` guard
-  blocks in `gas-backend.js` (`handleSendOTP`, `handleVerifyAndBook`, `SmsService.send`).
-- `simulateAdminSMS()` helper function from `gas-backend.js`.
-- `CONFIG.MOCK_PHONE`, `CONFIG.MOCK_OTP`, the `isValidPhone` bypass, and the OTP auto-fill
-  block in `frontend/booking.js`.
-- `IS_MOCK_MODE` flipped to `false` in `frontend/config.js`.
-
-**QA without the bypass:** Use `IS_TEST_MODE = true` in `gas-backend.js` (the default until
-Phase 6). All Twilio and Calendar calls are mocked at the service layer, so a complete
-booking flow can be exercised without consuming SMS quota or creating real calendar events.
-The `testFullBookingFlow()` GAS function uses an inline test OTP (`000001`) and the
-`IS_TEST_MODE` service mock — no special phone number needed.
-
----
-
-### v0.4.0 — 2026-05-16 — Legal & Accessibility Layer
-**Branch:** `feature/legal-and-accessibility`
-
-#### Changes
-- Accessible modal (`role="dialog"`, `aria-modal`, focus trap, Esc/backdrop/X close, body scroll lock).
-- Hebrew `LEGAL_CONTENT` for Privacy Policy and Accessibility Statement.
-- Footer with two trigger buttons; focus always restored to opener on close.
-- Modal sized at `max-w-[380px]` / `max-h-[70vh]`; `sm:my-8` ensures backdrop is Playwright-clickable.
-- 12 new unit tests (modal content + state); 14 new E2E tests in `tests/e2e/legal.spec.js`.
-
-
----
-
-## 10. Application State Structure
-
-All mutable wizard state lives in the `State` object in `frontend/booking.js`.
-Never access DOM to read state — always read from `State`.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `step` | `number` (1–5) | Current wizard step |
-| `service` | `object\|null` | Selected service from `SERVICES` array |
-| `date` | `string\|null` | Selected date `YYYY-MM-DD` |
-| `time` | `string\|null` | Selected time `HH:MM` |
-| `name` | `string` | Client name (trimmed) |
-| `phone` | `string` | Client phone (digits only, 10 chars) |
-| `bookingId` | `string\|null` | UUID v4 generated at step 3→4 transition |
-| `calMonth` | `Date\|null` | First-of-month Date for the displayed calendar |
-| `slots` | `object` | Map of `YYYY-MM-DD → string[]` (available times), accumulated across months |
-| `loading` | `boolean` | True while an API call is in-flight |
-| `prefetchedMonths` | `Set<string>` | Keys `"YYYY-M"` for months already fetched; prevents duplicate API calls |
-| `otpCooldownUntil` | `number` | `Date.now()` timestamp; OTP send is blocked until this passes (30 s rate limit) |
-
-**`resetApp()`** resets all fields EXCEPT `prefetchedMonths` and `slots` (cached slot data is reused across bookings).
-
-### State flow summary
-```
-Step 1 → 2: service set, calMonth set, loadMonthSlots() called (instant if prefetched)
-Step 2 → 3: date + time set
-Step 3 → 4: name + phone + bookingId set, otpCooldownUntil = now + 30s, OTP sent
-Step 4 → 5: OTP verified, booking written to GAS
-Step 5:      renderConfirmation() reads State for display
-```
-
----
-
-## 11. Performance: Slot Pre-fetching
-
-`prefetchSlots()` is called fire-and-forget from `init()` at `DOMContentLoaded`.
-It fetches the current month's slots and stores them in `State.slots` and `State.prefetchedMonths`.
-
-When the user reaches step 2, `loadMonthSlots()` checks `State.prefetchedMonths`:
-- **Hit** → `renderCalendar()` immediately (zero perceived latency).
-- **Miss** → `renderCalendarSkeleton()` (35 animate-pulse cells) → fetch → `renderCalendar()`.
-
-Month navigation also uses the cache; subsequent visits to the same month are instant.
-
----
-
-## 12. Security Additions (v0.5.0)
-
-### Input Sanitization
-`sanitize(str)` in `booking.js` escapes `< > & " '` to HTML entities and truncates to 200 chars.
-Applied to all user-provided values before they are written to `innerHTML` in `renderConfirmation()`.
-The name field is the primary XSS vector; all five confirmation rows are now sanitized.
-
-### OTP Rate Limiting
-`State.otpCooldownUntil` is set to `Date.now() + 30_000` on every successful OTP dispatch.
-`handleNext` step 3 checks this before calling `apiSendOTP`; if the cooldown has not elapsed, it shows a toast with the remaining seconds and returns early without calling the API.
-`resetApp()` resets `otpCooldownUntil = 0` so a fresh booking is never blocked.
-
-### API Error Hardening
-All three API functions (`apiGetSlots`, `apiSendOTP`, `apiVerifyAndBook`) now:
-1. Check `r.ok` and throw `Error("HTTP <status>")` on non-2xx.
-2. Are wrapped in `try/catch` at call sites (`loadMonthSlots`, `handleNext` step 3, `submitOTP`).
-3. Surface only friendly Hebrew toast messages — never raw error details or GAS stack traces.
-
----
-
-### v0.5.0 — 2026-05-16 — Performance, Security & Robustness
-**Branch:** `feature/performance-security-final`
-
-#### Changes
-- **Instant calendar**: `prefetchSlots()` fires on `DOMContentLoaded`; calendar renders without loading delay.
-- **Skeleton loader**: `renderCalendarSkeleton()` shows 35 animate-pulse cells during any uncached month fetch.
-- **Step transitions**: `stepFadeIn` CSS keyframe on all `[id^="step-"]` elements for smooth 0.2 s fade-in.
-- **XSS protection**: `sanitize()` escapes all user-supplied values before `innerHTML` injection.
-- **OTP rate limit**: 30-second cooldown on OTP send; friendly countdown toast on re-attempt.
-- **API error hardening**: `try/catch` on all three API call sites; friendly Hebrew error toasts only.
-- **State fields**: added `prefetchedMonths` (Set) and `otpCooldownUntil` (number).
-- **Console.log cleanup**: removed all `[API]` debug logs from production code.
-- **Tests**: 9 new sanitize unit tests; 3 new E2E tests (pre-fetch call count, rate-limit block, reset clears cooldown).
----
-
-## 13. Performance Rules (Perceived Speed)
-
-- **Always check `State.prefetchedMonths` before showing a loader.** If the month key `"${year}-${month}"` is present, call `renderCalendar()` directly — never `loadMonthSlots()` — so the calendar appears in the same event-loop tick as the button click.
-- **All UI transitions must complete within 150 ms.** The `stepFadeIn` animation is capped at `.15s ease-out`. Any new animation or CSS transition must stay at or below this threshold.
-- **Never call `renderCalendar()` for a date selection inside the same month.** The cache-aware implementation patches `.selected` in existing DOM nodes (`_calMonthKey` check). Only a month navigation should trigger a full rebuild.
-
----
-
-### v0.6.0 — 2026-05-16 — Perceived Performance
-**Branch:** `feature/performance-security-final`
-
-#### Changes
-- **Zero-delay calendar**: `handleNext` step 1→2 calls `renderCalendar()` synchronously on cache hit instead of `await loadMonthSlots()`. Calendar appears instantly when data is pre-fetched.
-- **DOM-efficient date selection**: `renderCalendar()` now checks `_calMonthKey` — same-month date picks patch `.selected` in-place instead of rebuilding all 35–42 `cal-day` nodes.
-- **Instant scroll**: `window.scrollTo({ behavior: 'smooth' })` changed to `'instant'` — no scroll animation latency on step transitions.
-- **Faster step animation**: `stepFadeIn` reduced from `.2s` to `.15s` — step panels appear 50 ms sooner.
-
----
-
-### v0.7.0 — 2026-05-16 — Admin Profile Image
-**Branch:** `feature/admin-profile-image`
-
-#### Changes
-- **Profile image in header**: Replaced the purple `מ` monogram circle with Meital's profile photo (`meital_profile_header.webp`).
-- **Assets added**: `frontend/meital_profile_header.webp` (128×128 px, ~4 KB) — primary; `frontend/meital_profile_header.png` (128×128 px, ~24 KB) — fallback.
-- **Retina-ready**: Image saved at 2× resolution (128 px) to display sharply at 64 px on retina screens.
-- **Graceful fallback**: If both WebP and PNG fail to load, the purple gradient `מ` monogram is revealed via CSS layering (`onerror` hides the `<picture>` element).
-- **Semantic HTML**: `<picture>` + `<source>` for WebP/PNG; `<img alt="...">` with `width`/`height` attributes; outer `<div>` carries `aria-label`.
-
----
-
-## 14. Environment & Paths (AI Agent Protocol)
-
-### Absolute Project Path
-
-```
-C:\Users\DELL\Documents\GitHub\u200F\u200FOfirBaram\.git\meital-booking-system
-```
-
-> **Note:** The directory name contains two U+200F RIGHT-TO-LEFT MARK characters before `OfirBaram`. This causes path resolution to differ between tools:
-> - **Bash tool** — resolves correctly via `git rev-parse --show-toplevel`; use relative paths from there.
-> - **PowerShell** — can read/write files at the full absolute path above, but `git` commands fail due to the `.git` segment in the path being misinterpreted.
-> - **Python 3.12** — use `open(js_path, 'r', encoding='utf-8')` with the absolute path; works correctly from either Bash or PowerShell.
-
-### Runtime Constraints
-
-| Tool | Available | Notes |
-|------|-----------|-------|
-| Python 3.12 | ✅ Bash: `/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe` | Primary tool for file patching |
-| Python 3.12 | ✅ PowerShell: `python` | Available in PATH |
-| Node / NPM / npx | ❌ | **DO NOT attempt `npm`, `npx`, `node` commands** — not in PATH in either shell |
-| Vitest (local) | ❌ | No `node_modules`; tests run in GitHub Actions CI only |
-| Playwright (local) | ❌ | Same — CI only |
-| `gh` CLI | ❌ | Not installed |
-| Git (Bash) | ✅ | Works from Bash working directory via relative or `-C $(git rev-parse --show-toplevel)` |
-| Git (PowerShell) | ❌ | Fails with "not a git repository" due to `.git` in path |
-
-### Git Protocol
-
-Always run git commands via the **Bash tool** (not PowerShell):
-
-```bash
-# Correct — Bash tool CWD is the git root
-git status
-git add frontend/booking.js
-git commit -F "$tmpFile"
-git push origin feature/...
-
-# If CWD is uncertain, anchor explicitly
-git -C "$(git rev-parse --show-toplevel)" status
-```
-
-### File Patch Protocol (using `scripts/ai_tools.py`)
-
-For any change to `frontend/booking.js` or other JS/HTML files, use the Python patch utility:
-
+# ⚙️ AI Agent Protocol — הוראות תפעול קריטיות
+
+## 11. Environment & Paths
+שם תיקיית הפרויקט מכיל שני תווי U+200F (RIGHT-TO-LEFT MARK) לפני OfirBaram — זה גורם ל-path resolution להתנהג שונה בין כלים.
+
+| כלי | זמין | הערות |
+|---|---|---|
+| Git (Bash) | ✅ | הרץ git **רק** דרך Bash tool; ה-CWD הוא git root. אם לא בטוח: `git -C "$(git rev-parse --show-toplevel)" ...` |
+| Git (PowerShell) | ❌ | נכשל "not a git repository" בגלל .git בנתיב |
+| Python 3.12 (Bash) | ✅ | `/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe` — הכלי המרכזי לעריכת קבצים |
+| Python 3.12 (PowerShell) | ✅ | `python` ב-PATH |
+| Node/npm/npx/Playwright/Vitest | ✅ | **רצים מקומית** (CLAUDE.md הישן טען שלא — זה לא נכון). שחזר כשלי CI מקומית במקום לנחש |
+| gh CLI | ✅ | מותקן ומאומת (v2.93.0, חשבון OfirBaram, scope `repo`). שמש ליצירת PR-ים. |
+
+## 12. File Patch Protocol — חובה
+ה-Edit/Write המובנים **mis-resolve** את נתיב ה-U+200F לתיקייה שגויה ("File has not been read yet"). ערוך קבצי JS/HTML **רק** דרך כלי ה-patch של Python, עם נתיבים שנפתרו ע"י git/find:
 ```bash
 PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
-$PYTHON scripts/ai_tools.py patch frontend/booking.js \
-  --old "old string" \
-  --new "new string"
+$PYTHON skills/utils/ai_tools.py patch frontend/booking.js --old "old string" --new "new string"
 ```
+או inline דרך `patch_file(path, old, new)` / `verify_contains(path, snippet)` מ-`skills/utils/ai_tools.py`.
+- **לעולם לא** PowerShell לכתיבת קבצים (EPERM אקראי).
+- **לעולם לא** `sed -i` ל-patch רב-שורתי של JS (backticks/template literals נשברים).
 
-Or write a one-off inline script:
+## 13. GAS Date Reading Rule — חובה
+**לעולם לא** `getValues()` לעמודות זמן/תאריך (גורם ל-1899 epoch bug). **תמיד** `getDisplayValues()` + regex `/\d{2}:\d{2}/`. (ה-1899 bug תוקן 2026-05-21 כך.)
 
-```bash
-$PYTHON << 'PYEOF'
-from ai_tools import patch_file, verify_contains
-patch_file('frontend/booking.js', old_str, new_str)
-verify_contains('frontend/booking.js', 'expected snippet')
-PYEOF
-```
+## 14. Backend Build Model
+`backend/gas-backend.js` = המקור המנוהל. `Code.js` = עותק נוצר ש-clasp דוחף. **חדש את Code.js לפני כל clasp push**, ואחרי כל שינוי backend הרץ `clasp deploy -i AKfycbw...` (push ≠ deploy).
 
-**Never use PowerShell for file writes** — EPERM errors occur intermittently.  
-**Never use `sed -i` for multi-line JS patches** — quoting breaks on backticks and template literals.
-
-### Editor Tool Workaround
-
-The built-in `Edit` tool fails on this repo path with "File has not been read yet" even after a successful `Read` due to path encoding. Use the Python patch utility instead.
-
-
+## 15. Zero-Error Workflow Protocol — חובה לכל משימה
+sync → branch → plan → validate → state-update.
 
 ---
 
-## 15. Stabilization v2.0 — Audit Findings (Phase 1)
+# 🛡️ Frontend Deployment Gate — כללי חובה
+> נוצר כי SyntaxError ב-admin.js גרם למסך לבן מלא בפרודקשן בעוד כל בדיקות ה-GAS עברו ירוק. בדיקות backend לא מפעילות את ה-parser של הדפדפן.
 
-**Branch:** `feature/system-stabilization-v2` | **Audit date:** 2026-05-18
-
-### Production-Blocking Flags (must flip before go-live)
-
-| File | Flag | Current | Production value |
-|------|------|---------|-----------------|
-| `backend/gas-backend.js` | `IS_TEST_MODE` | `true` | `false` |
-| `frontend/config.js` | `IS_MOCK_MODE` | `true` | `false` |
-
-`IS_TEST_MODE = true` causes `CalService` and `SmsService` to mock all Calendar and Twilio calls — no real events are created and no SMS is sent. This is intentional until production cut-over (Phase 6).
-
-### Dead Code
-
-| Location | Item | Reason |
-|----------|------|--------|
-| `gas-backend.js` line 1840 | `handleRunFlowTest()` (first definition) | Duplicate — immediately shadowed by the definition at line 2069 which adds the `IS_TEST_MODE` guard. The first definition is unreachable. |
-| `gas-backend.js` line 966 | `formatSheetDate(val)` | Defined but never called. All date formatting uses `Utilities.formatDate` inline. |
-
-### Undocumented Sheets (now added to Section 4)
-
-`SMS_LOG` and `Audit_Log` tabs are auto-created by GAS on first use. They existed in the code but were absent from the schema documentation.
-
-### Missing Script Property (now added to Section 6)
-
-`ADMIN_TOKEN` — a 32+ char hex string used by `validateAdmin()` for all admin dashboard API calls. Separate from `HMAC_SECRET` (which signs booking tokens). Must be set in Project Settings → Script Properties.
-
-### Validation Parity Gaps (target: Phase 3.3)
-
-| Rule | Frontend | Backend |
-|------|----------|---------|
-| Name min 2 chars | ✅ `isValidName()` | ✅ added Phase 3.1 |
-| Service ID whitelist | ✅ implicit via `SERVICES` array | ✅ added Phase 3.1 |
-| Phone format (05X) | ✅ `isValidPhone()` regex | ✅ `normalizePhone()` covers this |
-
-### syncCalendarToSlots Execution Time
-
-The trigger correctly queries a **30-day rolling window** (not unbounded). Execution time risk is LOW. No changes needed.
-
-### Verbose Logging
-
-`handleGetSlots` emits 5–10 `Logger.log` lines per Sheets row. At ~50 slots/month, a single `getSlots` call generates ~250 log lines. Acceptable for debugging; target replacement with the human-readable `Execution_Log` sheet in Phase 3.1 before production.
-
-### Quota Baseline (as of audit)
-
-| Quota | Limit (trial) | Per booking (full lifecycle) | Headroom |
-|-------|--------------|------------------------------|---------|
-| Twilio SMS/day | 50 | 3 SMS (OTP + admin + client confirm) | ~16 bookings/day |
-| GAS UrlFetch/day | 20,000 | 3 calls | Very high |
-| GAS execution time/run | 6 min | < 5s per handler | Very high |
-| Installed triggers | 20 | 1 (`syncCalendarToSlots`) | 19 remaining |
-
-**Critical:** Twilio trial limit (50 SMS/day) allows only ~16 full booking lifecycles per day. With 24h reminders active (Phase 3.2) this reduces to **~12 bookings/day** (3 SMS lifecycle + 1 reminder per booking). Must upgrade to paid Twilio before production (Phase 6 gate criterion).
-
-### Backup Utility Added (Phase 0.5)
-
-`createBackupSnapshot()` added to `gas-backend.js`. Creates a `_Backup_YYYYMMDD_HHmm` tab in the live spreadsheet with a full copy of `Weekly_Slots` and `Bookings_Log`. Callable from the admin dashboard via `action: createBackup` (requires `ADMIN_TOKEN`). Also callable directly from the GAS editor at any time.
-
----
-
-### v1.0.0 — 2026-05-18 — Phase 3.1 + Phase 2 Admin Dashboard
-**Branch:** `feature/system-stabilization-v2`
-
-#### Phase 3.1 — Observability + Reliability (gas-backend.js)
-- **`Execution_Log` sheet** — auto-created on first `log()` call; column G hidden for Meital, visible to Ofir.
-- **`log(level, action, message, opts)`** — structured Hebrew logging to Execution_Log; never propagates failures.
-- **`withRetry(fn, opts)`** — exponential back-off helper (3 attempts, 500 ms base).
-- **`getDailySmsCount()` / `checkSmsQuota()`** — blocks OTP at 45 SMS/day (5-unit buffer below Twilio cap).
-- **`handleSendOTP`** — timing, quota guard, `log()` on all paths; string concat replaces template literal.
-- **`handleVerifyAndBook`** — validation parity (name ≥ 2 chars, service whitelist); `log()` on slot issues and success.
-- **`processApproval`** — `log(SUCCESS)` with calEventId.
-- **`processRejection`** — `log(INFO)` after slot release.
-- **`syncCalendarToSlots`** — timing guard: `log(WARNING)` if sync > 5 min; `log(SUCCESS)` otherwise.
-
-#### Phase 2 — Admin Dashboard v2 (admin.html + admin.js + gas-backend.js)
-
-##### New Sheets Tab
-| Tab | Auto-created | Description |
-|-----|-------------|-------------|
-| `Slot_Template` | On first `getTemplate` call | Weekly template: DayOfWeek, DayName, StartTimes, Active |
-
-##### New GAS Actions (all require `ADMIN_TOKEN`)
-| Action | Handler | Description |
-|--------|---------|-------------|
-| `getTemplate` | `handleGetTemplate()` | Returns Slot_Template as array of {dayOfWeek, dayName, startTimes[], active} |
-| `saveTemplate` | `handleSaveTemplate()` | Overwrites Slot_Template from client payload |
-| `generateSlots` | `handleGenerateSlots()` | Creates Weekly_Slots rows for a date range from the template (idempotent) |
-| `blockDates` | `handleBlockDates()` | Sets all Available slots in a date range to Blocked (vacation override) |
-
-##### Frontend — Admin Dashboard Redesign
-- **Bottom navigation bar** — 3 tabs: הזמנות / דופק עסקי / זמנים (mobile-safe-area aware).
-- **Tab 1 — הזמנות (Bookings):**
-  - All existing booking-management functionality preserved.
-  - **Daily Planner** — date-jump input above filter pills; clears on "נקה" or filter-pill click; shows all statuses for chosen date (bypasses stale/finished filters).
-- **Tab 2 — דופק עסקי (Business Pulse):**
-  - 4 KPI tiles: הזמנות השבוע / החודש / קרובות (7d) / בוטלו-נדחו.
-  - Service breakdown bar chart (computed client-side from `S.bookings`).
-  - Upcoming 8 bookings list (next 7 days, sorted chronologically).
-  - No extra API call — renders from already-loaded bookings.
-- **Tab 3 — ניהול זמנים (Slot Manager):**
-  - **Weekly Template editor** — one row per day (Sun–Sat); checkbox to activate day; text input for comma-separated HH:MM start times; Fri/Sat locked inactive.
-  - **Generate Slots** — date-range picker + "צור חריצים" button; shows count of created slots.
-  - **Vacation Override** — date-range picker + "חסום תאריכים" button with confirm dialog; shows count of blocked slots.
-
----
-
-### v1.1.0 — 2026-05-18 — Phase 3.2: 24h SMS Reminders
-**Branch:** `feature/system-stabilization-v2`
-
-#### GAS Backend
-- **`sendDailyReminders()`** — queries Bookings_Log for Approved bookings where date = tomorrow; sends each client a Hebrew reminder SMS via `SmsService.send()` (honours `IS_TEST_MODE`). Per-send quota guard via `checkSmsQuota()` stops the batch cleanly if the daily cap is reached. Idempotent: `PropertiesService` key `REMINDER_LAST_RUN` (YYYY-MM-DD) prevents double-sends on the same day. If quota blocks mid-run, `REMINDER_LAST_RUN` is NOT written so the next trigger attempt can retry.
-- **`handleSendReminders(body)`** — admin-authenticated wrapper; `body.force: true` deletes `REMINDER_LAST_RUN` before calling, enabling a re-send after a late booking is added.
-- **`handleGetSystemInfo(body)`** — admin-authenticated; returns `{ reminderLastRun }` for dashboard display.
-- **`installTriggers()`** updated — now installs both `syncCalendarToSlots` (01:00 daily) and `sendDailyReminders` (08:00 daily). Old triggers for both functions are deleted before re-creating.
-- New doPost cases: `sendReminders`, `getSystemInfo`.
-
-#### Admin Dashboard — Slot Manager tab
-- **תזכורות יומיות card** — shows last-run date (fetched from `getSystemInfo` when the tab opens); "שלח גם אם כבר נשלח היום" force checkbox; "שלח תזכורות למחר" button that calls `handleSendReminders`.
-- Toast result: shows count of sent reminders or "כבר נשלח היום" if already ran without force.
-
-#### Quota impact
-3 SMS per booking lifecycle + 1 reminder = 4 SMS/booking → **~12 bookings/day** on Twilio trial.
-
----
-
-### v1.2.0 — 2026-05-18 — Phase 4: System Health Monitor
-**Branch:** `feature/system-stabilization-v2`
-
-#### GAS Backend
-- **`handleHealthCheck(body)`** — admin-authenticated; runs 9 non-destructive checks and returns `{ success, overall, checks[] }` where `overall` is `ok | warn | error`.
-  - `properties` — verifies all 7 required Script Properties are set.
-  - `sheets` — checks all required sheet tabs exist.
-  - `calendar` — verifies CalendarApp can locate the configured calendar; warns if IS_TEST_MODE.
-  - `testMode` — warns when IS_TEST_MODE=true (production reminder).
-  - `smsQuota` — reads `getDailySmsCount()` and flags warn at 70%, error at 90% of DAILY_SMS_LIMIT.
-  - `recentErrors` — scans Execution_Log for rows with "שגיאה" in the last 24 h; warn >0, error >5.
-  - `triggers` — checks both `syncCalendarToSlots` and `sendDailyReminders` are installed.
-  - `reminderLastRun` — reads REMINDER_LAST_RUN property; warns if not sent today.
-  - `pendingBookings` — counts Bookings_Log rows with status Pending; warns if any found.
-- Removed dead first `handleRunFlowTest()` definition (was unreachable, shadowed by line ~2069 version).
-- doPost `runFlowTest` case replaced with `healthCheck`.
-
-#### Admin Dashboard — Business Pulse tab
-- **"בדיקת תקינות מערכת" card** — shows overall status emoji (✅/⚠️/❌) and a row per check; "בדוק עכשיו" button calls `runHealthCheck()`.
-- `runHealthCheck()` in `admin.js` — calls `healthCheck` action, renders emoji + label + detail per check; spinner during request.
-
----
-
-### v1.3.0 — 2026-05-18 — Phase 5: QA Framework
-**Branch:** `feature/system-stabilization-v2`
-
-#### Unit tests (`tests/unit/utils.test.js`)
-- **Fixed stale `isValidPhone` mirror** — removed `MOCK_PHONE_TEST` bypass (deleted in Phase 3.5); updated test description.
-- **`smsQuotaStatus`** (6 tests) — mirrors the SMS quota threshold logic from `handleHealthCheck` and `checkSmsQuota`: ok < 70%, warn 70–89%, error ≥ 90%; includes DAILY_SMS_LIMIT=45 boundary assertion.
-- **OTP cooldown state** (7 tests) — pure functions `isCoolingDown` and `remainingSecs`; covers active/expired/zero/exact-boundary cases and ceiling rounding.
-- **`normalizePhone`** (6 tests) — E.164 conversion mirror of `normalizePhone()` in GAS; covers 05X prefix, hyphen stripping, already-972 input, and the former QA test phone.
-
-#### E2E tests (`tests/e2e/booking.spec.js`)
-- **`setupMocksWithOverrides(page, overrides)`** — new helper that injects per-action route overrides without copying the full mock setup.
-- **`sendOTP` hardening** (2 tests):
-  - HTTP 500 stays on step 3, shows Hebrew toast (no raw "HTTP 500" or JS error).
-  - `rate_limited` response shows seconds-remaining Hebrew toast.
-- **`verifyAndBook` hardening** (3 tests):
-  - HTTP 500 stays on step 4, shows Hebrew toast.
-  - `slot_not_available` shows slot-gone Hebrew toast then redirects to step 2 after 2.5 s.
-  - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).
-
----
-
-## 16. Frontend Deployment Gate — Mandatory Rule
-
-> **This rule exists because a `SyntaxError: Unexpected string` in `admin.js` caused
-> a complete white screen on the admin dashboard in production while all backend
-> GAS tests passed green. Backend tests do not exercise the browser JS parser.**
-
-### Rule: Zero-Console-Error Gate
-
-**No Frontend commit or push may be merged or deployed unless the following
-check passes locally:**
-
+### כלל: Zero-Console-Error Gate
+אין commit/push/merge של frontend בלי שהבדיקה עוברת מקומית:
 ```bash
 npx playwright test tests/e2e/admin-dashboard.spec.js --headed
 ```
+חייב להיות ירוק — במיוחד: טעינה ללא JS console errors, פאנל login נראה מיד (לא מסך לבן), מעבר בין טאבים לא זורק exception.
 
-All tests must be green, in particular:
+### כלל: No Adjacent String Literals ב-onclick
+בבניית HTML עם onclick inline, **אף פעם** אל תשים שני string literals צמודים בלי `+`. השתמש ב-`\'` לבריחת מרכאה בודדת. דוגמה תקינה: `'onclick="fn(' + id + ',\'' + val + '\')"'`.
 
-| Test | What it guards |
-|------|---------------|
-| `admin.html loads without any JS console errors` | Any SyntaxError / ReferenceError in admin.js |
-| `login panel is visible immediately — no white screen` | Page renders something visible on load |
-| `switching to each tab does not throw a JS exception` | Runtime errors in tab-init code |
+### כלל: window.onerror ב-admin.html
+admin.html חייב להכיל handler של `window.onerror` כ-`<script>` הראשון ב-`<head>`, שמציג באנר שגיאה עברי ממותג (#js-crash-banner) במקום מסך לבן. אל תסיר/תעביר אותו.
 
-### Rule: No Adjacent String Literals in onclick HTML Generation
+### כלל: dispatchEvent ב-Swipe Card Tests
+כפתורים בתוך `.swipe-card` חייבים להשתמש ב-`dispatchEvent('click')`, לא `.click()` — setPointerCapture חוטף clicks סינתטיים.
 
-When building HTML strings with inline `onclick` handlers in JavaScript, **never**
-place two string literals next to each other without a `+` operator between them.
+---
 
-```js
-// ❌ WRONG — SyntaxError: Unexpected string
-'onclick="fn(' + id + ','' + val + '')"'
+# 16. QA Mock Phone Bypass — הוסר (Phase 3.5, 2026-05-18)
+תשתית ה-mock phone (QA_MOCK_PHONE/QA_MOCK_OTP, simulateAdminSMS(), CONFIG.MOCK_PHONE/MOCK_OTP) **נמחקה לחלוטין** כצעד הקשחה. **אל תוסיף מחדש.**
+QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService ממוקים בשכבת השירות. `testFullBookingFlow()` משתמש ב-OTP inline 000001.
 
-// ✅ CORRECT — use \' to escape single quotes inside single-quoted strings
-'onclick="fn(' + id + ',\'' + val + '\')"'
-```
+# 17. Skills Directory
+| נתיב | מטרה |
+|---|---|
+| `skills/db/list_supabase_tables.py` | רשימת טבלאות (PostgREST + information_schema) |
+| `skills/utils/ai_tools.py` | patch בטוח (patch_file, verify_contains) — לכל עריכת JS/HTML |
+| `skills/setup/` | סקריפטי setup חד-פעמיים |
+> `scripts/` = patch-ים היסטוריים חד-פעמיים (נפרד מ-skills/). ראה `PROJECT_NOTES.md` לסקירת ארכיטקטורה.
 
-This pattern arises specifically when the onclick JS argument must be a
-single-quoted string (e.g., a status value passed to a toggle handler).
-The `\'` escape works in all browsers and avoids the adjacent-literal parse error.
+---
 
-### Rule: window.onerror Must Be Present in admin.html
+# 18. Application State (frontend/booking.js)
+כל state האשף ב-אובייקט `State`. **אף פעם אל תקרא state מה-DOM** — קרא מ-State.
+שדות: step(1-5), service, date, time, name, phone, bookingId, calMonth, slots(map YYYY-MM-DD→times[]), loading, prefetchedMonths(Set "YYYY-M"), otpCooldownUntil.
+- `resetApp()` מאפס הכל **חוץ מ-**prefetchedMonths ו-slots (cache נשמר בין הזמנות); מאפס otpCooldownUntil=0.
 
-`admin.html` must always contain a `window.onerror` handler as the **first**
-`<script>` in `<head>`. This handler renders a branded Hebrew error banner
-(`#js-crash-banner`) instead of a blank white screen if any JS file fails to
-load or parse. Do not remove or relocate this handler.
-  - `invalid_otp` surfaces the inline `#js-otp-error` element (not a toast).
+## כללי Performance (מהירות נתפסת)
+- **בדוק `State.prefetchedMonths` לפני הצגת loader.** במקרה hit קרא `renderCalendar()` ישירות (לא loadMonthSlots()) — לוח מופיע באותו tick.
+- **כל מעברי UI ≤ 150ms** (stepFadeIn = .15s). scroll = 'instant'.
+- **אל תקרא `renderCalendar()` לבחירת תאריך באותו חודש** — patch של .selected ב-DOM קיים דרך בדיקת _calMonthKey. רק ניווט חודש מפעיל rebuild מלא.
+- `prefetchSlots()` נקרא fire-and-forget מ-init() ב-DOMContentLoaded.
+
+# 19. Legal & Accessibility Modal (frontend/index.html + booking.js)
+שכבת compliance ללא תלויות. `LEGAL_CONTENT = { privacy, accessibility }` (עברית, כולל לינק mailto). פוטר עם 2 כפתורים → openModal(). `setupModalListeners()` מ-init(): X/backdrop/Escape סוגרים, focus trap, focus מוחזר ל-opener (_modalTrigger, WCAG 2.4.3).
+- מידות: max-w-[380px] / max-h-[70vh]; דסקטופ `sm:my-8` (**קריטי — אל תסיר**, שובר את בדיקת ה-backdrop click), מובייל bottom-sheet.
+
+---
+
+# 20. Changelog (תמצית — הפרטים המלאים ב-git history)
+
+| גרסה | תאריך | תקציר |
+|---|---|---|
+| v0.1.0 | 05-15 | Frontend foundation — אשף 5 שלבים, uuid4(), toISO8601Jerusalem(), API stubs |
+| v0.2.0 | 05-15 | Luxury polish — מיתוג, 2 שירותים, stepper, נטרול שישי+שבת |
+| v0.3.0 | 05-15 | Backend GAS API — getSlots/sendOTP/verifyAndBook/adminAction, Twilio, Calendar sync |
+| v0.4.0 | 05-16 | Legal & Accessibility modal + 26 בדיקות |
+| v0.5.0 | 05-16 | Performance/Security — prefetch, skeleton, sanitize(), OTP rate limit, API hardening |
+| v0.6.0 | 05-16 | Perceived performance — לוח zero-delay, date select יעיל-DOM, scroll instant |
+| v0.7.0 | 05-16 | תמונת פרופיל בכותרת (webp+png fallback) |
+| v1.0.0 | 05-18 | Phase 3.1 observability (Execution_Log, log(), withRetry, SMS quota) + Phase 2 Admin Dashboard v2 |
+| v1.1.0 | 05-18 | Phase 3.2 — תזכורות SMS 24h |
+| v1.2.0 | 05-18 | Phase 4 — System Health Monitor (9 בדיקות) |
+| v1.3.0 | 05-18 | Phase 5 — QA framework (unit + E2E hardening) |
+| v1.4.0 | 05-28 | Calendar Day Actions — אשר/דחה/בטל מתוך ה-day sheet |
+| v1.5.0 | 05-29 | Calendar Clarity — tint לכל התא, count pill, free-slot marker, legend |
+| v1.6.0 | 05-29 | SMS fixes — אישור/דחייה שולחים SMS ללקוח מ-Supabase; admin-action (one-tap); WhatsApp CTA |
+
+## v1.5.0 פרטים (העבודה הנוכחית)
+- `calDayStatus(entry)` מעשיר: tone (pending→approved→free→none), pendingCount, approvedCount, freeSlotCount (active בלבד — Rejected/Cancelled לא נספרים).
+- `renderCalendar` מחיל tint לכל התא (has-pending/has-approved/has-free), count pill (.cal-count), ו-rose free marker (.cal-free-dot). ה-.cal-dot הישן 4px הוסר.
+- עדיפות tint: pending (amber + ring/pulse — actionable) → approved (green) → free (rose). tints מדלגים על תא today.
+- legend תמיד-נראה מעל הגריד.
+- **באג שתוקן:** rose "זמן פנוי" לא הופיע כי buildCalData השווה ל-'Available' בעוד Supabase מחזיר 'available' — עכשיו case-insensitive.
+- **התנהגות popup:** addSlot ו-_commitSheetAction עכשיו closeSheet() וחושפים את הלוח עם העדכון האופטימי (לא re-open). Undo מחזיר את הלוח in-place.
+
+## v1.6.0 פרטים — SMS / Notification fixes
+- **שורש הבאג:** הזמנות חיות נכתבות ל-Supabase (`appointments`), אך side-effect ה-SMS ב-GAS קרא את ה-Sheet הריק → `booking_not_found` → SMS לא נשלח (השגיאה נבלעה ב-`.catch`).
+- `supabase/functions/_shared/`: `messages.ts` (pure — `hebrewDayLabel`, `buildClientStatusSms`, `buildAdminNewBookingSms`; נבדק ב-Vitest), `crypto.ts` (HMAC + timing-safe verify), `sms.ts` (Twilio).
+- `change-status`: אחרי RPC מוצלח שולף מ-`bookings_view` ושולח SMS ללקוח (approved/rejected/cancelled). SMS לא-פטאלי.
+- `admin-action` (**חדש**, `verify_jwt=false`): לינק GET חתום-HMAC מה-SMS לאדמין → מאשר/דוחה → SMS ללקוח → דף HTML עברי. מאובטח ע"י טוקן ה-HMAC לכל הזמנה (אותו סוד כמו verify-and-book).
+- `verify-and-book`: ה-SMS לאדמין כולל שם-יום עברי, ולינק `${SUPABASE_URL}/functions/v1/admin-action` קליקבילי (לא עוד `undefined` מ-GAS_URL חסר). **GAS_URL הוסר.**
+- Frontend: מסך ה-pending — הוסר "הזמני תור נוסף", במקומו כפתור WhatsApp בולט (`#js-whatsapp`, `wa.me/972547686865`).
+
+## v1.4.0 פרטים — Calendar Day Actions
+- `frontend/admin-sheet.js`: `_bookingActions(b)` מציג כפתורים inline לפי סטטוס; event delegation על js-sheet-content (listener אחד ב-initSheet); `isSheetOpen()` exported.
+- `frontend/admin.js`: `_commitSheetAction(id, target)` — עדכון אופטימי + toastUndo (5s), אז Supabase change-status → GAS side-effects fire-and-forget → load(true) מרענן.
+- כפתורים לפי סטטוס: Pending=אשר+דחה, Approved=בטל, Rejected/Cancelled=ללא.
+
+---
+
+# 21. Next Steps — Admin Calendar Enhancement (resume point)
+Branch: `feature/calendar-clarity` (off main).
+1. **Inline slot creation מיום ריק** — footer עם mini time-picker (`<select>` חצי-שעה + כפתור), `_handleAddSlot(dateStr, time)` שקורא sbCall action addSlot; הסר את case addSlot מ-sheet:action ב-admin.js.
+2. **חיווט peek-strip "הוסף שעה"** (#js-cal-peek-add) — ב-onCalDayClick חשוף + set data-date; click מפעיל את אותו flow.
+3. **Optimistic dot update** — ב-_commitSheetAction קרא מיד `S.calData = buildCalData(S.bookings)` + `renderVisibleCalendar()` אחרי שורת ה-status האופטימי.
+4. **E2E** ב-`tests/e2e/admin-calendar-actions.spec.js` — כפתורים לפי סטטוס, fire של sheet:action, re-open עם badge מעודכן, terminal=ללא כפתורים.

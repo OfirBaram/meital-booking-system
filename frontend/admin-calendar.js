@@ -73,9 +73,17 @@ export function computeCalendarGrid(year, month, _today) {
 /**
  * Group a flat bookings array by date and derive per-day flags.
  *
- * @param {Array}  bookings  from GAS listBookings
- * @param {Array}  [slots]   from admin-slots getSlots (marks hasFreeSlot / freeSlotCount)
- * @returns {Object}  { 'YYYY-MM-DD': { bookings[], hasPending, hasApproved, hasFreeSlot, freeSlotCount } }
+ * @typedef {{
+ *   bookings: Booking[],
+ *   hasPending: boolean,
+ *   hasApproved: boolean,
+ *   hasFreeSlot: boolean,
+ *   freeSlotCount: number
+ * }} CalEntry
+ *
+ * @param {Booking[]} bookings  flat booking records from Supabase
+ * @param {Slot[]}    [slots]   slot records — marks hasFreeSlot / freeSlotCount
+ * @returns {Record<string, CalEntry>}  keyed by 'YYYY-MM-DD'
  */
 export function buildCalData(bookings, slots = []) {
   const out = {};
