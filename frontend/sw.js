@@ -1,22 +1,28 @@
 'use strict';
 
-const CACHE    = 'meital-v1';
+const CACHE = 'meital-v1';
+
+// Resolve all precache URLs relative to this SW file so the same code works
+// for root deployment (https://domain.com/sw.js) and GitHub Pages subdirectory
+// (https://user.github.io/repo/frontend/sw.js).
+const _base = new URL('./', self.location.href).href;
+
 const PRECACHE = [
-  '/',
-  '/index.html',
-  '/admin.html',
-  '/manifest.json',
-  '/styles/tailwind.css',
-  '/booking.js',
-  '/config.js',
-  '/admin.js',
-  '/admin-render.js',
-  '/admin-calendar.js',
-  '/admin-sheet.js',
-  '/admin-gestures.js',
-  '/meital_profile_header.webp',
-  '/meital_profile_header.png',
-  '/favicon.svg',
+  _base,
+  _base + 'index.html',
+  _base + 'admin.html',
+  _base + 'manifest.json',
+  _base + 'styles/tailwind.css',
+  _base + 'booking.js',
+  _base + 'config.js',
+  _base + 'admin.js',
+  _base + 'admin-render.js',
+  _base + 'admin-calendar.js',
+  _base + 'admin-sheet.js',
+  _base + 'admin-gestures.js',
+  _base + 'meital_profile_header.webp',
+  _base + 'meital_profile_header.png',
+  _base + 'favicon.svg',
 ];
 
 // Install: pre-cache all static assets
@@ -55,7 +61,7 @@ self.addEventListener('fetch', e => {
           return r;
         })
         .catch(() =>
-          caches.match(e.request).then(r => r || caches.match('/index.html'))
+          caches.match(e.request).then(r => r || caches.match(_base + 'index.html'))
         )
     );
     return;
