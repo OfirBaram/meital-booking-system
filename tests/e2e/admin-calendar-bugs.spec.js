@@ -181,6 +181,8 @@ test.describe('Bug 2 regression — calendar cell click routing', () => {
 
     await page.locator(`[data-date="${TODAY}"]`).click()
     await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+  // Wait for sheet animation to complete before pressing Escape
+  await page.waitForTimeout(200)
     await expect(page.locator('#js-sheet-content')).toContainText('לקוחה אישור')
     await expect(page.locator('#js-sheet-title')).toContainText('יום')
   })
@@ -213,6 +215,8 @@ test('no JS errors during approved-booking click → sheet close cycle', async (
   // Open sheet by clicking today's cell
   await page.locator(`[data-date="${TODAY}"]`).click()
   await expect(page.locator('#js-sheet')).toBeVisible({ timeout: 3_000 })
+  // Wait for sheet animation to complete before pressing Escape
+  await page.waitForTimeout(200)
 
   // Close with Escape
   await page.keyboard.press('Escape')
