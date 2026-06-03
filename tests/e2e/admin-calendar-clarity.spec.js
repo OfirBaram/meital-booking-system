@@ -344,7 +344,7 @@ test.describe('Calendar Clarity — day popup control-center', () => {
     await expect(row.locator('[data-sheet-action]')).toHaveCount(0)
   })
 
-  test('a free slot can be blocked and disappears from the free list', async ({ page }) => {
+  test('a free slot can be blocked and moves to the locked section', async ({ page }) => {
     const today = localToday()
     const slotsRef = { current: [{ id: 9, date: today, time: '11:00', status: 'available' }] }
 
@@ -360,9 +360,13 @@ test.describe('Calendar Clarity — day popup control-center', () => {
 
     await blockBtn.click()
 
-    // After blocking, the slot is locked — it no longer appears in the free section.
-    await expect(page.locator('[data-slot-id="9"]')).toHaveCount(0, { timeout: 4_000 })
-    await expect(page.locator('#js-sheet')).toBeVisible()
+    // Toast confirms block; sheet re-opens on bookings tab — switch to slots tab.
     await expect(page.locator('#js-toast-msg')).toContainText('נחסם', { timeout: 3_000 })
+    await expect(page.locator('#js-sheet')).toBeVisible()
+    await page.locator('[data-tab-target="slots"]').click()
+
+    // Free-section row is gone; locked-section row is now visible.
+    await expect(page.locator('[data-sheet-action="blockSlot"][data-slot-id="9"]')).toHaveCount(0, { timeout: 4_000 })
+    await expect(page.locator('[data-sheet-action="unblockSlot"][data-slot-id="9"]')).toBeVisible({ timeout: 4_000 })
   })
 })
