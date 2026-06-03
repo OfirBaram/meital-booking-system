@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
       .eq('status', 'available')
       .gte('start_time', fromUTC)
       .lte('start_time', toUTC)
+      .gt('start_time', new Date().toISOString())
       .order('start_time')
 
     if (error) throw error

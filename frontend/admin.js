@@ -893,9 +893,30 @@ async function loadAutoBlockConfig() {
 
 function _setAutoBlockSettingsVisibility(enabled) {
   const settings = document.getElementById('js-autoblock-settings');
-  if (!settings) return;
-  settings.style.opacity       = enabled ? '1' : '0.45';
-  settings.style.pointerEvents = enabled ? '' : 'none';
+  if (settings) {
+    settings.style.opacity       = enabled ? '1' : '0.45';
+    settings.style.pointerEvents = enabled ? '' : 'none';
+  }
+  const statusRow  = document.getElementById('js-autoblock-status-row');
+  const statusIcon = document.getElementById('js-autoblock-status-icon');
+  const statusText = document.getElementById('js-autoblock-status-text');
+  const toggleLbl  = document.getElementById('js-autoblock-toggle-label');
+  if (statusRow) {
+    statusRow.className = enabled
+      ? 'flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-green-50 border border-green-100 transition-colors'
+      : 'flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-gray-100 border border-gray-200 transition-colors';
+  }
+  if (statusIcon) statusIcon.textContent = enabled ? '✅' : '⏸️';
+  if (statusText) {
+    statusText.textContent = enabled
+      ? 'החסימה האוטומטית פעילה — זמנות המחרת ייסגרו כל ערב'
+      : 'החסימה האוטומטית כבויה — הזמנות יישמרו פתוחות';
+    statusText.className = enabled ? 'text-xs font-bold text-green-700' : 'text-xs font-bold text-gray-400';
+  }
+  if (toggleLbl) {
+    toggleLbl.textContent = enabled ? 'פעיל' : 'כבוי';
+    toggleLbl.className   = enabled ? 'text-xs font-black text-green-600' : 'text-xs font-black text-gray-400';
+  }
 }
 
 async function saveAutoBlockConfig(enabled, time) {
@@ -1457,17 +1478,20 @@ async function init() {
       })();
       return;
     }
-    if (action === 'deleteSlot' || action === 'blockSlot') {
+    if (action === 'deleteSlot' || action === 'blockSlot' || action === 'unblockSlot') {
       const slotId = Number(e.detail.slotId);
       if (!slotId) return;
       const dayDate = _sheetOpenDate;
       (async () => {
         try {
-          // deleteSlot removes the slot; blockSlot flips available↔locked (toggleSlot).
+          // deleteSlot removes the slot; blockSlot/unblockSlot flip available↔locked (toggleSlot).
           const apiAction = action === 'deleteSlot' ? 'deleteSlot' : 'toggleSlot';
           const r = await sbCall('admin-slots', { action: apiAction, slotId });
           if (!r.success) throw new Error(r.error);
-          toast(action === 'deleteSlot' ? 'החריץ נמחק' : 'החריץ נחסם', 'ok');
+          const toastMsg = action === 'deleteSlot' ? 'החריץ נמחק'
+                         : action === 'unblockSlot' ? 'החריץ שוחרר ✓'
+                         : 'החריץ נחסם';
+          toast(toastMsg, 'ok');
           if (dayDate) delete S.slotCache[dayDate.substring(0, 7)];
           await load(true);
           await loadAndRenderCalendar();

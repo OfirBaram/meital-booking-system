@@ -2012,7 +2012,7 @@ function autoBlockSlots() {
 }
 
 function installTriggers() {
-  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
+  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders', 'autoBlockSlots'];
   ScriptApp.getProjectTriggers()
     .filter(t => HANDLERS.includes(t.getHandlerFunction()))
     .forEach(t => ScriptApp.deleteTrigger(t));
@@ -2024,6 +2024,11 @@ function installTriggers() {
   ScriptApp.newTrigger('sendDailyReminders')
     .timeBased().everyDays(1).atHour(8).create();
   Logger.log('[installTriggers] sendDailyReminders trigger installed (08:00 daily).');
+
+  var _savedHour = parseInt(PropertiesService.getScriptProperties().getProperty('AUTO_BLOCK_TIME') || '20', 10);
+  if (isNaN(_savedHour) || _savedHour < 0 || _savedHour > 23) _savedHour = 20;
+  _installAutoBlockTrigger(_savedHour, true);
+  Logger.log('[installTriggers] autoBlockSlots trigger installed (' + _savedHour + ':00 daily).');
 }
 
 // ═══════════════════════════════════════════════════════════════

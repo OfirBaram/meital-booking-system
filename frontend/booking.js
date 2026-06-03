@@ -402,6 +402,10 @@ function renderCalendar() {
   const firstDow  = new Date(year, month, 1).getDay();
   const daysInMon = new Date(year, month + 1, 0).getDate();
 
+  const _todayNowTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: CONFIG.TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date());
+
   let html = '';
   for (let i = 0; i < firstDow; i++) html += '<div></div>';
 
@@ -412,9 +416,12 @@ function renderCalendar() {
     const dow  = date.getDay();
     const fri  = dow === 5;
     const sat  = dow === 6;
-    const has  = (slots[key] ?? []).length > 0;
-    const sel  = selDate === key;
     const isToday = date.getTime() === floor.getTime();
+    const rawSlots = slots[key] ?? [];
+    const has = isToday
+      ? rawSlots.filter(t => (typeof t === 'string' ? t : t.time) > _todayNowTime).length > 0
+      : rawSlots.length > 0;
+    const sel  = selDate === key;
     const disabled = past || fri || sat || !has;
 
     const cls = [
@@ -489,10 +496,23 @@ function renderSlots(dateKey) {
   const slotsWrap = document.getElementById('js-slots-wrap');
   const slotsGrid = document.getElementById('js-slots');
   const noSlots   = document.getElementById('js-no-slots');
-  const times     = State.slots[dateKey] ?? [];
+  let times       = State.slots[dateKey] ?? [];
+
+  // Filter out past times for today (handles stale prefetch cache)
+  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.TIMEZONE }).format(new Date());
+  if (dateKey === todayKey) {
+    const nowTime = new Intl.DateTimeFormat('en-GB', {
+      timeZone: CONFIG.TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false,
+    }).format(new Date());
+    times = times.filter(t => (typeof t === 'string' ? t : t.time) > nowTime);
+  }
 
   if (!times.length) {
     slotsWrap.classList.add('hidden');
+    const allPast = dateKey === todayKey && (State.slots[dateKey] ?? []).length > 0;
+    noSlots.textContent = allPast
+      ? 'כל הזמנות היום עברו — בחרי תאריך אחר 📅'
+      : 'אין זמנים זמינים לתאריך זה';
     noSlots.classList.remove('hidden');
     return;
   }
