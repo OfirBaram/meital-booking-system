@@ -259,6 +259,7 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
   const bookings  = (entry && entry.bookings) ? entry.bookings : []
   const freeSlots = (slots || []).filter(s => String(s.status).toLowerCase() === 'available')
   const blocked   = (slots || []).filter(s => String(s.status).toLowerCase() === 'blocked')
+  const locked    = (slots || []).filter(s => String(s.status).toLowerCase() === 'locked')
   const pending   = bookings.filter(b => b.status === 'Pending')
   const approved  = bookings.filter(b => b.status === 'Approved')
 
@@ -273,10 +274,13 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
   const chips = []
   if (pending.length)   chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">' + pending.length + ' ממתינות</span>')
   if (approved.length)  chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">' + approved.length + ' מאושרות</span>')
-  if (freeSlots.length) chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-600">' + freeSlots.length + ' פנויות</span>')
+  const unfulfilledCount = isPast ? (freeSlots.length + locked.length) : 0
+  if (!isPast && freeSlots.length) chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-600">' + freeSlots.length + ' פנויות</span>')
+  if (!isPast && locked.length)    chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">🔒 ' + locked.length + ' חסום</span>')
+  if (unfulfilledCount)            chips.push('<span class="inline-flex items-center text-[11px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">📭 ' + unfulfilledCount + ' לא מומש</span>')
 
   const bookTabLabel  = 'הזמנות' + (bookings.length ? ' (' + bookings.length + ')' : '')
-  const slotsTabCount = freeSlots.length + blocked.length
+  const slotsTabCount = freeSlots.length + blocked.length + locked.length
   const slotsTabLabel = 'ניהול זמנים' + (slotsTabCount ? ' (' + slotsTabCount + ')' : '')
 
   const approveAllBanner = pending.length > 1
@@ -337,20 +341,39 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
       + '</div>'
       + '</div>'
   }
-  if (freeSlots.length) {
-    const sortedFree = freeSlots.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-    slotsHtml += '<div class="text-[11px] font-black text-text-muted mb-2">זמנים פנויים</div>'
-              + sortedFree.map(_freeSlotRow).join('')
-  }
-  if (blocked.length) {
-    const sortedBlocked = blocked.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
-    slotsHtml += '<div class="text-[11px] font-black text-text-muted mt-4 mb-2">חסומים</div>'
-              + sortedBlocked.map(_blockedSlotRow).join('')
-  }
-  if (!freeSlots.length && !blocked.length) {
-    slotsHtml += isPast
-      ? '<div class="flex flex-col items-center justify-center py-10 text-center"><p class="text-sm font-medium text-text-muted">יום עבר — לא ניתן לנהל חריצים</p></div>'
-      : '<div class="py-4 text-center text-xs text-text-muted">אין חריצים מוגדרים ליום זה</div>'
+  if (isPast) {
+    const allUnfulfilled = [...freeSlots, ...locked].sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+    if (allUnfulfilled.length) {
+      slotsHtml += '<div class="text-[11px] font-black text-text-muted mb-2">📭 לא מומש</div>'
+                + allUnfulfilled.map(_unfulfilledSlotRow).join('')
+    }
+    if (blocked.length) {
+      const sortedBlocked = blocked.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      slotsHtml += '<div class="text-[11px] font-black text-text-muted mt-4 mb-2">חסומים</div>'
+                + sortedBlocked.map(_blockedSlotRow).join('')
+    }
+    if (!allUnfulfilled.length && !blocked.length) {
+      slotsHtml += '<div class="flex flex-col items-center justify-center py-10 text-center"><p class="text-sm font-medium text-text-muted">יום עבר — אין חריצים לנהל</p></div>'
+    }
+  } else {
+    if (freeSlots.length) {
+      const sortedFree = freeSlots.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      slotsHtml += '<div class="text-[11px] font-black text-text-muted mb-2">זמנים פנויים</div>'
+                + sortedFree.map(_freeSlotRow).join('')
+    }
+    if (locked.length) {
+      const sortedLocked = locked.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      slotsHtml += '<div class="text-[11px] font-black text-text-muted mt-4 mb-2">🔒 חסום (אוטומטי)</div>'
+                + sortedLocked.map(_lockedSlotRow).join('')
+    }
+    if (blocked.length) {
+      const sortedBlocked = blocked.slice().sort((a, b) => (a.time || '') < (b.time || '') ? -1 : 1)
+      slotsHtml += '<div class="text-[11px] font-black text-text-muted mt-4 mb-2">חסומים</div>'
+                + sortedBlocked.map(_blockedSlotRow).join('')
+    }
+    if (!freeSlots.length && !locked.length && !blocked.length) {
+      slotsHtml += '<div class="py-4 text-center text-xs text-text-muted">אין חריצים מוגדרים ליום זה</div>'
+    }
   }
 
   contentEl.innerHTML =
@@ -458,6 +481,35 @@ function _blockedSlotRow(s) {
     + '</div>'
     + '<div class="flex gap-2">'
     + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '</div>'
+    + '</div>'
+  )
+}
+
+function _unfulfilledSlotRow(s) {
+  const id = _esc(s.id)
+  return (
+    '<div class="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-2" data-slot-id="' + id + '">'
+    + '<div>'
+    + '<div class="text-sm font-black text-gray-400">' + _esc(s.time || '') + '</div>'
+    + '<div class="text-[11px] text-gray-400 font-medium mt-0.5">לא מומש</div>'
+    + '</div>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '</div>'
+  )
+}
+
+function _lockedSlotRow(s) {
+  const id = _esc(s.id)
+  return (
+    '<div class="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-2" data-slot-id="' + id + '">'
+    + '<div>'
+    + '<div class="text-sm font-black text-amber-700">' + _esc(s.time || '') + '</div>'
+    + '<div class="text-[11px] text-amber-500 font-medium mt-0.5">🔒 חסום</div>'
+    + '</div>'
+    + '<div class="flex gap-2">'
+    + '<button data-sheet-action="unblockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
     + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
