@@ -1,6 +1,7 @@
 'use strict';
 
 import APP_CONFIG from './config.js';
+import { animate, spring, stagger } from './lib/motion.js';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -353,6 +354,8 @@ function renderServices() {
     document.querySelectorAll('[data-qa^="card-service"]').forEach(c =>
       c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
     updateNav();
+    animate(btn, { scale: [0.97, 1.03, 1] },
+      { duration: 0.4, easing: spring({ stiffness: 500, damping: 18 }) });
   });
 }
 
@@ -441,6 +444,12 @@ function renderCalendar() {
   }
 
   document.getElementById('js-calendar').innerHTML = html;
+  // Staggered spring entrance for calendar day cells
+  const _days = document.querySelectorAll('#js-calendar .cal-day');
+  if (_days.length) {
+    animate(_days, { opacity: [0, 1], scale: [0.88, 1] },
+      { delay: stagger(0.015), easing: spring({ stiffness: 400, damping: 28 }) });
+  }
 
   // Empty-month notice
   let _emptyEl = document.getElementById('js-cal-empty');
@@ -596,6 +605,10 @@ function clearOTPInputs(markError = false) {
     i.classList.remove('filled');
     if (markError) i.classList.add('error');
   });
+  if (markError) {
+    const wrap = document.getElementById('js-otp-inputs');
+    animate(wrap, { x: [-6, 6, -4, 4, 0] }, { duration: 0.35, easing: 'ease-out' });
+  }
   setTimeout(() => {
     document.querySelectorAll('[data-qa="otp-digit"]').forEach(i => i.classList.remove('error'));
     document.querySelector('[data-qa="otp-digit"][data-idx="0"]')?.focus();
@@ -649,9 +662,8 @@ function showStep(n) {
     if (!el) return;
     el.classList.toggle('hidden', i !== n);
     if (i === n) {
-      el.style.animation = 'none';
-      void el.offsetHeight;
-      el.style.animation = '';
+      animate(el, { opacity: [0, 1], y: [16, 0] },
+        { easing: spring({ stiffness: 300, damping: 25 }) });
     }
   });
   State.step = n;
