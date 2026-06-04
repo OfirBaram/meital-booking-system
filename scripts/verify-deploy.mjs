@@ -30,6 +30,12 @@ import { join } from 'node:path';
 const FUNCTIONS_DIR = 'supabase/functions';
 const SHARED_DIR    = `${FUNCTIONS_DIR}/_shared`;
 
+// If a deploy happened within this window BEFORE the commit, treat as in sync.
+// Covers the "deploy → commit seconds later" pattern where Supabase returns
+// "No change found" and does not update updated_at. The original bug this script
+// guards against (3-day-old deploy) is orders of magnitude larger than 2 min.
+const DEPLOY_GRACE_MS = 120_000;
+
 function gitCommitEpoch(path) {
   // %ct = committer date, epoch seconds. Empty when the path has no commits yet.
   const out = execFileSync('git', ['log', '-1', '--format=%ct', '--', path], { encoding: 'utf8' }).trim();
@@ -92,7 +98,7 @@ function main() {
     if (!live) {
       state = 'NEVER DEPLOYED';
       drifted.push(name);
-    } else if (sourceTime > live.updatedAt) {
+    } else if (sourceTime > live.updatedAt + DEPLOY_GRACE_MS) {
       state = 'DRIFT (undeployed changes)';
       drifted.push(name);
     } else {
