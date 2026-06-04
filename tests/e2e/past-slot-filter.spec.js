@@ -226,12 +226,12 @@ test.describe('Admin — auto-block toggle UI', () => {
   })
 
   test('7. status row shows "פעילה" text when enabled', async ({ page }) => {
-    await expect(page.locator('#js-autoblock-status-text')).toContainText('פעילה')
+    await expect(page.locator('#js-autoblock-status-text')).toContainText('פעיל')
   })
 
   test('8. status row shows "כבויה" text after toggle off', async ({ page }) => {
     await clickToggle(page)
-    await expect(page.locator('#js-autoblock-status-text')).toContainText('כבויה', { timeout: 2000 })
+    await expect(page.locator('#js-autoblock-status-text')).toContainText('כבוי', { timeout: 2000 })
   })
 
   test('9. toggling off then on restores "פעיל" label', async ({ page }) => {

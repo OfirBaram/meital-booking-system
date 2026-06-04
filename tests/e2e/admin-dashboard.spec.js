@@ -94,6 +94,7 @@ async function setupAdminMocks(page, overrides = {}, sbOverrides = {}) {
     if (url.endsWith('/admin-slots'))    return respond(action === 'getSlots' ? MOCK_SLOTS : { success: true })
     if (url.endsWith('/admin-clients'))  return respond(action === 'getClients' ? MOCK_CLIENTS : { success: true, appointments: [] })
     if (url.endsWith('/sms-log'))        return respond({ success: true, entries: [] })
+    if (url.endsWith('/twilio-stats'))     return respond({ success: true, balance: { amount: '12.50', currency: 'USD' }, spend: { today: '0.04', week: '0.21', month: '1.25', year: '8.43', allTime: '24.87', currency: 'USD' } })
     return respond({ success: true, added: 3 })
   })
 }
@@ -234,7 +235,7 @@ test.describe('Admin dashboard — nav tabs', () => {
     await page.locator('[data-qa="nav-tab-clients"]').click()
     await expect(page.locator('#js-automation-section')).toBeVisible({ timeout: 5_000 })
     await expect(page.locator('#js-reminder-submit')).toBeVisible()
-    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toBeVisible()
+    await expect(page.locator('[data-qa="btn-autoblock-run"]')).toBeVisible()
   })
 
   test('clients tab shows search input', async ({ page }) => {
