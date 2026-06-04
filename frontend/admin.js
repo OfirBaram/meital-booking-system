@@ -1112,13 +1112,14 @@ async function loadTwilioStats() {
     const data = await sbCall('twilio-stats', {});
     if (!data.success) throw new Error(data.error || 'שגיאה');
 
-    const fmt = (v) => '$' + parseFloat(v || '0').toFixed(2);
+    // Each field is null if that Twilio call failed independently (allSettled)
+    const fmt = (v) => v != null ? '$' + parseFloat(v).toFixed(2) : '—';
 
-    const bal = parseFloat((data.balance || {}).amount || '0');
-    setText('js-twilio-balance',  '$' + bal.toFixed(2));
-    setText('js-twilio-currency', data.balance.currency);
+    const bal = data.balance ? parseFloat(data.balance.amount || '0') : null;
+    setText('js-twilio-balance', bal != null ? '$' + bal.toFixed(2) : '—');
+    if (data.balance) setText('js-twilio-currency', data.balance.currency || 'USD');
 
-    if (balRow) {
+    if (balRow && bal != null) {
       const cls = bal < 1
         ? 'flex items-center justify-between rounded-xl px-4 py-3 mb-3 bg-red-50 border border-red-200 transition-colors'
         : bal < 5
@@ -1130,15 +1131,16 @@ async function loadTwilioStats() {
         (bal < 1 ? 'text-red-600' : bal < 5 ? 'text-amber-600' : 'text-green-600');
     }
 
-    setText('js-twilio-today',   fmt(data.spend.today));
-    setText('js-twilio-week',    fmt(data.spend.week));
-    setText('js-twilio-month',   fmt(data.spend.month));
-    setText('js-twilio-year',    fmt(data.spend.year));
-    setText('js-twilio-alltime', fmt(data.spend.allTime));
+    const sp = data.spend || {};
+    setText('js-twilio-today',   fmt(sp.today));
+    setText('js-twilio-week',    fmt(sp.week));
+    setText('js-twilio-month',   fmt(sp.month));
+    setText('js-twilio-year',    fmt(sp.year));
+    setText('js-twilio-alltime', fmt(sp.allTime));
   } catch (e) {
     ['js-twilio-balance','js-twilio-today','js-twilio-week','js-twilio-month','js-twilio-year','js-twilio-alltime']
       .forEach(id => setText(id, '—'));
-    if (errEl) { errEl.textContent = 'שגיאה בטעינת נתוני Twilio: ' + e.message; errEl.classList.remove('hidden'); }
+    if (errEl) { errEl.textContent = 'שגיאה: ' + e.message; errEl.classList.remove('hidden'); }
   }
 }
 

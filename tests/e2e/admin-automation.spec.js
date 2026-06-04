@@ -250,3 +250,61 @@ test.describe('Run auto-block now', () => {
     await expect(page.locator('#js-toast-msg')).toContainText('כבויה')
   })
 })
+
+// ─── 8. Twilio credits card ──────────────────────────────────────────────────
+test.describe('Twilio credits card', () => {
+  const TWILIO_OK = {
+    success: true,
+    balance: { amount: '18.50', currency: 'USD' },
+    spend: { today: '0.05', week: '0.21', month: '1.25', year: '1.25', allTime: '1.25', currency: 'USD' },
+  }
+
+  async function goToSmsTab(page) {
+    await setupMocks(page, {}, { 'twilio-stats': (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify(TWILIO_OK),
+    }) })
+    await page.goto('/admin.html')
+    await page.locator('#js-token-input').fill(FAKE_TOKEN)
+    await page.locator('#js-login-btn').click()
+    await expect(page.locator('#js-dash')).toBeVisible({ timeout: 8_000 })
+    await page.locator('[data-qa="nav-tab-diary"]').click()
+    await expect(page.locator('#tab-diary')).toBeVisible({ timeout: 5_000 })
+  }
+
+  test('Twilio card renders dollar amounts when function succeeds', async ({ page }) => {
+    await goToSmsTab(page)
+    await expect(page.locator('#js-twilio-balance')).toContainText('$18.50', { timeout: 5_000 })
+    await expect(page.locator('#js-twilio-today')).toContainText('$0.05', { timeout: 3_000 })
+    await expect(page.locator('#js-twilio-month')).toContainText('$1.25', { timeout: 3_000 })
+    await expect(page.locator('#js-twilio-error')).toBeHidden()
+  })
+
+  test('Twilio card shows error row when function returns failure', async ({ page }) => {
+    await setupMocks(page, {}, { 'twilio-stats': (route) => route.fulfill({
+      status: 500, contentType: 'application/json',
+      body: JSON.stringify({ success: false, error: 'twilio_secrets_missing' }),
+    }) })
+    await page.goto('/admin.html')
+    await page.locator('#js-token-input').fill(FAKE_TOKEN)
+    await page.locator('#js-login-btn').click()
+    await expect(page.locator('#js-dash')).toBeVisible({ timeout: 8_000 })
+    await page.locator('[data-qa="nav-tab-diary"]').click()
+    await expect(page.locator('#js-twilio-error')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-twilio-error')).toContainText('שגיאה')
+  })
+
+  test('Twilio card balance turns red when balance < $1', async ({ page }) => {
+    await setupMocks(page, {}, { 'twilio-stats': (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ ...TWILIO_OK, balance: { amount: '0.45', currency: 'USD' } }),
+    }) })
+    await page.goto('/admin.html')
+    await page.locator('#js-token-input').fill(FAKE_TOKEN)
+    await page.locator('#js-login-btn').click()
+    await expect(page.locator('#js-dash')).toBeVisible({ timeout: 8_000 })
+    await page.locator('[data-qa="nav-tab-diary"]').click()
+    await expect(page.locator('#js-twilio-balance')).toContainText('$0.45', { timeout: 5_000 })
+    const balRow = page.locator('#js-twilio-balance-row')
+    await expect(balRow).toHaveClass(/red/, { timeout: 3_000 })
+  })
+})

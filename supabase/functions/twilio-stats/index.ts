@@ -69,33 +69,36 @@ Deno.serve(async (req) => {
       return json({ success: false, error: 'twilio_secrets_missing' }, 500)
     }
 
-    const today     = isoDate(new Date())
-    const rawWeek   = weekStart()
-    const weekS     = rawWeek < SYSTEM_START ? SYSTEM_START : rawWeek  // never before launch
-    const yearS     = yearStart()
+    const today  = isoDate(new Date())
+    const rawWeek = weekStart()
+    const weekS  = rawWeek < SYSTEM_START ? SYSTEM_START : rawWeek  // never before launch
 
-    const [balanceData, todayData, weekData, monthData, yearData, allTimeData] =
-      await Promise.all([
-        twilio(sid, token, '/Balance.json'),
-        twilio(sid, token, '/Usage/Records/Today.json?Category=sms-outbound'),
-        twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${weekS}&EndDate=${today}`),
-        twilio(sid, token, '/Usage/Records/ThisMonth.json?Category=sms-outbound'),
-        twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${yearS}&EndDate=${today}`),
-        twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${SYSTEM_START}&EndDate=${today}`),
-      ])
+    // Use allSettled so a single Twilio API hiccup only blanks that one field,
+    // not the entire card.
+    const [balR, todayR, weekR, monthR, sinceR] = await Promise.allSettled([
+      twilio(sid, token, '/Balance.json'),
+      twilio(sid, token, '/Usage/Records/Today.json?Category=sms-outbound'),
+      twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${weekS}&EndDate=${today}`),
+      twilio(sid, token, '/Usage/Records/ThisMonth.json?Category=sms-outbound'),
+      // "since launch" covers both year-since-launch and all-time (same range)
+      twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${SYSTEM_START}&EndDate=${today}`),
+    ])
+
+    const ok  = (r: PromiseSettledResult<unknown>) => r.status === 'fulfilled' ? r.value as Record<string, unknown> : null
+    const bal = ok(balR)
+    const sinceData = ok(sinceR)
 
     return json({
-      success:  true,
-      balance:  {
-        amount:   parseFloat(balanceData.balance ?? '0').toFixed(2),
-        currency: balanceData.currency ?? 'USD',
-      },
+      success: true,
+      balance: bal
+        ? { amount: parseFloat(bal.balance as string ?? '0').toFixed(2), currency: (bal.currency as string) ?? 'USD' }
+        : null,
       spend: {
-        today:   extractSpend(todayData),
-        week:    extractSpend(weekData),
-        month:   extractSpend(monthData),
-        year:    extractSpend(yearData),
-        allTime: extractSpend(allTimeData),
+        today:   ok(todayR)  ? extractSpend(ok(todayR)!)  : null,
+        week:    ok(weekR)   ? extractSpend(ok(weekR)!)   : null,
+        month:   ok(monthR)  ? extractSpend(ok(monthR)!)  : null,
+        year:    sinceData   ? extractSpend(sinceData)    : null,
+        allTime: sinceData   ? extractSpend(sinceData)    : null,
         currency: 'USD',
       },
     })
