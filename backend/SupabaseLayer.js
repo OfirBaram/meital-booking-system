@@ -1095,3 +1095,86 @@ function sendDailyRemindersV2() {
 
   return { success: true, sent: sent, errors: errors, skippedQuota: skippedQuota, date: tomorrowStr };
 }
+
+// ─── notifyPendingApprovalsV2 ──────────────────────────────────────────────
+// Sends Meital one summary SMS when bookings have been Pending longer than
+// PENDING_REMINDER_HOURS (default 2h) without being approved.
+// Idempotent: tracks reminded IDs in PENDING_REMINDED_IDS script property.
+// Only runs 08:00-22:00 Jerusalem time.
+function notifyPendingApprovalsV2() {
+  var props       = PropertiesService.getScriptProperties();
+  var ADMIN_PHONE = props.getProperty('ADMIN_PHONE');
+  var thresholdH  = parseInt(props.getProperty('PENDING_REMINDER_HOURS') || '2', 10);
+  var TZ          = 'Asia/Jerusalem';
+  var now         = new Date();
+
+  if (!ADMIN_PHONE) {
+    Logger.log('[notifyPending] ADMIN_PHONE not set — skipping.');
+    return null;
+  }
+
+  var hour = parseInt(Utilities.formatDate(now, TZ, 'HH'), 10);
+  if (hour < 8 || hour >= 22) {
+    Logger.log('[notifyPending] Outside business hours (' + hour + ':xx) — skipping.');
+    return { skipped: true, reason: 'outside_hours' };
+  }
+
+  var today  = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
+  var cutoff = new Date(now.getTime() - thresholdH * 3600 * 1000).toISOString();
+
+  var appts = SupabaseService.select('appointments',
+    'status=eq.pending' +
+    '&created_at=lte.' + encodeURIComponent(cutoff) +
+    '&select=id,treatment_name,created_at,slots(start_time)');
+
+  if (!appts) {
+    Logger.log('[notifyPending] Supabase query failed.');
+    return null;
+  }
+
+  appts = appts.filter(function(a) {
+    if (!a.slots || !a.slots.start_time) return false;
+    return Utilities.formatDate(new Date(a.slots.start_time), TZ, 'yyyy-MM-dd') >= today;
+  });
+
+  if (appts.length === 0) {
+    Logger.log('[notifyPending] No stale pending bookings.');
+    return { success: true, notified: 0 };
+  }
+
+  var remindedRaw = props.getProperty('PENDING_REMINDED_IDS') || '';
+  var remindedSet = {};
+  if (remindedRaw) remindedRaw.split(',').forEach(function(id) { if (id) remindedSet[id] = true; });
+
+  var toNotify = appts.filter(function(a) { return !remindedSet[a.id]; });
+  if (toNotify.length === 0) {
+    Logger.log('[notifyPending] All pending already reminded.');
+    return { success: true, notified: 0 };
+  }
+
+  var lines = ['⏰ ממתינות לאישורך (' + toNotify.length + '):'];
+  toNotify.slice(0, 5).forEach(function(a) {
+    var d = new Date(a.slots.start_time);
+    lines.push('• ' + a.treatment_name + ' — ' +
+      Utilities.formatDate(d, TZ, 'dd/MM') + ' ' +
+      Utilities.formatDate(d, TZ, 'HH:mm'));
+  });
+  if (toNotify.length > 5) lines.push('... ועוד ' + (toNotify.length - 5));
+
+  var msg = lines.join('\n');
+
+  try {
+    SmsService.send(ADMIN_PHONE, msg, 'PendingReminder');
+    toNotify.forEach(function(a) { remindedSet[a.id] = true; });
+    props.setProperty('PENDING_REMINDED_IDS', Object.keys(remindedSet).join(','));
+    Logger.log('[notifyPending] Notified admin of ' + toNotify.length + ' pending bookings.');
+    log(LOG_LEVEL.INFO, ACTION.PENDING_NOTIFY,
+      'תזכורת אישור נשלחה לאדמין — ' + toNotify.length + ' ממתינות',
+      { detail: toNotify.map(function(a) { return a.id.slice(0,8); }).join(', ') });
+    return { success: true, notified: toNotify.length };
+  } catch (e) {
+    Logger.log('[notifyPending] SMS error: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+

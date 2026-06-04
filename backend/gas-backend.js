@@ -117,6 +117,7 @@ const ACTION = {
   ADMIN_CANCEL:  'ביטול הזמנה',
   CAL_SYNC:      'סנכרון יומן',
   SEND_REMINDER: 'תזכורת SMS',
+  PENDING_NOTIFY: 'תזכורת אישור ממתין',
   BACKUP:        'גיבוי נתונים',
   HEALTH:        'בדיקת תקינות',
   MANUAL_SMS:    'SMS ידני',
@@ -334,6 +335,8 @@ function doPost(e) {
       case 'blockDates':    return jsonOk(IS_SUPABASE_ENABLED ? handleBlockDatesV2(body) : handleBlockDates(body));
       case 'sendReminders':        return jsonOk(handleSendReminders(body));
       case 'getAutoBlockConfig':  return jsonOk(handleGetAutoBlockConfig(body));
+      case 'getPendingReminderConfig':  return jsonOk(handleGetPendingReminderConfig());
+      case 'savePendingReminderConfig': return jsonOk(handleSavePendingReminderConfig(body));
       case 'saveAutoBlockConfig': return jsonOk(handleSaveAutoBlockConfig(body));
       case 'runAutoBlock':        return jsonOk(handleRunAutoBlock(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
@@ -1963,6 +1966,19 @@ function handleRunAutoBlock(body) {
   return autoBlockSlots();
 }
 
+function handleGetPendingReminderConfig() {
+  var h = parseInt(PropertiesService.getScriptProperties().getProperty('PENDING_REMINDER_HOURS') || '2', 10);
+  return { success: true, hours: h };
+}
+
+function handleSavePendingReminderConfig(body) {
+  var h = parseInt(body.hours, 10);
+  if (isNaN(h) || h < 1 || h > 24) h = 2;
+  PropertiesService.getScriptProperties().setProperty('PENDING_REMINDER_HOURS', String(h));
+  log(LOG_LEVEL.INFO, ACTION.PENDING_NOTIFY, 'הגדרת סף תזכורת אישור עודכנה', { detail: h + 'h' });
+  return { success: true, hours: h };
+}
+
 function _installAutoBlockTrigger(hour, enabled) {
   ScriptApp.getProjectTriggers()
     .filter(function(t) { return t.getHandlerFunction() === 'autoBlockSlots'; })
@@ -2011,6 +2027,21 @@ function autoBlockSlots() {
   }
 }
 
+
+/**
+ * sendPendingApprovalReminder — runs every 2 hours via trigger.
+ * Notifies admin by SMS when bookings stay Pending longer than
+ * PENDING_REMINDER_HOURS (Script Property, default 2).
+ */
+function sendPendingApprovalReminder() {
+  if (IS_SUPABASE_ENABLED) {
+    var r = notifyPendingApprovalsV2();
+    if (r !== null) return r;
+  }
+  Logger.log('[sendPendingApprovalReminder] Supabase unavailable — skipping.');
+  return { skipped: true, reason: 'supabase_unavailable' };
+}
+
 function installTriggers() {
   const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders', 'autoBlockSlots'];
   ScriptApp.getProjectTriggers()
@@ -2029,6 +2060,10 @@ function installTriggers() {
   if (isNaN(_savedHour) || _savedHour < 0 || _savedHour > 23) _savedHour = 20;
   _installAutoBlockTrigger(_savedHour, true);
   Logger.log('[installTriggers] autoBlockSlots trigger installed (' + _savedHour + ':00 daily).');
+
+  ScriptApp.getProjectTriggers().filter(function(t){return t.getHandlerFunction()==='sendPendingApprovalReminder';}).forEach(function(t){ScriptApp.deleteTrigger(t);});
+  ScriptApp.newTrigger('sendPendingApprovalReminder').timeBased().everyHours(2).create();
+  Logger.log('[installTriggers] sendPendingApprovalReminder trigger installed (every 2h).');
 }
 
 // ═══════════════════════════════════════════════════════════════
