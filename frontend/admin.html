@@ -724,6 +724,52 @@
     </div>
   </div>
 
+  <!-- ════ CANCEL / REJECT CONFIRM MODAL ════ -->
+  <div id="js-cancel-modal" class="fixed inset-0 z-50 hidden flex items-end justify-center sm:items-center">
+    <div id="js-cancel-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
+    <div class="relative z-10 bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-5 shadow-2xl sm:mx-4 sm:my-8">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="js-cancel-title" class="font-bold text-sm text-text-main">ביטול הזמנה</h3>
+        <button id="js-cancel-close"
+          class="p-1.5 rounded-xl text-text-muted hover:text-primary hover:bg-cream transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <!-- SMS section -->
+      <div class="mb-4">
+        <label class="flex items-center gap-2 mb-2 cursor-pointer select-none">
+          <input type="checkbox" id="js-cancel-sms-toggle"
+            class="w-4 h-4 rounded accent-[#A67C8E]" checked>
+          <span class="text-sm font-semibold text-text-main">שלח SMS ללקוח</span>
+        </label>
+        <div id="js-cancel-sms-body">
+          <textarea id="js-cancel-sms-text" rows="4" dir="rtl"
+            class="w-full border border-secondary/60 rounded-xl px-3 py-2.5 text-sm text-text-main resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors"
+            placeholder="הודעת SMS ללקוח..."></textarea>
+        </div>
+      </div>
+      <!-- Calendar section -->
+      <div id="js-cancel-cal-section" class="mb-5">
+        <p class="text-xs font-semibold text-text-muted mb-2">האם להשאיר את התור בלוח השנה?</p>
+        <div class="flex gap-2">
+          <button id="js-cancel-cal-yes"
+            class="flex-1 border-2 border-secondary/40 text-text-muted font-semibold py-2 rounded-xl text-sm transition-all">כן</button>
+          <button id="js-cancel-cal-no"
+            class="flex-1 border-2 border-primary bg-primary/10 text-primary font-bold py-2 rounded-xl text-sm transition-all">לא</button>
+        </div>
+      </div>
+      <!-- Actions -->
+      <div class="flex gap-2">
+        <button id="js-cancel-abort"
+          class="flex-1 bg-secondary/40 text-text-muted font-bold py-2.5 rounded-xl hover:bg-secondary/60 transition-colors text-sm">חזרה</button>
+        <button id="js-cancel-confirm"
+          class="flex-1 bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all text-sm">אשר</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast (supports plain + undo-capable toasts) -->
   <div id="js-toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 hidden">
     <div class="flex items-center gap-3 text-sm font-semibold px-4 py-3 rounded-2xl shadow-xl pointer-events-auto bg-text-main text-white">

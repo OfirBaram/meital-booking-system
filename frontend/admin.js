@@ -416,19 +416,112 @@ async function onAction(e) {
     return;
   }
   if (target === 'delete') {
-    deleteBooking(id);
+    await deleteBooking(id);
     return;
   }
-  _commitCardAction(id, target);
+  await _commitCardAction(id, target);
+}
+
+// Format YYYY-MM-DD → DD/MM/YYYY for Hebrew SMS templates.
+function _isoToHe(d) {
+  const [y, m, day] = (d || '').split('-');
+  return day && m && y ? day + '/' + m + '/' + y : (d || '');
+}
+
+// Build the default cancellation/rejection SMS body for the confirmation modal.
+function _buildCancelSmsText(booking, target) {
+  const when = _isoToHe(booking.date) + ' בשעה ' + (booking.time || '');
+  const svc  = booking.serviceName || '';
+  if (target === 'Rejected') {
+    return '❌ לצערנו, הבקשה לתור ב' + when + ' לא אושרה.\nאפשר לתאם מועד חלופי דרך האפליקציה.';
+  }
+  return '❌ התור שלך ב' + when + ' בוטל.\nשירות: ' + svc + '\n\nניתן לתאם תור חדש דרך האפליקציה.';
+}
+
+// Show the cancel/reject confirmation dialog.
+// Resolves with { suppressSms, customSmsBody, keepCalendar } on confirm, or null on abort.
+function showCancelModal(booking, target) {
+  return new Promise(resolve => {
+    const modal      = document.getElementById('js-cancel-modal');
+    const titleEl    = document.getElementById('js-cancel-title');
+    const smsToggle  = document.getElementById('js-cancel-sms-toggle');
+    const smsBodyEl  = document.getElementById('js-cancel-sms-body');
+    const smsText    = document.getElementById('js-cancel-sms-text');
+    const calSection = document.getElementById('js-cancel-cal-section');
+    const calYes     = document.getElementById('js-cancel-cal-yes');
+    const calNo      = document.getElementById('js-cancel-cal-no');
+    const confirmBtn = document.getElementById('js-cancel-confirm');
+    const abortBtn   = document.getElementById('js-cancel-abort');
+    const closeBtn   = document.getElementById('js-cancel-close');
+    const backdrop   = document.getElementById('js-cancel-backdrop');
+
+    titleEl.textContent = target === 'Cancelled' ? 'ביטול הזמנה' : 'דחיית הזמנה';
+    smsText.value = _buildCancelSmsText(booking, target);
+    smsToggle.checked = true;
+    smsBodyEl.classList.remove('hidden');
+
+    // Calendar option only matters when there is a real calendar event (Approved → Cancelled).
+    const hasCalEvent = booking && booking.status === 'Approved';
+    calSection.classList.toggle('hidden', !hasCalEvent);
+
+    let calChoice = 'no';
+    function _setCalBtn(val) {
+      calChoice = val;
+      const SEL = 'flex-1 border-2 border-primary bg-primary/10 text-primary font-bold py-2 rounded-xl text-sm transition-all';
+      const OFF = 'flex-1 border-2 border-secondary/40 text-text-muted font-semibold py-2 rounded-xl text-sm transition-all';
+      calYes.className = val === 'yes' ? SEL : OFF;
+      calNo.className  = val === 'no'  ? SEL : OFF;
+    }
+    _setCalBtn('no');
+
+    modal.classList.remove('hidden');
+
+    function cleanup() {
+      modal.classList.add('hidden');
+      smsToggle.removeEventListener('change', onToggle);
+      calYes.removeEventListener('click', onCalYes);
+      calNo.removeEventListener('click', onCalNo);
+      confirmBtn.removeEventListener('click', onConfirm);
+      abortBtn.removeEventListener('click', onAbort);
+      closeBtn.removeEventListener('click', onAbort);
+      backdrop.removeEventListener('click', onAbort);
+    }
+    function onToggle()  { smsBodyEl.classList.toggle('hidden', !smsToggle.checked); }
+    function onCalYes()  { _setCalBtn('yes'); }
+    function onCalNo()   { _setCalBtn('no'); }
+    function onConfirm() {
+      cleanup();
+      resolve({
+        suppressSms:    !smsToggle.checked,
+        customSmsBody:  smsToggle.checked ? smsText.value.trim() : null,
+        keepCalendar:   calChoice === 'yes',
+      });
+    }
+    function onAbort()   { cleanup(); resolve(null); }
+
+    smsToggle.addEventListener('change', onToggle);
+    calYes.addEventListener('click', onCalYes);
+    calNo.addEventListener('click', onCalNo);
+    confirmBtn.addEventListener('click', onConfirm);
+    abortBtn.addEventListener('click', onAbort);
+    closeBtn.addEventListener('click', onAbort);
+    backdrop.addEventListener('click', onAbort);
+  });
 }
 
 // Soft-delete: hide the booking from every admin view (persisted locally). If it
 // is still live (Pending/Approved) it is also Cancelled server-side so the slot
 // frees. Reversible for 5s via the undo toast.
-function deleteBooking(id) {
+async function deleteBooking(id) {
   const booking = S.bookings.find(b => b.id === id);
   if (!booking) return;
   const wasActive = booking.status === 'Pending' || booking.status === 'Approved';
+
+  let _cancelOpts = null;
+  if (wasActive) {
+    _cancelOpts = await showCancelModal(booking, 'Cancelled');
+    if (_cancelOpts === null) return;
+  }
 
   S.hidden.add(id);
   render();
@@ -446,12 +539,15 @@ function deleteBooking(id) {
           APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
           { method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
-            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Cancelled' }) }
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Cancelled',
+              suppressSms: _cancelOpts ? _cancelOpts.suppressSms : false,
+              customSmsBody: _cancelOpts ? _cancelOpts.customSmsBody : null }) }
         );
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
         if (!data.success && data.error !== 'invalid_transition') throw new Error(data.error || 'error');
-        apiCall('changeStatus', { bookingId: id, targetStatus: 'Cancelled' }).catch(e =>
+        apiCall('changeStatus', { bookingId: id, targetStatus: 'Cancelled',
+          keepCalendar: _cancelOpts ? _cancelOpts.keepCalendar : false }).catch(e =>
           console.warn('[deleteBooking GAS side-effects failed]', e.message));
         await load(true);            // refresh; the now-Cancelled row stays hidden
         persistHidden();
@@ -1248,7 +1344,20 @@ function _updatePeekStrip(dateStr, entry) {
   }
 }
 
-function _commitCardAction(id, target) {
+async function _commitCardAction(id, target) {
+  let _opts = null;
+  if (target === 'Cancelled' || target === 'Rejected') {
+    const b = S.bookings.find(b => b.id === id);
+    _opts = await showCancelModal(b || { id, date: '', time: '', serviceName: '', status: 'Pending' }, target);
+    if (_opts === null) {
+      // Spring the card back to its resting position.
+      const _w = document.querySelector('[data-swipe-id="' + id + '"]');
+      const _c = _w ? _w.querySelector('.swipe-card') : null;
+      if (_c) animate(_c, { x: 0, opacity: 1 }, { type: spring, stiffness: 450, damping: 32 });
+      return;
+    }
+  }
+
   const wrapper  = document.querySelector('[data-swipe-id="' + id + '"]');
   const card     = wrapper ? wrapper.querySelector('.swipe-card') : null;
   const booking  = S.bookings.find(b => b.id === id);
@@ -1276,14 +1385,17 @@ function _commitCardAction(id, target) {
       try {
         const r = await fetch(
           `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` },
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target,
+              suppressSms: _opts ? _opts.suppressSms : false,
+              customSmsBody: _opts ? _opts.customSmsBody : null }) }
         );
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
         if (!data.success) throw new Error(data.error || 'error');
-        // GAS side-effects (SMS + Calendar) — fire-and-forget
-        // Approval failures surface as a warning so Meital can verify the calendar manually
-        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+        // GAS side-effects (Calendar) — fire-and-forget
+        apiCall('changeStatus', { bookingId: id, targetStatus: target,
+          keepCalendar: _opts ? _opts.keepCalendar : false }).catch(e => {
           console.warn('[changeStatus GAS side-effects failed]', e.message);
           if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
         });
@@ -1301,9 +1413,16 @@ function _commitCardAction(id, target) {
   );
 }
 
-function _commitSheetAction(id, target) {
+async function _commitSheetAction(id, target) {
   const booking = S.bookings.find(b => b.id === id);
   if (!booking) return;
+
+  let _opts = null;
+  if (target === 'Cancelled' || target === 'Rejected') {
+    _opts = await showCancelModal(booking, target);
+    if (_opts === null) return;
+  }
+
   const prevStatus = booking.status;
 
   // Optimistic update + close the sheet so the admin immediately sees the
@@ -1321,12 +1440,15 @@ function _commitSheetAction(id, target) {
           APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
           { method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
-            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target }) }
+            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target,
+              suppressSms: _opts ? _opts.suppressSms : false,
+              customSmsBody: _opts ? _opts.customSmsBody : null }) }
         );
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
         if (!data.success) throw new Error(data.error || 'error');
-        apiCall('changeStatus', { bookingId: id, targetStatus: target }).catch(e => {
+        apiCall('changeStatus', { bookingId: id, targetStatus: target,
+          keepCalendar: _opts ? _opts.keepCalendar : false }).catch(e => {
           console.warn('[changeStatus GAS side-effects failed]', e.message);
           if (target === 'Approved') toast('אושר! ⚠️ יש לבדוק שהיומן עודכן', 'warn');
         });
@@ -1514,7 +1636,7 @@ async function init() {
 
   initSheet();
 
-  document.addEventListener('sheet:action', e => {
+  document.addEventListener('sheet:action', async e => {
     const { action, id, date } = e.detail;
     if (action === 'addSlot') {
       const slotDate = date;
@@ -1573,7 +1695,7 @@ async function init() {
       return;
     }
     const STATUS_MAP = { approve: 'Approved', reject: 'Rejected', cancel: 'Cancelled' };
-    if (STATUS_MAP[action]) _commitSheetAction(id, STATUS_MAP[action]);
+    if (STATUS_MAP[action]) await _commitSheetAction(id, STATUS_MAP[action]);
   });
 
   if (S.token && sessionValid()) {
