@@ -1,4 +1,4 @@
-# ✅ מצב מערכת — Phase 6 (עודכן 2026-05-29)
+# ✅ מצב מערכת — פרודקשן חי (עודכן 2026-06-04)
 
 | פרמטר | ערך |
 |---|---|
@@ -7,10 +7,10 @@
 | `IS_SUPABASE_ENABLED` | **`true`** |
 | Twilio | ✅ Paid (pay-as-you-go, אומת 2026-05-30) — אין צורך בשדרוג |
 
-### ⏳ נותר לביצוע ידני (Phase 6 סיום)
-1. **clasp deploy** — דחוף גרסה חדשה ל-GAS אחרי כל שינוי backend (push ≠ deploy; הרץ `clasp deploy -i AKfycbw...`).
-2. **deploy + verify ל-Edge Functions** — אחרי כל שינוי ב-`supabase/functions/`: `bash scripts/deploy-functions.sh` ואז `npm run verify:deploy` (push ≠ deploy — באג ה-SMS של 2026-05-30 היה פער פריסה, לא קוד). ראה skill `deploy-verification`.
-3. **בדיקת קצה-לקצה חיה** — הזמנה אמיתית עם מספר טלפון ישראלי.
+### ✅ Phase 6 הושלם (2026-06-04)
+- GAS deployed @80 — auto-block + past-slot filter בתוקף. `Main.js` מסונכרן עם `gas-backend.js`.
+- כל 12 Supabase Edge Functions פרוסות ומסונכרנות (`npm run verify:deploy` ירוק).
+- בדיקת קצה-לקצה חיה עברה — OTP → אישור → SMS ללקוח ✓
 
 > מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase. **SMS ללקוח/אדמין נשלח כעת מ-Supabase Edge Functions** (`change-status`, `admin-action`, `verify-and-book`) — לא מ-GAS (ה-GAS side-effect קרא את ה-Sheet הריק ולכן ה-SMS לא נשלח). GAS נשאר ל-Calendar בלבד. פריסה: `bash scripts/deploy-functions.sh`.
 
@@ -110,7 +110,7 @@ $PYTHON skills/utils/ai_tools.py patch frontend/booking.js --old "old string" --
 **לעולם לא** `getValues()` לעמודות זמן/תאריך (גורם ל-1899 epoch bug). **תמיד** `getDisplayValues()` + regex `/\d{2}:\d{2}/`. (ה-1899 bug תוקן 2026-05-21 כך.)
 
 ## 14. Backend Build Model
-`backend/gas-backend.js` = המקור המנוהל. `Code.js` = עותק נוצר ש-clasp דוחף. **חדש את Code.js לפני כל clasp push**, ואחרי כל שינוי backend הרץ `clasp deploy -i AKfycbw...` (push ≠ deploy).
+`backend/gas-backend.js` = המקור המנוהל. `backend/Main.js` = העותק ש-clasp דוחף (`.claspignore` מוציא את `gas-backend.js`). **סנכרן `Main.js` ← `gas-backend.js` לפני כל `clasp push`**, ואז הרץ `clasp deploy` ליצירת גרסה ממוספרת. push ≠ deploy.
 
 ## 15. Zero-Error Workflow Protocol — חובה לכל משימה
 sync → branch → plan → validate → state-update.
@@ -187,33 +187,8 @@ QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService 
 | v1.4.0 | 05-28 | Calendar Day Actions — אשר/דחה/בטל מתוך ה-day sheet |
 | v1.5.0 | 05-29 | Calendar Clarity — tint לכל התא, count pill, free-slot marker, legend |
 | v1.6.0 | 05-29 | SMS fixes — אישור/דחייה שולחים SMS ללקוח מ-Supabase; admin-action (one-tap); WhatsApp CTA |
+| v1.7.0 | 06-04 | Design system — Motion One spring animations, gradient shimmer skeletons, CSS tokens, buildCard decomposition |
+| v1.8.0 | 06-04 | Customer calendar — slot-count badges, duration hints on time chips, swipe navigation, next-available shortcut |
+| v1.9.0 | 06-04 | Admin calendar — month summary bar, next-pending jump button, swipe navigation, shimmer skeleton |
+| v2.0.0 | 06-04 | Confirmation screen polish (personalized heading, short ref, WhatsApp pre-fill); GAS sync + full live deploy |
 
-## v1.5.0 פרטים (העבודה הנוכחית)
-- `calDayStatus(entry)` מעשיר: tone (pending→approved→free→none), pendingCount, approvedCount, freeSlotCount (active בלבד — Rejected/Cancelled לא נספרים).
-- `renderCalendar` מחיל tint לכל התא (has-pending/has-approved/has-free), count pill (.cal-count), ו-rose free marker (.cal-free-dot). ה-.cal-dot הישן 4px הוסר.
-- עדיפות tint: pending (amber + ring/pulse — actionable) → approved (green) → free (rose). tints מדלגים על תא today.
-- legend תמיד-נראה מעל הגריד.
-- **באג שתוקן:** rose "זמן פנוי" לא הופיע כי buildCalData השווה ל-'Available' בעוד Supabase מחזיר 'available' — עכשיו case-insensitive.
-- **התנהגות popup:** addSlot ו-_commitSheetAction עכשיו closeSheet() וחושפים את הלוח עם העדכון האופטימי (לא re-open). Undo מחזיר את הלוח in-place.
-
-## v1.6.0 פרטים — SMS / Notification fixes
-- **שורש הבאג:** הזמנות חיות נכתבות ל-Supabase (`appointments`), אך side-effect ה-SMS ב-GAS קרא את ה-Sheet הריק → `booking_not_found` → SMS לא נשלח (השגיאה נבלעה ב-`.catch`).
-- `supabase/functions/_shared/`: `messages.ts` (pure — `hebrewDayLabel`, `buildClientStatusSms`, `buildAdminNewBookingSms`; נבדק ב-Vitest), `crypto.ts` (HMAC + timing-safe verify), `sms.ts` (Twilio).
-- `change-status`: אחרי RPC מוצלח שולף מ-`bookings_view` ושולח SMS ללקוח (approved/rejected/cancelled). SMS לא-פטאלי.
-- `admin-action` (**חדש**, `verify_jwt=false`): לינק GET חתום-HMAC מה-SMS לאדמין → מאשר/דוחה → SMS ללקוח → דף HTML עברי. מאובטח ע"י טוקן ה-HMAC לכל הזמנה (אותו סוד כמו verify-and-book).
-- `verify-and-book`: ה-SMS לאדמין כולל שם-יום עברי, ולינק `${SUPABASE_URL}/functions/v1/admin-action` קליקבילי (לא עוד `undefined` מ-GAS_URL חסר). **GAS_URL הוסר.**
-- Frontend: מסך ה-pending — הוסר "הזמני תור נוסף", במקומו כפתור WhatsApp בולט (`#js-whatsapp`, `wa.me/972547686865`).
-
-## v1.4.0 פרטים — Calendar Day Actions
-- `frontend/admin-sheet.js`: `_bookingActions(b)` מציג כפתורים inline לפי סטטוס; event delegation על js-sheet-content (listener אחד ב-initSheet); `isSheetOpen()` exported.
-- `frontend/admin.js`: `_commitSheetAction(id, target)` — עדכון אופטימי + toastUndo (5s), אז Supabase change-status → GAS side-effects fire-and-forget → load(true) מרענן.
-- כפתורים לפי סטטוס: Pending=אשר+דחה, Approved=בטל, Rejected/Cancelled=ללא.
-
----
-
-# 21. Next Steps — Admin Calendar Enhancement (resume point)
-Branch: `feature/calendar-clarity` (off main).
-1. **Inline slot creation מיום ריק** — footer עם mini time-picker (`<select>` חצי-שעה + כפתור), `_handleAddSlot(dateStr, time)` שקורא sbCall action addSlot; הסר את case addSlot מ-sheet:action ב-admin.js.
-2. **חיווט peek-strip "הוסף שעה"** (#js-cal-peek-add) — ב-onCalDayClick חשוף + set data-date; click מפעיל את אותו flow.
-3. **Optimistic dot update** — ב-_commitSheetAction קרא מיד `S.calData = buildCalData(S.bookings)` + `renderVisibleCalendar()` אחרי שורת ה-status האופטימי.
-4. **E2E** ב-`tests/e2e/admin-calendar-actions.spec.js` — כפתורים לפי סטטוס, fire של sheet:action, re-open עם badge מעודכן, terminal=ללא כפתורים.
