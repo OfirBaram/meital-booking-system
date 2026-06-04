@@ -1,4 +1,6 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+// System launch date — all "since launch" and "all time" queries start here.
+// Pre-launch Twilio account activity is excluded.
+const SYSTEM_START = '2026-06-01'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +28,7 @@ function weekStart(): string {
 }
 
 function yearStart(): string {
-  return `${new Date().getFullYear()}-01-01`
+  return SYSTEM_START
 }
 
 async function twilio(sid: string, token: string, path: string) {
@@ -78,7 +80,7 @@ Deno.serve(async (req) => {
         twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${weekS}&EndDate=${today}`),
         twilio(sid, token, '/Usage/Records/ThisMonth.json?Category=sms-outbound'),
         twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${yearS}&EndDate=${today}`),
-        twilio(sid, token, '/Usage/Records/AllTime.json?Category=sms-outbound'),
+        twilio(sid, token, `/Usage/Records.json?Category=sms-outbound&StartDate=${SYSTEM_START}&EndDate=${today}`),
       ])
 
     return json({
