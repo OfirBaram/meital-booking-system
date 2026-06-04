@@ -134,10 +134,14 @@ jobs:
   # against the live `supabase functions list`. Self-skips when the project token
   # is not configured, so forks / contributors without it are never blocked.
   #
+  # Skipped on push to main — deploy-functions.yml handles deploy + verify there
+  # in sequence (no race condition). This guard runs on PRs and feature pushes only.
+  #
   # To enable: add repo secret SUPABASE_ACCESS_TOKEN (Account → Access Tokens).
   deploy-drift:
     name: Deploy Drift Guard
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref != 'refs/heads/main')
 
     steps:
       - name: Checkout
