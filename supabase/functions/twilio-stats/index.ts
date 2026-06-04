@@ -70,7 +70,8 @@ Deno.serve(async (req) => {
     }
 
     const today     = isoDate(new Date())
-    const weekS     = weekStart()
+    const rawWeek   = weekStart()
+    const weekS     = rawWeek < SYSTEM_START ? SYSTEM_START : rawWeek  // never before launch
     const yearS     = yearStart()
 
     const [balanceData, todayData, weekData, monthData, yearData, allTimeData] =
