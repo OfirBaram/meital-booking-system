@@ -2438,7 +2438,7 @@ function handleChangeStatus(body) {
   if (!validateAdmin(body.token)) {
     return { success: false, error: 'unauthorized', code: 403 };
   }
-  const { bookingId, targetStatus } = body;
+  const { bookingId, targetStatus, keepCalendar } = body;
   if (!bookingId || !targetStatus) {
     return { success: false, error: 'bookingId and targetStatus are required' };
   }
@@ -2474,7 +2474,7 @@ function handleChangeStatus(body) {
     let result;
     if (targetStatus === 'Approved')      result = processApproval(sh, bookingRow, bookingIdx, bookingId);
     else if (targetStatus === 'Rejected') result = processRejection(sh, bookingRow, bookingIdx, bookingId);
-    else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId);
+    else                                  result = processCancellation(sh, bookingRow, bookingIdx, bookingId, keepCalendar);
     writeAuditLog('dashboard', targetStatus, bookingId, currentStatus, targetStatus, '');
     return result;
   } finally {
@@ -2482,7 +2482,7 @@ function handleChangeStatus(body) {
   }
 }
 
-function processCancellation(logSh, row, rowIdx, bookingId) {
+function processCancellation(logSh, row, rowIdx, bookingId, keepCalendar) {
   const TZ_     = 'Asia/Jerusalem';
   const rawDate = row[LOG_COL.DATE - 1];
   const rawTime = row[LOG_COL.TIME - 1];
@@ -2493,7 +2493,7 @@ function processCancellation(logSh, row, rowIdx, bookingId) {
   const svcName    = String(row[LOG_COL.SERVICE_NAME - 1] || '').trim();
   const calEventId = String(row[LOG_COL.CAL_EVENT    - 1] || '').trim();
 
-  if (calEventId) CalService.deleteEvent(CFG.CAL_ID, calEventId);
+  if (calEventId && !keepCalendar) CalService.deleteEvent(CFG.CAL_ID, calEventId);
 
   logSh.getRange(rowIdx, LOG_COL.STATUS).setValue('Cancelled');
   SpreadsheetApp.flush();

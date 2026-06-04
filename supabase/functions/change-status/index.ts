@@ -20,11 +20,12 @@ function json(body: unknown, status = 200) {
 const ALLOWED: string[] = ['Approved', 'Rejected', 'Cancelled']
 
 // deno-lint-ignore no-explicit-any
-async function notifyClient(supabase: any, bookingId: string, targetStatus: string): Promise<void> {
+async function notifyClient(supabase: any, bookingId: string, targetStatus: string, customBody?: string | null): Promise<void> {
   // Pull the client + slot details from the denormalized view to build the SMS.
+  const needsSlotFields = !customBody
   const { data: bk, error } = await supabase
     .from('bookings_view')
-    .select('name, phone, serviceName, date, time')
+    .select(needsSlotFields ? 'name, phone, serviceName, date, time' : 'name, phone')
     .eq('id', bookingId)
     .maybeSingle()
 
@@ -40,7 +41,7 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
     return
   }
 
-  const body = buildClientStatusSms(status, {
+  const body = customBody || buildClientStatusSms(status, {
     serviceName: bk.serviceName,
     date:        bk.date,
     time:        bk.time,
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    const { adminToken, bookingId, targetStatus } = await req.json()
+    const { adminToken, bookingId, targetStatus, suppressSms, customSmsBody } = await req.json()
 
     const expectedToken = Deno.env.get('ADMIN_TOKEN')
     if (!adminToken || !expectedToken || adminToken !== expectedToken) {
@@ -83,11 +84,11 @@ Deno.serve(async (req) => {
 
     if (error) throw error
 
-    // Notify the client on a successful transition. The status change is the
-    // authoritative action — an SMS failure is logged but never fails the request.
-    if (data?.success === true) {
+    // Notify the client on a successful transition unless the admin suppressed it.
+    // The status change is authoritative — an SMS failure is logged but never fails the request.
+    if (data?.success === true && !suppressSms) {
       try {
-        await notifyClient(supabase, bookingId, targetStatus)
+        await notifyClient(supabase, bookingId, targetStatus, customSmsBody || null)
       } catch (smsErr) {
         console.error('[change-status] client-sms-fail:', smsErr instanceof Error ? smsErr.message : String(smsErr))
       }
