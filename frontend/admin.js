@@ -310,7 +310,7 @@ function setTab(tab) {
   }
 
   if (tab === 'calendar') loadAndRenderCalendar();
-  if (tab === 'diary')    loadSmsLog();
+  if (tab === 'diary')    { loadSmsLog(); loadTwilioStats(); }
   if (tab === 'clients') {
     if (S.clients.length === 0) loadClients('');
     loadSystemInfo();
@@ -1099,6 +1099,48 @@ async function sendManualSMS() {
   }
 }
 
+async function loadTwilioStats() {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const errEl   = document.getElementById('js-twilio-error');
+  const balRow  = document.getElementById('js-twilio-balance-row');
+  setText('js-twilio-balance', '…');
+  ['js-twilio-today','js-twilio-week','js-twilio-month','js-twilio-year','js-twilio-alltime']
+    .forEach(id => setText(id, '…'));
+  if (errEl) errEl.classList.add('hidden');
+  try {
+    const data = await sbCall('twilio-stats', {});
+    if (!data.success) throw new Error(data.error || 'שגיאה');
+
+    const fmt = (v) => '$' + parseFloat(v || '0').toFixed(2);
+
+    const bal = parseFloat((data.balance || {}).amount || '0');
+    setText('js-twilio-balance',  '$' + bal.toFixed(2));
+    setText('js-twilio-currency', data.balance.currency);
+
+    if (balRow) {
+      const cls = bal < 1
+        ? 'flex items-center justify-between rounded-xl px-4 py-3 mb-3 bg-red-50 border border-red-200 transition-colors'
+        : bal < 5
+          ? 'flex items-center justify-between rounded-xl px-4 py-3 mb-3 bg-amber-50 border border-amber-200 transition-colors'
+          : 'flex items-center justify-between rounded-xl px-4 py-3 mb-3 bg-green-50 border border-green-100 transition-colors';
+      balRow.className = cls;
+      const balEl = document.getElementById('js-twilio-balance');
+      if (balEl) balEl.className = 'text-[2rem] leading-none font-black tabular-nums ' +
+        (bal < 1 ? 'text-red-600' : bal < 5 ? 'text-amber-600' : 'text-green-600');
+    }
+
+    setText('js-twilio-today',   fmt(data.spend.today));
+    setText('js-twilio-week',    fmt(data.spend.week));
+    setText('js-twilio-month',   fmt(data.spend.month));
+    setText('js-twilio-year',    fmt(data.spend.year));
+    setText('js-twilio-alltime', fmt(data.spend.allTime));
+  } catch (e) {
+    ['js-twilio-balance','js-twilio-today','js-twilio-week','js-twilio-month','js-twilio-year','js-twilio-alltime']
+      .forEach(id => setText(id, '—'));
+    if (errEl) { errEl.textContent = 'שגיאה בטעינת נתוני Twilio: ' + e.message; errEl.classList.remove('hidden'); }
+  }
+}
+
 async function loadSmsLog() {
   const el = document.getElementById('js-sms-log');
   if (!el) return;
@@ -1596,7 +1638,8 @@ async function init() {
   document.getElementById('js-sms-backdrop').addEventListener('click', closeSmsModal);
   document.getElementById('js-sms-send').addEventListener('click', sendManualSMS);
 
-  document.getElementById('js-log-refresh').addEventListener('click', loadSmsLog);
+  document.getElementById('js-log-refresh').addEventListener('click', () => { loadSmsLog(); loadTwilioStats(); });
+  document.getElementById('js-twilio-refresh').addEventListener('click', loadTwilioStats);
 
   // SMS center filters
   document.querySelectorAll('.sms-status-pill').forEach(b =>

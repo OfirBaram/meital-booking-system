@@ -390,6 +390,70 @@
         </button>
       </div>
 
+      <!-- ── Twilio Credits Card ── -->
+      <div id="js-twilio-card" class="bg-white rounded-2xl border border-secondary/30 shadow-soft p-4 mb-4">
+        <!-- Header row -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">💳</span>
+            <div>
+              <div class="text-sm font-black text-text-main">יתרה ועלויות Twilio</div>
+              <div class="text-[11px] text-text-muted font-medium">נתונים בזמן אמת מחשבון ה-SMS</div>
+            </div>
+          </div>
+          <button id="js-twilio-refresh" data-qa="btn-twilio-refresh"
+            class="text-xs font-bold text-primary hover:text-primary-dk px-2.5 py-1.5 rounded-xl hover:bg-cream active:scale-95 transition-all"
+            aria-label="רענן נתוני Twilio">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Balance hero -->
+        <div id="js-twilio-balance-row"
+          class="flex items-center justify-between rounded-xl px-4 py-3 mb-3 bg-green-50 border border-green-100 transition-colors">
+          <div>
+            <div class="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-0.5">יתרה נוכחית</div>
+            <div id="js-twilio-balance" class="text-[2rem] leading-none font-black text-green-600 tabular-nums">—</div>
+          </div>
+          <div class="text-right">
+            <div id="js-twilio-currency" class="text-xs font-bold text-text-muted">USD</div>
+            <div class="text-[10px] text-text-muted mt-1">pay-as-you-go</div>
+          </div>
+        </div>
+
+        <!-- Spend grid -->
+        <div class="grid grid-cols-3 gap-2 mb-2">
+          <div class="bg-cream rounded-xl p-2.5 text-center">
+            <div id="js-twilio-today"   class="text-base font-black text-text-main tabular-nums">—</div>
+            <div class="text-[10px] text-text-muted font-semibold mt-0.5">היום</div>
+          </div>
+          <div class="bg-cream rounded-xl p-2.5 text-center">
+            <div id="js-twilio-week"    class="text-base font-black text-text-main tabular-nums">—</div>
+            <div class="text-[10px] text-text-muted font-semibold mt-0.5">השבוע</div>
+          </div>
+          <div class="bg-cream rounded-xl p-2.5 text-center">
+            <div id="js-twilio-month"   class="text-base font-black text-text-main tabular-nums">—</div>
+            <div class="text-[10px] text-text-muted font-semibold mt-0.5">החודש</div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-cream rounded-xl p-2.5 text-center">
+            <div id="js-twilio-year"    class="text-base font-black text-text-main tabular-nums">—</div>
+            <div class="text-[10px] text-text-muted font-semibold mt-0.5">השנה</div>
+          </div>
+          <div class="bg-cream rounded-xl p-2.5 text-center">
+            <div id="js-twilio-alltime" class="text-base font-black text-text-main tabular-nums">—</div>
+            <div class="text-[10px] text-text-muted font-semibold mt-0.5">סה"כ היסטוריה</div>
+          </div>
+        </div>
+
+        <!-- Error / loading state -->
+        <div id="js-twilio-error" class="hidden text-xs text-red-400 text-center mt-2 py-1"></div>
+      </div>
+
       <!-- KPI summary -->
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         <div class="bg-white rounded-2xl p-4 text-center border border-secondary/30 shadow-soft">
