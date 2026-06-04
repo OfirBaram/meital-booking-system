@@ -169,6 +169,12 @@ async function openSheetForDate(page, dateStr) {
  * Returns the captured event detail (or null if it did not fire within timeout).
  * Must be called BEFORE the action button click.
  */
+// Confirm the cancel/reject modal that now appears before the action fires.
+async function confirmCancelModal(page) {
+  await expect(page.locator('#js-cancel-modal')).toBeVisible({ timeout: 2_000 })
+  await page.locator('#js-cancel-confirm').click()
+}
+
 async function captureSheetAction(page) {
   await page.evaluate(() => {
     window._capturedSheetAction = null
@@ -305,6 +311,7 @@ test.describe('Reject flow', () => {
     await openSheetForDate(page, TODAY)
 
     await page.locator('[data-sheet-action="reject"]').click()
+    await confirmCancelModal(page)
 
     await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
     await expect(page.locator('#js-toast-msg')).toContainText('נדחתה')
@@ -318,6 +325,7 @@ test.describe('Reject flow', () => {
 
     const spy = await captureSheetAction(page)
     await page.locator('[data-sheet-action="reject"]').click()
+    await confirmCancelModal(page)
 
     const detail = await spy.get()
     expect(detail.action).toBe('reject')
@@ -335,6 +343,7 @@ test.describe('Cancel flow', () => {
     await openSheetForDate(page, TODAY)
 
     await page.locator('[data-sheet-action="cancel"]').click()
+    await confirmCancelModal(page)
 
     await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
     await expect(page.locator('#js-toast-msg')).toContainText('בוטלה')
@@ -348,6 +357,7 @@ test.describe('Cancel flow', () => {
 
     const spy = await captureSheetAction(page)
     await page.locator('[data-sheet-action="cancel"]').click()
+    await confirmCancelModal(page)
 
     const detail = await spy.get()
     expect(detail.action).toBe('cancel')
@@ -382,6 +392,7 @@ test.describe('Sheet closes on action', () => {
     await openSheetForDate(page, TODAY)
 
     await page.locator('[data-sheet-action="cancel"]').click()
+    await confirmCancelModal(page)
 
     await expect(page.locator('#js-sheet')).toBeHidden({ timeout: 3_000 })
     // Approved booking cancelled → day no longer shows the approved tint

@@ -94,6 +94,12 @@ async function firstCardBox(page) {
 }
 
 /** Simulate a horizontal pointer swipe on the first swipe card. */
+// Confirm the cancel/reject modal that now appears before the action fires.
+async function confirmCancelModal(page) {
+  await expect(page.locator('#js-cancel-modal')).toBeVisible({ timeout: 2_000 })
+  await page.locator('#js-cancel-confirm').click()
+}
+
 async function swipeCard(page, distancePx) {
   const box = await firstCardBox(page)
   if (!box) throw new Error('No .swipe-card found')
@@ -164,6 +170,7 @@ test('swipe left > 60% on Pending card shows reject toast', async ({ page }) => 
 
   const box = await firstCardBox(page)
   await swipeCard(page, -(box.width * 0.75))  // negative = left
+  await confirmCancelModal(page)
 
   await expect(page.locator('#js-toast')).toBeVisible({ timeout: 2_000 })
   await expect(page.locator('#js-toast-msg')).toContainText('נדחתה')
@@ -292,6 +299,7 @@ test('a real click on the delete button removes the card and shows an undo toast
   // handler ignores taps on interactive controls. Before the fix this click
   // was swallowed by setPointerCapture and nothing happened.
   await page.locator('button[data-qa="btn-delete"]').first().click()
+  await confirmCancelModal(page)
 
   // Optimistic delete: card gone, undo toast visible.
   await expect(page.locator('.swipe-wrapper')).toHaveCount(0, { timeout: 2_000 })
