@@ -232,3 +232,32 @@ main        { padding-bottom: 5rem; }
 .skeleton-card .s-line {
   border-radius: 0.4rem;
 }
+
+/* ── Booking calendar — slot-count badge & time-slot duration ─────────────── */
+.slot-count {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-primary);
+  opacity: 0.85;
+  margin-top: 2px;
+}
+.slot-count.sel {
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 1;
+}
+.time-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.slot-duration {
+  font-size: 9px;
+  opacity: 0.55;
+  line-height: 1;
+}
+.time-slot.selected .slot-duration {
+  opacity: 0.80;
+}

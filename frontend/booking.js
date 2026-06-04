@@ -410,6 +410,7 @@ function renderCalendar() {
   }).format(new Date());
 
   let html = '';
+  let hasAnyAvail = false;
   for (let i = 0; i < firstDow; i++) html += '<div></div>';
 
   for (let d = 1; d <= daysInMon; d++) {
@@ -421,11 +422,13 @@ function renderCalendar() {
     const sat  = dow === 6;
     const isToday = date.getTime() === floor.getTime();
     const rawSlots = slots[key] ?? [];
-    const has = isToday
-      ? rawSlots.filter(t => (typeof t === 'string' ? t : t.time) > _todayNowTime).length > 0
-      : rawSlots.length > 0;
+    const slotCount = isToday
+      ? rawSlots.filter(t => (typeof t === 'string' ? t : t.time) > _todayNowTime).length
+      : rawSlots.length;
+    const has = slotCount > 0;
     const sel  = selDate === key;
     const disabled = past || fri || sat || !has;
+    if (!disabled) hasAnyAvail = true;
 
     const cls = [
       'cal-day',
@@ -438,8 +441,7 @@ function renderCalendar() {
       <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
-        ${has && !disabled && !sel ? '<span class="dot-avail"></span>' : ''}
-        ${sel ? '<span class="dot-avail" style="background:white"></span>' : ''}
+        ${has && !disabled ? `<span class="slot-count${sel ? ' sel' : ''}">${slotCount}</span>` : ''}
       </div>`;
   }
 
@@ -451,17 +453,24 @@ function renderCalendar() {
       { delay: stagger(0.015), type: spring, stiffness: 400, damping: 28 });
   }
 
-  // Empty-month notice
+  // Empty-month notice + next-available shortcut
   let _emptyEl = document.getElementById('js-cal-empty');
   if (!_emptyEl) {
-    _emptyEl = document.createElement('p');
+    _emptyEl = document.createElement('div');
     _emptyEl.id = 'js-cal-empty';
-    _emptyEl.className = 'mt-4 text-center text-sm text-text-muted';
+    _emptyEl.className = 'mt-4 text-center';
     _emptyEl.dir = 'rtl';
-    _emptyEl.textContent = 'אין תורים פנויים לחודש זה, נסי חודש אחר';
+    _emptyEl.innerHTML =
+      '<p class="text-sm text-text-muted mb-2">אין תורים פנויים לחודש זה</p>'
+      + '<button id="js-cal-next-avail" class="text-xs font-semibold text-primary hover:underline">← חפשי חודש קרוב יותר</button>';
     document.getElementById('js-cal-loading').insertAdjacentElement('beforebegin', _emptyEl);
+    document.getElementById('js-cal-next-avail').addEventListener('click', () => {
+      const next = new Date(State.calMonth.getFullYear(), State.calMonth.getMonth() + 1, 1);
+      State.calMonth = next;
+      loadMonthSlots(next.getFullYear(), next.getMonth() + 1);
+    });
   }
-  _emptyEl.classList.toggle('hidden', html.includes('cal-day avail'));
+  _emptyEl.classList.toggle('hidden', hasAnyAvail);
 }
 
 function renderCalendarSkeleton() {
@@ -528,6 +537,7 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
+  const _dur = State.service === 'gel_feet' ? 120 : 90;
   slotsGrid.innerHTML = times.map(t => {
     const time = typeof t === 'string' ? t : t.time;
     const id   = typeof t === 'string' ? '' : t.id;
@@ -535,6 +545,7 @@ function renderSlots(dateKey) {
     <div class="time-slot ${State.time === time ? 'selected' : ''}"
          data-time="${time}" data-slot-id="${id}" data-qa="slot-btn">
       <span class="font-semibold text-sm">${time}</span>
+      <span class="slot-duration">${_dur} דק'</span>
     </div>
   `;
   }).join('');
@@ -1052,6 +1063,22 @@ function wireEvents() {
     renderSlots(State.date);
     updateNav();
   });
+
+  // Swipe left/right on the calendar grid to navigate months (mobile)
+  let _swipeX = null, _swipeY = null;
+  const _calEl = document.getElementById('js-calendar');
+  _calEl.addEventListener('touchstart', e => {
+    _swipeX = e.touches[0].clientX;
+    _swipeY = e.touches[0].clientY;
+  }, { passive: true });
+  _calEl.addEventListener('touchend', e => {
+    if (_swipeX === null) return;
+    const dx = e.changedTouches[0].clientX - _swipeX;
+    const dy = e.changedTouches[0].clientY - _swipeY;
+    _swipeX = _swipeY = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    document.getElementById(dx < 0 ? 'js-next-month' : 'js-prev-month').click();
+  }, { passive: true });
 
   document.getElementById('js-slots').addEventListener('click', e => {
     const slot = e.target.closest('[data-time]');
