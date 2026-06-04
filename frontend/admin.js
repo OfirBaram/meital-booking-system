@@ -1133,6 +1133,45 @@ function renderVisibleCalendar() {
     y, mo, S.calData,
     { onDayClick: onCalDayClick }
   );
+  _updateCalMonthStats();
+  _updateNextPendingBtn();
+}
+
+function _updateCalMonthStats() {
+  const el = document.getElementById('js-cal-month-stats');
+  if (!el) return;
+  let pending = 0, approved = 0, free = 0;
+  for (const e of Object.values(S.calData)) {
+    for (const b of (e.bookings || [])) {
+      if (b.status === 'Pending')  pending++;
+      if (b.status === 'Approved') approved++;
+    }
+    free += e.freeSlotCount || 0;
+  }
+  const chip = (n, label, cls) =>
+    n ? '<span class="px-2 py-0.5 rounded-full ' + cls + '">' + n + ' ' + label + '</span>' : '';
+  el.innerHTML = chip(pending, 'ממתינות', 'bg-amber-100 text-amber-700')
+    + chip(approved, 'מאושרות', 'bg-green-100 text-green-700')
+    + chip(free, 'פנויות', 'bg-rose-100 text-rose-500');
+  el.classList.toggle('hidden', !pending && !approved && !free);
+}
+
+function _updateNextPendingBtn() {
+  const btn = document.getElementById('js-cal-next-pending');
+  if (!btn) return;
+  const today = _todayISO();
+  const next = liveBookings()
+    .filter(b => b.status === 'Pending' && b.date && b.date >= today)
+    .sort((a, b) => a.date < b.date ? -1 : 1)[0];
+  btn.classList.toggle('hidden', !next);
+  btn.onclick = next ? () => {
+    const d = new Date(next.date + 'T00:00:00');
+    S.calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    loadAndRenderCalendar().then(() => {
+      const cell = document.querySelector('[data-date="' + next.date + '"]');
+      if (cell) cell.click();
+    });
+  } : null;
 }
 
 async function loadAndRenderCalendar() {
@@ -1390,6 +1429,24 @@ async function init() {
     S.calMonth = new Date();
     loadAndRenderCalendar();
   });
+
+  // Swipe left/right on the admin calendar grid to navigate months (mobile)
+  let _adminSwipeX = null, _adminSwipeY = null;
+  const _adminCalGrid = document.getElementById('js-cal-grid');
+  if (_adminCalGrid) {
+    _adminCalGrid.addEventListener('touchstart', e => {
+      _adminSwipeX = e.touches[0].clientX;
+      _adminSwipeY = e.touches[0].clientY;
+    }, { passive: true });
+    _adminCalGrid.addEventListener('touchend', e => {
+      if (_adminSwipeX === null) return;
+      const dx = e.changedTouches[0].clientX - _adminSwipeX;
+      const dy = e.changedTouches[0].clientY - _adminSwipeY;
+      _adminSwipeX = _adminSwipeY = null;
+      if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+      document.getElementById(dx < 0 ? 'js-cal-next' : 'js-cal-prev').click();
+    }, { passive: true });
+  }
 
   const peekAddBtn = document.getElementById('js-cal-peek-add');
   if (peekAddBtn) {
