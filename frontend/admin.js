@@ -1005,6 +1005,8 @@ function _setAutoBlockSettingsVisibility(enabled) {
   const statusIcon = document.getElementById('js-autoblock-status-icon');
   const statusText = document.getElementById('js-autoblock-status-text');
   const toggleLbl  = document.getElementById('js-autoblock-toggle-label');
+  const timeVal    = document.getElementById('js-autoblock-time');
+  const hour       = timeVal ? (timeVal.value + ':00') : '20:00';
   if (statusRow) {
     statusRow.className = enabled
       ? 'flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-green-50 border border-green-100 transition-colors'
@@ -1013,8 +1015,8 @@ function _setAutoBlockSettingsVisibility(enabled) {
   if (statusIcon) statusIcon.textContent = enabled ? '✅' : '⏸️';
   if (statusText) {
     statusText.textContent = enabled
-      ? 'החסימה האוטומטית פעילה — זמנות המחרת ייסגרו כל ערב'
-      : 'החסימה האוטומטית כבויה — הזמנות יישמרו פתוחות';
+      ? 'פעיל — תורים יינעלו מדי ערב ב-' + hour
+      : 'כבוי — תורים יישמרו פתוחים';
     statusText.className = enabled ? 'text-xs font-bold text-green-700' : 'text-xs font-bold text-gray-400';
   }
   if (toggleLbl) {
@@ -1024,19 +1026,18 @@ function _setAutoBlockSettingsVisibility(enabled) {
 }
 
 async function saveAutoBlockConfig(enabled, time) {
-  const btn = document.getElementById('js-autoblock-save');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="w-4 h-4 spinner"></span>'; }
+  const ind = document.getElementById('js-autoblock-save-indicator');
+  if (ind) ind.textContent = 'שומר...';
   try {
     const data = await apiCall('saveAutoBlockConfig', { enabled, time });
     if (!data.success) throw new Error(data.error);
     S.autoBlock.enabled = enabled;
     S.autoBlock.time    = time;
     _setAutoBlockSettingsVisibility(enabled);
-    toast((enabled ? 'חסימה אוטומטית פעילה' : 'חסימה אוטומטית כבויה') + ' — הגדרות נשמרו ✅', 'ok');
+    if (ind) { ind.textContent = '✓ נשמר'; setTimeout(() => { ind.textContent = ''; }, 2000); }
   } catch (e) {
+    if (ind) ind.textContent = '';
     toast('שגיאה בשמירת הגדרות: ' + e.message, 'err');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'שמור הגדרות'; }
   }
 }
 
@@ -1582,11 +1583,14 @@ async function init() {
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
   document.getElementById('js-autoblock-toggle').addEventListener('change', () => {
     const enabled = document.getElementById('js-autoblock-toggle').checked;
+    const time    = parseInt(document.getElementById('js-autoblock-time').value, 10);
     _setAutoBlockSettingsVisibility(enabled);
+    saveAutoBlockConfig(enabled, time);
   });
-  document.getElementById('js-autoblock-save').addEventListener('click', () => {
+  document.getElementById('js-autoblock-time').addEventListener('change', () => {
     const enabled = document.getElementById('js-autoblock-toggle').checked;
     const time    = parseInt(document.getElementById('js-autoblock-time').value, 10);
+    _setAutoBlockSettingsVisibility(enabled);
     saveAutoBlockConfig(enabled, time);
   });
   document.getElementById('js-autoblock-run').addEventListener('click', runAutoBlock);

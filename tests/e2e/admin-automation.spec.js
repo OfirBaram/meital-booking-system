@@ -104,10 +104,10 @@ test.describe('Automation section', () => {
     await expect(page.locator('#js-reminder-submit')).toBeVisible()
   })
 
-  test('auto-block toggle, save, run-now buttons visible', async ({ page }) => {
+  test('auto-block toggle and run-now button visible (no separate save button)', async ({ page }) => {
     await expect(page.locator('#js-autoblock-toggle')).toBeVisible()
-    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toBeVisible()
     await expect(page.locator('[data-qa="btn-autoblock-run"]')).toBeVisible()
+    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toHaveCount(0)
   })
 
   test('client list is below divider (still rendered)', async ({ page }) => {
@@ -191,7 +191,7 @@ test.describe('Auto-block toggle', () => {
 
 // ─── 6. Save config ──────────────────────────────────────────────────────────
 test.describe('Save auto-block config', () => {
-  test('save calls saveAutoBlockConfig with correct payload', async ({ page }) => {
+  test('save calls saveAutoBlockConfig with correct payload on time change', async ({ page }) => {
     const calls = []
     await setupMocks(page, {
       saveAutoBlockConfig: (route, body) => {
@@ -204,18 +204,16 @@ test.describe('Save auto-block config', () => {
     })
     await loginAndGoToClients(page)
     await page.locator('[data-qa="sel-autoblock-time"]').selectOption('19')
-    await page.locator('[data-qa="btn-autoblock-save"]').click()
-    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-autoblock-save-indicator')).toContainText('נשמר', { timeout: 5_000 })
     expect(calls[0].time).toBe(19)
     expect(calls[0].enabled).toBe(true)
   })
 
-  test('success toast mentions "נשמרו"', async ({ page }) => {
+  test('toggling auto-block shows inline "✓ נשמר" indicator', async ({ page }) => {
     await setupMocks(page)
     await loginAndGoToClients(page)
-    await page.locator('[data-qa="btn-autoblock-save"]').click()
-    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
-    await expect(page.locator('#js-toast-msg')).toContainText('נשמרו')
+    await page.locator('#js-autoblock-toggle').dispatchEvent('click')
+    await expect(page.locator('#js-autoblock-save-indicator')).toContainText('נשמר', { timeout: 5_000 })
   })
 })
 
