@@ -332,7 +332,10 @@ function doPost(e) {
       case 'saveTemplate':  return jsonOk(handleSaveTemplate(body));
       case 'generateSlots': return jsonOk(handleGenerateSlots(body));
       case 'blockDates':    return jsonOk(IS_SUPABASE_ENABLED ? handleBlockDatesV2(body) : handleBlockDates(body));
-      case 'sendReminders': return jsonOk(handleSendReminders(body));
+      case 'sendReminders':        return jsonOk(handleSendReminders(body));
+      case 'getAutoBlockConfig':  return jsonOk(handleGetAutoBlockConfig(body));
+      case 'saveAutoBlockConfig': return jsonOk(handleSaveAutoBlockConfig(body));
+      case 'runAutoBlock':        return jsonOk(handleRunAutoBlock(body));
       case 'getSystemInfo': return jsonOk(handleGetSystemInfo(body));
       case 'injectMock':   return jsonOk(handleInjectMock(body));
       case 'clearSlotsCache': return jsonOk(handleClearSlotsCache(body));
@@ -1928,8 +1931,88 @@ function backfillMissingCalendarEvents() {
   return { success: true, report: report };
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// AUTO-BLOCK SLOTS — blocks available slots for tomorrow at configured time
+// ═══════════════════════════════════════════════════════════════
+
+function handleGetAutoBlockConfig(body) {
+  var props   = PropertiesService.getScriptProperties();
+  var enabled = props.getProperty('AUTO_BLOCK_ENABLED');
+  var time    = props.getProperty('AUTO_BLOCK_TIME');
+  return {
+    success: true,
+    enabled: (enabled !== 'false'),
+    time:    parseInt(time || '20', 10),
+  };
+}
+
+function handleSaveAutoBlockConfig(body) {
+  var enabled = (body.enabled !== false);
+  var hour    = parseInt(body.time, 10);
+  if (isNaN(hour) || hour < 0 || hour > 23) hour = 20;
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('AUTO_BLOCK_ENABLED', enabled ? 'true' : 'false');
+  props.setProperty('AUTO_BLOCK_TIME', String(hour));
+  _installAutoBlockTrigger(hour, enabled);
+  log('[autoBlock] Config saved: enabled=' + enabled + ', hour=' + hour);
+  return { success: true, enabled: enabled, time: hour };
+}
+
+function handleRunAutoBlock(body) {
+  return autoBlockSlots();
+}
+
+function _installAutoBlockTrigger(hour, enabled) {
+  ScriptApp.getProjectTriggers()
+    .filter(function(t) { return t.getHandlerFunction() === 'autoBlockSlots'; })
+    .forEach(function(t) { ScriptApp.deleteTrigger(t); });
+  if (enabled) {
+    ScriptApp.newTrigger('autoBlockSlots').timeBased().atHour(hour).everyDays(1).create();
+    Logger.log('[autoBlock] Trigger installed at ' + hour + ':00 daily.');
+  } else {
+    Logger.log('[autoBlock] Trigger removed (disabled).');
+  }
+}
+
+/**
+ * GAS time trigger: called at the configured hour each day.
+ * Calls the auto-block-slots edge function to lock tomorrow's available slots.
+ */
+function autoBlockSlots() {
+  var props   = PropertiesService.getScriptProperties();
+  var enabled = (props.getProperty('AUTO_BLOCK_ENABLED') !== 'false');
+  if (!enabled) {
+    log('[autoBlock] Skipped (disabled).');
+    return { success: true, skipped: true, reason: 'disabled' };
+  }
+  var SUPABASE_URL = props.getProperty('SUPABASE_URL');
+  var ANON_KEY     = props.getProperty('SUPABASE_ANON_KEY');
+  var ADMIN_TOKEN  = props.getProperty('ADMIN_TOKEN');
+  if (!SUPABASE_URL || !ANON_KEY || !ADMIN_TOKEN) {
+    log('[autoBlock] Missing SUPABASE_URL / SUPABASE_ANON_KEY / ADMIN_TOKEN');
+    return { success: false, error: 'missing_config' };
+  }
+  try {
+    var resp = UrlFetchApp.fetch(SUPABASE_URL + '/functions/v1/auto-block-slots', {
+      method:             'post',
+      contentType:        'application/json',
+      headers:            { 'Authorization': 'Bearer ' + ANON_KEY },
+      payload:            JSON.stringify({ adminToken: ADMIN_TOKEN }),
+      muteHttpExceptions: true,
+    });
+    var data = JSON.parse(resp.getContentText());
+    if (!data.success) throw new Error(data.error || 'edge_function_error');
+    log('[autoBlock] Blocked ' + data.blocked + ' slots for tomorrow (' + data.date + ').');
+    return { success: true, blocked: data.blocked, date: data.date };
+  } catch (e) {
+    log('[autoBlock] ERROR: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
 function installTriggers() {
-  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders'];
+  const HANDLERS = ['syncCalendarToSlots', 'sendDailyReminders', 'autoBlockSlots'];
   ScriptApp.getProjectTriggers()
     .filter(t => HANDLERS.includes(t.getHandlerFunction()))
     .forEach(t => ScriptApp.deleteTrigger(t));
@@ -1941,6 +2024,11 @@ function installTriggers() {
   ScriptApp.newTrigger('sendDailyReminders')
     .timeBased().everyDays(1).atHour(8).create();
   Logger.log('[installTriggers] sendDailyReminders trigger installed (08:00 daily).');
+
+  var _savedHour = parseInt(PropertiesService.getScriptProperties().getProperty('AUTO_BLOCK_TIME') || '20', 10);
+  if (isNaN(_savedHour) || _savedHour < 0 || _savedHour > 23) _savedHour = 20;
+  _installAutoBlockTrigger(_savedHour, true);
+  Logger.log('[installTriggers] autoBlockSlots trigger installed (' + _savedHour + ':00 daily).');
 }
 
 // ═══════════════════════════════════════════════════════════════
