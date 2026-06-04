@@ -114,27 +114,33 @@ export function fmtPhone(p) {
   return local.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
 }
 
-// ─── buildCard ────────────────────────────────────────────────────────────────
-// Returns an HTML string. Events are delegated by render() in admin.js via
-// [data-action] — no inline onclick anywhere.
+// ─── Component helpers ───────────────────────────────────────────────────────
+// Pure functions returning HTML strings — composable building blocks for
+// buildCard(). Events are delegated via [data-action]; no inline handlers.
 
-export function buildCard(b) {
-  const badge = '<span class="text-xs font-semibold px-2.5 py-0.5 rounded-full '
-    + (STATUS_CLS[b.status] || 'bg-gray-100 text-gray-500') + '">'
-    + (LABELS[b.status] || esc(b.status)) + '</span>';
-  const date = (b.date || '').replace(/-/g, '/');
+export function buildStatusBadge(status) {
+  return '<span class="text-xs font-semibold px-2.5 py-0.5 rounded-full '
+    + (STATUS_CLS[status] || 'bg-gray-100 text-gray-500') + '">'
+    + (LABELS[status] || esc(status)) + '</span>';
+}
 
-  let btns = '';
+export function buildActionButtons(b) {
   if (b.status === 'Pending') {
-    btns = '<button data-action="Approved" data-id="' + esc(b.id) + '"'
+    return '<button data-action="Approved" data-id="' + esc(b.id) + '"'
       + ' class="flex-1 bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">✅ אשר</button>'
       + '<button data-action="Rejected"  data-id="' + esc(b.id) + '"'
       + ' class="flex-1 bg-red-400 hover:bg-red-500 text-white text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">❌ דחה</button>';
-  } else if (b.status === 'Approved') {
-    btns = '<button data-action="Cancelled" data-id="' + esc(b.id) + '"'
+  }
+  if (b.status === 'Approved') {
+    return '<button data-action="Cancelled" data-id="' + esc(b.id) + '"'
       + ' class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-600 text-xs font-bold py-2 rounded-xl active:scale-[0.97] transition-all flex items-center justify-center gap-1">🚫 בטל</button>';
   }
+  return '';
+}
 
+export function buildContactButtons(b) {
+  const dialNum = String(b.phone || '').replace(/[^\d+]/g, '');
+  const waNum   = dialNum.replace(/^\+/, '');
   const smsBtn = '<button data-action="sms" data-id="' + esc(b.id) + '"'
     + ' data-phone="' + esc(b.phone) + '" data-name="' + esc(b.name) + '"'
     + ' title="שלח SMS ידני" data-qa="btn-send-sms"'
@@ -143,11 +149,6 @@ export function buildCard(b) {
     + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
     + ' d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>'
     + '</svg></button>';
-
-  // Quick contact + soft-delete controls. tel:/wa.me use the raw E.164 number;
-  // delete is a delegated data-action handled in admin.js (onAction).
-  const dialNum = String(b.phone || '').replace(/[^\d+]/g, '');
-  const waNum   = dialNum.replace(/^\+/, '');
   const callBtn = '<a href="tel:' + esc(dialNum) + '" title="חייגי" data-qa="btn-call"'
     + ' class="p-1.5 rounded-lg text-text-muted hover:text-primary hover:bg-cream active:scale-95 transition-all">'
     + '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
@@ -166,12 +167,23 @@ export function buildCard(b) {
     + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"'
     + ' d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-1.99-1.86L5 7m5 4v6m4-6v6M4 7h16M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/>'
     + '</svg></button>';
+  return callBtn + waBtn + smsBtn + delBtn;
+}
+
+// ─── buildCard ────────────────────────────────────────────────────────────────
+// Composes the above helpers. Events are delegated by render() in admin.js.
+
+export function buildCard(b) {
+  const badge   = buildStatusBadge(b.status);
+  const contact = buildContactButtons(b);
+  const btns    = buildActionButtons(b);
+  const date    = (b.date || '').replace(/-/g, '/');
 
   return '<div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-sm card-in" data-booking="' + esc(b.id) + '">'
     + '<div class="flex items-start justify-between mb-2.5">'
     + '<div><div class="font-black text-[15px] text-text-main">' + esc(b.name) + '</div>'
     + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(b.phone)) + '</div></div>'
-    + '<div class="flex items-center gap-0.5">' + badge + callBtn + waBtn + smsBtn + delBtn + '</div>'
+    + '<div class="flex items-center gap-0.5">' + badge + contact + '</div>'
     + '</div>'
     + '<div class="text-[13px] font-semibold text-text-main mb-1">' + esc(b.serviceName) + '</div>'
     + '<div class="text-xs text-text-muted mb-3.5">📅 ' + date + ' &nbsp;·&nbsp; 🕐 ' + esc(b.time) + '</div>'

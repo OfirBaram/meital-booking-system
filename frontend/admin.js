@@ -11,6 +11,7 @@ import {
 import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './admin-calendar.js';
 import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
+import { animate, spring, stagger } from './lib/motion.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -304,6 +305,8 @@ function setTab(tab) {
     void _tabEl.offsetWidth;
     _tabEl.classList.add('tab-entering');
     setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
+    animate(_tabEl, { opacity: [0, 1], y: [4, 0] },
+      { type: spring, stiffness: 350, damping: 28 });
   }
 
   if (tab === 'calendar') loadAndRenderCalendar();
@@ -397,6 +400,11 @@ function render() {
   cards.classList.remove('cards-entering');
   void cards.offsetWidth;
   cards.classList.add('cards-entering');
+  const _wrappers = cards.querySelectorAll('.swipe-wrapper');
+  if (_wrappers.length) {
+    animate(_wrappers, { opacity: [0, 1], y: [8, 0] },
+      { delay: stagger(0.04), type: spring, stiffness: 400, damping: 30 });
+  }
 }
 
 async function onAction(e) {
@@ -1210,15 +1218,12 @@ function _commitCardAction(id, target) {
 
   if (wrapper && card) {
     const dir = (target === 'Approved') ? 1 : -1;
-    card.style.transition = 'transform 0.22s ease-in';
-    card.style.transform  = 'translate3d(' + (dir * 115) + '%, 0, 0)';
-    wrapper.style.overflow   = 'hidden';
-    wrapper.style.transition = 'max-height 0.28s 0.1s, margin-bottom 0.28s 0.1s, opacity 0.2s 0.08s';
-    setTimeout(() => {
-      wrapper.style.maxHeight    = '0';
-      wrapper.style.marginBottom = '0';
-      wrapper.style.opacity      = '0';
-    }, 40);
+    wrapper.style.overflow = 'hidden';
+    animate(card, { x: `${dir * 115}%`, opacity: [1, 0] },
+      { type: spring, stiffness: 450, damping: 32 });
+    animate(wrapper,
+      { maxHeight: [wrapper.offsetHeight + 'px', '0px'], marginBottom: '0px', opacity: [1, 0] },
+      { duration: 0.32, delay: 0.08 });
   }
 
   const OK = {
