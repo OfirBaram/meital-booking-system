@@ -235,7 +235,7 @@ test.describe('Admin dashboard — nav tabs', () => {
     await page.locator('[data-qa="nav-tab-clients"]').click()
     await expect(page.locator('#js-automation-section')).toBeVisible({ timeout: 5_000 })
     await expect(page.locator('#js-reminder-submit')).toBeVisible()
-    await expect(page.locator('[data-qa="btn-autoblock-save"]')).toBeVisible()
+    await expect(page.locator('[data-qa="btn-autoblock-run"]')).toBeVisible()
   })
 
   test('clients tab shows search input', async ({ page }) => {
