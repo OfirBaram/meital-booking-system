@@ -208,3 +208,27 @@
 
 .bottom-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
 main        { padding-bottom: 5rem; }
+
+/* ── Skeleton / Shimmer ────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0 }
+  100% { background-position: -200% 0 }
+}
+.skeleton-cell {
+  background: linear-gradient(90deg,
+    var(--color-cream, #FAF5F0) 25%,
+    var(--color-secondary, #DDC3A5) 50%,
+    var(--color-cream, #FAF5F0) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+}
+.skeleton-card {
+  background: #fff;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border-primary);
+  padding: 1rem;
+  overflow: hidden;
+}
+.skeleton-card .s-line {
+  border-radius: 0.4rem;
+}

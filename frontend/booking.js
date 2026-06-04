@@ -467,7 +467,7 @@ function renderCalendar() {
 function renderCalendarSkeleton() {
   document.getElementById('js-calendar').innerHTML =
     Array.from({ length: 35 }, () =>
-      '<div class="cal-day disabled animate-pulse bg-secondary/30 rounded-lg"></div>'
+      '<div class="cal-day disabled skeleton-cell rounded-lg"></div>'
     ).join('');
 }
 
