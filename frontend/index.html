@@ -2,13 +2,19 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#FAF5F0">
-  <meta name="description" content="הזמנת תורים אונליין לסטודיו לציפורניים של מיטל שבע ברמת גן">
+  <meta name="description" content="הזמנת תורים אונליין לסטודיו לציפורניים של מיטל שבע ברמת גן. לק ג'ל קלאסי ולרגליים — שירות אישי ומקצועי.">
+  <!-- Open Graph / WhatsApp / Facebook sharing -->
+  <meta property="og:type"        content="website">
+  <meta property="og:title"       content="מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור">
+  <meta property="og:description" content="הזמנת תורים אונליין לסטודיו לציפורניים של מיטל שבע ברמת גן. לק ג'ל קלאסי ולרגליים — שירות אישי ומקצועי.">
+  <meta property="og:image"       content="./meital_profile_header.webp">
+  <meta property="og:locale"      content="he_IL">
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
   <link rel="alternate icon" href="./favicon.ico">
   <link rel="manifest" href="./manifest.json">
-  <title>Meital Sheva - Boutique Nail Studio | הזמנת תור</title>
+  <title>מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור</title>
 
   <link rel="stylesheet" href="./styles/tailwind.css">
   <link rel="stylesheet" href="./styles/tokens.css">
@@ -20,8 +26,29 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
 
+  <!-- JSON-LD: Local Business (Google Search rich results) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "NailSalon",
+    "name": "מיטל שבע ברעם — לק ג'ל בוטק",
+    "description": "סטודיו לציפורניים בוטיק ברמת גן. לק ג'ל קלאסי ולרגליים.",
+    "telephone": "+972547686865",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "רמת גן",
+      "addressCountry": "IL"
+    },
+    "priceRange": "₪₪",
+    "hasMap": "https://maps.google.com/?q=מיטל+שבע+ברעם+רמת+גן"
+  }
+  </script>
+
   <style>
     body { font-family: 'Heebo', sans-serif; background-color: #FAF5F0; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    }
   </style>
 </head>
 

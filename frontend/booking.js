@@ -926,7 +926,7 @@ const LEGAL_CONTENT = {
   privacy: {
     title: 'מדיניות פרטיות',
     html: `
-      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: מאי 2025</p>
+      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: יוני 2026</p>
       <p>סטודיו <strong>מיטל שבע ברעם — לק ג'ל בוטק</strong> מחויב לשמירה על פרטיות לקוחותיו.</p>
       <h3 class="font-semibold mt-3">מידע שנאסף</h3>
       <p>האתר אוסף <strong>שם מלא ומספר טלפון בלבד</strong>, לצורך תיאום תורים. המידע אינו משמש למטרות שיווקיות ואינו מועבר לצדדים שלישיים — למעט שירות SMS (Twilio) לאימות זהות בתהליך ההזמנה.</p>
@@ -940,7 +940,7 @@ const LEGAL_CONTENT = {
   accessibility: {
     title: 'הצהרת נגישות',
     html: `
-      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: מאי 2025</p>
+      <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: יוני 2026</p>
       <p>סטודיו <strong>מיטל שבע ברעם</strong> פועל להנגשת האתר בהתאם לחוק שוויון זכויות לאנשים עם מוגבלות ולתקן WCAG 2.1 ברמה AA.</p>
       <h3 class="font-semibold mt-3">מאפיינים קיימים</h3>
       <ul class="space-y-1.5 list-none">

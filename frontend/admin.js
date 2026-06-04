@@ -1049,7 +1049,7 @@ async function runAutoBlock() {
     if (data.skipped) {
       toast('חסימה אוטומטית כבויה — אפשר במתג למעלה', '');
     } else {
-      toast('נחסמו ' + data.blocked + ' חריצים למחר ✅', 'ok');
+      toast('נחסמו ' + data.blocked + ' תורים למחר ✅', 'ok');
     }
   } catch (e) {
     toast('שגיאה בהפעלת חסימה: ' + e.message, 'err');
@@ -1335,7 +1335,7 @@ function _updatePeekStrip(dateStr, entry) {
       parts.push('<span class="font-semibold text-rose-500">' + freeSlotCount +
         (freeSlotCount === 1 ? ' פנוי' : ' פנויים') + '</span>');
     }
-    peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין חריצים</span>';
+    peekContent.innerHTML = parts.length ? parts.join(' • ') : '<span class="text-text-muted">אין תורים</span>';
   }
   if (peekBtn) {
     // Past days cannot accept new slots — hide the "add slot" affordance.
@@ -1647,9 +1647,9 @@ async function init() {
           const r = await sbCall('admin-slots', { action: 'addSlot', date: slotDate, time: slotTime });
           if (!r.success) throw new Error(r.error);
           if (r.already_exists) {
-            toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
+            toast('תור בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
           } else {
-            toast('החריץ נוסף ✓', 'ok');
+            toast('התור נוסף ✓', 'ok');
             // Close the sheet and reveal the calendar with the new free slot.
             closeSheet();
             delete S.slotCache[slotDate.substring(0, 7)];
@@ -1657,7 +1657,7 @@ async function init() {
             await loadAndRenderCalendar();
           }
         } catch (err) {
-          toast('שגיאה בהוספת החריץ', 'err');
+          toast('שגיאה בהוספת התור', 'err');
         }
       })();
       return;
@@ -1672,9 +1672,9 @@ async function init() {
           const apiAction = action === 'deleteSlot' ? 'deleteSlot' : 'toggleSlot';
           const r = await sbCall('admin-slots', { action: apiAction, slotId });
           if (!r.success) throw new Error(r.error);
-          const toastMsg = action === 'deleteSlot' ? 'החריץ נמחק'
-                         : action === 'unblockSlot' ? 'החריץ שוחרר ✓'
-                         : 'החריץ נחסם';
+          const toastMsg = action === 'deleteSlot' ? 'התור נמחק'
+                         : action === 'unblockSlot' ? 'התור שוחרר ✓'
+                         : 'התור נחסם';
           toast(toastMsg, 'ok');
           if (dayDate) delete S.slotCache[dayDate.substring(0, 7)];
           await load(true);
@@ -1682,7 +1682,7 @@ async function init() {
           // Slot management keeps the popup open — re-open with fresh day data.
           if (dayDate && isSheetOpen()) openSheet('day', _dayPayload(dayDate));
         } catch (err) {
-          toast('שגיאה בעדכון החריץ', 'err');
+          toast('שגיאה בעדכון התור', 'err');
         }
       })();
       return;
@@ -1774,12 +1774,12 @@ async function toggleDiarySlot_unused(slotId, currentStatus) {
     const r = await sbCall('admin-slots', { action: 'toggleSlot', slotId });
     if (!r.success) {
       if (r.error === 'cannot_toggle') {
-        toast('חריץ זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
+        toast('תור זה לא ניתן לשינוי (מוזמן / נעול)', 'err'); return;
       }
       throw new Error(r.error || 'error');
     }
     const lbl = newStatus === 'locked' ? 'חסום ✅' : 'שוחרר ✅';
-    toast('חריץ עודכן — ' + lbl, 'ok');
+    toast('תור עודכן — ' + lbl, 'ok');
     await loadDiarySlots();
   } catch (e) {
     renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
@@ -1791,15 +1791,15 @@ async function deleteDiarySlot_unused(slotId) {
   try {
     const r = await sbCall('admin-slots', { action: 'deleteSlot', slotId });
     if (!r.success) {
-      if (r.error === 'cannot_delete_active') toast('לא ניתן למחוק חריץ תפוס', 'warn');
+      if (r.error === 'cannot_delete_active') toast('לא ניתן למחוק תור תפוס', 'warn');
       else throw new Error(r.error);
       return;
     }
     S.diarySlots = S.diarySlots.filter(s => s.id !== slotId);
     renderDiarySlots(S.diarySlots, document.getElementById('js-diary-slots'), { onToggle: toggleDiarySlot, onDelete: deleteDiarySlot });
-    toast('החריץ נמחק ✓', 'ok');
+    toast('התור נמחק ✓', 'ok');
   } catch (e) {
-    toast('שגיאה במחיקת החריץ', 'err');
+    toast('שגיאה במחיקת התור', 'err');
   }
 }
 
@@ -1812,7 +1812,7 @@ async function addDiarySlot_unused() {
   if (!time) { toast('בחרי שעה להוספה', 'warn'); return; }
 
   const today = new Date().toISOString().slice(0, 10);
-  if (date < today) { toast('לא ניתן להוסיף חריץ בתאריך שעבר', 'warn'); return; }
+  if (date < today) { toast('לא ניתן להוסיף תור בתאריך שעבר', 'warn'); return; }
 
   const btn = document.getElementById('js-add-slot-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner w-4 h-4"></span>'; }
@@ -1820,15 +1820,15 @@ async function addDiarySlot_unused() {
     const r = await sbCall('admin-slots', { action: 'addSlot', date, time });
     if (!r.success) throw new Error(r.error);
     if (r.already_exists) {
-      toast('חריץ בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
+      toast('תור בשעה זו כבר קיים (' + (SB_STATUS_LABEL[r.slot.status] || r.slot.status) + ')', 'warn');
     } else {
-      toast('החריץ נוסף בהצלחה ✓', 'ok');
+      toast('התור נוסף בהצלחה ✓', 'ok');
       if (timeEl) timeEl.value = '';
       delete S.slotCache[date.substring(0, 7)];
       await loadDiarySlots();
     }
   } catch (e) {
-    toast('שגיאה בהוספת החריץ', 'err');
+    toast('שגיאה בהוספת התור', 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '+ הוסף'; }
   }

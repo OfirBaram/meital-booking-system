@@ -334,7 +334,7 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
     ).join('')
     slotsHtml +=
       '<div class="bg-cream rounded-2xl p-4 border border-secondary/30 mb-4">'
-      + '<div class="text-xs font-black text-text-muted mb-2.5">+ הוסף חריץ חדש</div>'
+      + '<div class="text-xs font-black text-text-muted mb-2.5">+ הוסף תור חדש</div>'
       + '<div class="flex gap-2 items-center">'
       + '<select id="js-slot-time-select" class="flex-1 border border-secondary/50 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0">' + opts + '</select>'
       + '<button data-sheet-action="addSlot" data-date="' + _esc(dateStr) + '" class="shrink-0 bg-primary text-white font-bold px-4 py-2.5 rounded-xl hover:bg-primary-dk active:scale-[0.98] transition-all text-sm whitespace-nowrap">הוסף</button>'
@@ -353,7 +353,7 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
                 + sortedBlocked.map(_blockedSlotRow).join('')
     }
     if (!allUnfulfilled.length && !blocked.length) {
-      slotsHtml += '<div class="flex flex-col items-center justify-center py-10 text-center"><p class="text-sm font-medium text-text-muted">יום עבר — אין חריצים לנהל</p></div>'
+      slotsHtml += '<div class="flex flex-col items-center justify-center py-10 text-center"><p class="text-sm font-medium text-text-muted">יום עבר — אין תורים לנהל</p></div>'
     }
   } else {
     if (freeSlots.length) {
@@ -372,7 +372,7 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
                 + sortedBlocked.map(_blockedSlotRow).join('')
     }
     if (!freeSlots.length && !locked.length && !blocked.length) {
-      slotsHtml += '<div class="py-4 text-center text-xs text-text-muted">אין חריצים מוגדרים ליום זה</div>'
+      slotsHtml += '<div class="py-4 text-center text-xs text-text-muted">אין תורים מוגדרים ליום זה</div>'
     }
   }
 
@@ -465,7 +465,7 @@ function _freeSlotRow(s) {
     + '</div>'
     + '<div class="flex gap-2">'
     + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-text-muted border border-secondary/40 hover:bg-cream active:scale-95 transition-all">🔒 חסום</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
@@ -481,7 +481,7 @@ function _blockedSlotRow(s) {
     + '</div>'
     + '<div class="flex gap-2">'
     + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
@@ -495,7 +495,7 @@ function _unfulfilledSlotRow(s) {
     + '<div class="text-sm font-black text-gray-400">' + _esc(s.time || '') + '</div>'
     + '<div class="text-[11px] text-gray-400 font-medium mt-0.5">לא מומש</div>'
     + '</div>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
   )
 }
@@ -510,7 +510,7 @@ function _lockedSlotRow(s) {
     + '</div>'
     + '<div class="flex gap-2">'
     + '<button data-sheet-action="unblockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק חריץ" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
