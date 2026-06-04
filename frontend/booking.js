@@ -646,20 +646,35 @@ function renderConfirmation() {
     </div>
   `).join('');
 
-  // Demoted to a quiet reference line — a raw UUID is support metadata, not client UX.
-  // Full UUID stays in the DOM for traceability (and the E2E gate that asserts it).
-  document.getElementById('js-confirm-id').innerHTML = `
-    <p class="text-[10px] text-text-muted/50 text-center font-light tracking-wide">
-      אסמכתא: <span class="font-mono">${State.bookingId}</span>
+  // Short readable reference — first UUID segment (8 hex chars), uppercased.
+  // Full UUID kept in a sr-only span so E2E tests (textContent regex) still match.
+  const shortRef = State.bookingId.split('-')[0].toUpperCase();
+  const confirmIdEl = document.getElementById('js-confirm-id');
+  confirmIdEl.innerHTML = `
+    <p class="text-[11px] text-text-muted/60 text-center font-medium tracking-wide">
+      מס׳ הזמנה: <span class="font-mono font-bold text-text-muted">${shortRef}</span>
     </p>
+    <span class="sr-only">${State.bookingId}</span>
   `;
+
+  // Personalised heading — use first name (word before first space).
+  const firstName = sanitize(State.name.split(' ')[0]);
+  const heading = document.getElementById('js-confirm-heading');
+  if (heading) heading.textContent = `הבקשה נשלחה, ${firstName}! 🌸`;
+
+  // WhatsApp pre-filled message with booking details.
+  const waText = [
+    `שלום מיטל! קבעתי תור ✨`,
+    `${State.service.icon} ${State.service.name}`,
+    `📅 ${formatDateHe(State.date)} · 🕐 ${State.time}`,
+    `אני ${State.name} (${formatPhone(State.phone)})`,
+  ].join('\n');
+  const waEl = document.getElementById('js-whatsapp');
+  if (waEl) waEl.href = `https://api.whatsapp.com/send/?phone=972547686865&text=${encodeURIComponent(waText)}`;
 
   document.getElementById('js-nav').classList.add('hidden');
 
-  // A11y: move focus to the heading so screen-reader users are told the request
-  // was sent (focus was on the now-hidden OTP box). preventScroll keeps showStep's
-  // scroll-to-top intact.
-  const heading = document.getElementById('js-confirm-heading');
+  // A11y: move focus to the heading.
   if (heading) heading.focus({ preventScroll: true });
 }
 
