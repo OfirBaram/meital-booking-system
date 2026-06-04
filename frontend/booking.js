@@ -355,7 +355,7 @@ function renderServices() {
       c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
     updateNav();
     animate(btn, { scale: [0.97, 1.03, 1] },
-      { duration: 0.4, easing: spring({ stiffness: 500, damping: 18 }) });
+      { type: spring, stiffness: 500, damping: 18 });
   });
 }
 
@@ -448,7 +448,7 @@ function renderCalendar() {
   const _days = document.querySelectorAll('#js-calendar .cal-day');
   if (_days.length) {
     animate(_days, { opacity: [0, 1], scale: [0.88, 1] },
-      { delay: stagger(0.015), easing: spring({ stiffness: 400, damping: 28 }) });
+      { delay: stagger(0.015), type: spring, stiffness: 400, damping: 28 });
   }
 
   // Empty-month notice
@@ -663,7 +663,7 @@ function showStep(n) {
     el.classList.toggle('hidden', i !== n);
     if (i === n) {
       animate(el, { opacity: [0, 1], y: [16, 0] },
-        { easing: spring({ stiffness: 300, damping: 25 }) });
+        { type: spring, stiffness: 300, damping: 25 });
     }
   });
   State.step = n;

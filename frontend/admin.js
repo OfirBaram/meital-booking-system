@@ -301,8 +301,12 @@ function setTab(tab) {
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
   if (_tabEl) {
+    _tabEl.classList.remove('tab-entering');
+    void _tabEl.offsetWidth;
+    _tabEl.classList.add('tab-entering');
+    setTimeout(() => _tabEl.classList.remove('tab-entering'), 220);
     animate(_tabEl, { opacity: [0, 1], y: [4, 0] },
-      { easing: spring({ stiffness: 350, damping: 28 }) });
+      { type: spring, stiffness: 350, damping: 28 });
   }
 
   if (tab === 'calendar') loadAndRenderCalendar();
@@ -393,10 +397,13 @@ function render() {
   cards.querySelectorAll('.swipe-wrapper').forEach(w =>
     initCardSwipe(w, { onCommit: _commitCardAction }));
   // Staggered entrance animation
+  cards.classList.remove('cards-entering');
+  void cards.offsetWidth;
+  cards.classList.add('cards-entering');
   const _wrappers = cards.querySelectorAll('.swipe-wrapper');
   if (_wrappers.length) {
     animate(_wrappers, { opacity: [0, 1], y: [8, 0] },
-      { delay: stagger(0.04), easing: spring({ stiffness: 400, damping: 30 }) });
+      { delay: stagger(0.04), type: spring, stiffness: 400, damping: 30 });
   }
 }
 
@@ -1213,7 +1220,7 @@ function _commitCardAction(id, target) {
     const dir = (target === 'Approved') ? 1 : -1;
     wrapper.style.overflow = 'hidden';
     animate(card, { x: `${dir * 115}%`, opacity: [1, 0] },
-      { duration: 0.22, easing: spring({ stiffness: 450, damping: 32 }) });
+      { type: spring, stiffness: 450, damping: 32 });
     animate(wrapper,
       { maxHeight: [wrapper.offsetHeight + 'px', '0px'], marginBottom: '0px', opacity: [1, 0] },
       { duration: 0.32, delay: 0.08 });
