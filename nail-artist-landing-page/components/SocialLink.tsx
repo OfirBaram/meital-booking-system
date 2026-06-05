@@ -41,7 +41,7 @@ export function SocialLinks({ social, iconClassName = 'size-[1.125rem]', linkCla
               target={href === '#' ? undefined : '_blank'}
               rel="noopener noreferrer"
               aria-label={LABELS[key]}
-              className={linkClassName ?? 'inline-flex size-8 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-champagne/20 hover:text-charcoal'}
+              className={linkClassName ?? 'inline-flex size-11 items-center justify-center rounded-full text-muted transition-colors duration-200 hover:bg-champagne/20 hover:text-charcoal'}
             >
               <Icon className={iconClassName} aria-hidden="true" />
             </a>

@@ -3,7 +3,7 @@ import { WhatsAppIcon, ChevronDownIcon } from '@/components/icons/SocialIcons'
 
 export function Hero() {
   const { identity, social } = siteConfig
-  const waHref = social.whatsapp ?? '#'
+  const waHref = social.whatsapp ?? '#contact'
 
   return (
     <section
@@ -43,7 +43,7 @@ export function Hero() {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <a
             href={waHref}
-            target={waHref === '#' ? undefined : '_blank'}
+            target={waHref.startsWith('http') ? '_blank' : undefined}
             rel="noopener noreferrer"
             aria-label="פנייה לתיאום תור דרך וואטסאפ"
             className="inline-flex items-center gap-2.5 border-2 border-charcoal bg-charcoal px-9 py-3.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-transparent hover:text-charcoal"

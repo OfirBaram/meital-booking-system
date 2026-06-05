@@ -4,7 +4,7 @@ import { WhatsAppIcon } from '@/components/icons/SocialIcons'
 
 export function Contact() {
   const { identity, social, business } = siteConfig
-  const waHref = social.whatsapp ?? '#'
+  const waHref = social.whatsapp ?? '#contact'
 
   return (
     <section
@@ -38,7 +38,7 @@ export function Contact() {
         {/* WhatsApp CTA */}
         <a
           href={waHref}
-          target={waHref === '#' ? undefined : '_blank'}
+          target={waHref.startsWith('http') ? '_blank' : undefined}
           rel="noopener noreferrer"
           aria-label="שליחת הודעה בווטסאפ לתיאום תור"
           className="inline-flex items-center gap-3 border-2 border-champagne bg-champagne px-10 py-4 text-sm font-medium uppercase tracking-[0.12em] text-charcoal transition-opacity duration-200 hover:opacity-85"

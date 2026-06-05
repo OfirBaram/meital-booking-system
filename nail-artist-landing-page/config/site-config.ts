@@ -42,7 +42,7 @@ export const siteConfig = {
     address:        "11, רמת גן",
     city:           "רמת גן",
     phone:          "",            // "050-1234567"
-    whatsappNumber: "",            // ספרות בלבד, ללא + — "972501234567"
+    whatsappNumber: "972547686865",  // ספרות בלבד, ללא +
   },
 
   /* ── SEO ──────────────────────────────────────────────────────────────────
@@ -58,10 +58,11 @@ export const siteConfig = {
   /* ── SOCIAL LINKS ─────────────────────────────────────────────────────────
      החלף '#' ב-URL המלא. null = האייקון לא מוצג.                           */
   social: {
-    whatsapp:  "#",                                         // "https://wa.me/972XXXXXXXXX"
+    whatsapp:  "https://wa.me/972547686865?text=%D7%A9%D7%9C%D7%95%D7%9D%20%D7%9E%D7%99%D7%98%D7%9C%21%20%D7%90%D7%A0%D7%99%20%D7%9E%D7%A2%D7%95%D7%A0%D7%99%D7%99%D7%A0%D7%AA%20%D7%9C%D7%A7%D7%91%D7%95%D7%A2%20%D7%AA%D7%95%D7%A8%20%F0%9F%92%85",
     instagram: "https://www.instagram.com/meytal.sheva/",
     tiktok:    "https://www.tiktok.com/@meytal.sheva",
-    waze:      "https://www.waze.com/ul?q=%D7%A8%D7%A9%D7%99+11+%D7%A8%D7%9E%D7%AA+%D7%92%D7%9F",
+    // Waze — link opens navigation. Update q= if address changes.
+    waze:      "https://waze.com/ul?q=%D7%A8%D7%9E%D7%AA+%D7%92%D7%9F+11&navigate=yes",
     easy:      null,
   } satisfies SocialLinks,
 
