@@ -261,3 +261,97 @@ main        { padding-bottom: 5rem; }
 .time-slot.selected .slot-duration {
   opacity: 0.80;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   DESKTOP RESPONSIVE ENHANCEMENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Booking page: wider layout at sm+ (640px) ──────────────── */
+@media (min-width: 640px) {
+  /* Widen main content, header inner div, footer, and fixed-bottom nav */
+  body > header > div,
+  body > main,
+  body > footer { max-width: 36rem !important; }
+  #js-nav > div  { max-width: 36rem; }
+
+  /* Service cards — 2-column grid */
+  #js-services { grid-template-columns: repeat(2, 1fr); }
+
+  /* Time slots — 4-column grid */
+  #js-slots { grid-template-columns: repeat(4, 1fr); }
+
+  /* Subtle branded desktop background (booking page only) */
+  body {
+    background-image:
+      radial-gradient(ellipse 60% 40% at 15% 10%, rgba(166,124,142,.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 85% 90%, rgba(221,195,165,.10) 0%, transparent 60%);
+  }
+}
+
+/* ── Admin dashboard: desktop layout at lg+ (1024px) ────────── */
+@media (min-width: 1024px) {
+  /* Flex column so CSS order property can reposition children.
+     :not(.hidden) prevents overriding display:none used before login. */
+  #js-dash:not(.hidden) { display: flex; flex-direction: column; }
+
+  /* Sticky header at top */
+  #js-dash > header {
+    order: 1;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  #js-dash > header > div { max-width: 64rem; }
+
+  /* Bottom nav → sticky horizontal tab bar just below header */
+  #js-dash > .bottom-nav {
+    order: 2;
+    position: sticky !important;
+    top: 68px !important;
+    bottom: auto !important;
+    border-top: none;
+    border-bottom: 1px solid rgba(221,195,165,.3);
+    padding-bottom: 0 !important;
+    z-index: 39;
+  }
+  #js-dash > .bottom-nav > div {
+    max-width: 64rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+    justify-content: flex-start;
+    gap: 0.25rem;
+  }
+
+  /* Nav tab buttons: horizontal on desktop */
+  .nav-tab {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    padding: 0.625rem 0.875rem !important;
+    border-radius: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .nav-tab span { font-size: 0.8125rem !important; }
+  .nav-tab svg  { width: 1.1rem !important; height: 1.1rem !important; }
+
+  /* Tab content: expand to 64rem */
+  #tab-calendar, #tab-bookings, #tab-pulse, #tab-diary, #tab-clients {
+    order: 3;
+    max-width: 64rem !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    width: 100%;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    padding-top: 1.5rem;
+    padding-bottom: 3rem !important;
+  }
+
+  /* Bottom sheet: slightly wider on desktop */
+  #js-sheet-panel { max-width: 40rem; }
+
+  /* Modals: vertically centered (not bottom-sheet style) */
+  #js-sms-modal,
+  #js-cancel-modal { align-items: center; }
+}
+
