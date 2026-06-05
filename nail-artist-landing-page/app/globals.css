@@ -1,0 +1,88 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+/* ── Design tokens — synced with siteConfig.colors ── */
+@theme inline {
+  --color-bg: #FAF5F0;
+  --color-card:       #FFFFFF;
+  --color-charcoal:   #2d2b3d;
+  --color-champagne:  #DDC3A5;
+  --color-muted:      #8a7f8e;
+  --color-border:     #e8d5c4;
+  --color-primary:    #A67C8E;
+
+  --font-sans:  var(--font-assistant), 'Assistant', sans-serif;
+}
+
+/* ── Base ── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-charcoal);
+  }
+
+  body { margin: 0; }
+
+  /* WCAG 2.4.7 — visible focus for keyboard users */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  /* Smooth image rendering */
+  img { display: block; }
+}
+
+/* ── Scroll-reveal ── */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes reveal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.6; }
+  70%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+[data-reveal="fade"] {
+  transform: none;
+}
+[data-reveal].is-visible {
+  animation: reveal-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+[data-reveal="fade"].is-visible {
+  animation: reveal-fade 0.65s ease both;
+}
+[data-reveal].is-visible:nth-child(2) { animation-delay: 0.1s; }
+[data-reveal].is-visible:nth-child(3) { animation-delay: 0.2s; }
+[data-reveal].is-visible:nth-child(4) { animation-delay: 0.3s; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] { opacity: 1; transform: none; }
+  [data-reveal].is-visible { animation: none; }
+  .animate-bounce, .animate-pulse { animation: none; }
+}
+
+/* ── Floating WhatsApp pulse ── */
+.wa-float::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: #25D366;
+  animation: pulse-ring 2s ease-out infinite;
+  z-index: -1;
+}

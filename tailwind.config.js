@@ -8,6 +8,13 @@ export default {
     extend: {
       // Brand + semantic — keep in sync with frontend/styles/tokens.css
       colors: {
+        // Landing page design tokens
+        champagne:     '#DDC3A5',
+        charcoal:      '#2d2b3d',
+        'lp-bg':       '#FAF5F0',
+        'lp-card':     '#FFFFFF',
+        'lp-muted':    '#8a7f8e',
+        'lp-border':   '#e8d5c4',
         primary:       '#A67C8E',
         'primary-dk':  '#8B6175',
         'primary-lt':  '#C4A0B0',
@@ -28,7 +35,8 @@ export default {
         'free-dot':    '#F2789F',
       },
       fontFamily: {
-        heebo: ['Heebo', 'sans-serif'],
+        heebo:  ['Heebo', 'sans-serif'],
+        serif:  ['Cormorant Garamond', 'Georgia', 'serif'],
       },
       boxShadow: {
         soft:  '0 2px 14px -6px rgba(74,46,58,0.12), 0 1px 4px -2px rgba(74,46,58,0.06)',
