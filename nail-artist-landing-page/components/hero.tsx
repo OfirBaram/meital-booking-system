@@ -1,49 +1,74 @@
-import Link from "next/link"
+import { siteConfig } from '@/config/site-config'
+import { WhatsAppIcon, ChevronDownIcon } from '@/components/icons/SocialIcons'
 
 export function Hero() {
+  const { identity, social } = siteConfig
+  const waHref = social.whatsapp ?? '#'
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center pt-20">
-      <div className="absolute inset-0 bg-champagne/30" />
-      
-      <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
-        <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-6">
-          Boutique Nail Artistry
+    <section
+      className="relative flex min-h-svh items-center justify-center pt-[4.5rem]"
+      aria-labelledby="hero-heading"
+    >
+      {/* Champagne tint */}
+      <div
+        className="absolute inset-0 bg-[var(--color-champagne)]/25"
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
+        {/* Eyebrow */}
+        <p className="mb-5 text-xs font-medium uppercase tracking-[0.3em] text-[var(--color-muted)]">
+          {identity.tagline} | {identity.city}
         </p>
-        
-        <h1 className="font-serif text-5xl md:text-7xl lg:text-8xl font-light text-charcoal leading-tight mb-8 text-balance">
-          Where Elegance
-          <br />
-          <span className="italic">Meets Artistry</span>
+
+        {/* Heading — h1 for SEO */}
+        <h1
+          id="hero-heading"
+          className="mb-6 text-[clamp(2.5rem,7vw,5rem)] font-light leading-tight text-[var(--color-charcoal)]"
+        >
+          אמנות ציפורניים<br />
+          <em className="font-light not-italic" style={{ fontStyle: 'italic' }}>
+            מרגע ראשון
+          </em>
         </h1>
-        
-        <p className="max-w-xl mx-auto text-lg md:text-xl text-muted-foreground leading-relaxed mb-12">
-          Experience bespoke nail artistry crafted with precision, 
-          passion, and an unwavering commitment to luxury.
+
+        {/* Sub */}
+        <p className="mx-auto mb-10 max-w-md text-base leading-[1.9] text-[var(--color-muted)] md:text-lg">
+          לק ג&apos;ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט.
+          חוויה אישית ואינטימית בסטודיו הבוטיק של {identity.name}.
         </p>
-        
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
-            href="#contact"
-            className="inline-flex px-10 py-4 bg-charcoal text-primary-foreground text-xs tracking-[0.2em] uppercase hover:bg-charcoal/90 transition-colors duration-300"
+
+        {/* CTAs */}
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <a
+            href={waHref}
+            target={waHref === '#' ? undefined : '_blank'}
+            rel="noopener noreferrer"
+            aria-label="פנייה לתיאום תור דרך וואטסאפ"
+            className="inline-flex items-center gap-2.5 border-2 border-[var(--color-charcoal)] bg-[var(--color-charcoal)] px-9 py-3.5 text-xs font-medium uppercase tracking-[0.12em] text-white transition-colors duration-200 hover:bg-transparent hover:text-[var(--color-charcoal)]"
           >
-            Schedule Your Experience
-          </Link>
-          <Link
+            <WhatsAppIcon className="size-4 shrink-0" aria-hidden="true" />
+            לתיאום תור
+          </a>
+
+          <a
             href="#gallery"
-            className="inline-flex px-10 py-4 border border-charcoal text-charcoal text-xs tracking-[0.2em] uppercase hover:bg-charcoal hover:text-primary-foreground transition-colors duration-300"
+            aria-label="צפייה בגלריית העבודות"
+            className="inline-flex items-center gap-2.5 border-2 border-[var(--color-charcoal)] bg-transparent px-9 py-3.5 text-xs font-medium uppercase tracking-[0.12em] text-[var(--color-charcoal)] transition-colors duration-200 hover:bg-[var(--color-charcoal)] hover:text-white"
           >
-            View Portfolio
-          </Link>
+            הגלריה שלנו
+          </a>
         </div>
       </div>
 
-      <div className="absolute bottom-12 left-1/2 -translate-x-1/2">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <span className="text-xs tracking-widest uppercase">Scroll</span>
-          <svg className="w-4 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-          </svg>
-        </div>
+      {/* Scroll hint */}
+      <div
+        className="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1.5 text-[var(--color-muted)]"
+        aria-hidden="true"
+      >
+        <span className="text-[0.65rem] uppercase tracking-[0.2em]">גלול</span>
+        <ChevronDownIcon className="size-5 animate-bounce" />
       </div>
     </section>
   )

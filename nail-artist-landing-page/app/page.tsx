@@ -1,19 +1,23 @@
-import { Header } from "@/components/header"
-import { Hero } from "@/components/hero"
-import { About } from "@/components/about"
-import { Gallery } from "@/components/gallery"
-import { Contact } from "@/components/contact"
-import { Footer } from "@/components/footer"
+import { Header }   from '@/components/header'
+import { Hero }     from '@/components/hero'
+import { About }    from '@/components/about'
+import { Services } from '@/components/Services'
+import { Gallery }  from '@/components/gallery'
+import { Contact }  from '@/components/contact'
+import { Footer }   from '@/components/footer'
 
-export default function Home() {
+export default function Page() {
   return (
-    <main>
+    <>
       <Header />
-      <Hero />
-      <About />
-      <Gallery />
-      <Contact />
+      <main id="main-content" tabIndex={-1} className="outline-none">
+        <Hero />
+        <About />
+        <Services />
+        <Gallery />
+        <Contact />
+      </main>
       <Footer />
-    </main>
+    </>
   )
 }

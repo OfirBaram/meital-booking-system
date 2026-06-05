@@ -1,52 +1,84 @@
-import Link from "next/link"
+import { siteConfig } from '@/config/site-config'
+import { SocialLinks } from '@/components/SocialLink'
+import { WhatsAppIcon } from '@/components/icons/SocialIcons'
 
 export function Contact() {
+  const { identity, social, business } = siteConfig
+  const waHref = social.whatsapp ?? '#'
+
   return (
-    <section id="contact" className="py-32 bg-charcoal text-primary-foreground">
-      <div className="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-        <p className="text-xs tracking-[0.3em] uppercase text-champagne mb-4">
-          Book Your Visit
-        </p>
-        <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light leading-tight mb-8 text-balance">
-          Begin Your Luxury Experience
-        </h2>
-        <p className="max-w-xl mx-auto text-lg text-primary-foreground/70 leading-relaxed mb-12">
-          Ready to elevate your nail care routine? Schedule your appointment today 
-          and discover the Lumière difference.
-        </p>
-
-        <Link
-          href="#"
-          className="inline-flex items-center gap-3 px-12 py-5 bg-champagne text-charcoal text-sm tracking-[0.2em] uppercase hover:bg-champagne/90 transition-colors duration-300"
+    <section
+      id="contact"
+      className="bg-[var(--color-charcoal)] py-28 px-6 text-center"
+      aria-labelledby="contact-heading"
+      style={{ color: '#FAF5F0' }}
+    >
+      <div className="mx-auto max-w-2xl">
+        <p
+          className="mb-4 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-[var(--color-champagne)]"
+          aria-hidden="true"
         >
-          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-          </svg>
-          Schedule via WhatsApp
-        </Link>
+          יצירת קשר
+        </p>
+        <h2
+          id="contact-heading"
+          className="mb-5 text-[clamp(2rem,4.5vw,3.25rem)] font-light leading-snug"
+          style={{ color: '#FAF5F0' }}
+        >
+          בואי ניצור משהו יפה יחד
+        </h2>
+        <p
+          className="mx-auto mb-10 max-w-md text-base leading-[1.9]"
+          style={{ color: 'rgba(250,245,240,0.70)' }}
+        >
+          לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לנו בווטסאפ
+          ונשמח לעזור.
+        </p>
 
-        <div className="mt-20 pt-12 border-t border-primary-foreground/10">
-          <div className="grid md:grid-cols-3 gap-8 text-sm">
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-champagne mb-3">Location</p>
-              <p className="text-primary-foreground/70">
-                123 Elegance Avenue<br />
-                Suite 400, Beverly Hills
-              </p>
-            </div>
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-champagne mb-3">Hours</p>
-              <p className="text-primary-foreground/70">
-                Tuesday – Saturday<br />
-                10:00 AM – 7:00 PM
-              </p>
-            </div>
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-champagne mb-3">Contact</p>
-              <p className="text-primary-foreground/70">
-                hello@lumierenails.com<br />
-                +1 (310) 555-0123
-              </p>
+        {/* WhatsApp CTA */}
+        <a
+          href={waHref}
+          target={waHref === '#' ? undefined : '_blank'}
+          rel="noopener noreferrer"
+          aria-label="שליחת הודעה בווטסאפ לתיאום תור"
+          className="inline-flex items-center gap-3 border-2 border-[var(--color-champagne)] bg-[var(--color-champagne)] px-10 py-4 text-sm font-medium uppercase tracking-[0.12em] text-[var(--color-charcoal)] transition-opacity duration-200 hover:opacity-85"
+        >
+          <WhatsAppIcon className="size-5 shrink-0" aria-hidden="true" />
+          שלחי הודעה בווטסאפ
+        </a>
+
+        {/* Info grid */}
+        <div
+          className="mt-20 grid gap-8 border-t pt-12 text-sm md:grid-cols-3"
+          style={{ borderColor: 'rgba(250,245,240,0.10)' }}
+        >
+          <div>
+            <span
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+            >
+              כתובת
+            </span>
+            <p style={{ color: 'rgba(250,245,240,0.70)' }}>{identity.address}</p>
+          </div>
+          <div>
+            <span
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+            >
+              שעות פעילות
+            </span>
+            <p style={{ color: 'rgba(250,245,240,0.70)' }}>{business.hours}</p>
+          </div>
+          <div>
+            <span
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+            >
+              עקבי אחרינו
+            </span>
+            <div className="flex justify-center gap-1 pt-1">
+              <SocialLinks
+                social={social}
+                linkClassName="inline-flex size-8 items-center justify-center rounded-full text-[rgba(250,245,240,0.50)] transition-colors duration-200 hover:text-[var(--color-champagne)] hover:bg-[var(--color-champagne)]/10"
+              />
             </div>
           </div>
         </div>

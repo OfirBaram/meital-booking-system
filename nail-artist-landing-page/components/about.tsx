@@ -1,79 +1,63 @@
-const services = [
-  {
-    title: "Signature Manicure",
-    description: "A luxurious experience featuring premium products, meticulous nail shaping, and flawless polish application.",
-  },
-  {
-    title: "Bespoke Nail Art",
-    description: "Custom-designed nail artistry tailored to your vision, from subtle elegance to bold statement pieces.",
-  },
-  {
-    title: "Gel Extensions",
-    description: "Expertly crafted extensions using the finest materials for natural-looking, long-lasting results.",
-  },
-  {
-    title: "Spa Treatments",
-    description: "Indulgent hand and nail therapies featuring nourishing treatments for complete rejuvenation.",
-  },
-]
+import Image from 'next/image'
 
 export function About() {
   return (
-    <section id="about" className="py-32 bg-card">
-      <div className="max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
-          <div>
-            <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-4">
-              About the Boutique
-            </p>
-            <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-charcoal leading-tight mb-8 text-balance">
-              Crafted with Precision & Passion
-            </h2>
-            <div className="space-y-6 text-muted-foreground leading-relaxed">
-              <p>
-                At Lumière, we believe that nails are more than just an accessory—they are 
-                an extension of your personal style and a canvas for artistic expression.
-              </p>
-              <p>
-                Our boutique studio offers an intimate, refined atmosphere where every detail 
-                is carefully curated. From the moment you step through our doors, you&apos;ll be 
-                enveloped in an environment designed for relaxation and luxury.
-              </p>
-              <p>
-                Each service is performed with meticulous attention to detail, using only 
-                premium products sourced from the finest suppliers worldwide.
-              </p>
-            </div>
-          </div>
+    <section
+      id="about"
+      className="bg-[var(--color-card)] py-28 px-6"
+      aria-labelledby="about-heading"
+    >
+      <div className="mx-auto grid max-w-7xl items-center gap-16 lg:grid-cols-2 lg:gap-24">
 
-          <div id="services" className="space-y-8">
-            <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground">
-              Our Services
+        {/* Text column */}
+        <div>
+          <p
+            className="mb-3 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-[var(--color-muted)]"
+            aria-hidden="true"
+          >
+            אודות הסטודיו
+          </p>
+          <h2
+            id="about-heading"
+            className="mb-8 text-[clamp(2rem,4.5vw,3.25rem)] font-light leading-snug text-[var(--color-charcoal)]"
+          >
+            מקצועיות, דיוק<br />ואהבה לפרטים
+          </h2>
+          <div className="space-y-5 text-[var(--color-muted)] leading-[1.9]">
+            <p>
+              מיטל שבע ברעם היא אמנית ציפורניים בוטיק עם ניסיון עשיר בעיצוב לק ג&apos;ל
+              ופדיקור מקצועי. הסטודיו הממוקם ברמת גן מציע אווירה אינטימית ומטפחת,
+              שבה כל לקוחה מקבלת טיפול אישי ומלא תשומת לב.
             </p>
-            <div className="space-y-6">
-              {services.map((service, index) => (
-                <div 
-                  key={service.title}
-                  className="group p-8 bg-background border border-border hover:border-champagne transition-colors duration-300"
-                >
-                  <div className="flex items-start gap-6">
-                    <span className="font-serif text-3xl text-champagne/80">
-                      {String(index + 1).padStart(2, '0')}
-                    </span>
-                    <div>
-                      <h3 className="font-serif text-xl text-charcoal mb-2">
-                        {service.title}
-                      </h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {service.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p>
+              אנחנו עובדות אך ורק עם חומרים מהמותגים המובילים בעולם, ומקפידות
+              על תהליכי עבודה שמשמרים את בריאות הציפורן הטבעית לצד מראה
+              מושלם ועמיד לאורך זמן.
+            </p>
+            <p>
+              כי ציפורניים יפות הן לא עניין של מזל — הן תוצאה של מיומנות,
+              חומרים נכונים ואהבה אמיתית למה שעושים.
+            </p>
           </div>
         </div>
+
+        {/* Image column */}
+        <div className="relative aspect-[4/5] overflow-hidden">
+          <Image
+            src="/gallery/nail-1.png"
+            alt="מיטל עובדת על עיצוב ציפורניים — לק ג'ל פרנץ' קלאסי"
+            fill
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            priority
+          />
+          {/* Decorative accent border */}
+          <span
+            className="pointer-events-none absolute -bottom-5 -start-5 z-[-1] h-3/5 w-3/5 border-2 border-[var(--color-champagne)]"
+            aria-hidden="true"
+          />
+        </div>
+
       </div>
     </section>
   )
