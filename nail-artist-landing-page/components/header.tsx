@@ -30,7 +30,7 @@ export function Header() {
       <div className="mx-auto flex h-[4.5rem] max-w-7xl items-center justify-between px-6 lg:px-8">
 
         {/* Logo */}
-        <a href="#" className="font-semibold tracking-wide text-charcoal no-underline" aria-label={identity.name + ' — דף הבית'}>
+        <a href="/" className="font-semibold tracking-wide text-charcoal no-underline" aria-label={identity.name + ' — דף הבית'}>
           {identity.name}
         </a>
 
@@ -98,6 +98,7 @@ export function Header() {
               href={waHref}
               target={waHref.startsWith('http') ? '_blank' : undefined}
               rel="noopener noreferrer"
+              aria-label="קביעת תור בווטסאפ"
               className="mb-4 flex items-center justify-center gap-2 rounded-full bg-charcoal py-3 text-sm font-semibold text-white"
               onClick={() => setOpen(false)}
             >

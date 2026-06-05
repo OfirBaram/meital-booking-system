@@ -50,6 +50,7 @@ export function About() {
             href={siteConfig.social.whatsapp ?? '#contact'}
             target={siteConfig.social.whatsapp ? '_blank' : undefined}
             rel="noopener noreferrer"
+            aria-label="קביעת תור עכשיו דרך וואטסאפ"
             className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
           >
             קבעי תור עכשיו ←

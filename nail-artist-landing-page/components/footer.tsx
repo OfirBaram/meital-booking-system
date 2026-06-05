@@ -16,7 +16,7 @@ export function Footer() {
         <div className="mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
 
           <div className="lg:col-span-2">
-            <a href="#" className="mb-3 block text-lg font-semibold tracking-wide text-bg no-underline"
+            <a href="/" className="mb-3 block text-lg font-semibold tracking-wide text-bg no-underline"
               aria-label={identity.name + ' — חזרה לראש הדף'}>
               {identity.name}
             </a>

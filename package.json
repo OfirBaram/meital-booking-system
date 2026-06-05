@@ -10,12 +10,15 @@
     "test:backend": "vitest run --config vitest.backend.config.js",
     "verify:deploy": "node scripts/verify-deploy.mjs",
     "lint": "eslint tests/backend --ext .js",
-    "dev":     "vite",
-    "build":  "npm run css:build && vite build",
+    "dev": "vite",
+    "build": "npm run css:build && vite build",
     "preview": "vite preview",
     "serve": "serve frontend -p 4173",
     "css:build": "tailwindcss -i frontend/styles/input.css -o frontend/styles/tailwind.css --minify",
-    "css:watch": "tailwindcss -i frontend/styles/input.css -o frontend/styles/tailwind.css --watch"
+    "css:watch": "tailwindcss -i frontend/styles/input.css -o frontend/styles/tailwind.css --watch",
+    "test:landing:unit": "vitest run --config vitest.landing.config.js",
+    "test:landing:e2e": "playwright test --config playwright.landing.config.js",
+    "test:landing": "npm run test:landing:unit && npm run test:landing:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.44.0",
