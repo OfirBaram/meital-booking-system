@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "sync-gallery": "node scripts/sync-gallery.mjs",
+    "gallery:list": "node scripts/sync-gallery.mjs --list",
+    "gallery:remove": "node scripts/sync-gallery.mjs --remove",
+    "content:check": "node scripts/update-content.mjs --check",
+    "content:guide": "node scripts/update-content.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
