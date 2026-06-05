@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lumiere Nails - Boutique Nail Artistry</title>
+  <meta name="description" content="Experience bespoke nail artistry crafted with precision, passion, and an unwavering commitment to luxury." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles/tailwind.css" />
+  <style>
+    :root {
+      --champagne: #DDC3A5;
+      --charcoal:  #2d2b3d;
+      --lp-bg:     #FAF5F0;
+      --lp-card:   #FFFFFF;
+      --lp-muted:  #8a7f8e;
+      --lp-border: #e8d5c4;
+    }
+    .font-serif { font-family: "Cormorant Garamond", Georgia, serif; }
+    .font-sans  { font-family: "Inter", sans-serif; }
+
+    .bg-champagne   { background-color: var(--champagne); }
+    .bg-charcoal    { background-color: var(--charcoal); }
+    .bg-lp          { background-color: var(--lp-bg); }
+    .bg-lp-card     { background-color: var(--lp-card); }
+    .text-champagne { color: var(--champagne); }
+    .text-charcoal  { color: var(--charcoal); }
+    .text-lp-muted  { color: var(--lp-muted); }
+    .border-lp      { border-color: var(--lp-border); }
+    .tracking-extra { letter-spacing: 0.3em; }
+    .tracking-wide2 { letter-spacing: 0.2em; }
+    .lp-row-span    { grid-row: span 2; }
+
+    .gallery-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      transition: transform 700ms ease;
+    }
+    .gallery-item:hover .gallery-img { transform: scale(1.05); }
+    .gallery-overlay {
+      position: absolute; inset: 0;
+      background: rgba(45,43,61,0);
+      transition: background 500ms ease;
+    }
+    .gallery-item:hover .gallery-overlay { background: rgba(45,43,61,0.20); }
+
+    html { scroll-behavior: smooth; }
+    #mobile-menu { display: none; }
+    #mobile-menu.open { display: block; }
+    .service-card { transition: border-color 300ms ease; }
+    .service-card:hover { border-color: var(--champagne); }
+    .view-portfolio-btn { border: 1px solid var(--charcoal); color: var(--charcoal); }
+    .view-portfolio-btn:hover { background: var(--charcoal); color: #fff; }
+  </style>
+</head>
+<body class="bg-lp font-sans" style="color:var(--charcoal);">
+
+<!-- HEADER -->
+<header id="site-header" class="fixed top-0 left-0 right-0 z-50 border-b border-lp"
+        style="background:rgba(250,245,240,0.85);backdrop-filter:blur(10px);">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="flex items-center justify-between h-20">
+      <a href="#" class="font-serif text-2xl font-medium tracking-wide text-charcoal">Lumiere</a>
+      <nav class="hidden md:flex items-center gap-10">
+        <a href="#about"    class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">About</a>
+        <a href="#services" class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Services</a>
+        <a href="#gallery"  class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Gallery</a>
+        <a href="#contact"  class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Contact</a>
+      </nav>
+      <a href="./index.html"
+         class="hidden md:inline-flex px-6 py-2.5 bg-charcoal text-white text-xs tracking-extra uppercase hover:opacity-90 transition-opacity duration-300">
+        Book Now
+      </a>
+      <button id="menu-btn" class="md:hidden p-2" aria-label="Toggle menu" aria-expanded="false">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="md:hidden bg-lp border-t border-lp px-6 py-4 space-y-4">
+    <a href="#about"    class="block text-xs tracking-extra uppercase text-lp-muted py-2">About</a>
+    <a href="#services" class="block text-xs tracking-extra uppercase text-lp-muted py-2">Services</a>
+    <a href="#gallery"  class="block text-xs tracking-extra uppercase text-lp-muted py-2">Gallery</a>
+    <a href="#contact"  class="block text-xs tracking-extra uppercase text-lp-muted py-2">Contact</a>
+    <a href="./index.html"
+       class="block w-full text-center px-6 py-3 bg-charcoal text-white text-xs tracking-extra uppercase">Book Now</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="relative min-h-screen flex items-center justify-center pt-20">
+  <div class="absolute inset-0" style="background:rgba(221,195,165,0.30);"></div>
+  <div class="relative z-10 max-w-4xl mx-auto px-6 text-center">
+    <p class="text-xs tracking-extra uppercase text-lp-muted mb-6">Boutique Nail Artistry</p>
+    <h1 class="font-serif text-5xl md:text-7xl lg:text-8xl font-light text-charcoal leading-tight mb-8">
+      Where Elegance<br />
+      <em>Meets Artistry</em>
+    </h1>
+    <p class="max-w-xl mx-auto text-lg md:text-xl text-lp-muted leading-relaxed mb-12">
+      Experience bespoke nail artistry crafted with precision,
+      passion, and an unwavering commitment to luxury.
+    </p>
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+      <a href="./index.html"
+         class="inline-flex px-10 py-4 bg-charcoal text-white text-xs tracking-wide2 uppercase hover:opacity-90 transition-opacity duration-300">
+        Schedule Your Experience
+      </a>
+      <a href="#gallery"
+         class="view-portfolio-btn inline-flex px-10 py-4 text-xs tracking-wide2 uppercase transition-colors duration-300">
+        View Portfolio
+      </a>
+    </div>
+  </div>
+  <div class="absolute bottom-12 left-1/2 -translate-x-1/2">
+    <div class="flex flex-col items-center gap-2 text-lp-muted">
+      <span class="text-xs tracking-extra uppercase">Scroll</span>
+      <svg class="w-4 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about" class="py-32 bg-lp-card">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
+      <div>
+        <p class="text-xs tracking-extra uppercase text-lp-muted mb-4">About the Boutique</p>
+        <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-charcoal leading-tight mb-8">
+          Crafted with Precision &amp; Passion
+        </h2>
+        <div class="space-y-6 text-lp-muted leading-relaxed">
+          <p>At Lumiere, we believe that nails are more than just an accessory &#8212; they are an extension of your personal style and a canvas for artistic expression.</p>
+          <p>Our boutique studio offers an intimate, refined atmosphere where every detail is carefully curated. From the moment you step through our doors, you will be enveloped in an environment designed for relaxation and luxury.</p>
+          <p>Each service is performed with meticulous attention to detail, using only premium products sourced from the finest suppliers worldwide.</p>
+        </div>
+      </div>
+      <div id="services" class="space-y-8">
+        <p class="text-xs tracking-extra uppercase text-lp-muted">Our Services</p>
+        <div class="space-y-6">
+          <div class="service-card p-8 bg-lp border border-lp">
+            <div class="flex items-start gap-6">
+              <span class="font-serif text-3xl text-champagne flex-shrink-0">01</span>
+              <div>
+                <h3 class="font-serif text-xl text-charcoal mb-2">Signature Manicure</h3>
+                <p class="text-sm text-lp-muted leading-relaxed">A luxurious experience featuring premium products, meticulous nail shaping, and flawless polish application.</p>
+              </div>
+            </div>
+          </div>
+          <div class="service-card p-8 bg-lp border border-lp">
+            <div class="flex items-start gap-6">
+              <span class="font-serif text-3xl text-champagne flex-shrink-0">02</span>
+              <div>
+                <h3 class="font-serif text-xl text-charcoal mb-2">Bespoke Nail Art</h3>
+                <p class="text-sm text-lp-muted leading-relaxed">Custom-designed nail artistry tailored to your vision, from subtle elegance to bold statement pieces.</p>
+              </div>
+            </div>
+          </div>
+          <div class="service-card p-8 bg-lp border border-lp">
+            <div class="flex items-start gap-6">
+              <span class="font-serif text-3xl text-champagne flex-shrink-0">03</span>
+              <div>
+                <h3 class="font-serif text-xl text-charcoal mb-2">Gel Extensions</h3>
+                <p class="text-sm text-lp-muted leading-relaxed">Expertly crafted extensions using the finest materials for natural-looking, long-lasting results.</p>
+              </div>
+            </div>
+          </div>
+          <div class="service-card p-8 bg-lp border border-lp">
+            <div class="flex items-start gap-6">
+              <span class="font-serif text-3xl text-champagne flex-shrink-0">04</span>
+              <div>
+                <h3 class="font-serif text-xl text-charcoal mb-2">Spa Treatments</h3>
+                <p class="text-sm text-lp-muted leading-relaxed">Indulgent hand and nail therapies featuring nourishing treatments for complete rejuvenation.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section id="gallery" class="py-32 bg-lp">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="text-center mb-16">
+      <p class="text-xs tracking-extra uppercase text-lp-muted mb-4">Portfolio</p>
+      <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-charcoal">A Gallery of Artistry</h2>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6" style="grid-auto-rows:280px;">
+      <div class="gallery-item relative overflow-hidden lp-row-span">
+        <img src="./public/gallery/nail-1.png" alt="Elegant french tip nail design" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+      <div class="gallery-item relative overflow-hidden">
+        <img src="./public/gallery/nail-2.png" alt="Minimalist nude nail art" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+      <div class="gallery-item relative overflow-hidden">
+        <img src="./public/gallery/nail-3.png" alt="Luxury gold accent nails" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+      <div class="gallery-item relative overflow-hidden lp-row-span">
+        <img src="./public/gallery/nail-4.png" alt="Sophisticated marble nail design" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+      <div class="gallery-item relative overflow-hidden">
+        <img src="./public/gallery/nail-5.png" alt="Classic red manicure" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+      <div class="gallery-item relative overflow-hidden">
+        <img src="./public/gallery/nail-6.png" alt="Artistic floral nail design" class="gallery-img" loading="lazy" />
+        <div class="gallery-overlay"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact" class="py-32 bg-charcoal" style="color:#FAF5F0;">
+  <div class="max-w-4xl mx-auto px-6 lg:px-8 text-center">
+    <p class="text-xs tracking-extra uppercase text-champagne mb-4">Book Your Visit</p>
+    <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light leading-tight mb-8" style="color:#FAF5F0;">
+      Begin Your Luxury Experience
+    </h2>
+    <p class="max-w-xl mx-auto text-lg leading-relaxed mb-12" style="color:rgba(250,245,240,0.70);">
+      Ready to elevate your nail care routine? Schedule your appointment today and discover the Lumiere difference.
+    </p>
+    <a href="./index.html"
+       class="inline-flex items-center gap-3 px-12 py-5 bg-champagne text-charcoal text-sm tracking-wide2 uppercase hover:opacity-90 transition-opacity duration-300">
+      <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+      </svg>
+      Schedule via WhatsApp
+    </a>
+    <div class="mt-20 pt-12" style="border-top:1px solid rgba(250,245,240,0.10);">
+      <div class="grid md:grid-cols-3 gap-8 text-sm">
+        <div>
+          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Location</p>
+          <p style="color:rgba(250,245,240,0.70);">123 Elegance Avenue<br />Suite 400, Beverly Hills</p>
+        </div>
+        <div>
+          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Hours</p>
+          <p style="color:rgba(250,245,240,0.70);">Tuesday - Saturday<br />10:00 AM - 7:00 PM</p>
+        </div>
+        <div>
+          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Contact</p>
+          <p style="color:rgba(250,245,240,0.70);">hello@lumierenails.com<br />+1 (310) 555-0123</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="py-8 bg-charcoal" style="border-top:1px solid rgba(250,245,240,0.10);">
+  <div class="max-w-7xl mx-auto px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+      <a href="#" class="font-serif text-xl tracking-wide" style="color:#FAF5F0;">Lumiere</a>
+      <p class="text-xs tracking-wider" id="footer-year" style="color:rgba(250,245,240,0.50);">
+        &copy; 2024 Lumiere Nails. All rights reserved.
+      </p>
+      <div class="flex items-center gap-6">
+        <a href="#" aria-label="Instagram" class="footer-social" style="color:rgba(250,245,240,0.50);">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+          </svg>
+        </a>
+        <a href="#" aria-label="Pinterest" class="footer-social" style="color:rgba(250,245,240,0.50);">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0c-6.627 0-12 5.372-12 12 0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146 1.124.347 2.317.535 3.554.535 6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.getElementById("footer-year").textContent =
+    "© " + new Date().getFullYear() + " Lumiere Nails. All rights reserved.";
+  var btn  = document.getElementById("menu-btn");
+  var menu = document.getElementById("mobile-menu");
+  btn.addEventListener("click", function() {
+    var open = menu.classList.toggle("open");
+    btn.setAttribute("aria-expanded", String(open));
+  });
+  menu.querySelectorAll("a").forEach(function(a) {
+    a.addEventListener("click", function() {
+      menu.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    });
+  });
+  document.querySelectorAll(".footer-social").forEach(function(el) {
+    el.addEventListener("mouseover", function() { el.style.color = "var(--champagne)"; });
+    el.addEventListener("mouseout",  function() { el.style.color = "rgba(250,245,240,0.50)"; });
+  });
+</script>
+</body>
+</html>

@@ -13,11 +13,12 @@ export default defineConfig({
     assetsInlineLimit: 0,       // keep all assets as separate files — no base64 blobs
     rollupOptions: {
       input: {
-        main:  entry('index.html'),
-        admin: entry('admin.html'),
+        landing: entry('landing.html'),
+        main:    entry('index.html'),
+        admin:   entry('admin.html'),
       },
     },
   },
-  server:  { port: 5173, open: false },
+  server:  { port: 5173, open: false, fs: { allow: [root] } },
   preview: { port: 4173 },
 });
