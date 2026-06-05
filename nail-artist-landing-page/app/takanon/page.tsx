@@ -9,18 +9,18 @@ export const metadata: Metadata = {
 
 export default function TakanonPage() {
   return (
-    <main className="min-h-screen bg-[var(--color-background)] px-6 py-20" dir="rtl">
+    <main className="min-h-screen bg-bg px-6 py-20" dir="rtl">
       <div className="mx-auto max-w-2xl">
         <Link
           href="/"
-          className="mb-8 inline-block text-sm text-[var(--color-muted)] no-underline hover:text-[var(--color-charcoal)]"
+          className="mb-8 inline-block text-sm text-muted no-underline hover:text-charcoal"
         >
           ← חזרה לדף הבית
         </Link>
-        <h1 className="mb-6 text-3xl font-light text-[var(--color-charcoal)]">
+        <h1 className="mb-6 text-3xl font-light text-charcoal">
           תקנון ותנאי שימוש
         </h1>
-        <p className="leading-[1.9] text-[var(--color-muted)]">
+        <p className="leading-[1.9] text-muted">
           עמוד זה יעודכן בקרוב עם תנאי השימוש המלאים של הסטודיו.
         </p>
       </div>

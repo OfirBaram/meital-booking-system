@@ -90,7 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* WCAG 2.4.1 skip link */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:right-4 focus:z-[9999] focus:rounded focus:bg-[var(--color-charcoal)] focus:px-4 focus:py-2 focus:text-sm focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:right-4 focus:z-[9999] focus:rounded focus:bg-charcoal focus:px-4 focus:py-2 focus:text-sm focus:text-white"
         >
           דלג לתוכן הראשי
         </a>

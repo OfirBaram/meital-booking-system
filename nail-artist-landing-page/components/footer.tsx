@@ -7,7 +7,7 @@ export function Footer() {
 
   return (
     <footer
-      className="bg-[var(--color-charcoal)] px-6 py-7"
+      className="bg-charcoal px-6 py-7"
       style={{ borderTop: '1px solid rgba(250,245,240,0.08)' }}
       role="contentinfo"
     >
@@ -36,13 +36,13 @@ export function Footer() {
           <div className="flex gap-5">
             <a
               href={legal.terms}
-              className="text-xs no-underline transition-colors duration-200 text-[rgba(250,245,240,0.45)] hover:text-[var(--color-champagne)]"
+              className="text-xs no-underline transition-colors duration-200 text-[rgba(250,245,240,0.45)] hover:text-champagne"
             >
               תקנון ותנאי שימוש
             </a>
             <a
               href={legal.privacy}
-              className="text-xs no-underline transition-colors duration-200 text-[rgba(250,245,240,0.45)] hover:text-[var(--color-champagne)]"
+              className="text-xs no-underline transition-colors duration-200 text-[rgba(250,245,240,0.45)] hover:text-champagne"
             >
               מדיניות פרטיות
             </a>
@@ -53,7 +53,7 @@ export function Footer() {
         <div aria-label="רשתות חברתיות" className="flex gap-1">
           <SocialLinks
             social={social}
-            linkClassName="inline-flex size-8 items-center justify-center rounded-full text-[rgba(250,245,240,0.45)] transition-colors duration-200 hover:text-[var(--color-champagne)] hover:bg-[var(--color-champagne)]/10"
+            linkClassName="inline-flex size-8 items-center justify-center rounded-full text-[rgba(250,245,240,0.45)] transition-colors duration-200 hover:text-champagne hover:bg-champagne/10"
           />
         </div>
 

@@ -20,7 +20,7 @@ function GalleryTile({ image }: { image: GalleryImage }) {
         loading="lazy"
       />
       {/* Hover overlay */}
-      <figcaption className="absolute inset-0 flex items-end bg-[var(--color-charcoal)]/0 p-3 transition-colors duration-500 group-hover:bg-[var(--color-charcoal)]/20">
+      <figcaption className="absolute inset-0 flex items-end bg-charcoal/0 p-3 transition-colors duration-500 group-hover:bg-charcoal/20">
         <span className="text-xs font-medium tracking-wide text-white opacity-0 drop-shadow transition-opacity duration-300 group-hover:opacity-100">
           {image.alt}
         </span>
@@ -33,19 +33,19 @@ export function Gallery() {
   return (
     <section
       id="gallery"
-      className="bg-[var(--color-card)] py-28 px-6"
+      className="bg-card py-28 px-6"
       aria-labelledby="gallery-heading"
     >
       <div className="mx-auto max-w-7xl">
         <p
-          className="mb-3 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-[var(--color-muted)]"
+          className="mb-3 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-muted"
           aria-hidden="true"
         >
           גלריה
         </p>
         <h2
           id="gallery-heading"
-          className="mb-12 text-[clamp(2rem,4.5vw,3.25rem)] font-light text-[var(--color-charcoal)]"
+          className="mb-12 text-[clamp(2rem,4.5vw,3.25rem)] font-light text-charcoal"
         >
           עבודות נבחרות
         </h2>

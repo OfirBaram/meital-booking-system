@@ -3,7 +3,7 @@
 
 /* ── Design tokens — synced with siteConfig.colors ── */
 @theme inline {
-  --color-background: #FAF5F0;
+  --color-bg: #FAF5F0;
   --color-card:       #FFFFFF;
   --color-charcoal:   #2d2b3d;
   --color-champagne:  #DDC3A5;
@@ -21,7 +21,7 @@
   html {
     scroll-behavior: smooth;
     font-family: var(--font-sans);
-    background: var(--color-background);
+    background: var(--color-bg);
     color: var(--color-charcoal);
   }
 

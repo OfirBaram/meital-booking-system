@@ -9,13 +9,13 @@ export function Contact() {
   return (
     <section
       id="contact"
-      className="bg-[var(--color-charcoal)] py-28 px-6 text-center"
+      className="bg-charcoal py-28 px-6 text-center"
       aria-labelledby="contact-heading"
       style={{ color: '#FAF5F0' }}
     >
       <div className="mx-auto max-w-2xl">
         <p
-          className="mb-4 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-[var(--color-champagne)]"
+          className="mb-4 text-[0.6875rem] font-medium uppercase tracking-[0.3em] text-champagne"
           aria-hidden="true"
         >
           יצירת קשר
@@ -41,7 +41,7 @@ export function Contact() {
           target={waHref === '#' ? undefined : '_blank'}
           rel="noopener noreferrer"
           aria-label="שליחת הודעה בווטסאפ לתיאום תור"
-          className="inline-flex items-center gap-3 border-2 border-[var(--color-champagne)] bg-[var(--color-champagne)] px-10 py-4 text-sm font-medium uppercase tracking-[0.12em] text-[var(--color-charcoal)] transition-opacity duration-200 hover:opacity-85"
+          className="inline-flex items-center gap-3 border-2 border-champagne bg-champagne px-10 py-4 text-sm font-medium uppercase tracking-[0.12em] text-charcoal transition-opacity duration-200 hover:opacity-85"
         >
           <WhatsAppIcon className="size-5 shrink-0" aria-hidden="true" />
           שלחי הודעה בווטסאפ
@@ -54,7 +54,7 @@ export function Contact() {
         >
           <div>
             <span
-              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-champagne"
             >
               כתובת
             </span>
@@ -62,7 +62,7 @@ export function Contact() {
           </div>
           <div>
             <span
-              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-champagne"
             >
               שעות פעילות
             </span>
@@ -70,14 +70,14 @@ export function Contact() {
           </div>
           <div>
             <span
-              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-[var(--color-champagne)]"
+              className="mb-2 block text-xs font-medium uppercase tracking-[0.2em] text-champagne"
             >
               עקבי אחרינו
             </span>
             <div className="flex justify-center gap-1 pt-1">
               <SocialLinks
                 social={social}
-                linkClassName="inline-flex size-8 items-center justify-center rounded-full text-[rgba(250,245,240,0.50)] transition-colors duration-200 hover:text-[var(--color-champagne)] hover:bg-[var(--color-champagne)]/10"
+                linkClassName="inline-flex size-8 items-center justify-center rounded-full text-[rgba(250,245,240,0.50)] transition-colors duration-200 hover:text-champagne hover:bg-champagne/10"
               />
             </div>
           </div>
