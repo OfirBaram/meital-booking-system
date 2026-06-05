@@ -85,3 +85,5 @@ backend/Setup.gs.js
 playwright-report/
 test-results/
 .playwright/
+# Playwright MCP artifacts (screenshots, snapshots, console logs)
+.playwright-mcp/
