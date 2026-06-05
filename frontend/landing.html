@@ -1,305 +1,869 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
+  <!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║   LANDING PAGE — מיטל שבע ברעם | עדכון תוכן: ראה SiteConfig ║
+  ╚══════════════════════════════════════════════════════════════╝
+  כדי לעדכן תוכן ללא גישה לקוד:
+    1. פתח landing.html בכל עורך טקסט
+    2. חפש "const SiteConfig" — זה הקובץ שלך לשינויים
+    3. שנה שמות, טקסטים, לינקים — העמוד מרנדר אוטומטית מה-config
+    4. להחלפת תמונות: החלף קבצים ב- frontend/public/gallery/
+       ועדכן את gallery[] ב-SiteConfig
+    5. לצבעים: שנה את colors{} — CSS Variables מוזרקות לדף
+  -->
+
+  <!-- ── META ── -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lumiere Nails - Boutique Nail Artistry</title>
-  <meta name="description" content="Experience bespoke nail artistry crafted with precision, passion, and an unwavering commitment to luxury." />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+  <!--
+    SECURITY NOTE: the headers below work only as meta tags in-page.
+    For full effect, add these as HTTP response headers in your server / CDN:
+      Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline';
+      Strict-Transport-Security: max-age=31536000; includeSubDomains
+      Referrer-Policy: strict-origin-when-cross-origin
+  -->
+
+  <title>מיטל שבע ברעם — עיצוב ציפורניים בוטיק | רמת גן</title>
+  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל קלאסי, טיפולי ספא לידיים ורגליים. חוויה אישית, איכות פרימיום." />
+  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, ג'ל קלאסי, בוטיק, מיטל שבע ברעם" />
+  <meta name="author" content="מיטל שבע ברעם" />
+  <link rel="canonical" href="https://example.com/" /><!-- עדכן ל-URL האמיתי -->
+
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:locale"      content="he_IL" />
+  <meta property="og:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
+  <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל קלאסי וטיפולי ספא." />
+  <meta property="og:image"       content="./public/gallery/nail-1.png" />
+  <meta property="og:url"         content="https://example.com/" /><!-- עדכן -->
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
+  <meta name="twitter:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן." />
+  <meta name="twitter:image"       content="./public/gallery/nail-1.png" />
+
+  <!-- Structured Data — Local Business -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BeautySalon",
+    "name": "מיטל שבע ברעם — עיצוב ציפורניים",
+    "description": "סטודיו עיצוב ציפורניים בוטיק ברמת גן",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "11",
+      "addressLocality": "רמת גן",
+      "addressCountry": "IL"
+    },
+    "url": "https://example.com",
+    "priceRange": "₪₪",
+    "openingHours": "Tu-Sa 10:00-19:00"
+  }
+  </script>
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet" />
+
+  <!-- Compiled Tailwind -->
   <link rel="stylesheet" href="./styles/tailwind.css" />
+
   <style>
+    /* ── DESIGN TOKENS (injected from SiteConfig at runtime) ── */
     :root {
-      --champagne: #DDC3A5;
+      --bg:        #FAF5F0;
+      --card:      #FFFFFF;
       --charcoal:  #2d2b3d;
-      --lp-bg:     #FAF5F0;
-      --lp-card:   #FFFFFF;
-      --lp-muted:  #8a7f8e;
-      --lp-border: #e8d5c4;
+      --champagne: #DDC3A5;
+      --muted:     #8a7f8e;
+      --border:    #e8d5c4;
+      --primary:   #A67C8E;
     }
-    .font-serif { font-family: "Cormorant Garamond", Georgia, serif; }
-    .font-sans  { font-family: "Inter", sans-serif; }
 
-    .bg-champagne   { background-color: var(--champagne); }
-    .bg-charcoal    { background-color: var(--charcoal); }
-    .bg-lp          { background-color: var(--lp-bg); }
-    .bg-lp-card     { background-color: var(--lp-card); }
-    .text-champagne { color: var(--champagne); }
-    .text-charcoal  { color: var(--charcoal); }
-    .text-lp-muted  { color: var(--lp-muted); }
-    .border-lp      { border-color: var(--lp-border); }
-    .tracking-extra { letter-spacing: 0.3em; }
-    .tracking-wide2 { letter-spacing: 0.2em; }
-    .lp-row-span    { grid-row: span 2; }
+    /* ── BASE ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html   { scroll-behavior: smooth; font-size: 16px; }
+    body   { background: var(--bg); color: var(--charcoal); font-family: 'Heebo', 'Assistant', sans-serif; margin: 0; }
 
-    .gallery-img {
+    /* ── FOCUS VISIBLE (WCAG 2.4.7) ── */
+    :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 2px; }
+
+    /* ── SKIP LINK (WCAG 2.4.1) ── */
+    .skip-link {
+      position: absolute; top: -100%; right: 1rem;
+      background: var(--charcoal); color: #fff;
+      padding: .5rem 1rem; border-radius: 0 0 4px 4px;
+      font-size: .875rem; text-decoration: none; z-index: 9999;
+      transition: top .2s;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* ── UTILITY ── */
+    .font-serif      { font-family: 'Assistant', 'Heebo', serif; }
+    .bg-champagne    { background-color: var(--champagne); }
+    .bg-charcoal     { background-color: var(--charcoal); }
+    .bg-lp           { background-color: var(--bg); }
+    .bg-lp-card      { background-color: var(--card); }
+    .text-champagne  { color: var(--champagne); }
+    .text-charcoal   { color: var(--charcoal); }
+    .text-muted-lp   { color: var(--muted); }
+    .border-lp       { border-color: var(--border); }
+    .tracking-heb    { letter-spacing: 0.04em; }
+
+    /* ── HEADER ── */
+    #site-header {
+      position: fixed; top: 0; inset-inline: 0; z-index: 50;
+      background: rgba(250,245,240,.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 4.5rem;
+    }
+    .logo {
+      font-family: 'Assistant', sans-serif;
+      font-size: 1.25rem; font-weight: 600;
+      color: var(--charcoal); text-decoration: none;
+      letter-spacing: .02em;
+    }
+    .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; margin: 0; padding: 0; }
+    .nav-links a {
+      font-size: .8125rem; font-weight: 500; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted);
+      text-decoration: none; transition: color .25s;
+    }
+    .nav-links a:hover { color: var(--charcoal); }
+
+    /* social icon strip */
+    .social-strip { display: flex; align-items: center; gap: .75rem; }
+    .social-icon  {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 50%;
+      color: var(--muted); text-decoration: none;
+      transition: color .25s, background .25s;
+    }
+    .social-icon:hover { color: var(--charcoal); background: rgba(166,124,142,.12); }
+    .social-icon svg   { width: 1.125rem; height: 1.125rem; fill: currentColor; }
+
+    /* mobile menu */
+    .menu-btn { display: none; background: none; border: none; cursor: pointer; padding: .5rem; color: var(--charcoal); }
+    #mobile-nav { display: none; }
+    #mobile-nav.open { display: block; }
+    .mobile-nav-inner {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem 1.5rem;
+    }
+    .mobile-nav-inner ul { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: .25rem; }
+    .mobile-nav-inner a { display: block; padding: .625rem 0; font-size: .875rem; color: var(--muted); text-decoration: none; letter-spacing: .05em; }
+    .mobile-nav-inner .social-strip { justify-content: flex-end; padding-top: .75rem; border-top: 1px solid var(--border); }
+
+    @media (max-width: 767px) {
+      .nav-links, .header-social { display: none !important; }
+      .menu-btn { display: inline-flex; }
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; min-height: 100svh;
+      display: flex; align-items: center; justify-content: center;
+      padding-top: 4.5rem; overflow: hidden;
+    }
+    .hero-bg  { position: absolute; inset: 0; background: rgba(221,195,165,.25); }
+    .hero-inner { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 0 1.5rem; text-align: center; }
+    .hero-eyebrow {
+      font-size: .75rem; font-weight: 500; letter-spacing: .25em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1.25rem;
+    }
+    .hero-title {
+      font-family: 'Assistant', sans-serif;
+      font-size: clamp(2.5rem, 7vw, 5rem);
+      font-weight: 300; line-height: 1.2;
+      color: var(--charcoal); margin: 0 0 1.5rem;
+    }
+    .hero-title em { font-style: italic; }
+    .hero-subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted); line-height: 1.8;
+      max-width: 480px; margin: 0 auto 2.5rem;
+    }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+
+    /* Buttons — WCAG AA contrast */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .875rem 2.25rem;
+      background: var(--charcoal); color: #FAF5F0;
+      font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--charcoal);
+      transition: background .25s, color .25s; cursor: pointer;
+    }
+    .btn-primary:hover { background: transparent; color: var(--charcoal); }
+
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .875rem 2.25rem;
+      background: transparent; color: var(--charcoal);
+      font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--charcoal);
+      transition: background .25s, color .25s; cursor: pointer;
+    }
+    .btn-outline:hover { background: var(--charcoal); color: #FAF5F0; }
+
+    .btn-wa {
+      display: inline-flex; align-items: center; gap: .75rem;
+      padding: 1rem 2.5rem;
+      background: var(--champagne); color: var(--charcoal);
+      font-size: .875rem; font-weight: 500; letter-spacing: .1em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--champagne);
+      transition: opacity .25s;
+    }
+    .btn-wa:hover { opacity: .88; }
+
+    /* scroll indicator */
+    .scroll-hint {
+      position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: .375rem;
+      color: var(--muted); font-size: .6875rem; letter-spacing: .2em; text-transform: uppercase;
+    }
+    .scroll-hint svg { width: 1rem; height: 1.75rem; animation: bounce 2s infinite; }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(6px); }
+    }
+
+    /* ── SECTIONS ── */
+    .section { padding: 6rem 1.5rem; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-size: .6875rem; font-weight: 500; letter-spacing: .3em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: 'Assistant', sans-serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 300; color: var(--charcoal);
+      line-height: 1.25; margin: 0 0 1.5rem;
+    }
+
+    /* ── ABOUT ── */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+    @media (max-width: 767px) { .about-grid { grid-template-columns: 1fr; gap: 2.5rem; } }
+    .about-text p { color: var(--muted); line-height: 1.9; margin: 0 0 1.25rem; font-size: 1.0625rem; }
+    .about-image-wrap {
+      position: relative; aspect-ratio: 4/5; overflow: hidden;
+      background: var(--champagne);
+    }
+    .about-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .about-image-accent {
+      position: absolute; inset-inline-end: -1.5rem; bottom: -1.5rem;
+      width: 60%; height: 60%;
+      border: 2px solid var(--champagne); z-index: -1;
+      pointer-events: none;
+    }
+
+    /* ── SERVICES ── */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-top: 3rem;
+    }
+    .service-card {
+      padding: 2rem 1.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .service-card:hover {
+      border-color: var(--champagne);
+      box-shadow: 0 8px 32px -12px rgba(166,124,142,.18);
+    }
+    .service-number {
+      font-family: 'Assistant', sans-serif;
+      font-size: 2rem; font-weight: 300;
+      color: var(--champagne); display: block; margin-bottom: .75rem;
+    }
+    .service-title { font-size: 1.125rem; font-weight: 600; color: var(--charcoal); margin: 0 0 .375rem; }
+    .service-meta  { font-size: .8125rem; color: var(--muted); margin: 0 0 .875rem; }
+    .service-desc  { font-size: .9375rem; color: var(--muted); line-height: 1.75; margin: 0; }
+
+    /* ── GALLERY ── */
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-auto-rows: 280px;
+      gap: 1rem;
+      margin-top: 3rem;
+    }
+    @media (max-width: 767px) {
+      .gallery-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 200px; }
+    }
+    .gallery-item { position: relative; overflow: hidden; }
+    .gallery-item.span-2 { grid-row: span 2; }
+    .gallery-item img {
       position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      transition: transform 700ms ease;
+      width: 100%; height: 100%; object-fit: cover;
+      transition: transform .7s ease;
     }
-    .gallery-item:hover .gallery-img { transform: scale(1.05); }
+    .gallery-item:hover img { transform: scale(1.06); }
     .gallery-overlay {
       position: absolute; inset: 0;
       background: rgba(45,43,61,0);
-      transition: background 500ms ease;
+      transition: background .5s;
+      display: flex; align-items: flex-end;
+      padding: 1rem;
     }
-    .gallery-item:hover .gallery-overlay { background: rgba(45,43,61,0.20); }
+    .gallery-item:hover .gallery-overlay { background: rgba(45,43,61,.22); }
+    .gallery-caption {
+      color: #FAF5F0; font-size: .8125rem; font-weight: 500;
+      letter-spacing: .06em; opacity: 0;
+      transition: opacity .4s;
+      text-shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+    .gallery-item:hover .gallery-caption { opacity: 1; }
 
-    html { scroll-behavior: smooth; }
-    #mobile-menu { display: none; }
-    #mobile-menu.open { display: block; }
-    .service-card { transition: border-color 300ms ease; }
-    .service-card:hover { border-color: var(--champagne); }
-    .view-portfolio-btn { border: 1px solid var(--charcoal); color: var(--charcoal); }
-    .view-portfolio-btn:hover { background: var(--charcoal); color: #fff; }
+    /* ── CONTACT ── */
+    .contact-section {
+      background: var(--charcoal); color: #FAF5F0;
+      text-align: center; padding: 6rem 1.5rem;
+    }
+    .contact-inner { max-width: 640px; margin: 0 auto; }
+    .contact-meta {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 2rem; margin-top: 4rem; padding-top: 3rem;
+      border-top: 1px solid rgba(250,245,240,.1);
+      text-align: center;
+    }
+    @media (max-width: 580px) { .contact-meta { grid-template-columns: 1fr; } }
+    .contact-meta-label {
+      font-size: .6875rem; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--champagne); margin-bottom: .625rem; display: block;
+    }
+    .contact-meta p { color: rgba(250,245,240,.7); font-size: .9375rem; line-height: 1.7; margin: 0; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--charcoal);
+      border-top: 1px solid rgba(250,245,240,.08);
+      padding: 1.75rem 1.5rem;
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-logo { font-family: 'Assistant', sans-serif; font-size: 1.0625rem; font-weight: 600; color: #FAF5F0; text-decoration: none; }
+    .footer-copy  { font-size: .75rem; color: rgba(250,245,240,.45); letter-spacing: .04em; }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { font-size: .75rem; color: rgba(250,245,240,.45); text-decoration: none; transition: color .25s; }
+    .footer-links a:hover { color: var(--champagne); }
+    .footer-social .social-icon { color: rgba(250,245,240,.45); }
+    .footer-social .social-icon:hover { color: var(--champagne); background: rgba(221,195,165,.12); }
+
+    /* ── DIVIDER ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
   </style>
 </head>
-<body class="bg-lp font-sans" style="color:var(--charcoal);">
 
-<!-- HEADER -->
-<header id="site-header" class="fixed top-0 left-0 right-0 z-50 border-b border-lp"
-        style="background:rgba(250,245,240,0.85);backdrop-filter:blur(10px);">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="flex items-center justify-between h-20">
-      <a href="#" class="font-serif text-2xl font-medium tracking-wide text-charcoal">Lumiere</a>
-      <nav class="hidden md:flex items-center gap-10">
-        <a href="#about"    class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">About</a>
-        <a href="#services" class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Services</a>
-        <a href="#gallery"  class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Gallery</a>
-        <a href="#contact"  class="text-xs tracking-extra uppercase text-lp-muted hover:text-charcoal transition-colors duration-300">Contact</a>
-      </nav>
-      <a href="./index.html"
-         class="hidden md:inline-flex px-6 py-2.5 bg-charcoal text-white text-xs tracking-extra uppercase hover:opacity-90 transition-opacity duration-300">
-        Book Now
-      </a>
-      <button id="menu-btn" class="md:hidden p-2" aria-label="Toggle menu" aria-expanded="false">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-      </button>
+<body>
+
+<!-- SKIP LINK — WCAG 2.4.1 -->
+<a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header id="site-header" role="banner">
+  <div class="header-inner">
+
+    <!-- Logo -->
+    <a href="#" class="logo" aria-label="מיטל שבע ברעם — דף הבית">מיטל שבע ברעם</a>
+
+    <!-- Desktop Nav -->
+    <nav aria-label="ניווט ראשי">
+      <ul class="nav-links" role="list">
+        <li><a href="#about">אודות</a></li>
+        <li><a href="#services">שירותים</a></li>
+        <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#contact">צרי קשר</a></li>
+      </ul>
+    </nav>
+
+    <!-- Desktop Social -->
+    <div class="social-strip header-social" aria-label="קישורים חברתיים" id="header-social-strip">
+      <!-- populated by JS from SiteConfig -->
     </div>
-  </div>
-  <div id="mobile-menu" class="md:hidden bg-lp border-t border-lp px-6 py-4 space-y-4">
-    <a href="#about"    class="block text-xs tracking-extra uppercase text-lp-muted py-2">About</a>
-    <a href="#services" class="block text-xs tracking-extra uppercase text-lp-muted py-2">Services</a>
-    <a href="#gallery"  class="block text-xs tracking-extra uppercase text-lp-muted py-2">Gallery</a>
-    <a href="#contact"  class="block text-xs tracking-extra uppercase text-lp-muted py-2">Contact</a>
-    <a href="./index.html"
-       class="block w-full text-center px-6 py-3 bg-charcoal text-white text-xs tracking-extra uppercase">Book Now</a>
-  </div>
+
+    <!-- Mobile Menu Button -->
+    <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="mobile-nav" aria-label="פתח תפריט">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+  </div><!-- /header-inner -->
+
+  <!-- Mobile Nav -->
+  <nav id="mobile-nav" aria-label="תפריט נייד" aria-hidden="true">
+    <div class="mobile-nav-inner">
+      <ul role="list">
+        <li><a href="#about">אודות</a></li>
+        <li><a href="#services">שירותים</a></li>
+        <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#contact">צרי קשר</a></li>
+      </ul>
+      <div class="social-strip" id="mobile-social-strip" aria-label="קישורים חברתיים"></div>
+    </div>
+  </nav>
+
 </header>
 
-<!-- HERO -->
-<section class="relative min-h-screen flex items-center justify-center pt-20">
-  <div class="absolute inset-0" style="background:rgba(221,195,165,0.30);"></div>
-  <div class="relative z-10 max-w-4xl mx-auto px-6 text-center">
-    <p class="text-xs tracking-extra uppercase text-lp-muted mb-6">Boutique Nail Artistry</p>
-    <h1 class="font-serif text-5xl md:text-7xl lg:text-8xl font-light text-charcoal leading-tight mb-8">
-      Where Elegance<br />
-      <em>Meets Artistry</em>
-    </h1>
-    <p class="max-w-xl mx-auto text-lg md:text-xl text-lp-muted leading-relaxed mb-12">
-      Experience bespoke nail artistry crafted with precision,
-      passion, and an unwavering commitment to luxury.
-    </p>
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-      <a href="./index.html"
-         class="inline-flex px-10 py-4 bg-charcoal text-white text-xs tracking-wide2 uppercase hover:opacity-90 transition-opacity duration-300">
-        Schedule Your Experience
-      </a>
-      <a href="#gallery"
-         class="view-portfolio-btn inline-flex px-10 py-4 text-xs tracking-wide2 uppercase transition-colors duration-300">
-        View Portfolio
-      </a>
+<!-- ═══════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════ -->
+<main id="main-content" tabindex="-1">
+
+  <!-- ── HERO ── -->
+  <section class="hero" aria-labelledby="hero-heading">
+    <div class="hero-bg" aria-hidden="true"></div>
+    <div class="hero-inner">
+      <p class="hero-eyebrow tracking-heb">עיצוב ציפורניים בוטיק | רמת גן</p>
+      <h1 class="hero-title" id="hero-heading">
+        אמנות ציפורניים<br /><em>מרגע ראשון</em>
+      </h1>
+      <p class="hero-subtitle">
+        לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי,
+        עם תשומת לב לכל פרט. חוויה אישית ואינטימית
+        בסטודיו הבוטיק של מיטל שבע ברעם.
+      </p>
+      <div class="btn-group" id="hero-cta">
+        <!-- populated by JS -->
+      </div>
     </div>
-  </div>
-  <div class="absolute bottom-12 left-1/2 -translate-x-1/2">
-    <div class="flex flex-col items-center gap-2 text-lp-muted">
-      <span class="text-xs tracking-extra uppercase">Scroll</span>
-      <svg class="w-4 h-8 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="scroll-hint" aria-hidden="true">
+      <span>גלול</span>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
       </svg>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ABOUT -->
-<section id="about" class="py-32 bg-lp-card">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="grid lg:grid-cols-2 gap-16 lg:gap-24 items-start">
-      <div>
-        <p class="text-xs tracking-extra uppercase text-lp-muted mb-4">About the Boutique</p>
-        <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-charcoal leading-tight mb-8">
-          Crafted with Precision &amp; Passion
-        </h2>
-        <div class="space-y-6 text-lp-muted leading-relaxed">
-          <p>At Lumiere, we believe that nails are more than just an accessory &#8212; they are an extension of your personal style and a canvas for artistic expression.</p>
-          <p>Our boutique studio offers an intimate, refined atmosphere where every detail is carefully curated. From the moment you step through our doors, you will be enveloped in an environment designed for relaxation and luxury.</p>
-          <p>Each service is performed with meticulous attention to detail, using only premium products sourced from the finest suppliers worldwide.</p>
-        </div>
-      </div>
-      <div id="services" class="space-y-8">
-        <p class="text-xs tracking-extra uppercase text-lp-muted">Our Services</p>
-        <div class="space-y-6">
-          <div class="service-card p-8 bg-lp border border-lp">
-            <div class="flex items-start gap-6">
-              <span class="font-serif text-3xl text-champagne flex-shrink-0">01</span>
-              <div>
-                <h3 class="font-serif text-xl text-charcoal mb-2">Signature Manicure</h3>
-                <p class="text-sm text-lp-muted leading-relaxed">A luxurious experience featuring premium products, meticulous nail shaping, and flawless polish application.</p>
-              </div>
-            </div>
-          </div>
-          <div class="service-card p-8 bg-lp border border-lp">
-            <div class="flex items-start gap-6">
-              <span class="font-serif text-3xl text-champagne flex-shrink-0">02</span>
-              <div>
-                <h3 class="font-serif text-xl text-charcoal mb-2">Bespoke Nail Art</h3>
-                <p class="text-sm text-lp-muted leading-relaxed">Custom-designed nail artistry tailored to your vision, from subtle elegance to bold statement pieces.</p>
-              </div>
-            </div>
-          </div>
-          <div class="service-card p-8 bg-lp border border-lp">
-            <div class="flex items-start gap-6">
-              <span class="font-serif text-3xl text-champagne flex-shrink-0">03</span>
-              <div>
-                <h3 class="font-serif text-xl text-charcoal mb-2">Gel Extensions</h3>
-                <p class="text-sm text-lp-muted leading-relaxed">Expertly crafted extensions using the finest materials for natural-looking, long-lasting results.</p>
-              </div>
-            </div>
-          </div>
-          <div class="service-card p-8 bg-lp border border-lp">
-            <div class="flex items-start gap-6">
-              <span class="font-serif text-3xl text-champagne flex-shrink-0">04</span>
-              <div>
-                <h3 class="font-serif text-xl text-charcoal mb-2">Spa Treatments</h3>
-                <p class="text-sm text-lp-muted leading-relaxed">Indulgent hand and nail therapies featuring nourishing treatments for complete rejuvenation.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+  <!-- ── ABOUT ── -->
+  <section id="about" class="section bg-lp-card" aria-labelledby="about-heading">
+    <div class="section-inner">
+      <div class="about-grid">
 
-<!-- GALLERY -->
-<section id="gallery" class="py-32 bg-lp">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="text-center mb-16">
-      <p class="text-xs tracking-extra uppercase text-lp-muted mb-4">Portfolio</p>
-      <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-charcoal">A Gallery of Artistry</h2>
-    </div>
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6" style="grid-auto-rows:280px;">
-      <div class="gallery-item relative overflow-hidden lp-row-span">
-        <img src="./public/gallery/nail-1.png" alt="Elegant french tip nail design" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-      <div class="gallery-item relative overflow-hidden">
-        <img src="./public/gallery/nail-2.png" alt="Minimalist nude nail art" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-      <div class="gallery-item relative overflow-hidden">
-        <img src="./public/gallery/nail-3.png" alt="Luxury gold accent nails" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-      <div class="gallery-item relative overflow-hidden lp-row-span">
-        <img src="./public/gallery/nail-4.png" alt="Sophisticated marble nail design" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-      <div class="gallery-item relative overflow-hidden">
-        <img src="./public/gallery/nail-5.png" alt="Classic red manicure" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-      <div class="gallery-item relative overflow-hidden">
-        <img src="./public/gallery/nail-6.png" alt="Artistic floral nail design" class="gallery-img" loading="lazy" />
-        <div class="gallery-overlay"></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CONTACT -->
-<section id="contact" class="py-32 bg-charcoal" style="color:#FAF5F0;">
-  <div class="max-w-4xl mx-auto px-6 lg:px-8 text-center">
-    <p class="text-xs tracking-extra uppercase text-champagne mb-4">Book Your Visit</p>
-    <h2 class="font-serif text-4xl md:text-5xl lg:text-6xl font-light leading-tight mb-8" style="color:#FAF5F0;">
-      Begin Your Luxury Experience
-    </h2>
-    <p class="max-w-xl mx-auto text-lg leading-relaxed mb-12" style="color:rgba(250,245,240,0.70);">
-      Ready to elevate your nail care routine? Schedule your appointment today and discover the Lumiere difference.
-    </p>
-    <a href="./index.html"
-       class="inline-flex items-center gap-3 px-12 py-5 bg-champagne text-charcoal text-sm tracking-wide2 uppercase hover:opacity-90 transition-opacity duration-300">
-      <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-      </svg>
-      Schedule via WhatsApp
-    </a>
-    <div class="mt-20 pt-12" style="border-top:1px solid rgba(250,245,240,0.10);">
-      <div class="grid md:grid-cols-3 gap-8 text-sm">
+        <!-- Text -->
         <div>
-          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Location</p>
-          <p style="color:rgba(250,245,240,0.70);">123 Elegance Avenue<br />Suite 400, Beverly Hills</p>
+          <p class="section-label" aria-hidden="true">אודות הסטודיו</p>
+          <h2 class="section-title" id="about-heading">
+            מקצועיות, דיוק<br />ואהבה לפרטים
+          </h2>
+          <div class="about-text">
+            <p>
+              מיטל שבע ברעם היא אמנית ציפורניים בוטיק עם ניסיון עשיר בעיצוב לק ג'ל
+              ופדיקור מקצועי. הסטודיו הממוקם ברמת גן מציע אווירה אינטימית ומטפחת,
+              שבה כל לקוחה מקבלת טיפול אישי ומלא תשומת לב.
+            </p>
+            <p>
+              אנחנו עובדים אך ורק עם חומרים מהמותגים המובילים בעולם, ומקפידים
+              על תהליכי עבודה שמשמרים את בריאות הציפורן הטבעית לצד מראה
+              מושלם ועמיד לאורך זמן.
+            </p>
+            <p>
+              כי ציפורניים יפות הן לא עניין של מזל — הן תוצאה של מיומנות, חומרים
+              נכונים ואהבה אמיתית למה שעושים.
+            </p>
+          </div>
         </div>
-        <div>
-          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Hours</p>
-          <p style="color:rgba(250,245,240,0.70);">Tuesday - Saturday<br />10:00 AM - 7:00 PM</p>
+
+        <!-- Image -->
+        <div class="about-image-wrap" style="position:relative;">
+          <img src="./public/gallery/nail-1.png"
+               alt="מיטל עובדת על עיצוב ציפורניים — לק ג'ל פרנץ' קלאסי"
+               width="600" height="750" loading="lazy" />
+          <span class="about-image-accent" aria-hidden="true"></span>
         </div>
-        <div>
-          <p class="text-xs tracking-wide2 uppercase text-champagne mb-3">Contact</p>
-          <p style="color:rgba(250,245,240,0.70);">hello@lumierenails.com<br />+1 (310) 555-0123</p>
-        </div>
+
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- FOOTER -->
-<footer class="py-8 bg-charcoal" style="border-top:1px solid rgba(250,245,240,0.10);">
-  <div class="max-w-7xl mx-auto px-6 lg:px-8">
-    <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-      <a href="#" class="font-serif text-xl tracking-wide" style="color:#FAF5F0;">Lumiere</a>
-      <p class="text-xs tracking-wider" id="footer-year" style="color:rgba(250,245,240,0.50);">
-        &copy; 2024 Lumiere Nails. All rights reserved.
+  <!-- ── SERVICES ── -->
+  <section id="services" class="section bg-lp" aria-labelledby="services-heading">
+    <div class="section-inner">
+      <p class="section-label" aria-hidden="true">שירותים</p>
+      <h2 class="section-title" id="services-heading">מה אנחנו מציעות</h2>
+      <p style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
+        מגוון שירותי עיצוב ציפורניים ברמה הגבוהה ביותר, המותאמים
+        אישית לכל לקוחה — בין אם את מחפשת ג'ל קלאסי נקי ועמיד
+        ובין אם עיצוב אמנותי ייחודי.
       </p>
-      <div class="flex items-center gap-6">
-        <a href="#" aria-label="Instagram" class="footer-social" style="color:rgba(250,245,240,0.50);">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-          </svg>
-        </a>
-        <a href="#" aria-label="Pinterest" class="footer-social" style="color:rgba(250,245,240,0.50);">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 0c-6.627 0-12 5.372-12 12 0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738.098.119.112.224.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.631-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146 1.124.347 2.317.535 3.554.535 6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"/>
-          </svg>
-        </a>
+
+      <div class="services-grid" id="services-grid" role="list">
+        <!-- populated by JS from SiteConfig.services -->
       </div>
     </div>
+  </section>
+
+  <!-- ── GALLERY ── -->
+  <section id="gallery" class="section bg-lp-card" aria-labelledby="gallery-heading">
+    <div class="section-inner">
+      <p class="section-label" aria-hidden="true">גלריה</p>
+      <h2 class="section-title" id="gallery-heading">עבודות נבחרות</h2>
+      <div class="gallery-grid" id="gallery-grid" role="list">
+        <!-- populated by JS from SiteConfig.gallery -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CONTACT ── -->
+  <section id="contact" class="contact-section" aria-labelledby="contact-heading">
+    <div class="contact-inner">
+      <p class="section-label text-champagne" style="letter-spacing:.3em;" aria-hidden="true">יצירת קשר</p>
+      <h2 class="section-title" id="contact-heading" style="color:#FAF5F0; margin-bottom:1.25rem;">
+        בואי ניצור משהו יפה יחד
+      </h2>
+      <p style="color:rgba(250,245,240,.70); font-size:1.0625rem; line-height:1.85; margin-bottom:2.5rem; max-width:480px; margin-inline:auto;">
+        לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לנו בווטסאפ
+        ונשמח לעזור.
+      </p>
+      <div id="contact-wa-btn"><!-- populated by JS --></div>
+
+      <div class="contact-meta" id="contact-meta">
+        <div>
+          <span class="contact-meta-label">כתובת</span>
+          <p id="meta-address"></p><!-- populated by JS -->
+        </div>
+        <div>
+          <span class="contact-meta-label">שעות פעילות</span>
+          <p>שלישי — שבת<br />10:00 — 19:00</p>
+        </div>
+        <div>
+          <span class="contact-meta-label">מדיה חברתית</span>
+          <div id="contact-social" class="social-strip" style="justify-content:center; margin-top:.5rem;"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main><!-- /main -->
+
+<!-- ═══════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════ -->
+<footer role="contentinfo">
+  <div class="footer-inner">
+    <a href="#" class="footer-logo" aria-label="מיטל שבע ברעם — חזרה לראש הדף">מיטל שבע ברעם</a>
+    <p class="footer-copy" id="footer-copy"></p><!-- year injected by JS -->
+    <nav aria-label="קישורי מדיניות">
+      <div class="footer-links">
+        <a href="./takanon.html">תקנון ותנאי שימוש</a>
+        <a href="./privacy.html">מדיניות פרטיות</a>
+      </div>
+    </nav>
+    <div class="social-strip footer-social" id="footer-social" aria-label="רשתות חברתיות"></div>
   </div>
 </footer>
 
+<!-- ═══════════════════════════════════════════════════
+     SCRIPT — SiteConfig + render
+     ► עדכן SiteConfig בלבד לשינוי תוכן ◄
+═══════════════════════════════════════════════════ -->
 <script>
-  document.getElementById("footer-year").textContent =
-    "© " + new Date().getFullYear() + " Lumiere Nails. All rights reserved.";
-  var btn  = document.getElementById("menu-btn");
-  var menu = document.getElementById("mobile-menu");
-  btn.addEventListener("click", function() {
-    var open = menu.classList.toggle("open");
-    btn.setAttribute("aria-expanded", String(open));
+'use strict';
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SITE CONFIG — ערוך כאן בלבד
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HOW TO UPDATE:
+   • לינקים סושיאל  → social{}
+   • שירותים         → services[]
+   • גלריה           → gallery[] (src = נתיב יחסי מ-frontend/)
+   • צבעים           → colors{} (מוזרקים ל-CSS Variables)
+   • כתובת/שם        → identity{}
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SiteConfig = {
+
+  // ── IDENTITY ──────────────────────────────────────────────────
+  identity: {
+    name:      'מיטל שבע ברעם',
+    studio:    'סטודיו מיטל',
+    tagline:   'אמנות ציפורניים בוטיק',
+    address:   '11, רמת גן',
+    city:      'רמת גן',
+    phone:     '',   // e.g. '050-1234567'
+    whatsapp:  '',   // e.g. '972501234567'  (ספרות בלבד, ללא +)
+  },
+
+  // ── SOCIAL LINKS ──────────────────────────────────────────────
+  // החלף '#' ב-URL האמיתי. הסר רשת שאינך רוצה — כתוב null.
+  social: {
+    whatsapp:  '#',    // https://wa.me/972XXXXXXXXX
+    instagram: '#',    // https://instagram.com/your_handle
+    tiktok:    '#',    // https://tiktok.com/@your_handle
+    google:    '#',    // https://g.page/your-business
+    easy:      '#',    // https://easy.co.il/your-page
+  },
+
+  // ── SERVICES ──────────────────────────────────────────────────
+  services: [
+    {
+      num:   '01',
+      title: "ג'ל קלאסי",
+      meta:  '90 דקות',
+      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק שמתחרה בחדש.",
+    },
+    {
+      num:   '02',
+      title: "ג'ל לרגליים",
+      meta:  '120 דקות',
+      desc:  "טיפול פדיקור מלא הכולל הכנת העור, עיצוב ציפורן ולק ג'ל. תוצאה נקייה ועמידה לקיץ ולכל השנה.",
+    },
+    {
+      num:   '03',
+      title: 'עיצוב אמנותי',
+      meta:  'לפי הזמנה',
+      desc:  "עיצוב ציפורניים ייחודי — ציורים, stone art, ombre ועוד. מתאים לאירועים, ימי הולדת ויום-יום.",
+    },
+    {
+      num:   '04',
+      title: "הסרת ג'ל",
+      meta:  '30 דקות',
+      desc:  "הסרה עדינה ומקצועית שמשמרת את הציפורן הטבעית. בלי שבירה, בלי נזק — הדרך הנכונה להסיר.",
+    },
+  ],
+
+  // ── GALLERY ───────────────────────────────────────────────────
+  // src: נתיב יחסי מ-frontend/
+  // alt: תיאור נגיש בעברית (חשוב ל-SEO ונגישות)
+  // span2: true → משתרע שתי שורות בגריד
+  gallery: [
+    { src: './public/gallery/nail-1.png', alt: "עיצוב פרנץ' קלאסי — לק ג'ל לבן",    span2: true  },
+    { src: './public/gallery/nail-2.png', alt: "לק ג'ל ניוד — מראה טבעי ומינימלי",   span2: false },
+    { src: './public/gallery/nail-3.png', alt: "עיצוב זהב יוקרתי — ג'ל עם אקסנט זהב",span2: false },
+    { src: './public/gallery/nail-4.png', alt: "עיצוב שיש — ג'ל marble אלגנטי",      span2: true  },
+    { src: './public/gallery/nail-5.png', alt: "לק ג'ל אדום קלאסי — מושלם לאירועים", span2: false },
+    { src: './public/gallery/nail-6.png', alt: "עיצוב פרחוני אמנותי — ציור על ציפורן",span2: false },
+  ],
+
+  // ── COLORS ────────────────────────────────────────────────────
+  // משתנה ל-CSS Custom Properties אוטומטית
+  colors: {
+    bg:        '#FAF5F0',
+    card:      '#FFFFFF',
+    charcoal:  '#2d2b3d',
+    champagne: '#DDC3A5',
+    muted:     '#8a7f8e',
+    border:    '#e8d5c4',
+    primary:   '#A67C8E',
+  },
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RENDER ENGINE — אל תשנה אלא אם יש סיבה
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+// ── Inject CSS Variables from SiteConfig.colors
+(function injectColors() {
+  var r = document.documentElement.style;
+  var c = SiteConfig.colors;
+  Object.keys(c).forEach(function(k) { r.setProperty('--' + k, c[k]); });
+})();
+
+// ── Sanitize — strip HTML tags from any user-supplied string
+// Used before innerHTML to prevent XSS if config data ever comes from user input
+function sanitize(str) {
+  return String(str)
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#x27;');
+}
+
+// ── Social icon SVGs
+var SOCIAL_ICONS = {
+  whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>',
+  tiktok:    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.22 8.22 0 004.84 1.55V6.79a4.85 4.85 0 01-1.07-.1z"/></svg>',
+  google:    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.35 11.1H12.18v2.73h5.51c-.27 1.47-1.59 4.32-5.51 4.32-3.31 0-6.01-2.74-6.01-6.12s2.7-6.12 6.01-6.12c1.88 0 3.14.8 3.86 1.49l2.63-2.54C17.03 3.3 14.79 2.25 12.18 2.25 6.7 2.25 2.25 6.7 2.25 12.18S6.7 22.11 12.18 22.11c5.72 0 9.51-4.02 9.51-9.68 0-.65-.07-1.14-.34-1.33z"/></svg>',
+  easy:      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>',
+};
+
+var SOCIAL_LABELS = {
+  whatsapp:  'וואטסאפ',
+  instagram: 'אינסטגרם',
+  tiktok:    'טיקטוק',
+  google:    'גוגל עסקים',
+  easy:      'Easy',
+};
+
+function buildSocialIcon(name, href) {
+  if (!href || !SOCIAL_ICONS[name]) return '';
+  var a = document.createElement('a');
+  a.className = 'social-icon';
+  a.href = sanitize(href);
+  a.setAttribute('aria-label', SOCIAL_LABELS[name] || name);
+  a.setAttribute('rel', 'noopener noreferrer');
+  a.setAttribute('target', '_blank');
+  a.innerHTML = SOCIAL_ICONS[name];
+  return a;
+}
+
+function renderSocialStrip(containerId) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  Object.keys(SiteConfig.social).forEach(function(name) {
+    var href = SiteConfig.social[name];
+    if (href) {
+      var icon = buildSocialIcon(name, href);
+      if (icon) el.appendChild(icon);
+    }
   });
-  menu.querySelectorAll("a").forEach(function(a) {
-    a.addEventListener("click", function() {
-      menu.classList.remove("open");
-      btn.setAttribute("aria-expanded", "false");
+}
+
+// Hero CTA
+function renderHeroCta() {
+  var el = document.getElementById('hero-cta');
+  if (!el) return;
+  var waHref = SiteConfig.social.whatsapp || '#';
+
+  var wa = document.createElement('a');
+  wa.className = 'btn-primary';
+  wa.href = sanitize(waHref);
+  wa.setAttribute('rel', 'noopener noreferrer');
+  if (waHref !== '#') wa.setAttribute('target', '_blank');
+  wa.setAttribute('aria-label', 'שלחי לנו הודעה בווטסאפ לתיאום תור');
+  wa.innerHTML = SOCIAL_ICONS.whatsapp + '<span>לתיאום תור</span>';
+  el.appendChild(wa);
+
+  var ig = document.createElement('a');
+  ig.className = 'btn-outline';
+  ig.href = '#gallery';
+  ig.setAttribute('aria-label', 'צפי בגלריית העבודות שלנו');
+  ig.textContent = 'הגלריה שלנו';
+  el.appendChild(ig);
+}
+
+// Services grid
+function renderServices() {
+  var grid = document.getElementById('services-grid');
+  if (!grid) return;
+  SiteConfig.services.forEach(function(s) {
+    var card = document.createElement('article');
+    card.className = 'service-card';
+    card.setAttribute('role', 'listitem');
+    card.innerHTML =
+      '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
+      '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
+      '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
+      '<p class="service-desc">' + sanitize(s.desc) + '</p>';
+    grid.appendChild(card);
+  });
+}
+
+// Gallery grid
+function renderGallery() {
+  var grid = document.getElementById('gallery-grid');
+  if (!grid) return;
+  SiteConfig.gallery.forEach(function(img) {
+    var item = document.createElement('figure');
+    item.className = 'gallery-item' + (img.span2 ? ' span-2' : '');
+    item.setAttribute('role', 'listitem');
+    item.style.margin = '0';
+    item.innerHTML =
+      '<img src="' + sanitize(img.src) + '"' +
+           ' alt="' + sanitize(img.alt) + '"' +
+           ' loading="lazy" />' +
+      '<figcaption class="gallery-overlay">' +
+        '<span class="gallery-caption">' + sanitize(img.alt) + '</span>' +
+      '</figcaption>';
+    grid.appendChild(item);
+  });
+}
+
+// Contact section
+function renderContact() {
+  // WhatsApp CTA button
+  var waBtn = document.getElementById('contact-wa-btn');
+  if (waBtn) {
+    var waHref = SiteConfig.social.whatsapp || '#';
+    waBtn.innerHTML =
+      '<a class="btn-wa"' +
+         ' href="' + sanitize(waHref) + '"' +
+         ' rel="noopener noreferrer"' +
+         (waHref !== '#' ? ' target="_blank"' : '') +
+         ' aria-label="צרי קשר בווטסאפ">' +
+        SOCIAL_ICONS.whatsapp +
+        '<span>שלחי הודעה בווטסאפ</span>' +
+      '</a>';
+  }
+  // Address
+  var addrEl = document.getElementById('meta-address');
+  if (addrEl) addrEl.textContent = SiteConfig.identity.address;
+}
+
+// Footer year
+function renderFooter() {
+  var c = document.getElementById('footer-copy');
+  if (c) c.textContent = '© ' + new Date().getFullYear() + ' ' + SiteConfig.identity.name + '. כל הזכויות שמורות.';
+}
+
+// Mobile menu toggle
+function initMobileMenu() {
+  var btn  = document.getElementById('menu-btn');
+  var nav  = document.getElementById('mobile-nav');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', function() {
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+    nav.setAttribute('aria-hidden', String(!open));
+    btn.setAttribute('aria-label', open ? 'סגור תפריט' : 'פתח תפריט');
+  });
+  // Close on nav link click
+  nav.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      nav.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('aria-hidden', 'true');
+      btn.setAttribute('aria-label', 'פתח תפריט');
     });
   });
-  document.querySelectorAll(".footer-social").forEach(function(el) {
-    el.addEventListener("mouseover", function() { el.style.color = "var(--champagne)"; });
-    el.addEventListener("mouseout",  function() { el.style.color = "rgba(250,245,240,0.50)"; });
-  });
+}
+
+// ── Init
+document.addEventListener('DOMContentLoaded', function() {
+  renderSocialStrip('header-social-strip');
+  renderSocialStrip('mobile-social-strip');
+  renderSocialStrip('contact-social');
+  renderSocialStrip('footer-social');
+  renderHeroCta();
+  renderServices();
+  renderGallery();
+  renderContact();
+  renderFooter();
+  initMobileMenu();
+});
 </script>
+
 </body>
 </html>
