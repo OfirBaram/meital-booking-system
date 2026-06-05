@@ -1,6 +1,6 @@
 import {
   WhatsAppIcon, InstagramIcon, TikTokIcon,
-  GoogleIcon, EasyIcon,
+  WazeIcon, EasyIcon,
 } from '@/components/icons/SocialIcons'
 import type { SocialLinks } from '@/config/site-config'
 
@@ -8,7 +8,7 @@ const ICONS: Record<keyof SocialLinks, React.ComponentType<React.SVGProps<SVGSVG
   whatsapp:  WhatsAppIcon,
   instagram: InstagramIcon,
   tiktok:    TikTokIcon,
-  google:    GoogleIcon,
+  waze:      WazeIcon,
   easy:      EasyIcon,
 }
 
@@ -16,7 +16,7 @@ const LABELS: Record<keyof SocialLinks, string> = {
   whatsapp:  'וואטסאפ',
   instagram: 'אינסטגרם',
   tiktok:    'טיקטוק',
-  google:    'גוגל עסקים',
+  waze:      'ניווט בוויז',
   easy:      'Easy',
 }
 

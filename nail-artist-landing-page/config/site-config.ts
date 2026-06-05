@@ -7,7 +7,7 @@ export interface SocialLinks {
   whatsapp:  string | null
   instagram: string | null
   tiktok:    string | null
-  google:    string | null
+  waze:      string | null
   easy:      string | null
 }
 
@@ -50,7 +50,7 @@ export const siteConfig = {
   seo: {
     title:       "מיטל שבע ברעם — עיצוב ציפורניים בוטיק | רמת גן",
     description: "סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל לרגליים וטיפולי ספא. חוויה אישית ואיכות פרימיום.",
-    keywords:    "לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, בוטיק, מיטל שבע ברעם",
+    keywords:    "לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, בוטיק, מיטל שבע ברעם, סטודיו ציפורניים, נייל ארט, ג'ל לרגליים, עיצוב ציפורניים, אמנות ציפורניים",
     ogImage:     "/gallery/nail-1.png",
     siteUrl:     "https://example.com",  // ← עדכן ל-URL האמיתי לפני העלאה
   },
@@ -58,11 +58,11 @@ export const siteConfig = {
   /* ── SOCIAL LINKS ─────────────────────────────────────────────────────────
      החלף '#' ב-URL המלא. null = האייקון לא מוצג.                           */
   social: {
-    whatsapp:  "#",   // "https://wa.me/972XXXXXXXXX"
-    instagram: "#",   // "https://instagram.com/meital_nails"
-    tiktok:    "#",   // "https://tiktok.com/@meital_nails"
-    google:    "#",   // "https://g.page/meital-nails"
-    easy:      "#",   // "https://easy.co.il/meital"
+    whatsapp:  "#",                                         // "https://wa.me/972XXXXXXXXX"
+    instagram: "https://www.instagram.com/meytal.sheva/",
+    tiktok:    "https://www.tiktok.com/@meytal.sheva",
+    waze:      "https://www.waze.com/ul?q=%D7%A8%D7%A9%D7%99+11+%D7%A8%D7%9E%D7%AA+%D7%92%D7%9F",
+    easy:      null,
   } satisfies SocialLinks,
 
   /* ── NAV LINKS ────────────────────────────────────────────────────────────
