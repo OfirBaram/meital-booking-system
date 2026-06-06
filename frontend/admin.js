@@ -934,15 +934,19 @@ async function generateSlots_unused() {
 
 
 async function loadSystemInfo() {
+  const el = document.getElementById('js-reminder-last');
   try {
     const data = await apiCall('getSystemInfo');
-    const el   = document.getElementById('js-reminder-last');
     if (data.success && data.reminderLastRun) {
       el.textContent = 'נשלח לאחרונה: ' + data.reminderLastRun.replace(/-/g, '/');
     } else if (data.success) {
       el.textContent = 'טרם נשלח';
+    } else {
+      el.textContent = 'שגיאה';
     }
-  } catch (_) {}
+  } catch (_) {
+    if (el) el.textContent = 'שגיאה';
+  }
 }
 
 // How many clients will get a reminder tomorrow (approved bookings dated tomorrow).
