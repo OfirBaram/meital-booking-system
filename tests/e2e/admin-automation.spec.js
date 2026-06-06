@@ -5,8 +5,8 @@
  * Coverage:
  *  1. "זמנים" tab removed — no nav button, no #tab-slots
  *  2. Automation section visible in clients tab
- *  3. Daily Reminders card loads last-run timestamp
- *  4. Send reminders button calls GAS and shows toast
+ *  3. Daily Reminders card — toggle OFF, hour defaults 20, appointment list
+ *  4. Send reminders button calls Supabase send-reminders and shows toast
  *  5. Auto-block toggle defaults to ON (enabled=true)
  *  6. Disabling toggle makes settings panel semi-transparent
  *  7. Save config calls GAS saveAutoBlockConfig with correct payload
@@ -125,62 +125,66 @@ test.describe('Automation section', () => {
   })
 })
 
-// ─── 3. Reminders last-run ───────────────────────────────────────────────────
-test.describe('Daily reminders last-run', () => {
-  test('shows date when reminderLastRun is set', async ({ page }) => {
+// ─── 3. Daily Reminders card UI ─────────────────────────────────────────────
+test.describe('Daily reminders card', () => {
+  test.beforeEach(async ({ page }) => {
     await setupMocks(page)
     await loginAndGoToClients(page)
-    await expect(page.locator('#js-reminder-last')).toContainText('2026', { timeout: 5_000 })
   })
 
-  test('shows "טרם נשלח" when reminderLastRun is null', async ({ page }) => {
-    await setupMocks(page, {
-      getSystemInfo: (route) => route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ success: true, reminderLastRun: null }),
-      }),
-    })
-    await loginAndGoToClients(page)
-    await expect(page.locator('#js-reminder-last')).toContainText('טרם נשלח', { timeout: 5_000 })
+  test('toggle is OFF by default', async ({ page }) => {
+    await expect(page.locator('#js-reminder-toggle')).not.toBeChecked()
   })
 
-  test('shows "שגיאה" when GAS returns success:false', async ({ page }) => {
-    await setupMocks(page, {
-      getSystemInfo: (route) => route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ success: false, error: 'unauthorized' }),
-      }),
-    })
-    await loginAndGoToClients(page)
-    await expect(page.locator('#js-reminder-last')).toContainText('שגיאה', { timeout: 5_000 })
+  test('hour select defaults to 20 (20:00)', async ({ page }) => {
+    await expect(page.locator('#js-reminder-hour')).toHaveValue('20')
   })
 
-  test('shows "שגיאה" when GAS returns HTTP error', async ({ page }) => {
-    await setupMocks(page, {
-      getSystemInfo: (route) => route.fulfill({ status: 500, body: 'Internal Server Error' }),
-    })
-    await loginAndGoToClients(page)
-    await expect(page.locator('#js-reminder-last')).toContainText('שגיאה', { timeout: 5_000 })
+  test('reminder list renders (no bookings due tomorrow — shows empty state)', async ({ page }) => {
+    // Mock bookings all have date=2099-12-15 (far future, not tomorrow) so the
+    // list shows the Hebrew empty-state message.
+    await expect(page.locator('#js-reminder-list')).toBeVisible()
+    await expect(page.locator('#js-reminder-list')).toContainText('אין תורים מאושרים למחר')
+  })
+
+  test('enabling toggle updates status row to green / "פעיל"', async ({ page }) => {
+    await page.locator('#js-reminder-toggle').dispatchEvent('click')
+    await expect(page.locator('#js-reminder-toggle')).toBeChecked()
+    await expect(page.locator('#js-reminder-status-text')).toContainText('פעיל')
   })
 })
 
-// ─── 4. Send reminders ───────────────────────────────────────────────────────
+// ─── 4. Send reminders (Supabase edge function) ──────────────────────────────
 test.describe('Send reminders', () => {
-  test('button calls sendReminders and shows success toast', async ({ page }) => {
+  test('button calls Supabase send-reminders and shows success toast', async ({ page }) => {
     let called = false
-    await setupMocks(page, {
-      sendReminders: (route, body) => {
+    await setupMocks(page, {}, {
+      'send-reminders': (route) => {
         called = true
         return route.fulfill({
           status: 200, contentType: 'application/json',
-          body: JSON.stringify({ success: true, sent: 2, skipped: false }),
+          body: JSON.stringify({ success: true, sent: 2, total: 2, results: [] }),
         })
       },
     })
     await loginAndGoToClients(page)
     await page.locator('#js-reminder-submit').click()
     await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-toast-msg')).toContainText('2')
     expect(called).toBe(true)
+  })
+
+  test('shows error toast when send-reminders returns failure', async ({ page }) => {
+    await setupMocks(page, {}, {
+      'send-reminders': (route) => route.fulfill({
+        status: 403, contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: 'unauthorized' }),
+      }),
+    })
+    await loginAndGoToClients(page)
+    await page.locator('#js-reminder-submit').click()
+    await expect(page.locator('#js-toast')).toBeVisible({ timeout: 5_000 })
+    await expect(page.locator('#js-toast-msg')).toContainText('שגיאה')
   })
 })
 
