@@ -257,6 +257,30 @@
     }
     .btn-wa:hover { opacity: .88; }
 
+    /* Contact section WhatsApp CTA — ghost/outlined, fills on hover */
+    #contact-wa-btn a.btn-wa {
+      background: transparent;
+      color: #25D366;
+      border: 2px solid #25D366;
+      font-size: .9375rem; font-weight: 700; letter-spacing: .06em;
+      padding: 1.1rem 2.75rem;
+      border-radius: 4px;
+      gap: .65rem;
+      white-space: nowrap;
+      transition: background .22s ease, color .22s ease, box-shadow .22s ease, transform .2s ease;
+    }
+    #contact-wa-btn a.btn-wa svg {
+      width: 1.5rem; height: 1.5rem;
+      flex-shrink: 0; fill: currentColor;
+    }
+    #contact-wa-btn a.btn-wa:hover {
+      background: #25D366;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(37, 211, 102, .38);
+      transform: translateY(-2px);
+      opacity: 1;
+    }
+
     /* scroll indicator */
     .scroll-hint {
       position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
