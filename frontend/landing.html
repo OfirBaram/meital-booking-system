@@ -38,14 +38,14 @@
   <meta property="og:locale"      content="he_IL" />
   <meta property="og:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
   <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל קלאסי וטיפולי ספא." />
-  <meta property="og:image"       content="./public/gallery/nail-1.png" />
+  <meta property="og:image"       content="./public/gallery/nail-01.jpg" />
   <meta property="og:url"         content="https://ofirbaram.github.io/meital-booking-system/" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card"        content="summary_large_image" />
   <meta name="twitter:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
   <meta name="twitter:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן." />
-  <meta name="twitter:image"       content="./public/gallery/nail-1.png" />
+  <meta name="twitter:image"       content="./public/gallery/nail-01.jpg" />
 
   <!-- Structured Data — Local Business -->
   <script type="application/ld+json">
@@ -221,29 +221,40 @@
     }
     .btn-primary:hover { background: transparent; color: var(--charcoal); }
 
-    /* Hero WhatsApp CTA — primary conversion action, green identity */
+    /* Hero WhatsApp CTA — primary conversion, pill shape, pulse glow */
+    @keyframes wa-pulse {
+      0%,100% { box-shadow: 0 4px 24px rgba(37,211,102,.42), 0 1px 6px rgba(0,0,0,.10); }
+      50%      { box-shadow: 0 4px 38px rgba(37,211,102,.68), 0 1px 6px rgba(0,0,0,.10); }
+    }
     #hero-cta a.btn-primary {
-      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      background: linear-gradient(145deg, #2EE872 0%, #25D366 55%, #1FC05A 100%);
       color: #fff;
-      border-color: transparent;
-      font-size: .9375rem; font-weight: 700; letter-spacing: .06em;
+      border: none;
+      font-size: 1.0625rem; font-weight: 700; letter-spacing: .03em;
       padding: 1.125rem 2.75rem;
-      border-radius: 4px;
-      box-shadow: 0 4px 20px rgba(37, 211, 102, .30);
-      gap: .7rem;
-      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+      border-radius: 50px;
+      box-shadow: 0 4px 24px rgba(37,211,102,.42), 0 1px 6px rgba(0,0,0,.10);
+      gap: .65rem;
+      transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease;
       white-space: nowrap;
+      animation: wa-pulse 3s ease-in-out infinite;
+      text-transform: none;
     }
     #hero-cta a.btn-primary svg {
-      width: 1.625rem; height: 1.625rem;
+      width: 1.5rem; height: 1.5rem;
       flex-shrink: 0; fill: #fff;
     }
     #hero-cta a.btn-primary:hover {
-      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      background: linear-gradient(145deg, #2EE872 0%, #25D366 55%, #1FC05A 100%);
       color: #fff;
-      filter: brightness(1.1);
-      box-shadow: 0 6px 30px rgba(37, 211, 102, .45);
-      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 8px 42px rgba(37,211,102,.62), 0 2px 10px rgba(0,0,0,.12);
+      transform: translateY(-3px) scale(1.04);
+      animation: none;
+    }
+    #hero-cta a.btn-primary:active {
+      transform: translateY(0) scale(.97);
+      box-shadow: 0 2px 14px rgba(37,211,102,.38), 0 1px 4px rgba(0,0,0,.08);
+      transition-duration: .1s;
     }
 
     .btn-outline {
@@ -624,8 +635,8 @@
 
         <!-- Image -->
         <div class="about-image-wrap" style="position:relative;">
-          <img src="./public/gallery/nail-1.png"
-               alt="מיטל עובדת על עיצוב ציפורניים — לק ג'ל פרנץ' קלאסי"
+          <img src="./public/gallery/nail-05.jpg"
+               alt="עיצוב ג'ל ניוד עם ציור פרח עדין — בוטי ורומנטי"
                width="600" height="750" loading="lazy" />
           <span class="about-image-accent" aria-hidden="true"></span>
         </div>
@@ -786,12 +797,14 @@ const SiteConfig = {
   // alt: תיאור נגיש בעברית (חשוב ל-SEO ונגישות)
   // span2: true → משתרע שתי שורות בגריד
   gallery: [
-    { src: './public/gallery/nail-1.png', alt: "עיצוב פרנץ' קלאסי — לק ג'ל לבן",    span2: true  },
-    { src: './public/gallery/nail-2.png', alt: "לק ג'ל ניוד — מראה טבעי ומינימלי",   span2: false },
-    { src: './public/gallery/nail-3.png', alt: "עיצוב זהב יוקרתי — ג'ל עם אקסנט זהב",span2: false },
-    { src: './public/gallery/nail-4.png', alt: "עיצוב שיש — ג'ל marble אלגנטי",      span2: true  },
-    { src: './public/gallery/nail-5.png', alt: "לק ג'ל אדום קלאסי — מושלם לאירועים", span2: false },
-    { src: './public/gallery/nail-6.png', alt: "עיצוב פרחוני אמנותי — ציור על ציפורן",span2: false },
+    { src: './public/gallery/nail-01.jpg', alt: "לק ג'ל שחור קלאסי — מראה דרמטי ויוקרתי",          span2: true  },
+    { src: './public/gallery/nail-02.jpg', alt: "לק ג'ל טורקיז עם אקסנט שחור — עיצוב מקורי ועז",   span2: false },
+    { src: './public/gallery/nail-03.jpg', alt: "עיצוב אמנותי — ורוד עם ציור זברה ייחודי",          span2: false },
+    { src: './public/gallery/nail-04.jpg', alt: "לק ג'ל ניוד מנצנץ — אלגנטיות טבעית עדינה",        span2: false },
+    { src: './public/gallery/nail-05.jpg', alt: "ג'ל ניוד עם ציור פרח עדין — רומנטי ובוטי",         span2: false },
+    { src: './public/gallery/nail-06.jpg', alt: "פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד", span2: false },
+    { src: './public/gallery/nail-07.jpg', alt: "לק ג'ל מט ורדרד — מראה עשיר ומודרני",              span2: false },
+    { src: './public/gallery/nail-08.jpg', alt: "לק ג'ל סגול עמוק — אלגנטיות בולדה ועוצמתית",      span2: false },
   ],
 
   // ── COLORS ────────────────────────────────────────────────────

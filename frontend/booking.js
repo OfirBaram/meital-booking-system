@@ -441,7 +441,7 @@ function renderCalendar() {
       <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
-        ${has && !disabled ? `<span class="slot-count${sel ? ' sel' : ''}">${slotCount}</span>` : ''}
+        
       </div>`;
   }
 
@@ -545,7 +545,7 @@ function renderSlots(dateKey) {
     <div class="time-slot ${State.time === time ? 'selected' : ''}"
          data-time="${time}" data-slot-id="${id}" data-qa="slot-btn">
       <span class="font-semibold text-sm">${time}</span>
-      <span class="slot-duration">${_dur} דק'</span>
+
     </div>
   `;
   }).join('');
