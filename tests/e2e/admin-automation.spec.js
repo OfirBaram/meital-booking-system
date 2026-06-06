@@ -143,6 +143,25 @@ test.describe('Daily reminders last-run', () => {
     await loginAndGoToClients(page)
     await expect(page.locator('#js-reminder-last')).toContainText('טרם נשלח', { timeout: 5_000 })
   })
+
+  test('shows "שגיאה" when GAS returns success:false', async ({ page }) => {
+    await setupMocks(page, {
+      getSystemInfo: (route) => route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: 'unauthorized' }),
+      }),
+    })
+    await loginAndGoToClients(page)
+    await expect(page.locator('#js-reminder-last')).toContainText('שגיאה', { timeout: 5_000 })
+  })
+
+  test('shows "שגיאה" when GAS returns HTTP error', async ({ page }) => {
+    await setupMocks(page, {
+      getSystemInfo: (route) => route.fulfill({ status: 500, body: 'Internal Server Error' }),
+    })
+    await loginAndGoToClients(page)
+    await expect(page.locator('#js-reminder-last')).toContainText('שגיאה', { timeout: 5_000 })
+  })
 })
 
 // ─── 4. Send reminders ───────────────────────────────────────────────────────
