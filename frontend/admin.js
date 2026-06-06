@@ -17,6 +17,7 @@ const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
 const LS_TS       = 'meital_admin_ts';
 const LS_HIDDEN   = 'meital_admin_hidden';
+const LS_REMINDER = 'meital_reminder_cfg';
 const SESSION_TTL = 24 * 60 * 60 * 1000;
 
 // Soft-deleted booking IDs — hidden from every admin view (frontend-only).
@@ -67,6 +68,7 @@ const S = {
   dateJump: '',
   tab:      'calendar',
   autoBlock: { enabled: true, time: 20 },
+  reminder:  { enabled: false, hour: 20 },
   autoSms:  true,
   _smsSendTarget: null,
   smsEntries:        [],
@@ -313,7 +315,7 @@ function setTab(tab) {
   if (tab === 'diary')    { loadSmsLog(); loadTwilioStats(); }
   if (tab === 'clients') {
     if (S.clients.length === 0) loadClients('');
-    loadSystemInfo();
+    loadReminderConfig();
     updateReminderPreview();
     loadAutoBlockConfig();
   }
@@ -933,48 +935,33 @@ async function generateSlots_unused() {
 }
 
 
-async function loadSystemInfo() {
-  const el = document.getElementById('js-reminder-last');
-  try {
-    const data = await apiCall('getSystemInfo');
-    if (data.success && data.reminderLastRun) {
-      el.textContent = 'נשלח לאחרונה: ' + data.reminderLastRun.replace(/-/g, '/');
-    } else if (data.success) {
-      el.textContent = 'טרם נשלח';
-    } else {
-      el.textContent = 'שגיאה';
-    }
-  } catch (_) {
-    if (el) el.textContent = 'שגיאה';
+function loadSystemInfo() { /* superseded by loadReminderConfig */ }
+
+function updateReminderPreview() {
+  const list = document.getElementById('js-reminder-list');
+  if (!list) return;
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const appts = liveBookings().filter(b => b.status === 'Approved' && b.date === tomorrow);
+  if (appts.length === 0) {
+    list.innerHTML = '<div class="text-text-muted italic">אין תורים מאושרים למחר</div>';
+  } else {
+    list.innerHTML = appts.map(b =>
+      '<div class="flex items-center justify-between bg-cream rounded-lg px-2.5 py-1.5">' +
+        '<span class="font-semibold">' + esc(b.name) + '</span>' +
+        '<span class="text-text-muted">' + esc(b.time) + ' — ' + esc(b.serviceName || b.service) + '</span>' +
+      '</div>'
+    ).join('');
   }
 }
 
-// How many clients will get a reminder tomorrow (approved bookings dated tomorrow).
-function updateReminderPreview() {
-  const el = document.getElementById('js-reminder-preview');
-  if (!el) return;
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-  const n = liveBookings().filter(b => b.status === 'Approved' && b.date === tomorrow).length;
-  el.textContent = n === 0
-    ? 'אין תורים מאושרים למחר — לא יישלחו תזכורות'
-    : (n === 1 ? 'תזכורת אחת תישלח מחר (תור מאושר אחד)'
-               : n + ' תזכורות יישלחו מחר ללקוחות עם תור מאושר');
-}
-
 async function sendReminders() {
-  const force = document.getElementById('js-reminder-force').checked;
-  const btn   = document.getElementById('js-reminder-submit');
+  const btn = document.getElementById('js-reminder-submit');
   btn.disabled = true;
   btn.innerHTML = '<span class="w-4 h-4 spinner"></span> שולח...';
   try {
-    const data = await apiCall('sendReminders', { force });
-    if (!data.success) throw new Error(data.error);
-    if (data.skipped) {
-      toast('כבר נשלח היום — סמן "שלח גם אם כבר נשלח" לשליחה חוזרת', '');
-    } else {
-      toast('נשלחו ' + data.sent + ' תזכורות ✅', 'ok');
-    }
-    await loadSystemInfo();
+    const data = await sbCall('send-reminders', {});
+    if (!data.success) throw new Error(data.error || 'שגיאה');
+    toast('נשלחו ' + data.sent + ' מתוך ' + data.total + ' תזכורות ✅', 'ok');
     updateReminderPreview();
   } catch (e) {
     toast('שגיאה: ' + e.message, 'err');
@@ -984,6 +971,61 @@ async function sendReminders() {
   }
 }
 
+
+
+function loadReminderConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS_REMINDER) || '{}');
+    S.reminder.enabled = saved.enabled === true;
+    S.reminder.hour    = typeof saved.hour === 'number' ? saved.hour : 20;
+  } catch (_) { S.reminder = { enabled: false, hour: 20 }; }
+  const toggle = document.getElementById('js-reminder-toggle');
+  const hourEl = document.getElementById('js-reminder-hour');
+  if (toggle) toggle.checked = S.reminder.enabled;
+  if (hourEl) hourEl.value   = String(S.reminder.hour);
+  _setReminderVisibility(S.reminder.enabled);
+}
+
+function saveReminderConfig() {
+  try { localStorage.setItem(LS_REMINDER, JSON.stringify({ enabled: S.reminder.enabled, hour: S.reminder.hour })); } catch (_) {}
+}
+
+function _setReminderVisibility(enabled) {
+  const statusRow  = document.getElementById('js-reminder-status-row');
+  const statusIcon = document.getElementById('js-reminder-status-icon');
+  const statusText = document.getElementById('js-reminder-status-text');
+  const toggleLbl  = document.getElementById('js-reminder-toggle-label');
+  const hourEl     = document.getElementById('js-reminder-hour');
+  const hour       = hourEl ? (hourEl.value + ':00') : '20:00';
+  if (statusRow) {
+    statusRow.className = enabled
+      ? 'flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-green-50 border border-green-100 transition-colors'
+      : 'flex items-center gap-2 rounded-xl px-3 py-2 mb-3 bg-gray-100 border border-gray-200 transition-colors';
+  }
+  if (statusIcon) statusIcon.textContent = enabled ? '✅' : '⏸️';
+  if (statusText) {
+    statusText.textContent = enabled
+      ? 'פעיל — תזכורות יישלחו ב-' + hour
+      : 'כבוי — תזכורות לא יישלחו אוטומטית';
+    statusText.className = enabled ? 'text-xs font-bold text-green-700' : 'text-xs font-bold text-gray-400';
+  }
+  if (toggleLbl) {
+    toggleLbl.textContent = enabled ? 'פעיל' : 'כבוי';
+    toggleLbl.className   = enabled ? 'text-xs font-black text-green-600' : 'text-xs font-black text-gray-400';
+  }
+}
+
+function _initReminderHours() {
+  const sel = document.getElementById('js-reminder-hour');
+  if (!sel) return;
+  for (let h = 8; h <= 22; h++) {
+    const opt = document.createElement('option');
+    opt.value = String(h);
+    opt.textContent = (h < 10 ? '0' + h : h) + ':00';
+    sel.appendChild(opt);
+  }
+  sel.value = String(S.reminder.hour);
+}
 
 async function loadAutoBlockConfig() {
   try {
@@ -1628,7 +1670,18 @@ async function init() {
     });
   }
 
+  _initReminderHours();
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
+  document.getElementById('js-reminder-toggle').addEventListener('change', () => {
+    S.reminder.enabled = document.getElementById('js-reminder-toggle').checked;
+    _setReminderVisibility(S.reminder.enabled);
+    saveReminderConfig();
+  });
+  document.getElementById('js-reminder-hour').addEventListener('change', () => {
+    S.reminder.hour = parseInt(document.getElementById('js-reminder-hour').value, 10);
+    _setReminderVisibility(S.reminder.enabled);
+    saveReminderConfig();
+  });
   document.getElementById('js-autoblock-toggle').addEventListener('change', () => {
     const enabled = document.getElementById('js-autoblock-toggle').checked;
     const time    = parseInt(document.getElementById('js-autoblock-time').value, 10);
