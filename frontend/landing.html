@@ -210,6 +210,31 @@
     }
     .btn-primary:hover { background: transparent; color: var(--charcoal); }
 
+    /* Hero WhatsApp CTA — primary conversion action, green identity */
+    #hero-cta a.btn-primary {
+      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      color: #fff;
+      border-color: transparent;
+      font-size: .9375rem; font-weight: 700; letter-spacing: .06em;
+      padding: 1.125rem 2.75rem;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(37, 211, 102, .30);
+      gap: .7rem;
+      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+      white-space: nowrap;
+    }
+    #hero-cta a.btn-primary svg {
+      width: 1.625rem; height: 1.625rem;
+      flex-shrink: 0; fill: #fff;
+    }
+    #hero-cta a.btn-primary:hover {
+      background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+      color: #fff;
+      filter: brightness(1.1);
+      box-shadow: 0 6px 30px rgba(37, 211, 102, .45);
+      transform: translateY(-2px) scale(1.02);
+    }
+
     .btn-outline {
       display: inline-flex; align-items: center; gap: .5rem;
       padding: .875rem 2.25rem;
