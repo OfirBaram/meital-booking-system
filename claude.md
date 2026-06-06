@@ -1,4 +1,11 @@
-# ✅ מצב מערכת — פרודקשן חי (עודכן 2026-06-04)
+# ✅ מצב מערכת — פרודקשן חי (עודכן 2026-06-06)
+
+## 🌐 Domain / URL
+- **Landing page (GitHub Pages):** `https://ofirbaram.github.io/meital-booking-system/`
+- `canonical`, `og:url`, Schema.org `url` כבר מעודכנים לכתובת זו ב-`landing.html`.
+- כשיהיה דומיין אמיתי — עדכן את 3 השדות הללו + `SiteConfig.identity.apiBase` (לתצוגת הזמן הפנוי הקרוב בהירו).
+
+
 
 | פרמטר | ערך |
 |---|---|

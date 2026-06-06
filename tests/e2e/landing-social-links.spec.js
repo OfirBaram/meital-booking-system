@@ -21,7 +21,8 @@ const SOCIAL = [
   { key: 'easy',      label: 'Easy',       hrefMatch: /easy\.co\.il\/page\/10159641/ },
 ]
 
-const WA_HREF = 'https://wa.me/972547686865'
+// Regex: number is correct regardless of ?text= pre-fill parameter
+const WA_HREF = /https:\/\/wa\.me\/972547686865/
 
 async function assertExternalAttrs(link) {
   await expect(link).toHaveAttribute('target', '_blank')
@@ -81,6 +82,11 @@ test.describe('Hero WhatsApp CTA (#hero-cta .btn-primary)', () => {
     expect(label?.length).toBeGreaterThan(0)
     expect(label).toContain('ווטסאפ')
   })
+
+  test('href includes pre-filled message text', async ({ page }) => {
+    const href = await page.locator('#hero-cta a.btn-primary').getAttribute('href')
+    expect(href, 'Hero WhatsApp CTA is missing ?text= pre-fill').toContain('?text=')
+  })
 })
 
 // 4. CONTACT SECTION WhatsApp CTA
@@ -103,23 +109,31 @@ test.describe('Contact WhatsApp CTA (#contact-wa-btn .btn-wa)', () => {
   test('has Hebrew aria-label', async ({ page }) => {
     await expect(page.locator('#contact-wa-btn a.btn-wa')).toHaveAttribute('aria-label', 'צרי קשר בווטסאפ')
   })
+
+  test('href includes pre-filled message text', async ({ page }) => {
+    const href = await page.locator('#contact-wa-btn a.btn-wa').getAttribute('href')
+    expect(href, 'Contact WhatsApp CTA is missing ?text= pre-fill').toContain('?text=')
+  })
 })
 
-// 5. CONTACT SOCIAL STRIP
-test.describe('Contact social strip (#contact-social)', () => {
+// 5. CONTACT LINKS (phone + email — replaced social strip in d22a9c2)
+test.describe('Contact links (#contact-links)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/landing.html')
-    await page.locator('#contact-social').scrollIntoViewIfNeeded()
+    await page.locator('#contact-links').scrollIntoViewIfNeeded()
   })
 
-  for (const { label, hrefMatch } of SOCIAL) {
-    test(`${label} — correct href, target=_blank, rel=noopener`, async ({ page }) => {
-      const link = page.locator(`#contact-social a[aria-label="${label}"]`)
-      await expect(link).toBeVisible()
-      await expect(link).toHaveAttribute('href', hrefMatch)
-      await assertExternalAttrs(link)
-    })
-  }
+  test('phone link is present with correct tel: href', async ({ page }) => {
+    const link = page.locator('#contact-links a[href^="tel:"]')
+    await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute('href', /tel:\+972547686865/)
+  })
+
+  test('email link is present with correct mailto: href', async ({ page }) => {
+    const link = page.locator('#contact-links a[href^="mailto:"]')
+    await expect(link).toBeVisible()
+    await expect(link).toHaveAttribute('href', /mailto:meital_sheva7@hotmail\.com/)
+  })
 })
 
 // 6. FOOTER SOCIAL STRIP
@@ -154,9 +168,10 @@ test.describe('Mobile viewport — strip visibility', () => {
     await expect(page.locator('#footer-social a')).toHaveCount(SOCIAL.length)
   })
 
-  test('contact social strip shows all 5 icons on mobile', async ({ page }) => {
-    await page.locator('#contact-social').scrollIntoViewIfNeeded()
-    await expect(page.locator('#contact-social a')).toHaveCount(SOCIAL.length)
+  test('contact links section has phone and email on mobile', async ({ page }) => {
+    await page.locator('#contact-links').scrollIntoViewIfNeeded()
+    await expect(page.locator('#contact-links a[href^="tel:"]')).toBeVisible()
+    await expect(page.locator('#contact-links a[href^="mailto:"]')).toBeVisible()
   })
 
   test('contact WhatsApp CTA is visible on mobile', async ({ page }) => {
@@ -164,6 +179,8 @@ test.describe('Mobile viewport — strip visibility', () => {
     const btn = page.locator('#contact-wa-btn a.btn-wa')
     await expect(btn).toBeVisible()
     await expect(btn).toHaveAttribute('href', WA_HREF)
+    const href = await btn.getAttribute('href')
+    expect(href, 'Mobile contact WA CTA missing ?text= pre-fill').toContain('?text=')
   })
 })
 
