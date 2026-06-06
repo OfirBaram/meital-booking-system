@@ -1015,17 +1015,7 @@ function _setReminderVisibility(enabled) {
   }
 }
 
-function _initReminderHours() {
-  const sel = document.getElementById('js-reminder-hour');
-  if (!sel) return;
-  for (let h = 8; h <= 22; h++) {
-    const opt = document.createElement('option');
-    opt.value = String(h);
-    opt.textContent = (h < 10 ? '0' + h : h) + ':00';
-    sel.appendChild(opt);
-  }
-  sel.value = String(S.reminder.hour);
-}
+/* _initReminderHours removed — options are now static HTML */
 
 async function loadAutoBlockConfig() {
   try {
@@ -1670,7 +1660,6 @@ async function init() {
     });
   }
 
-  _initReminderHours();
   document.getElementById('js-reminder-submit').addEventListener('click', sendReminders);
   document.getElementById('js-reminder-toggle').addEventListener('change', () => {
     S.reminder.enabled = document.getElementById('js-reminder-toggle').checked;
