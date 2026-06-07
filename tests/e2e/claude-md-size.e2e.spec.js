@@ -22,7 +22,7 @@ const CLAUDE_MD = ['CLAUDE.md', 'claude.md']
 
 function run(args) {
   try {
-    const stdout = execFileSync('node', [cli, ...args], { encoding: 'utf8' });
+    const stdout = execFileSync('node', [cli, ...args], { encoding: 'utf8', stdio: 'pipe' });
     return { code: 0, stdout, stderr: '' };
   } catch (e) {
     return {
