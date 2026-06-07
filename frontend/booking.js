@@ -232,6 +232,23 @@ async function apiSendOTP(phone) {
   return { success: true };
 }
 
+async function apiCheckActiveBooking(phone) {
+  if (!APP_CONFIG.SUPABASE_URL || APP_CONFIG.IS_MOCK_MODE) return { active: false };
+  const r = await fetchWithTimeout(
+    `${APP_CONFIG.SUPABASE_URL}/functions/v1/check-active-booking`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ phone: toE164(phone) }),
+    }
+  );
+  if (!r.ok) return { active: false };
+  return r.json();
+}
+
 async function apiVerifyAndBook(otp) {
   if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
     const r = await fetchWithTimeout(
@@ -429,19 +446,21 @@ function renderCalendar() {
     const sel  = selDate === key;
     const disabled = past || fri || sat || !has;
     if (!disabled) hasAnyAvail = true;
+    const disabledReason = !disabled ? '' : past ? 'past' : (fri || sat) ? 'weekend' : 'no-slots';
 
     const cls = [
       'cal-day',
       disabled ? 'disabled' : 'avail',
+      disabledReason,
       sel      ? 'selected' : '',
       isToday && !sel ? 'today-ring' : '',
-    ].join(' ');
+    ].filter(Boolean).join(' ');
 
     html += `
       <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
-        
+        ${disabledReason === 'no-slots' ? '<span class="dot-no-slots"></span>' : ''}
       </div>`;
   }
 
@@ -768,6 +787,13 @@ async function handleNext() {
     LS.set('client', { name: State.name, phone: State.phone });
 
     setLoading(true);
+    let activeCheck = { active: false };
+    try { activeCheck = await apiCheckActiveBooking(State.phone); } catch {}
+    if (activeCheck.active) {
+      setLoading(false);
+      toast(`כבר קיים תור פעיל בתאריך ${activeCheck.date} בשעה ${activeCheck.time}. לשינוי או ביטול — צרי קשר.`, 'error');
+      return;
+    }
     let res;
     try {
       res = await apiSendOTP(State.phone);
