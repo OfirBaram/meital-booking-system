@@ -1,4 +1,4 @@
-import { trackEvent } from '../src/lib/analytics.js';
+import { trackEvent } from './lib/analytics.js';
 
 // Identify social platform from link href — covers all social strip variants.
 function platformFromHref(href) {

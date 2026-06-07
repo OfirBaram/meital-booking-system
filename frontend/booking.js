@@ -2,7 +2,7 @@
 
 import APP_CONFIG from './config.js';
 import { animate, spring, stagger } from './lib/motion.js';
-import { trackEvent, identifyUser } from '../src/lib/analytics.js';
+import { trackEvent, identifyUser } from './lib/analytics.js';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
