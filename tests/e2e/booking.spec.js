@@ -318,6 +318,15 @@ test.describe('Performance — slot pre-fetch on page load', () => {
     // The old test used API_URL (GAS) which is no longer referenced by the frontend.
     let getSlotsCalls = 0
 
+    // Stub analytics so mixpanel-browser (npm) doesn't 404 in raw-serve mode.
+    await page.route('**/lib/analytics.js', route =>
+      route.fulfill({
+        status:      200,
+        contentType: 'application/javascript',
+        body:        'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+      })
+    )
+
     await page.route('**/config.js', route =>
       route.fulfill({
         status:      200,
@@ -480,6 +489,15 @@ test.describe('Performance — instant calendar render on cache hit', () => {
  * overrides: { sendOTP?: fn(route), verifyAndBook?: fn(route) }
  */
 async function setupMocksWithOverrides(page, overrides = {}) {
+  // Stub analytics so mixpanel-browser (npm) doesn't 404 in raw-serve mode.
+  await page.route('**/lib/analytics.js', route =>
+    route.fulfill({
+      status:      200,
+      contentType: 'application/javascript',
+      body:        'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+    })
+  )
+
   await page.route('**/config.js', route =>
     route.fulfill({
       status:      200,
