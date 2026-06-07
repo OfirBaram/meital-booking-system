@@ -14,10 +14,10 @@ mixpanel.init(TOKEN, {
  * @param {Record<string, unknown>} [properties]
  */
 export function trackEvent(event, properties = {}) {
-  if (IS_DEV) {
-    console.debug('[analytics]', event, properties);
-  }
-  mixpanel.track(event, properties);
+  try {
+    if (IS_DEV) console.debug('[analytics]', event, properties);
+    mixpanel.track(event, properties);
+  } catch { /* ad blockers may prevent Mixpanel from loading */ }
 }
 
 export function identifyUser(phone) {
