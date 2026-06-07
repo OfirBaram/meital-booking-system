@@ -6,7 +6,7 @@ const root = fileURLToPath(new URL('./frontend', import.meta.url));
 const entry = (name) => fileURLToPath(new URL(`./frontend/${name}`, import.meta.url));
 
 export default defineConfig({
-  base: '/meital-booking-system/',
+  base: './',
   root,
   build: {
     outDir: '../dist',

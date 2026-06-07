@@ -35,9 +35,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command:            'npx serve frontend -p 4173',
-    port:               4173,
+    command:             'npm run build -- --logLevel silent && npx serve dist -p 4173',
+    port:                4173,
     reuseExistingServer: !process.env.CI,
-    timeout:            10_000,
+    timeout:             120_000,
   },
 })
