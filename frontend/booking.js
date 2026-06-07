@@ -2,6 +2,7 @@
 
 import APP_CONFIG from './config.js';
 import { animate, spring, stagger } from './lib/motion.js';
+import { trackEvent, identifyUser } from '../src/lib/analytics.js';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -852,6 +853,13 @@ async function submitOTP(otp) {
   setLoading(false);
 
   if (res.success) {
+    identifyUser(State.phone);
+    trackEvent('booking_completed', {
+      service:    State.service,
+      date:       State.date,
+      time:       State.time,
+      booking_id: State.bookingId,
+    });
     showStep(5);
     renderConfirmation();
   } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
