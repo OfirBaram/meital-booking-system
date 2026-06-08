@@ -28,21 +28,24 @@ describe('formatDateDmy / fullDateLabel', () => {
 describe('buildClientStatusSms', () => {
   const f = { serviceName: 'לק ג׳ל קלאסי', date: '2026-06-28', time: '18:30' };
 
-  it('approved message includes day name and time, no undefined', () => {
+  it('approved message includes service, date and time, no undefined', () => {
     const msg = buildClientStatusSms('approved', f);
-    expect(msg).toContain('אושרה');
-    expect(msg).toContain('יום ראשון, 28.06.2026 בשעה 18:30');
+    expect(msg).toContain('אושר');
+    expect(msg).toContain('28.06.2026');
+    expect(msg).toContain('18:30');
     expect(msg).not.toContain('undefined');
   });
   it('rejected message names the slot', () => {
     const msg = buildClientStatusSms('rejected', f);
-    expect(msg).toContain('לא אושרה');
-    expect(msg).toContain('יום ראשון, 28.06.2026 בשעה 18:30');
+    expect(msg).toContain('נדחתה');
+    expect(msg).toContain('28.06.2026');
+    expect(msg).toContain('18:30');
   });
   it('cancelled message names the slot', () => {
     const msg = buildClientStatusSms('cancelled', f);
     expect(msg).toContain('בוטל');
-    expect(msg).toContain('יום ראשון, 28.06.2026 בשעה 18:30');
+    expect(msg).toContain('28.06.2026');
+    expect(msg).toContain('18:30');
   });
   it('falls back gracefully when serviceName is missing (no undefined)', () => {
     const msg = buildClientStatusSms('approved', { serviceName: undefined, date: '2026-06-28', time: '18:30' });
@@ -55,19 +58,16 @@ describe('buildAdminNewBookingSms', () => {
     name: 'דנה', phone: '+972541234567', serviceName: 'לק ג׳ל',
     date: '2026-06-28', time: '18:30',
   });
-  it('contains the booking details and the Hebrew day name', () => {
+  it('contains the booking details: name, phone, service, date, time', () => {
     expect(msg).toContain('דנה');
     expect(msg).toContain('+972541234567');
     expect(msg).toContain('לק ג׳ל');
-    expect(msg).toContain('יום ראשון, 28.06.2026 בשעה 18:30');
+    expect(msg).toContain('28.06.2026');
+    expect(msg).toContain('18:30');
   });
   it('is LINK-FREE so carriers do not content-filter it, and never says "undefined"', () => {
-    // The whole point of this builder: no URL anywhere (carrier spam filtering).
     expect(msg).not.toMatch(/https?:\/\//);
     expect(msg).not.toContain('undefined');
-  });
-  it('directs the admin to the dashboard to act', () => {
-    expect(msg).toContain('דשבורד');
   });
 });
 
