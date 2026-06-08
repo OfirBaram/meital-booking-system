@@ -51,6 +51,22 @@ export const test = base.extend({
       }
     })
 
+    // Stub the service worker so it doesn't cache real app files (incl. analytics.js)
+    // and cause cache-first stale responses that bypass our route mocks after reload.
+    await page.route('**/sw.js', route => route.fulfill({
+      status: 200, contentType: 'application/javascript',
+      body: 'self.addEventListener("install",()=>self.skipWaiting());self.addEventListener("activate",e=>e.waitUntil(clients.claim()));',
+    }))
+    // Stub analytics so mixpanel-browser (bare npm specifier) doesn't crash the browser.
+    await page.route('**/lib/analytics.js', route => route.fulfill({
+      status: 200, contentType: 'application/javascript',
+      body: 'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+    }))
+    // Also stub landing-analytics.js which re-exports from analytics.js.
+    await page.route('**/landing-analytics.js', route => route.fulfill({
+      status: 200, contentType: 'application/javascript', body: '',
+    }))
+
     await use(page)
 
     // Only attach diagnostics when the test did NOT end as expected (failed/timed out).
