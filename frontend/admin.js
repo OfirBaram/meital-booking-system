@@ -97,14 +97,16 @@ async function sbCall(funcName, body) {
   const r = await fetch(
     APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
     {
-      method:  'POST',
+      method:      'POST',
+      credentials: 'include',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ adminToken: S.token, ...body }),
+      body: JSON.stringify(body),
     }
   );
+  if (r.status === 401 || r.status === 403) { logout(); throw new Error('session_expired'); }
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -1824,27 +1826,9 @@ async function init() {
     if (STATUS_MAP[action]) await _commitSheetAction(id, STATUS_MAP[action]);
   });
 
-  if (S.token && sessionValid()) {
-    try {
-      const r = await fetch(
-        `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
-      );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      if (!data.success) throw new Error(data.error);
-      S.bookings = data.bookings || [];
-      showDash();
-      hideSkeleton();
-      render();
-      updateStats();
-      loadAndRenderCalendar();
-    } catch (_) {
-      logout();
-    }
-  } else if (S.token) {
-    logout();
-  }
+  // Session is validated server-side via the httpOnly cookie.
+  // load() calls list-bookings; a 401/403 response triggers logout() automatically.
+  await load();
 
   startAutoRefresh();
 }
@@ -2104,10 +2088,15 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
 
   try {
     const r = await fetch(
-      `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId, targetStatus: decision }) }
+      APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
+      {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ bookingId, targetStatus: decision }),
+      }
     );
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (r.status === 401 || r.status === 403) { logout(); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const sbData = await r.json();
     if (!sbData.success) {
       if (sbData.error === 'invalid_transition') toast('ההזמנה כבר טופלה', 'warn');
