@@ -19,8 +19,8 @@ const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const TEST_GAS_URL = 'https://script.google.com/macros/s/TEST_MOCK_ID/exec'
 
 // Supabase Edge Function mocks
-const SB_FUNC_GLOB = 'https://supabase.test.mock/functions/v1/**'
-const TEST_SB_URL  = 'https://supabase.test.mock'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
+const TEST_SB_URL  = 'https://callmnxlcganwugxwiym.supabase.co'
 
 /** Deterministic slots: first 4 BASE times for every non-Fri/Sat weekday >= today */
 function makeMockSlots(year, month) {

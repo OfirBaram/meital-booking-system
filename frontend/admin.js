@@ -58,7 +58,7 @@ function persistHidden() {
 
 /** @type {AdminState} */
 const S = {
-  token:          localStorage.getItem(LS_TOKEN) || '',
+  token:          sessionStorage.getItem(LS_TOKEN) || '',
   bookings: [],
   hidden:   loadHidden(),
   filter:   'all',
@@ -272,6 +272,7 @@ async function login() {
     render();
     updateStats();
     loadAndRenderCalendar();
+    startAutoRefresh();
   } catch (_) {
     S.token = '';
     err.classList.remove('hidden');
@@ -1826,11 +1827,13 @@ async function init() {
     if (STATUS_MAP[action]) await _commitSheetAction(id, STATUS_MAP[action]);
   });
 
-  // Session is validated server-side via the httpOnly cookie.
-  // load() calls list-bookings; a 401/403 response triggers logout() automatically.
-  await load();
-
-  startAutoRefresh();
+  // Only probe the session if we have an indicator from a previous login in this browser session.
+  // On fresh start (no sessionStorage), skip the probe — the login form is shown by default.
+  // If the cookie has expired, the probe returns 401 → logout() → login form re-shown.
+  if (sessionStorage.getItem(LS_TOKEN)) {
+    await load();
+    startAutoRefresh();
+  }
 }
 
 function _updateDiaryDayLabel_unused(date) {
