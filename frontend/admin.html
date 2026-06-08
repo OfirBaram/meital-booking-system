@@ -10,6 +10,10 @@
   <title>לוח הבקרה — מיטל שבע ברעם</title>
 
   <!-- Graceful degradation: catch any JS load/parse error before a white screen -->
+  <!-- QW-5: Content-Security-Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co; frame-ancestors 'none';">
+
+  <!-- QW-1: onerror handler — uses DOM APIs (not innerHTML) to prevent HTML injection via error messages. -->
   <script>
     window.onerror = function(msg, src, line, col, err) {
       var box = document.getElementById('js-crash-banner');
@@ -21,16 +25,26 @@
           'font-family:Heebo,sans-serif;direction:rtl;padding:2rem;z-index:9999;';
         document.body ? document.body.appendChild(box) : document.addEventListener('DOMContentLoaded', function(){ document.body.appendChild(box); });
       }
-      box.innerHTML =
-        '<div style="max-width:420px;text-align:center;">' +
-          '<div style="font-size:2.5rem;margin-bottom:1rem;">⚠️</div>' +
-          '<h2 style="color:#A67C8E;font-weight:900;margin-bottom:.5rem;">שגיאה בטעינת הדשבורד</h2>' +
-          '<p style="color:#4A2E3A;font-size:.9rem;margin-bottom:.5rem;">' + msg + '</p>' +
-          '<p style="color:#999;font-size:.75rem;direction:ltr;">' + src + ':' + line + ':' + col + '</p>' +
-          '<button onclick="location.reload()" ' +
-            'style="margin-top:1.5rem;background:#A67C8E;color:#fff;border:none;' +
-            'padding:.75rem 2rem;border-radius:1rem;font-size:1rem;cursor:pointer;">רענן דף</button>' +
-        '</div>';
+      var w = document.createElement('div');
+      w.style.cssText = 'max-width:420px;text-align:center;';
+      var icon = document.createElement('div');
+      icon.style.cssText = 'font-size:2.5rem;margin-bottom:1rem;';
+      icon.textContent = '⚠️';
+      var h2 = document.createElement('h2');
+      h2.style.cssText = 'color:#A67C8E;font-weight:900;margin-bottom:.5rem;';
+      h2.textContent = 'שגיאה בטעינת הדשבורד';
+      var mp = document.createElement('p');
+      mp.style.cssText = 'color:#4A2E3A;font-size:.9rem;margin-bottom:.5rem;';
+      mp.textContent = String(msg);
+      var sp = document.createElement('p');
+      sp.style.cssText = 'color:#999;font-size:.75rem;direction:ltr;';
+      sp.textContent = String(src) + ':' + line + ':' + col;
+      var btn = document.createElement('button');
+      btn.style.cssText = 'margin-top:1.5rem;background:#A67C8E;color:#fff;border:none;padding:.75rem 2rem;border-radius:1rem;font-size:1rem;cursor:pointer;';
+      btn.textContent = 'רענן דף';
+      btn.onclick = function(){ location.reload(); };
+      w.appendChild(icon); w.appendChild(h2); w.appendChild(mp); w.appendChild(sp); w.appendChild(btn);
+      box.innerHTML = ''; box.appendChild(w);
       console.error('[ADMIN CRASH]', { msg: msg, src: src, line: line, col: col, err: err });
       return true;
     };

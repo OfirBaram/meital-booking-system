@@ -380,6 +380,14 @@ verify_jwt = false
 [functions.verify-and-book]
 verify_jwt = false
 
+# admin-sign-in / admin-sign-out: session management endpoints.
+# No anon JWT needed — they are the authentication boundary themselves.
+[functions.admin-sign-in]
+verify_jwt = false
+
+[functions.admin-sign-out]
+verify_jwt = false
+
 # admin-action is opened from a bare SMS link (no anon JWT). It is secured by
 # the per-booking HMAC token in the URL, verified inside the function.
 [functions.admin-action]

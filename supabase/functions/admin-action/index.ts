@@ -13,6 +13,7 @@
 // Flow: GET verify token -> confirm page; POST verify token -> change_appointment_status
 // RPC -> notify client SMS -> branded result page.
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { SEC_HEADERS } from '../_shared/cors.ts'
 import { verifyHmacToken } from '../_shared/crypto.ts'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
@@ -41,7 +42,7 @@ function htmlPage(title: string, message: string, tone: 'ok' | 'err'): Response 
   <div class="card"><div class="mark">${tone === 'ok' ? '✅' : '⚠️'}</div>
   <h1>${title}</h1><p>${message}</p></div>
 </body></html>`
-  return new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  return new Response(body, { status: 200, headers: { ...SEC_HEADERS, 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
 function esc(s: string): string {
@@ -90,7 +91,7 @@ function confirmPage(
     <p class="hint">הפעולה תתבצע רק בלחיצה על הכפתור.</p>
   </div>
 </body></html>`
-  return new Response(body, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  return new Response(body, { status: 200, headers: { ...SEC_HEADERS, 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
 // deno-lint-ignore no-explicit-any

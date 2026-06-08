@@ -1,27 +1,15 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
-import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
-import { twilioCredsFromEnv } from '../_shared/sms.ts'
-import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'
-import { toDialable } from '../_shared/phone.ts'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, Authorization',
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
-}
+import { createClient }                                 from 'npm:@supabase/supabase-js@2'
+import { buildClientStatusSms, type ClientStatus }     from '../_shared/messages.ts'
+import { twilioCredsFromEnv }                           from '../_shared/sms.ts'
+import { sendAndLogSms, statusToContext }               from '../_shared/notify.ts'
+import { toDialable }                                   from '../_shared/phone.ts'
+import { validateAdminSession }                         from '../_shared/auth.ts'
+import { adminCors, SEC_HEADERS }                       from '../_shared/cors.ts'
 
 const ALLOWED: string[] = ['Approved', 'Rejected', 'Cancelled']
 
 // deno-lint-ignore no-explicit-any
 async function notifyClient(supabase: any, bookingId: string, targetStatus: string, customBody?: string | null): Promise<void> {
-  // Pull the client + slot details from the denormalized view to build the SMS.
   const needsSlotFields = !customBody
   const { data: bk, error } = await supabase
     .from('bookings_view')
@@ -47,8 +35,6 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
     time:        bk.time,
   })
 
-  // Send + record the outcome to communication_logs (SENT / ERROR / MOCK) so a
-  // Twilio failure is visible in the admin console instead of being swallowed.
   const creds  = twilioCredsFromEnv()
   const result = await sendAndLogSms(supabase, {
     to: bk.phone, body, context, creds, appointmentId: bookingId,
@@ -58,15 +44,24 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const cors = adminCors(req)
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: { ...cors, ...SEC_HEADERS } })
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, ...SEC_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
 
   try {
-    const { adminToken, bookingId, targetStatus, suppressSms, customSmsBody } = await req.json()
-
-    const expectedToken = Deno.env.get('ADMIN_TOKEN')
-    if (!adminToken || !expectedToken || adminToken !== expectedToken) {
+    const secret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+    if (!await validateAdminSession(req, secret)) {
       return json({ success: false, error: 'unauthorized' }, 403)
     }
+
+    const { bookingId, targetStatus, suppressSms, customSmsBody } = await req.json()
 
     if (!bookingId || !ALLOWED.includes(targetStatus)) {
       return json({ success: false, error: 'invalid_input' }, 400)
@@ -77,15 +72,32 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    // Capture the previous status for the audit log.
+    const { data: prev } = await supabase
+      .from('appointments')
+      .select('status')
+      .eq('id', bookingId)
+      .maybeSingle()
+
     const { data, error } = await supabase.rpc('change_appointment_status', {
       p_booking_id: bookingId,
-      p_new_status: targetStatus.toLowerCase(),  // DB stores lowercase
+      p_new_status: targetStatus.toLowerCase(),
     })
 
     if (error) throw error
 
-    // Notify the client on a successful transition unless the admin suppressed it.
-    // The status change is authoritative — an SMS failure is logged but never fails the request.
+    // Append-only audit record (fire-and-forget — never fails the primary action).
+    supabase.from('audit_log').insert({
+      action:     'change_status',
+      booking_id: bookingId,
+      prev_val:   prev?.status ?? null,
+      new_val:    targetStatus.toLowerCase(),
+      ip:         req.headers.get('x-forwarded-for') ?? 'unknown',
+      user_agent: (req.headers.get('user-agent') ?? '').slice(0, 200),
+    }).then(() => {/* intentional no-op */}).catch((e: Error) =>
+      console.error('[change-status] audit-insert failed', e.message)
+    )
+
     if (data?.success === true && !suppressSms) {
       try {
         await notifyClient(supabase, bookingId, targetStatus, customSmsBody || null)

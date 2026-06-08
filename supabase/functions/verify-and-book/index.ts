@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { SEC_HEADERS } from '../_shared/cors.ts'
 import { buildAdminNewBookingSms } from '../_shared/messages.ts'
 import { sendAndLogSms } from '../_shared/notify.ts'
 import { toDialable } from '../_shared/phone.ts'
@@ -12,7 +13,7 @@ const CORS = {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...CORS, ...SEC_HEADERS, 'Content-Type': 'application/json' },
   })
 }
 
