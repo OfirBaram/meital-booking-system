@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 import { buildAdminNewBookingSms } from '../_shared/messages.ts'
 import { sendAndLogSms } from '../_shared/notify.ts'
 import { toDialable } from '../_shared/phone.ts'

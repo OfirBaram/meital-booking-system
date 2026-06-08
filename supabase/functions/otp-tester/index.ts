@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     return json(report, 500)
   }
 
-  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
+  const { createClient } = await import('npm:@supabase/supabase-js@2')
   const supabase = createClient(supabaseUrl, serviceKey)
 
   // ── Step 4: DB lookup — ALL rows for this phone (not just valid ones) ────

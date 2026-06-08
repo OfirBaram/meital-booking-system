@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
 import { sendAndLogSms, statusToContext } from '../_shared/notify.ts'

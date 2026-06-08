@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 // Schema: slots(id BIGSERIAL, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, status TEXT)
 // There is NO separate 'date' or 'time' column -- both are derived from start_time.

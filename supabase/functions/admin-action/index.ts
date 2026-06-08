@@ -12,7 +12,7 @@
 //
 // Flow: GET verify token -> confirm page; POST verify token -> change_appointment_status
 // RPC -> notify client SMS -> branded result page.
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 import { verifyHmacToken } from '../_shared/crypto.ts'
 import { buildClientStatusSms, type ClientStatus } from '../_shared/messages.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
