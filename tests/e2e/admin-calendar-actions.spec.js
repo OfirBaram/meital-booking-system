@@ -50,14 +50,14 @@
  *   22. No JS errors during full approve → undo cycle
  *   23. No JS errors during inline add-slot flow
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN   = 'test-admin-token-32chars-exactly'
-const TODAY        = new Date().toISOString().slice(0, 10)
+const TODAY        = localToday()
 
 // ─── Booking fixtures ─────────────────────────────────────────────────────────
 

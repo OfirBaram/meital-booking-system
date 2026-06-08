@@ -11,13 +11,13 @@
  *   Admin sheet future day (locked) — 13-15
  *   Zero-error gates — 16-17
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN   = 'test-admin-token-32chars-exactly'
 
-const TODAY     = new Date().toISOString().slice(0, 10)
+const TODAY     = localToday()
 const YESTERDAY = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10) })()
 const TOMORROW  = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()
 

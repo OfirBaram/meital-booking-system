@@ -28,14 +28,14 @@
  *  14.  Rapid second openSheet call while closing uses latest payload
  *  15.  Sheet re-opens after close completes (no _closing deadlock)
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
 
 // Today's date as YYYY-MM-DD — booking on this date will be visible on calendar
-const TODAY = new Date().toISOString().slice(0, 10)
+const TODAY = localToday()
 const TODAY_DISPLAY = TODAY.replace(/-/g, '/')  // what the sheet title should show
 
 /** Booking that lands on today so it appears on the current-month calendar. */

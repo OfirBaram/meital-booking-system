@@ -20,12 +20,12 @@
  *   9.  No JS console errors during full swipe → undo cycle
  *  10.  confirm() is never called during any status-change flow
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
-const TODAY      = new Date().toISOString().slice(0, 10)
+const TODAY      = localToday()
 
 /** Pending booking on today so it appears on the current calendar AND bookings list. */
 const MOCK_WITH_PENDING = {
