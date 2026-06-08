@@ -462,13 +462,13 @@
     #sticky-book a {
       display: inline-flex; align-items: center; gap: .6rem;
       padding: .875rem 2rem;
-      background: var(--charcoal); color: #FAF5F0;
+      background: var(--primary); color: #FAF5F0;
       font-size: .875rem; font-weight: 600; letter-spacing: .08em;
       text-decoration: none; border-radius: 100px;
-      box-shadow: 0 4px 20px rgba(45,43,61,.35);
+      box-shadow: 0 4px 20px rgba(166,124,142,.45);
       transition: transform .2s, box-shadow .2s; white-space: nowrap;
     }
-    #sticky-book a:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(45,43,61,.4); }
+    #sticky-book a:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(166,124,142,.55); }
 
     /* ── GALLERY LIGHTBOX ── */
     #lightbox {
@@ -517,6 +517,18 @@
       font-size: .9375rem; line-height: 1.7; transition: color .22s;
     }
     .contact-link:hover { color: var(--champagne); }
+
+    /* ── SCROLL REVEAL ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .6s cubic-bezier(.25,.46,.45,.94), transform .6s cubic-bezier(.25,.46,.45,.94);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    }
+
   </style>
 </head>
 
@@ -611,11 +623,11 @@
 
         <!-- Text -->
         <div>
-          <p class="section-label" aria-hidden="true">אודות הסטודיו</p>
-          <h2 class="section-title" id="about-heading">
+          <p class="section-label reveal" aria-hidden="true">אודות הסטודיו</p>
+          <h2 class="section-title reveal" id="about-heading">
             מקצועיות, דיוק<br />ואהבה לפרטים
           </h2>
-          <div class="about-text">
+          <div class="about-text reveal">
             <p>
               מיטל שבע ברעם היא אמנית ציפורניים בוטיק עם ניסיון עשיר בעיצוב לק ג'ל
               ופדיקור מקצועי. הסטודיו הממוקם ברמת גן מציע אווירה אינטימית ומטפחת,
@@ -634,7 +646,7 @@
         </div>
 
         <!-- Image -->
-        <div class="about-image-wrap" style="position:relative;">
+        <div class="about-image-wrap reveal" style="position:relative;">
           <img src="./public/gallery/nail-05.jpg"
                alt="עיצוב ג'ל ניוד עם ציור פרח עדין — בוטי ורומנטי"
                width="600" height="750" loading="lazy" />
@@ -648,9 +660,9 @@
   <!-- ── SERVICES ── -->
   <section id="services" class="section bg-lp" aria-labelledby="services-heading">
     <div class="section-inner">
-      <p class="section-label" aria-hidden="true">שירותים</p>
-      <h2 class="section-title" id="services-heading">מה אנחנו מציעות</h2>
-      <p style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
+      <p class="section-label reveal" aria-hidden="true">שירותים</p>
+      <h2 class="section-title reveal" id="services-heading">מה אנחנו מציעות</h2>
+      <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
         מגוון שירותי עיצוב ציפורניים ברמה הגבוהה ביותר, המותאמים
         אישית לכל לקוחה — בין אם את מחפשת ג'ל קלאסי נקי ועמיד
         ובין אם עיצוב אמנותי ייחודי.
@@ -665,8 +677,8 @@
   <!-- ── GALLERY ── -->
   <section id="gallery" class="section bg-lp-card" aria-labelledby="gallery-heading">
     <div class="section-inner">
-      <p class="section-label" aria-hidden="true">גלריה</p>
-      <h2 class="section-title" id="gallery-heading">עבודות נבחרות</h2>
+      <p class="section-label reveal" aria-hidden="true">גלריה</p>
+      <h2 class="section-title reveal" id="gallery-heading">עבודות נבחרות</h2>
       <div class="gallery-grid" id="gallery-grid" role="list">
         <!-- populated by JS from SiteConfig.gallery -->
       </div>
@@ -676,11 +688,11 @@
   <!-- ── CONTACT ── -->
   <section id="contact" class="contact-section" aria-labelledby="contact-heading">
     <div class="contact-inner">
-      <p class="section-label text-champagne" style="letter-spacing:.3em;" aria-hidden="true">יצירת קשר</p>
-      <h2 class="section-title" id="contact-heading" style="color:#FAF5F0; margin-bottom:1.25rem;">
+      <p class="section-label text-champagne reveal" style="letter-spacing:.3em;" aria-hidden="true">יצירת קשר</p>
+      <h2 class="section-title reveal" id="contact-heading" style="color:#FAF5F0; margin-bottom:1.25rem;">
         בואי ניצור משהו יפה יחד
       </h2>
-      <p style="color:rgba(250,245,240,.70); font-size:1.0625rem; line-height:1.85; margin-bottom:2.5rem; max-width:480px; margin-inline:auto;">
+      <p class="reveal" style="color:rgba(250,245,240,.70); font-size:1.0625rem; line-height:1.85; margin-bottom:2.5rem; max-width:480px; margin-inline:auto;">
         לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לנו בווטסאפ
         ונשמח לעזור.
       </p>
@@ -914,9 +926,10 @@ function renderHeroCta() {
 function renderServices() {
   var grid = document.getElementById('services-grid');
   if (!grid) return;
-  SiteConfig.services.forEach(function(s) {
+  SiteConfig.services.forEach(function(s, i) {
     var card = document.createElement('article');
-    card.className = 'service-card';
+    card.className = 'service-card reveal';
+    card.style.transitionDelay = (i * 90) + 'ms';
     card.setAttribute('role', 'listitem');
     card.innerHTML =
       '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
@@ -931,9 +944,10 @@ function renderServices() {
 function renderGallery() {
   var grid = document.getElementById('gallery-grid');
   if (!grid) return;
-  SiteConfig.gallery.forEach(function(img) {
+  SiteConfig.gallery.forEach(function(img, i) {
     var item = document.createElement('figure');
-    item.className = 'gallery-item' + (img.span2 ? ' span-2' : '');
+    item.className = 'gallery-item reveal' + (img.span2 ? ' span-2' : '');
+    item.style.transitionDelay = (i * 60) + 'ms';
     item.setAttribute('role', 'listitem');
     item.style.margin = '0';
     item.style.cursor = 'zoom-in';
@@ -1103,6 +1117,20 @@ function initNextSlot() {
   }).catch(function() {});
 }
 
+// ── Scroll Reveal
+function initReveal() {
+  if (!window.IntersectionObserver) {
+    document.querySelectorAll('.reveal').forEach(function(el) { el.classList.add('in'); });
+    return;
+  }
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+}
+
 // ── Init
 document.addEventListener('DOMContentLoaded', function() {
   renderSocialStrip('header-social-strip');
@@ -1117,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initLightbox();
   initStickyBook();
   initNextSlot();
+  initReveal();
 });
 </script>
 
@@ -1139,5 +1168,6 @@ document.addEventListener('DOMContentLoaded', function() {
   </a>
 </div>
 
+<script type="module" src="./landing-analytics.js"></script>
 </body>
 </html>

@@ -22,12 +22,12 @@
  *   6. Other-month cell does not open the sheet on click (pointer-events guard)
  *   7. No JS errors during a full calendar click + sheet close cycle
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 const GAS_GLOB     = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN   = 'test-admin-token-32chars-exactly'
-const TODAY        = new Date().toISOString().slice(0, 10)
+const TODAY        = localToday()
 
 // ─── Compute an overflow date guaranteed to appear as other-month in the grid ─
 //

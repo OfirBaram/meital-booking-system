@@ -2,6 +2,7 @@
 
 import APP_CONFIG from './config.js';
 import { animate, spring, stagger } from './lib/motion.js';
+import { trackEvent, identifyUser } from './lib/analytics.js';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -368,6 +369,11 @@ function renderServices() {
     const btn = e.target.closest('[data-id]');
     if (!btn) return;
     State.service = SERVICES.find(s => s.id === btn.dataset.id);
+    trackEvent('service_selected', {
+      service_id:   State.service.id,
+      service_name: State.service.name,
+      duration_min: State.service.duration,
+    });
     document.querySelectorAll('[data-qa^="card-service"]').forEach(c =>
       c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
     updateNav();
@@ -617,7 +623,7 @@ function renderOTPInputs() {
       digits.split('').forEach((ch, i) => {
         if (inputs[i]) { inputs[i].value = ch; inputs[i].classList.add('filled'); }
       });
-      if (digits.length === CONFIG.OTP_LENGTH) autoSubmitOTP();
+      if (digits.length === CONFIG.OTP_LENGTH) { trackEvent('otp_pasted'); autoSubmitOTP(); }
       else if (inputs[digits.length]) inputs[digits.length].focus();
     });
   });
@@ -792,6 +798,7 @@ async function handleNext() {
     if (activeCheck.active) {
       setLoading(false);
       toast(`כבר קיים תור פעיל בתאריך ${activeCheck.date} בשעה ${activeCheck.time}. לשינוי או ביטול — צרי קשר.`, 'error');
+      trackEvent('active_booking_blocked', { service_id: State.service?.id, date: State.date });
       return;
     }
     let res;
@@ -806,6 +813,11 @@ async function handleNext() {
 
     if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       State.otpCooldownUntil = Date.now() + 30_000;
+      trackEvent('otp_requested', {
+        service_id: State.service.id,
+        date:       State.date,
+        time:       State.time,
+      });
       showStep(4);
       document.getElementById('js-otp-phone').textContent =
         `קוד אימות נשלח למספר ${formatPhone(State.phone)}`;
@@ -852,10 +864,20 @@ async function submitOTP(otp) {
   setLoading(false);
 
   if (res.success) {
+    identifyUser(State.phone);
+    trackEvent('booking_completed', {
+      service_id:   State.service.id,
+      service_name: State.service.name,
+      duration_min: State.service.duration,
+      date:         State.date,
+      time:         State.time,
+      booking_id:   State.bookingId,
+    });
     showStep(5);
     renderConfirmation();
   } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
+    trackEvent('slot_conflict_detected', { service_id: State.service?.id, date: State.date, time: State.time });
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
     State.date            = null;
     State.time            = null;
@@ -870,6 +892,7 @@ async function submitOTP(otp) {
       }
     }, 2500);
   } else {
+    trackEvent('otp_failed');
     document.getElementById('js-otp-error').textContent = 'הקוד שגוי. בדקי ונסי שוב.';
     document.getElementById('js-otp-error').classList.remove('hidden');
     clearOTPInputs(true);
@@ -1084,6 +1107,7 @@ function wireEvents() {
     const floor = new Date(today0().getFullYear(), today0().getMonth(), 1);
     if (prev < floor) return;
     State.calMonth = prev;
+    trackEvent('calendar_month_changed', { direction: 'prev', year: prev.getFullYear(), month: prev.getMonth() + 1 });
     loadMonthSlots(prev.getFullYear(), prev.getMonth() + 1);
   });
 
@@ -1091,6 +1115,7 @@ function wireEvents() {
     const { calMonth } = State;
     const next = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1);
     State.calMonth = next;
+    trackEvent('calendar_month_changed', { direction: 'next', year: next.getFullYear(), month: next.getMonth() + 1 });
     loadMonthSlots(next.getFullYear(), next.getMonth() + 1);
   });
 
@@ -1100,6 +1125,10 @@ function wireEvents() {
     State.date   = day.dataset.date;
     State.time   = null;
     State.slotId = null;
+    trackEvent('date_selected', {
+      date:            State.date,
+      slots_available: (State.slots[State.date] ?? []).length,
+    });
     renderCalendar();
     renderSlots(State.date);
     updateNav();
@@ -1126,6 +1155,11 @@ function wireEvents() {
     if (!slot) return;
     State.time   = slot.dataset.time;
     State.slotId = slot.dataset.slotId ? parseInt(slot.dataset.slotId, 10) : null;
+    trackEvent('time_selected', {
+      time:       State.time,
+      date:       State.date,
+      service_id: State.service?.id,
+    });
     renderSlots(State.date);
     updateNav();
   });
@@ -1146,6 +1180,7 @@ function wireEvents() {
       document.getElementById('js-otp-error').classList.add('hidden');
       startResendTimer();
       toast('קוד חדש נשלח 📲');
+      trackEvent('otp_resent');
     } else if (res.error === 'rate_limited') {
       const secs = res.retryAfter || 30;
       toast(`ניתן לשלוח קוד שוב בעוד ${secs} שניות.`, 'error');
@@ -1157,6 +1192,7 @@ function wireEvents() {
   });
 
   document.getElementById('js-not-me').addEventListener('click', () => {
+    trackEvent('returning_user_dismissed');
     LS.del('client');
     document.getElementById('inp-name').value  = '';
     document.getElementById('inp-phone').value = '';
@@ -1213,6 +1249,7 @@ function init() {
   renderProgress();
   renderDayHeaders();
   renderServices();
+  trackEvent('wizard_started', { is_returning_user: !!LS.get('client') });
   setupFormListeners();
   wireEvents();
   setupModalListeners();

@@ -44,6 +44,15 @@ function makeMockSlots(year, month) {
  * calls flow through GAS_GLOB; also mocks all GAS actions.
  */
 async function setupMocks(page) {
+  // Stub analytics so mixpanel-browser (npm) doesn't 404 in raw-serve mode.
+  await page.route('**/lib/analytics.js', route =>
+    route.fulfill({
+      status:      200,
+      contentType: 'application/javascript',
+      body:        'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+    })
+  )
+
   // Override config.js so the ES module uses IS_MOCK_MODE:false and a URL that
   // matches GAS_GLOB, enabling Playwright route interception to work correctly.
   await page.route('**/config.js', route =>
@@ -309,6 +318,15 @@ test.describe('Performance — slot pre-fetch on page load', () => {
     // The old test used API_URL (GAS) which is no longer referenced by the frontend.
     let getSlotsCalls = 0
 
+    // Stub analytics so mixpanel-browser (npm) doesn't 404 in raw-serve mode.
+    await page.route('**/lib/analytics.js', route =>
+      route.fulfill({
+        status:      200,
+        contentType: 'application/javascript',
+        body:        'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+      })
+    )
+
     await page.route('**/config.js', route =>
       route.fulfill({
         status:      200,
@@ -471,6 +489,15 @@ test.describe('Performance — instant calendar render on cache hit', () => {
  * overrides: { sendOTP?: fn(route), verifyAndBook?: fn(route) }
  */
 async function setupMocksWithOverrides(page, overrides = {}) {
+  // Stub analytics so mixpanel-browser (npm) doesn't 404 in raw-serve mode.
+  await page.route('**/lib/analytics.js', route =>
+    route.fulfill({
+      status:      200,
+      contentType: 'application/javascript',
+      body:        'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+    })
+  )
+
   await page.route('**/config.js', route =>
     route.fulfill({
       status:      200,

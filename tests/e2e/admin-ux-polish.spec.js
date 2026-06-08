@@ -19,12 +19,12 @@
  *   9.  No JS errors during tab-switch animation cycle
  *  10.  No JS errors during calendar month navigation
  */
-import { test, expect } from '../support/test-base.js'
+import { test, expect, localToday } from '../support/test-base.js'
 
 const GAS_GLOB   = 'https://script.google.com/macros/s/**'
 const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
 const FAKE_TOKEN = 'test-admin-token-32chars-exactly'
-const TODAY      = new Date().toISOString().slice(0, 10)
+const TODAY      = localToday()
 
 const MOCK_BOOKINGS = {
   success: true,

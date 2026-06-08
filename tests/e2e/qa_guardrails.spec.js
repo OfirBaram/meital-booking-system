@@ -35,6 +35,10 @@ function makeMockSlots(year, month) {
 }
 
 async function setupMocks(page, overrides = {}) {
+  await page.route('**/lib/analytics.js', route => route.fulfill({
+    status: 200, contentType: 'application/javascript',
+    body: 'export function trackEvent(){}export function identifyUser(){}export function resetUser(){}',
+  }))
   await page.route('**/config.js', route =>
     route.fulfill({
       status:      200,

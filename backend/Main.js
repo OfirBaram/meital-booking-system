@@ -2140,10 +2140,7 @@ function _sendDailyRemindersSheets() {
       break;
     }
 
-    var msg = ('תזכורת: מחר יש לך תור! ' +
-      'שירות: ' + svcName + '. ' +
-      'תאריך: ' + tomorrow.replace(/-/g, '/') + ' בשעה ' + timeStr + '. ' +
-      'לביטול יש לפנות למיטל.');
+    var msg = 'תזכורת: מחר תור בשעה ' + timeStr + ' - ' + svcName + '. לביטול: פני למיטל.';
 
     try {
       SmsService.send(phone, msg, 'Reminder');

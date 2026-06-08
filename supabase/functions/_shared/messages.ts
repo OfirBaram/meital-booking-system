@@ -39,30 +39,15 @@ export interface BookingMsgFields {
 
 /** Client-facing SMS body for an approval / rejection / cancellation. */
 export function buildClientStatusSms(status: ClientStatus, f: BookingMsgFields): string {
-  const svc  = (f.serviceName ?? '').trim() || 'התור'
-  const when = `${fullDateLabel(f.date)} בשעה ${f.time}`
+  const svc = (f.serviceName ?? '').trim() || 'התור'
   if (status === 'approved') {
-    return [
-      '✅ ההזמנה שלך אושרה!',
-      `שירות: ${svc}`,
-      `תאריך: ${when}`,
-      '',
-      'מחכה לך! 💅',
-    ].join('\n')
+    return `אושר התור! ${svc}, ${formatDateDmy(f.date)} ${f.time}.`
   }
   if (status === 'rejected') {
-    return [
-      `❌ לצערנו, הבקשה לתור ב${when} לא אושרה.`,
-      'אפשר לתאם מועד חלופי דרך האפליקציה.',
-    ].join('\n')
+    return `הבקשה לתור ב${formatDateDmy(f.date)} ${f.time} נדחתה. לתיאום - דרך האפליקציה.`
   }
   // cancelled
-  return [
-    `❌ התור שלך ב${when} בוטל.`,
-    `שירות: ${svc}`,
-    '',
-    'ניתן לתאם תור חדש דרך האפליקציה.',
-  ].join('\n')
+  return `התור ב${formatDateDmy(f.date)} ${f.time} בוטל. לתיאום תור חדש - דרך האפליקציה.`
 }
 
 export interface AdminMsgFields {
@@ -84,15 +69,10 @@ export interface AdminMsgFields {
  * dashboard (which already lists the booking) — no one-tap link needed.
  */
 export function buildAdminNewBookingSms(f: AdminMsgFields): string {
-  return [
-    '📅 הזמנה חדשה ממתינה לאישור!',
-    `שם: ${(f.name ?? '').trim()}`,
-    `טלפון: ${(f.phone ?? '').trim()}`,
-    `שירות: ${(f.serviceName ?? '').trim()}`,
-    `תאריך: ${fullDateLabel(f.date)} בשעה ${f.time}`,
-    '',
-    'לאישור או דחייה — היכנסי לדשבורד הניהול 💅',
-  ].join('\n')
+  const n = (f.name ?? '').trim()
+  const s = (f.serviceName ?? '').trim()
+  const p = (f.phone ?? '').trim()
+  return `הזמנה: ${n}, ${s}. ${formatDateDmy(f.date)} ${f.time}. טל: ${p}`
 }
 
 // Hebrew label for the action whose client SMS failed (used in the admin alert).
@@ -110,12 +90,8 @@ const FAILED_ACTION_HE: Record<string, string> = {
 export function buildAdminFailureAlertSms(
   context: string, clientLabel: string, detail?: string,
 ): string {
-  const lines = [
-    '⚠️ לקוחה לא קיבלה הודעת SMS',
-    `לקוחה: ${(clientLabel ?? '').toString().trim() || '—'}`,
-    `הודעה: ${FAILED_ACTION_HE[context] ?? 'עדכון'}`,
-  ]
-  if (detail) lines.push(`סיבה: ${String(detail).slice(0, 120)}`)
-  lines.push('כדאי ליצור קשר ידני 📞')
-  return lines.join('\n')
+  const who = (clientLabel ?? '').toString().trim() || '—'
+  const act = FAILED_ACTION_HE[context] ?? 'עדכון'
+  const why = detail ? ` (${String(detail).slice(0, 30)})` : ''
+  return `שגיאה: לקוחה ${who} לא קיבלה SMS - ${act}${why}. יצרי קשר ידני.`
 }
