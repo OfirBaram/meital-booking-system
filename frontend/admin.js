@@ -58,7 +58,7 @@ function persistHidden() {
 
 /** @type {AdminState} */
 const S = {
-  token:          localStorage.getItem(LS_TOKEN) || '',
+  token:          sessionStorage.getItem(LS_TOKEN) || '',
   bookings: [],
   hidden:   loadHidden(),
   filter:   'all',
@@ -97,14 +97,16 @@ async function sbCall(funcName, body) {
   const r = await fetch(
     APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
     {
-      method:  'POST',
+      method:      'POST',
+      credentials: 'include',
       headers: {
         'Content-Type':  'application/json',
         'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ adminToken: S.token, ...body }),
+      body: JSON.stringify(body),
     }
   );
+  if (r.status === 401 || r.status === 403) { logout(); throw new Error('session_expired'); }
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
@@ -190,7 +192,7 @@ function toastUndo(label, commitFn, onUndo, ttl = 5000) {
   }, ttl);
 }
 function sessionValid() {
-  const ts = parseInt(localStorage.getItem(LS_TS) || '0', 10);
+  const ts = parseInt(sessionStorage.getItem(LS_TS) || '0', 10);
   return ts > 0 && (Date.now() - ts) < SESSION_TTL;
 }
 
@@ -207,8 +209,14 @@ function showDash() {
 function logout() {
   S.token = '';
   S.slotCache = {};
-  localStorage.removeItem(LS_TOKEN);
-  localStorage.removeItem(LS_TS);
+  sessionStorage.removeItem(LS_TOKEN);
+  sessionStorage.removeItem(LS_TS);
+  // Expire the httpOnly session cookie server-side (fire-and-forget).
+  fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/admin-sign-out', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+    body: '{}',
+  }).catch(() => {});
   showLogin();
   document.getElementById('js-token-input').value = '';
   document.getElementById('js-login-err').classList.add('hidden');
@@ -227,21 +235,44 @@ async function login() {
 
   S.token = token;
   try {
-    const r = await fetch(
-      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+    // Exchange the admin password for an httpOnly session cookie.
+    // The cookie is HttpOnly — JS can't read it; sbCall() carries it via credentials:'include'.
+    const signIn = await fetch(
+      APP_CONFIG.SUPABASE_URL + '/functions/v1/admin-sign-in',
+      {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ adminToken: token }),
+      }
     );
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (signIn.status === 403) throw new Error('auth');
+    if (!signIn.ok) throw new Error('HTTP ' + signIn.status);
+    const signInData = await signIn.json();
+    if (!signInData.success) throw new Error(signInData.error || 'auth');
+
+    // Token stored in sessionStorage ONLY for GAS side-effect calls (apiCall).
+    // NOT used for Supabase function calls — those use the httpOnly cookie.
+    sessionStorage.setItem(LS_TOKEN, token);
+    sessionStorage.setItem(LS_TS, String(Date.now()));
+
+    const r = await fetch(
+      APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
+      {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: '{}',
+      }
+    );
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
     if (!data.success) throw new Error(data.error || 'auth');
-    localStorage.setItem(LS_TOKEN, token);
-    localStorage.setItem(LS_TS, String(Date.now()));
     S.bookings = data.bookings || [];
     showDash();
     hideSkeleton();
     render();
     updateStats();
     loadAndRenderCalendar();
+    startAutoRefresh();
   } catch (_) {
     S.token = '';
     err.classList.remove('hidden');
@@ -253,14 +284,17 @@ async function login() {
 }
 
 async function load(silent = false) {
-  if (!sessionValid()) { logout(); return; }
   if (!silent) showSkeleton();
   try {
     const r = await fetch(
-      `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
+      APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
+      {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: '{}',
+      }
     );
-    if (r.status === 403) { logout(); return; }
+    if (r.status === 401 || r.status === 403) { logout(); return; }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
     if (!data.success) throw new Error(data.error || 'error');
@@ -1793,29 +1827,13 @@ async function init() {
     if (STATUS_MAP[action]) await _commitSheetAction(id, STATUS_MAP[action]);
   });
 
-  if (S.token && sessionValid()) {
-    try {
-      const r = await fetch(
-        `${APP_CONFIG.SUPABASE_URL}/functions/v1/list-bookings`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token }) }
-      );
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      if (!data.success) throw new Error(data.error);
-      S.bookings = data.bookings || [];
-      showDash();
-      hideSkeleton();
-      render();
-      updateStats();
-      loadAndRenderCalendar();
-    } catch (_) {
-      logout();
-    }
-  } else if (S.token) {
-    logout();
+  // Only probe the session if we have an indicator from a previous login in this browser session.
+  // On fresh start (no sessionStorage), skip the probe — the login form is shown by default.
+  // If the cookie has expired, the probe returns 401 → logout() → login form re-shown.
+  if (sessionStorage.getItem(LS_TOKEN)) {
+    await load();
+    startAutoRefresh();
   }
-
-  startAutoRefresh();
 }
 
 function _updateDiaryDayLabel_unused(date) {
@@ -2073,10 +2091,15 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
 
   try {
     const r = await fetch(
-      `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` }, body: JSON.stringify({ adminToken: S.token, bookingId, targetStatus: decision }) }
+      APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
+      {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        body: JSON.stringify({ bookingId, targetStatus: decision }),
+      }
     );
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    if (r.status === 401 || r.status === 403) { logout(); return; }
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     const sbData = await r.json();
     if (!sbData.success) {
       if (sbData.error === 'invalid_transition') toast('ההזמנה כבר טופלה', 'warn');

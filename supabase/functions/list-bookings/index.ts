@@ -1,26 +1,22 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, Authorization',
-}
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
-}
+import { createClient }           from 'npm:@supabase/supabase-js@2'
+import { validateAdminSession }   from '../_shared/auth.ts'
+import { adminCors, SEC_HEADERS } from '../_shared/cors.ts'
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  const cors = adminCors(req)
+
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: { ...cors, ...SEC_HEADERS } })
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, ...SEC_HEADERS, 'Content-Type': 'application/json' },
+    })
+  }
 
   try {
-    const { adminToken } = await req.json()
-
-    const expectedToken = Deno.env.get('ADMIN_TOKEN')
-    if (!adminToken || !expectedToken || adminToken !== expectedToken) {
+    const secret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+    if (!await validateAdminSession(req, secret)) {
       return json({ success: false, error: 'unauthorized' }, 403)
     }
 
@@ -38,8 +34,6 @@ Deno.serve(async (req) => {
 
     const bookings = data ?? []
 
-    // Attach the latest client-facing SMS delivery status per booking so the
-    // admin console can show whether each client was actually notified.
     const ids = bookings.map((b: { id: string }) => b.id).filter(Boolean)
     const smsByAppt: Record<string, string> = {}
     if (ids.length > 0) {

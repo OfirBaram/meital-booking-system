@@ -1,19 +1,8 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { createClient }           from 'npm:@supabase/supabase-js@2'
+import { validateAdminSession }   from '../_shared/auth.ts'
+import { adminCors, SEC_HEADERS } from '../_shared/cors.ts'
 
 const TZ = 'Asia/Jerusalem'
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
-}
 
 function fmtDate(iso: string) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -26,39 +15,50 @@ function fmtTime(iso: string) {
 }
 
 Deno.serve(async (req) => {
+  const cors = adminCors(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+    return new Response('ok', { headers: { ...cors, ...SEC_HEADERS } })
+  }
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, ...SEC_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
   try {
-    const body = await req.json()
-    const { action, adminToken } = body
-
-    const expectedToken = Deno.env.get('ADMIN_TOKEN')
-    if (!adminToken || !expectedToken || adminToken !== expectedToken) {
+    const secret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+    if (!await validateAdminSession(req, secret)) {
       return json({ success: false, error: 'unauthorized' }, 403)
     }
+
+    const body        = await req.json()
+    const { action }  = body
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    // Helper: fire-and-forget audit insert (never fails the primary action).
+    // deno-lint-ignore no-explicit-any
+    function auditSlot(fields: Record<string, any>) {
+      supabase.from('audit_log').insert({
+        ...fields,
+        ip:         req.headers.get('x-forwarded-for') ?? 'unknown',
+        user_agent: (req.headers.get('user-agent') ?? '').slice(0, 200),
+      }).then(() => {/* intentional no-op */}).catch((e: Error) =>
+        console.error('[admin-slots] audit-insert failed', e.message)
+      )
+    }
+
     // ── getSlots ──────────────────────────────────────────────────
     if (action === 'getSlots') {
       const { dateFrom, dateTo } = body
       if (!dateFrom || !dateTo) return json({ success: false, error: 'missing_params' }, 400)
 
-      // Use UTC bounds that fully cover the Jerusalem day regardless of DST.
-      // Jerusalem is UTC+2 (winter) or UTC+3 (summer).
-      // Lower bound: start of dateFrom in Jerusalem summer (+03) — earliest UTC possible.
-      // Upper bound: end of dateTo in Jerusalem winter (+02) — latest UTC possible.
       const fromUtc = new Date(`${dateFrom}T00:00:00+03:00`).toISOString()
       const toUtc   = new Date(`${dateTo}T23:59:59+02:00`).toISOString()
 
@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
 
       if (error) throw error
 
-      const slots = (data ?? []).map(row => ({
+      const slots = (data ?? []).map((row: { id: number; start_time: string; end_time: string; status: string }) => ({
         id:     row.id,
         date:   fmtDate(row.start_time),
         time:   fmtTime(row.start_time),
@@ -109,6 +109,8 @@ Deno.serve(async (req) => {
 
       if (updErr) throw updErr
 
+      auditSlot({ action: 'toggle_slot', slot_id: slotId, prev_val: current, new_val: newStatus })
+
       return json({ success: true, slotId, prevStatus: current, newStatus })
     }
 
@@ -129,12 +131,11 @@ Deno.serve(async (req) => {
         return json({ success: false, error: 'cannot_delete_active', status: rows.status }, 409)
       }
 
-      const { error: delErr } = await supabase
-        .from('slots')
-        .delete()
-        .eq('id', slotId)
+      const { error: delErr } = await supabase.from('slots').delete().eq('id', slotId)
 
       if (delErr) return json({ success: false, error: 'delete_blocked_by_fk' }, 409)
+
+      auditSlot({ action: 'delete_slot', slot_id: slotId, prev_val: rows.status })
 
       return json({ success: true, slotId })
     }
@@ -146,11 +147,9 @@ Deno.serve(async (req) => {
         return json({ success: false, error: 'invalid_params' }, 400)
       }
 
-      // Convert Jerusalem local time to UTC
       const startUtc = new Date(`${date}T${time}:00+03:00`).toISOString()
       const endUtc   = new Date(new Date(startUtc).getTime() + 120 * 60 * 1000).toISOString()
 
-      // Check for existing slot (idempotent)
       const { data: existing } = await supabase
         .from('slots')
         .select('id, status')
@@ -170,6 +169,8 @@ Deno.serve(async (req) => {
         .single()
 
       if (insErr || !inserted) return json({ success: false, error: 'insert_failed' }, 500)
+
+      auditSlot({ action: 'add_slot', slot_id: inserted.id, new_val: `${date} ${time}` })
 
       return json({ success: true, slot: { id: inserted.id, date, time, status: 'available' } })
     }

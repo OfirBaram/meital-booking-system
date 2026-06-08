@@ -3,22 +3,252 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <title>תקנון ותנאי שימוש — מיטל שבע ברעם</title>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles/tailwind.css" />
+  <meta name="description" content="תקנון ותנאי שימוש של מיטל שבע ברעם — מדיניות ביטול, אחריות, קניין רוחני ודין חל." />
+  <link rel="canonical" href="https://ofirbaram.github.io/meital-booking-system/takanon.html" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <style>
-    body { font-family: "Heebo", sans-serif; background: #FAF5F0; color: #2d2b3d; padding: 5rem 1.5rem; }
-    .inner { max-width: 720px; margin: 0 auto; }
-    h1 { font-size: 2rem; font-weight: 300; margin-bottom: 1.5rem; }
-    p  { color: #8a7f8e; line-height: 1.9; }
-    a  { color: #A67C8E; }
-  </style>
+    :root {
+      --rose:      #A67C8E;
+      --rose-soft: #c9a8b8;
+      --champagne: #DDC3A5;
+      --cream:     #FAF5F0;
+      --ink:       #2d2b3d;
+      --muted:     #8a7f8e;
+      --border:    rgba(166,124,142,.15);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Heebo", sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      line-height: 1.8;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-header {
+      background: var(--ink);
+      padding: 2rem 1.5rem 2.5rem;
+      text-align: center;
+    }
+    .header-brand {
+      font-size: .75rem; font-weight: 400; letter-spacing: .18em;
+      color: rgba(250,245,240,.45); text-transform: uppercase; margin-bottom: .5rem;
+    }
+    .header-title { font-size: 1.625rem; font-weight: 300; color: var(--cream); margin-bottom: .25rem; }
+    .header-sub   { font-size: .8125rem; color: rgba(250,245,240,.35); }
+    .header-divider { width: 2.5rem; height: 1px; background: var(--champagne); margin: 1rem auto 0; opacity: .5; }
+    .back-bar { max-width: 740px; margin: 0 auto; padding: 1.25rem 1.5rem .25rem; }
+    .back-link {
+      font-size: .8125rem; color: var(--muted); text-decoration: none;
+      display: inline-flex; align-items: center; gap: .35rem; transition: color .2s;
+    }
+    .back-link:hover { color: var(--rose); }
+    .content { max-width: 740px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+    .update-badge {
+      display: inline-block; font-size: .75rem;
+      background: rgba(166,124,142,.1); color: var(--rose);
+      border: 1px solid var(--border); border-radius: 20px;
+      padding: .25rem .85rem; margin-bottom: 2rem;
+    }
+    .section { margin-bottom: 2.75rem; }
+    .section-number {
+      font-size: .6875rem; font-weight: 600; letter-spacing: .14em;
+      color: var(--rose); text-transform: uppercase; margin-bottom: .35rem;
+    }
+    .section-title {
+      font-size: 1.125rem; font-weight: 500; color: var(--ink);
+      margin-bottom: .9rem; padding-bottom: .6rem; border-bottom: 1px solid var(--border);
+    }
+    .section p {
+      color: var(--muted); font-size: .9375rem; line-height: 1.9; margin-bottom: .75rem;
+    }
+    .section p:last-child { margin-bottom: 0; }
+    .section p strong { color: var(--ink); }
+    .legal-list { list-style: none; padding: 0; margin: .5rem 0 .75rem; }
+    .legal-list li {
+      color: var(--muted); font-size: .9375rem; line-height: 1.9;
+      padding-right: 1.25rem; position: relative; margin-bottom: .25rem;
+    }
+    .legal-list li::before {
+      content: "◆"; position: absolute; right: 0;
+      font-size: .4rem; color: var(--champagne); top: .65em;
+    }
+    .legal-list li strong { color: var(--ink); }
+    .highlight-box {
+      background: rgba(166,124,142,.07); border-right: 3px solid var(--rose);
+      border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: .75rem 0;
+    }
+    .highlight-box p { margin-bottom: 0 !important; font-size: .9rem !important; }
+    .services-table {
+      width: 100%; border-collapse: collapse; margin: .75rem 0;
+      font-size: .9rem; color: var(--muted);
+    }
+    .services-table th {
+      background: rgba(166,124,142,.1); color: var(--ink); font-weight: 500;
+      padding: .6rem 1rem; text-align: right; border-bottom: 1px solid var(--border);
+    }
+    .services-table td { padding: .6rem 1rem; border-bottom: 1px solid var(--border); }
+    .services-table tr:last-child td { border-bottom: none; }
+    .cross-link-box {
+      background: var(--ink); border-radius: 12px; padding: 1.5rem; margin-top: 3rem;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    .cross-link-box p { color: rgba(250,245,240,.55); font-size: .875rem; margin: 0; }
+    .cross-link-btn {
+      display: inline-block; font-size: .8125rem; font-weight: 500;
+      color: var(--cream); background: var(--rose); border-radius: 20px;
+      padding: .5rem 1.25rem; text-decoration: none; white-space: nowrap; transition: background .2s;
+    }
+    .cross-link-btn:hover { background: var(--rose-soft); }
+    .page-footer { background: var(--ink); padding: 1.75rem 1.5rem; text-align: center; }
+    .footer-links { display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .footer-links a { font-size: .75rem; color: rgba(250,245,240,.4); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover,
+    .footer-links a[aria-current="page"] { color: var(--champagne); }
+    .footer-copy { font-size: .6875rem; color: rgba(250,245,240,.25); }
+    @media (max-width: 520px) {
+      .header-title { font-size: 1.375rem; }
+      .cross-link-box { flex-direction: column; align-items: flex-start; }
+    }
+</style>
 </head>
 <body>
-  <div class="inner">
-    <a href="./landing.html" style="font-size:.875rem; color:#8a7f8e; text-decoration:none;">← חזרה לדף הבית</a>
-    <h1 style="margin-top:2rem;">תקנון ותנאי שימוש</h1>
-    <p>עמוד זה יעודכן בקרוב עם תנאי השימוש המלאים של הסטודיו.</p>
+
+<header class="page-header">
+  <p class="header-brand">מיטל שבע ברעם · רמת גן</p>
+  <h1 class="header-title">תקנון ותנאי שימוש</h1>
+  <p class="header-sub">עודכן לאחרונה: יוני 2026</p>
+  <div class="header-divider"></div>
+</header>
+
+<div class="back-bar">
+  <a href="./landing.html" class="back-link">&#x2190; חזרה לדף הבית</a>
+</div>
+
+<main class="content">
+  <span class="update-badge">תאריך עדכון: יוני 2026</span>
+
+  <section class="section">
+    <p class="section-number">סעיף 1</p>
+    <h2 class="section-title">כללי</h2>
+    <p>תקנון זה מסדיר את תנאי השימוש באתר ובמערכת קביעת התורים של <strong>מיטל שבע ברעם — לק ג'ל בוטיק</strong> ("הסטודיו"). קביעת תור מהווה הסכמה מלאה לתנאים אלה.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 2</p>
+    <h2 class="section-title">תיאור השירותים</h2>
+    <p>הסטודיו מציע את השירותים הבאים:</p>
+    <table class="services-table">
+      <thead>
+        <tr><th>שירות</th><th>משך הטיפול</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>לק ג'ל קלאסי</td><td>90 דקות</td></tr>
+        <tr><td>לק ג'ל לרגליים</td><td>120 דקות</td></tr>
+      </tbody>
+    </table>
+    <p>הסטודיו שומר לעצמו את הזכות לעדכן את רשימת השירותים והמחירים בכל עת, עם עדכון מוקדם באתר.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 3</p>
+    <h2 class="section-title">קביעת תור ואישורו</h2>
+    <ul class="legal-list">
+      <li>קביעת תור מתבצעת אך ורק דרך מערכת ההזמנות המקוונת באתר.</li>
+      <li><strong>הזמנה אינה מאושרת</strong> עד לקבלת הודעת SMS מפורשת "התור אושר" מבעלת הסטודיו.</li>
+      <li>בעלת הסטודיו שומרת את הזכות לדחות בקשת הזמנה מכל סיבה סבירה, ללא חיוב.</li>
+      <li>בעת קביעת התור יישלח קוד אימות (OTP) למספר הטלפון שהוזן — תקף ל-5 דקות ולשימוש חד-פעמי.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 4</p>
+    <h2 class="section-title">מדיניות ביטול ושינוי תור</h2>
+    <p><strong>ביטול על ידי הלקוחה</strong></p>
+    <ul class="legal-list">
+      <li>מומלץ לבטל תור לפחות <strong>24 שעות מראש</strong>, על מנת לאפשר לסטודיו לנצל את השעה.</li>
+      <li>כרגע אין חיוב כספי בגין ביטול תור.</li>
+      <li>הסטודיו שומר את הזכות לקבוע מדיניות ביטול עם עלות סמלית בעתיד, עם הודעה מראש באתר.</li>
+    </ul>
+    <div class="highlight-box">
+      <p>אי-הגעה חוזרת ונשנית ללא הודעה עשויה להוביל לסירוב לקביעת תורים עתידיים.</p>
+    </div>
+    <p><strong>ביטול על ידי הסטודיו</strong></p>
+    <p>הסטודיו רשאי לבטל תור מסיבות בלתי צפויות (מחלה, חירום). במקרה כזה תישלח הודעה ללקוחה בהקדם האפשרי, ותינתן לה עדיפות לקביעת תור חדש.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 5</p>
+    <h2 class="section-title">לקוחות קטינות (מתחת לגיל 18)</h2>
+    <p>בהתאם לדין הישראלי:</p>
+    <ul class="legal-list">
+      <li>מתן שירות לקטינה מתחת לגיל 18 מותנה ב<strong>הסכמה מפורשת של הורה או אפוטרופוס חוקי</strong> לפני הטיפול.</li>
+      <li>ההורה/אפוטרופוס נושא באחריות המלאה לכל הקשור בטיפול.</li>
+      <li>הסטודיו רשאי לסרב למתן שירות לקטינה שהגיעה ללא אישור הורה.</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 6</p>
+    <h2 class="section-title">אחריות ומגבלות</h2>
+    <p>בעלת הסטודיו פועלת במיומנות מקצועית ובחומרים איכותיים. עם זאת:</p>
+    <ul class="legal-list">
+      <li>הסטודיו <strong>אינו אחראי</strong> לתגובות אלרגיות או רגישות עורית הנובעות ממצב בריאותי קיים שלא הובא לידיעתו מראש.</li>
+      <li>חובת הלקוחה לציין לפני הטיפול כל רגישות ידועה לחומרים, מצב עורי, או מגבלה בריאותית רלוונטית.</li>
+      <li>התוצאה האסתטית הסופית תלויה בחלקה במצב הציפורניים והעור הטבעי של הלקוחה.</li>
+      <li>הסטודיו אינו אחראי לאובדן או נזק לחפצים אישיים של הלקוחה בשטחו.</li>
+    </ul>
+    <div class="highlight-box">
+      <p>אחריות הסטודיו, בכל מקרה, לא תעלה על עלות הטיפול שבוצע בפועל.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 7</p>
+    <h2 class="section-title">קניין רוחני ופורטפוליו</h2>
+    <ul class="legal-list">
+      <li>כל התמונות, הסרטונים ותכני האתר — לרבות תמונות עבודות — הם <strong>רכושה הבלעדי</strong> של הסטודיו.</li>
+      <li>אין לעשות שימוש מסחרי בתמונות ללא אישור מפורש בכתב.</li>
+      <li>שיתוף אישי בתמונות ברשתות חברתיות <strong>עם קרדיט לסטודיו</strong> מתקבל בברכה.</li>
+    </ul>
+    <p>כאמור במדיניות הפרטיות, לקוחה שאינה מעוניינת שתמונת עבודתה תפורסם מתבקשת לציין זאת לפני הטיפול.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 8</p>
+    <h2 class="section-title">שינויים בתנאים</h2>
+    <p>הסטודיו רשאי לעדכן תקנון זה בכל עת. הנוסח המחייב הוא תמיד הנוסח העדכני המפורסם באתר. הזמנות שנקבעו לפני השינוי ממשיכות לחול לפי התנאים שהיו בתוקף בעת הקביעה.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 9</p>
+    <h2 class="section-title">דין וסמכות שיפוט</h2>
+    <p>תקנון זה כפוף <strong>לדין הישראלי בלבד</strong>. כל מחלוקת שתעלה בקשר לשירותי הסטודיו או לשימוש באתר תובא לפתרון בפני הערכאות המוסמכות במחוז בו פועל הסטודיו, ולהן בלבד מוקנית סמכות השיפוט.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 10</p>
+    <h2 class="section-title">יצירת קשר</h2>
+    <p>לכל שאלה, בקשה, או הבהרה — ניתן לפנות לסטודיו ישירות בהודעת WhatsApp.</p>
+  </section>
+
+  <div class="cross-link-box">
+    <p>רוצה לקרוא כיצד אנו מגנים על המידע שלך?</p>
+    <a href="./privacy.html" class="cross-link-btn">למדיניות פרטיות &#x2192;</a>
   </div>
+
+</main>
+
+<footer class="page-footer">
+  <nav class="footer-links" aria-label="ניווט משפטי">
+    <a href="./privacy.html">מדיניות פרטיות</a>
+    <a href="./takanon.html" aria-current="page">תקנון ותנאי שימוש</a>
+    <a href="./landing.html">דף הבית</a>
+  </nav>
+  <p class="footer-copy">© 2026 מיטל שבע ברעם. כל הזכויות שמורות.</p>
+</footer>
+
 </body>
 </html>

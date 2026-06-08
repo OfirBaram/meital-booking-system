@@ -31,7 +31,7 @@ const FUTURE_TIMES = ['23:57', '23:58', '23:59']
 async function setupBookingMocks(page, opts) {
   const todaySlots    = (opts && opts.todaySlots)    || []
   const tomorrowSlots = (opts && opts.tomorrowSlots != null) ? opts.tomorrowSlots : FUTURE_TIMES
-  const TEST_SB = 'https://supabase.test.mock'
+  const TEST_SB = 'https://callmnxlcganwugxwiym.supabase.co'
 
   await page.route('**/config.js', route =>
     route.fulfill({
@@ -52,7 +52,7 @@ async function setupBookingMocks(page, opts) {
   await page.route('https://gas.test.mock/**', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"success":true}' })
   )
-  await page.route('https://supabase.test.mock/functions/v1/get-slots*', async (route, request) => {
+  await page.route('https://callmnxlcganwugxwiym.supabase.co/functions/v1/get-slots*', async (route, request) => {
     const url   = new URL(request.url())
     const year  = parseInt(url.searchParams.get('year')  || '', 10)
     const month = parseInt(url.searchParams.get('month') || '', 10)

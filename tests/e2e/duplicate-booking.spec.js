@@ -7,8 +7,8 @@
  */
 import { test, expect } from '../support/test-base.js'
 
-const SB_FUNC_GLOB = 'https://supabase.test.mock/functions/v1/**'
-const TEST_SB_URL  = 'https://supabase.test.mock'
+const SB_FUNC_GLOB = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/**'
+const TEST_SB_URL  = 'https://callmnxlcganwugxwiym.supabase.co'
 
 function makeMockSlots(year, month) {
   const slots = {}

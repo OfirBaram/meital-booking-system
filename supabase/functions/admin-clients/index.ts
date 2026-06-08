@@ -1,19 +1,8 @@
-import { createClient } from 'npm:@supabase/supabase-js@2'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { createClient }           from 'npm:@supabase/supabase-js@2'
+import { validateAdminSession }   from '../_shared/auth.ts'
+import { adminCors, SEC_HEADERS } from '../_shared/cors.ts'
 
 const TZ = 'Asia/Jerusalem'
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
-  })
-}
 
 function fmtDate(iso: string) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -27,31 +16,34 @@ function fmtTime(iso: string) {
 
 function normalizePhone(raw: string): string {
   let p = raw.replace(/\D/g, '')
-  if (p.startsWith('972')) p = '+' + p
-  else if (p.startsWith('0')) p = '+972' + p.slice(1)
-  else if (!p.startsWith('+')) p = '+972' + p
+  if (p.startsWith('972'))      p = '+' + p
+  else if (p.startsWith('0'))   p = '+972' + p.slice(1)
+  else if (!p.startsWith('+'))  p = '+972' + p
   return p
 }
 
 Deno.serve(async (req) => {
+  const cors = adminCors(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+    return new Response('ok', { headers: { ...cors, ...SEC_HEADERS } })
+  }
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, ...SEC_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
   try {
-    const body = await req.json()
-    const { action, adminToken } = body
-
-    const expectedToken = Deno.env.get('ADMIN_TOKEN')
-    if (!adminToken || !expectedToken || adminToken !== expectedToken) {
+    const secret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+    if (!await validateAdminSession(req, secret)) {
       return json({ success: false, error: 'unauthorized' }, 403)
     }
+
+    const body           = await req.json()
+    const { action }     = body
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
@@ -99,8 +91,7 @@ Deno.serve(async (req) => {
 
       if (aErr) throw aErr
 
-      // Batch-fetch slot start_times
-      const slotIds = [...new Set((appts ?? []).map(a => a.slot_id).filter(Boolean))]
+      const slotIds = [...new Set((appts ?? []).map((a: { slot_id: string }) => a.slot_id).filter(Boolean))]
       const slotsMap: Record<string, { start_time: string }> = {}
 
       if (slotIds.length > 0) {
@@ -108,10 +99,11 @@ Deno.serve(async (req) => {
           .from('slots')
           .select('id, start_time')
           .in('id', slotIds)
-        ;(slotRows ?? []).forEach(s => { slotsMap[s.id] = s })
+        ;(slotRows ?? []).forEach((s: { id: string; start_time: string }) => { slotsMap[s.id] = s })
       }
 
-      const appointments = (appts ?? []).map(a => {
+      // deno-lint-ignore no-explicit-any
+      const appointments = (appts ?? []).map((a: any) => {
         const slot = slotsMap[a.slot_id]
         return {
           id:                a.id,
