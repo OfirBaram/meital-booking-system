@@ -15,7 +15,12 @@ export default defineConfig({
   //  - diagnostic: test-results/CLAUDE-FAILURES.md — one plain-text file an
   //                agent can read to know what failed and why (see ./tests/reporters)
   reporter: process.env.CI
-    ? [['dot'], ['html', { open: 'never' }], ['./tests/reporters/diagnostic-reporter.js']]
+    ? [
+        ['github'],   // ::error:: annotations inline in the PR diff view
+        ['dot'],
+        ['html', { open: 'never' }],
+        ['./tests/reporters/diagnostic-reporter.js'],
+      ]
     : [['list'], ['./tests/reporters/diagnostic-reporter.js']],
 
   use: {
@@ -25,7 +30,7 @@ export default defineConfig({
     // 'on-first-retry' setting meant the first failure had no trace/screenshot —
     // and a non-flaky failure that fails both times still only traced the retry.
     // 'retain-on-failure' guarantees an artifact for the run that actually failed.
-    screenshot: 'only-on-failure',
+    screenshot: 'off',           // test-base.js takes named screenshots on failure
     trace:      'retain-on-failure',
     video:      'retain-on-failure',
   },

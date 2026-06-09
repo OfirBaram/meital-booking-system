@@ -1,15 +1,12 @@
 /**
- * diagnostic-reporter.js — a Claude-readable failure log for Playwright.
+ * diagnostic-reporter.js — two outputs from one reporter:
  *
- * Playwright's built-in HTML report is great for humans clicking around, but a
- * coding agent debugging a CI failure wants ONE plain-text file it can read
- * top-to-bottom: which test failed, where (file:line), the error, the browser
- * console, and which screenshot to look at. This reporter writes exactly that
- * to `test-results/CLAUDE-FAILURES.md` and echoes a pointer to stdout.
+ *   1. test-results/CLAUDE-FAILURES.md  — agent-readable failure log (for Claude)
+ *   2. $GITHUB_STEP_SUMMARY (in CI)     — human-readable Job Summary: full test
+ *                                          table + failure highlights with artifact refs
  *
- * It is additive — it runs alongside the 'html'/'list'/'dot' reporters, never
- * replaces them. If every test passes it writes a short "all green" file so the
- * absence of failures is unambiguous (vs. the reporter not having run).
+ * Runs alongside 'html'/'dot'/'github' reporters — never replaces them.
+ * If every test passes it writes a short "all green" file so absence of failures is unambiguous.
  *
  * @implements {import('@playwright/test/reporter').Reporter}
  */
@@ -24,30 +21,47 @@ function rel(p) {
   return path.relative(process.cwd(), p).split(path.sep).join('/')
 }
 
+function fmtMs(ms) {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`
+}
+
 export default class DiagnosticReporter {
   constructor() {
     /** @type {Map<string, object>} keyed by test id so retries collapse to one entry. */
     this.failuresById = new Map()
+    /** @type {Array<{id:string,title:string,status:string,durationMs:number}>} */
+    this.allTestResults = []
     this.total = 0
   }
 
   onTestEnd(test, result) {
-    if (result.retry === 0) this.total++ // count each test once, not per retry
-    // A retry that finally passes clears the earlier-attempt failure (flaky-but-green).
+    if (result.retry === 0) this.total++
+
+    // Track every test for the Job Summary table — update on retry so final status wins.
+    if (result.retry === 0) {
+      this.allTestResults.push({
+        id: test.id,
+        title: test.titlePath().filter(Boolean).join(' › '),
+        status: result.status,
+        durationMs: result.duration,
+      })
+    } else {
+      const rec = this.allTestResults.find(t => t.id === test.id)
+      if (rec) { rec.status = result.status; rec.durationMs = result.duration }
+    }
+
+    // A retry that finally passes clears the earlier failure (flaky-but-green).
     if (result.status === 'passed') { this.failuresById.delete(test.id); return }
     if (result.status === 'skipped') return
-    if (result.status === test.expectedStatus) return // expected failure (e.g. test.fail)
+    if (result.status === test.expectedStatus) return // expected failure (test.fail())
 
     const errors = (result.errors ?? []).map(e =>
-      // Strip ANSI color codes so the markdown stays clean.
-      (e.stack || e.message || String(e)).replace(/\[[0-9;]*m/g, '')
+      (e.stack || e.message || String(e)).replace(/\[[0-9;]*m/g, '')
     )
-
     const attachments = (result.attachments ?? []).map(a => ({
       name: a.name,
       contentType: a.contentType,
       path: a.path ? rel(a.path) : null,
-      // text attachments (our console/network logs) carry an inline body buffer
       inline: !a.path && a.body ? a.body.toString('utf8') : null,
     }))
 
@@ -64,16 +78,18 @@ export default class DiagnosticReporter {
 
   async onEnd(result) {
     fs.mkdirSync(OUT_DIR, { recursive: true })
-
-    // One entry per failing test (its final attempt). Tests that passed on a
-    // retry were removed from the map above, so only true failures remain.
     this.failures = [...this.failuresById.values()]
+    this._writeClaudeFailures(result)
+    this._writeGithubSummary(result)
+  }
 
+  // ─── 1. CLAUDE-FAILURES.md ───────────────────────────────────────────────
+  _writeClaudeFailures(result) {
     if (this.failures.length === 0) {
-      const ok = `# E2E Diagnostics — all green ✅\n\n` +
-        `Run status: **${result.status}**. ${this.total} test(s), 0 failures.\n` +
-        `No screenshots or logs to inspect.\n`
-      fs.writeFileSync(OUT_FILE, ok, 'utf8')
+      fs.writeFileSync(OUT_FILE,
+        `# E2E Diagnostics — all green ✅\n\nRun status: **${result.status}**. ${this.total} test(s), 0 failures.\nNo screenshots or logs to inspect.\n`,
+        'utf8'
+      )
       return
     }
 
@@ -114,17 +130,14 @@ export default class DiagnosticReporter {
         screenshots.forEach(s => lines.push(`- \`${s.path}\``))
         lines.push('')
       }
-
       textLogs.forEach(t => {
         lines.push(`### ${t.name}`)
         lines.push('```')
-        // Cap each inline log so a noisy console doesn't bury the report.
-        const body = t.inline.length > 4000 ? t.inline.slice(0, 4000) + '\n…(truncated)…' : t.inline
+        const body = t.inline.length > 4000 ? t.inline.slice(0, 4000) + '\n...(truncated)...' : t.inline
         lines.push(body.trim())
         lines.push('```')
         lines.push('')
       })
-
       if (traces.length) {
         lines.push('### Trace')
         traces.forEach(t => lines.push(`- \`${t.path}\` — open with: \`npx playwright show-trace ${t.path}\``))
@@ -140,11 +153,72 @@ export default class DiagnosticReporter {
     })
 
     fs.writeFileSync(OUT_FILE, lines.join('\n'), 'utf8')
-
-    // Pointer on stdout so it is impossible to miss in CI logs or a local run.
     process.stdout.write(
       `\n📋 ${this.failures.length} E2E failure(s). Full diagnostics: ${OUT_FILE}\n` +
       `   (screenshots + browser console + network logs per failing test)\n\n`
     )
+  }
+
+  // ─── 2. GitHub Actions Job Summary ───────────────────────────────────────
+  _writeGithubSummary(result) {
+    const summaryPath = process.env.GITHUB_STEP_SUMMARY
+    if (!summaryPath) return
+
+    const passed  = this.allTestResults.filter(t => t.status === 'passed').length
+    const failed  = this.failures.length
+    const skipped = this.allTestResults.filter(t => t.status === 'skipped').length
+    const icon    = failed === 0 ? '✅' : '❌'
+
+    // Link back to the Actions run for one-click artifact download
+    const runUrl = (process.env.GITHUB_SERVER_URL && process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID)
+      ? `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : null
+
+    const lines = []
+    lines.push(`## ${icon} E2E Tests — ${passed} passed · ${failed} failed${skipped ? ` · ${skipped} skipped` : ''}`)
+    if (runUrl) lines.push(`[📎 Full log & artifacts](${runUrl})`)
+    lines.push('')
+
+    // Full test table — every test, one row
+    lines.push('| | Test | Duration |')
+    lines.push('|:---:|---|:---:|')
+    for (const t of this.allTestResults) {
+      const si   = t.status === 'passed' ? '✅' : t.status === 'skipped' ? '⏭️' : '❌'
+      const name = (t.status !== 'passed' && t.status !== 'skipped') ? `**${t.title}**` : t.title
+      lines.push(`| ${si} | ${name} | ${fmtMs(t.durationMs)} |`)
+    }
+    lines.push('')
+
+    // Failure details — one section per failing test
+    if (failed > 0) {
+      lines.push('---')
+      lines.push('')
+      lines.push('### ❌ Failure Details')
+      lines.push('')
+      this.failures.forEach((f, i) => {
+        lines.push(`#### ${i + 1}. ${f.title}`)
+        lines.push(`> 📍 \`${f.location}\`${f.retry ? ` · retried ${f.retry}×` : ''}`)
+        lines.push('')
+        if (f.errors.length) {
+          // First 6 lines — enough to identify the failure, not the full stack
+          const snippet = f.errors[0].split('\n').slice(0, 6).join('\n')
+          lines.push('```')
+          lines.push(snippet.trim())
+          lines.push('```')
+          lines.push('')
+        }
+        const shots = f.attachments.filter(a => a.contentType && a.contentType.startsWith('image/'))
+        if (shots.length) {
+          lines.push(`📸 \`${shots[0].path}\` — download **playwright-test-results** artifact to view`)
+          lines.push('')
+        }
+      })
+    }
+
+    try {
+      fs.appendFileSync(summaryPath, lines.join('\n') + '\n', 'utf8')
+    } catch {
+      // summaryPath not writable (local dev without GITHUB_STEP_SUMMARY set) — skip silently
+    }
   }
 }
