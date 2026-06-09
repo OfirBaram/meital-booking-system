@@ -21,6 +21,7 @@ export interface Service {
   num:         string
   title:       string
   duration:    string
+  price?:      string   // e.g. "מ-₪160" — shown below duration in service card
   description: string
 }
 
@@ -83,6 +84,7 @@ export const siteConfig = {
       num:         "01",
       title:       "ג'ל קלאסי",
       duration:    "90 דקות",
+      price:       "מ-₪160",
       description: "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק שמתחרה בחדש.",
     },
     {
@@ -90,6 +92,7 @@ export const siteConfig = {
       num:         "02",
       title:       "ג'ל לרגליים",
       duration:    "120 דקות",
+      price:       "מ-₪200",
       description: "טיפול פדיקור מלא הכולל הכנת העור, עיצוב ציפורן ולק ג'ל. תוצאה נקייה ועמידה לקיץ ולכל השנה.",
     },
     {
@@ -97,6 +100,7 @@ export const siteConfig = {
       num:         "03",
       title:       "עיצוב אמנותי",
       duration:    "לפי הזמנה",
+      price:       "מ-₪200",
       description: "עיצוב ציפורניים ייחודי — ציורים, stone art, ombre ועוד. מתאים לאירועים, ימי הולדת ויום-יום.",
     },
     {
@@ -104,6 +108,7 @@ export const siteConfig = {
       num:         "04",
       title:       "הסרת ג'ל",
       duration:    "30 דקות",
+      price:       "מ-₪80",
       description: "הסרה עדינה ומקצועית שמשמרת את הציפורן הטבעית. בלי שבירה, בלי נזק — הדרך הנכונה להסיר.",
     },
   ] satisfies Service[],

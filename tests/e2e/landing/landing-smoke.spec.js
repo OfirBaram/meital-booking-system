@@ -90,3 +90,21 @@ test('no unhandled JS page errors on load', async ({ page }) => {
   await page.waitForLoadState('networkidle')
   expect(errors, `Page errors: ${errors.join('; ')}`).toHaveLength(0)
 })
+
+test('FAQ section renders with at least 3 items', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('#faq').scrollIntoViewIfNeeded()
+  await expect(page.locator('#faq')).toBeVisible()
+  await expect(page.locator('#faq h2')).toBeVisible()
+  const items = page.locator('#faq details')
+  const count = await items.count()
+  expect(count, 'Expected at least 3 FAQ items').toBeGreaterThanOrEqual(3)
+})
+
+test('service cards display pricing information', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('#services').scrollIntoViewIfNeeded()
+  // At least one service should show a price badge (contains ₪)
+  const priceBadge = page.locator('#services').getByText(/₪/)
+  await expect(priceBadge.first()).toBeVisible()
+})

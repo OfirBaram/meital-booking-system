@@ -119,3 +119,29 @@ test('service articles have aria-labelledby matching their h3', async ({ page })
     await expect(heading).toHaveCount(1)
   }
 })
+
+test('FAQ section is keyboard accessible via details/summary', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('#faq').scrollIntoViewIfNeeded()
+  const first = page.locator('#faq details').first()
+  await expect(first).toBeVisible()
+  const summary = first.locator('summary')
+  await expect(summary).toBeVisible()
+  // Click to open
+  await summary.click()
+  await expect(first).toHaveAttribute('open')
+  // Click again to close
+  await summary.click()
+  await expect(first).not.toHaveAttribute('open')
+})
+
+test('FAQ items have visible question text', async ({ page }) => {
+  await page.goto('/')
+  await page.locator('#faq').scrollIntoViewIfNeeded()
+  const summaries = await page.locator('#faq details summary').all()
+  for (const s of summaries) {
+    const text = (await s.textContent() ?? '').trim()
+    expect(text.length, 'FAQ summary has empty text').toBeGreaterThan(0)
+    expect(/[א-ת]/.test(text), 'FAQ summary has no Hebrew text').toBe(true)
+  }
+})
