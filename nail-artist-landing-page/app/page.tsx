@@ -4,6 +4,7 @@ import { About }            from '@/components/about'
 import { Services }         from '@/components/Services'
 import { Gallery }          from '@/components/gallery'
 import { Testimonials }     from '@/components/Testimonials'
+import { FAQ }              from '@/components/FAQ'
 import { Contact }          from '@/components/contact'
 import { Footer }           from '@/components/footer'
 import { FloatingWhatsApp } from '@/components/FloatingWhatsApp'
@@ -19,6 +20,7 @@ export default function Page() {
         <Services />
         <Gallery />
         <Testimonials />
+        <FAQ />
         <Contact />
       </main>
       <Footer />

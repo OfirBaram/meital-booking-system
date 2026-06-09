@@ -39,11 +39,15 @@ export function Hero() {
             className="mb-6 text-[clamp(2.75rem,7vw,5.25rem)] font-light leading-[1.1] tracking-tight text-charcoal"
             data-reveal
           >
-            אמנות ציפורניים<br />
+            לק ג&apos;ל בוטיק<br />
             <span className="font-light italic text-primary">
-              מרגע ראשון
+              ברמת גן
             </span>
           </h1>
+
+          <p className="mx-auto mb-2 text-base font-light italic text-charcoal/60 lg:mx-0" data-reveal>
+            אמנות ציפורניים מרגע ראשון
+          </p>
 
           <p className="mx-auto mb-10 max-w-md text-base leading-[1.9] text-muted lg:mx-0" data-reveal>
             לק ג&apos;ל ועיצוב ציפורניים מקצועי ויוקרתי — חוויה אישית ואינטימית

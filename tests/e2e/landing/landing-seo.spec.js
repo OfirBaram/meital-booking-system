@@ -131,3 +131,16 @@ test('/robots.txt returns 200 and allows crawling', async ({ page }) => {
   const body = await page.textContent('pre') ?? await page.content()
   expect(body).toContain('Allow')
 })
+
+test('h1 contains gel nail keyword for local SEO', async ({ page }) => {
+  await page.goto('/')
+  const h1 = await page.locator('h1').textContent()
+  // H1 must contain the primary service keyword to rank for "לק ג'ל רמת גן"
+  expect((h1 ?? '').replace(/\s+/g, ' ')).toContain("ג'ל")
+})
+
+test('h1 contains city name for local SEO', async ({ page }) => {
+  await page.goto('/')
+  const h1 = await page.locator('h1').textContent()
+  expect((h1 ?? '').replace(/\s+/g, ' ')).toContain('רמת גן')
+})

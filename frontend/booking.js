@@ -83,6 +83,7 @@ const State = {
   loading: false,
   prefetchedMonths: new Set(),
   otpCooldownUntil: 0,
+  _stepEntryTime: 0,
 };
 
 // ═══════════════════════════════════════════════════
@@ -520,6 +521,17 @@ async function loadMonthSlots(year, month) {
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
+      const _mSlots = Object.entries(res.slots ?? {});
+      const _mDays  = _mSlots.filter(([,s]) => s.length > 0).length;
+      const _mTotal = _mSlots.reduce((sum,[,s]) => sum + s.length, 0);
+      trackEvent('calendar_slots_loaded', {
+        year, month,
+        days_with_slots: _mDays,
+        total_slot_count: _mTotal,
+        has_availability: _mTotal > 0,
+        months_browsed: State.prefetchedMonths.size,
+        from_cache: false,
+      });
     } else {
       toast('שגיאה בטעינת זמינות. נסי שוב.', 'error');
     }
@@ -709,6 +721,9 @@ function renderConfirmation() {
 // ═══════════════════════════════════════════════════
 
 function showStep(n) {
+  const _STEP_NAMES = ['','service_selection','date_time','personal_info','otp_verify','confirmation'];
+  const _prevStep = State.step;
+  const _elapsed = State._stepEntryTime ? Math.round((Date.now() - State._stepEntryTime) / 1000) : 0;
   [1,2,3,4,5].forEach(i => {
     const el = document.getElementById(`step-${i}`);
     if (!el) return;
@@ -719,6 +734,13 @@ function showStep(n) {
     }
   });
   State.step = n;
+  State._stepEntryTime = Date.now();
+  trackEvent('wizard_step_viewed', {
+    step: n,
+    step_name: _STEP_NAMES[n],
+    previous_step: _prevStep,
+    time_on_previous_step_sec: _elapsed,
+  });
   renderProgress();
   updateNav();
   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -757,6 +779,18 @@ async function handleNext() {
     const year = now.getFullYear(), month = now.getMonth() + 1;
     if (State.prefetchedMonths.has(`${year}-${month}`)) {
       renderCalendar();
+      const _pfx = `${year}-${String(month).padStart(2,'0')}`;
+      const _pfSlots = Object.entries(State.slots).filter(([k]) => k.startsWith(_pfx));
+      const _pfDays  = _pfSlots.filter(([,s]) => s.length > 0).length;
+      const _pfTotal = _pfSlots.reduce((sum,[,s]) => sum + s.length, 0);
+      trackEvent('calendar_slots_loaded', {
+        year, month,
+        days_with_slots: _pfDays,
+        total_slot_count: _pfTotal,
+        has_availability: _pfTotal > 0,
+        months_browsed: State.prefetchedMonths.size,
+        from_cache: true,
+      });
     } else {
       loadMonthSlots(year, month);
     }

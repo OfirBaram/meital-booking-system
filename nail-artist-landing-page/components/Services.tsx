@@ -14,7 +14,14 @@ function ServiceCard({ service, waHref }: { service: Service; waHref: string }) 
       <h3 id={`service-${service.id}`} className="mb-1.5 text-lg font-semibold text-charcoal">
         {service.title}
       </h3>
-      <p className="mb-4 text-sm font-medium text-primary">{service.duration}</p>
+      <div className="mb-4 flex items-center gap-3">
+        <p className="text-sm font-medium text-primary">{service.duration}</p>
+        {service.price && (
+          <span className="rounded-full bg-champagne/30 px-2.5 py-0.5 text-xs font-semibold text-charcoal">
+            {service.price}
+          </span>
+        )}
+      </div>
       <p className="mb-6 text-sm leading-[1.8] text-muted">{service.description}</p>
       <a
         href={waHref}
