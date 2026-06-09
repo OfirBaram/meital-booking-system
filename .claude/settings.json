@@ -4,7 +4,27 @@
     "allow": [
       "Bash(cd \"$(git rev-parse --show-toplevel)\" && curl -s \"https://api.github.com/repos/OfirBaram/meital-booking-system/*)",
       "Bash(supabase secrets list *)",
-      "Bash(supabase functions logs *)"
+      "Bash(supabase functions logs *)",
+      "Bash(npx playwright test *)",
+      "Bash(npx vitest *)",
+      "Bash(curl *)",
+      "Bash(npm run verify:deploy)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:backend)",
+      "Bash(npm run check:build)",
+      "Bash(npm run test:landing:unit)",
+      "Bash(npx tsc *)",
+      "mcp__supabase__get_logs",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__list_migrations",
+      "mcp__supabase__list_edge_functions",
+      "mcp__supabase__get_project_url",
+      "mcp__supabase__get_publishable_keys",
+      "mcp__supabase__get_advisors",
+      "mcp__github__list_pull_requests",
+      "mcp__github__get_pull_request_files",
+      "mcp__github__get_pull_request_reviews",
+      "mcp__github__list_commits"
     ]
   }
 }
