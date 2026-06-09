@@ -33,11 +33,14 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
+    const todayJerusalem = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date())
+
     const { data, error } = await supabase
       .from('bookings_view')
       .select('date, time')
       .eq('phone', phone)
       .in('status', ['Pending', 'Approved'])
+      .gte('date', todayJerusalem)
       .order('timestamp', { ascending: false })
       .limit(1)
       .maybeSingle()
