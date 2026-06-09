@@ -467,7 +467,7 @@ function renderCalendar() {
       <div class="${cls}" data-date="${key}" data-qa="cal-day" role="button" tabindex="${disabled ? -1 : 0}"
            aria-label="${key}" aria-pressed="${sel}">
         <span>${d}</span>
-        ${disabledReason === 'no-slots' ? '<span class="dot-no-slots"></span>' : ''}
+        ${!disabled ? '<span class="dot-avail"></span>' : disabledReason === 'no-slots' ? '<span class="dot-no-slots"></span>' : ''}
       </div>`;
   }
 

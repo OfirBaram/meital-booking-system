@@ -101,6 +101,7 @@ jobs:
   backend-tests:
     name: Backend Tests (Vitest + Supabase)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
