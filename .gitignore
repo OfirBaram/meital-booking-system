@@ -67,6 +67,7 @@ dist
 .vscode-test
 .tern-port
 .claude/*
+!.claude/settings.json
 !.claude/skills/
 .claude/skills/**/__pycache__/
 .node_repl_history
