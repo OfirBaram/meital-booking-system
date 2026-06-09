@@ -542,7 +542,8 @@ function renderSlots(dateKey) {
   let times       = State.slots[dateKey] ?? [];
 
   // Filter out past times for today (handles stale prefetch cache)
-  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: CONFIG.TIMEZONE }).format(new Date());
+  const _todayObj = today0();
+  const todayKey = `${_todayObj.getFullYear()}-${String(_todayObj.getMonth()+1).padStart(2,'0')}-${String(_todayObj.getDate()).padStart(2,'0')}`;
   if (dateKey === todayKey) {
     const nowTime = new Intl.DateTimeFormat('en-GB', {
       timeZone: CONFIG.TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false,
