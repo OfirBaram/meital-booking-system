@@ -192,3 +192,69 @@ test.describe('Duplicate booking — IS_MOCK_MODE skips check', () => {
     expect(checkCalled).toBe(false)
   })
 })
+
+// ─── cancelled booking must NOT block re-booking ─────────────────────────────
+// Regression guard for: admin cancels a Pending booking → customer was blocked
+// because the appointment stayed 'pending' in the DB (pending→cancelled was not
+// a valid SQL transition).  After the fix the appointment is truly Cancelled,
+// check-active-booking returns active:false, and the customer can book again.
+
+test.describe('Duplicate booking — cancelled booking allows re-booking', () => {
+  test('proceeds to OTP step when prior booking was Cancelled', async ({ page }) => {
+    // check-active-booking returns active:false (cancelled rows are excluded
+    // by the .in("status", ["Pending", "Approved"]) filter)
+    await setupMocks(page, { active: false })
+    await page.goto('/')
+    await goToStep3(page)
+    await fillStep3(page)
+    await page.locator('#btn-next').click()
+
+    // Must reach OTP step — NOT be blocked by a stale cancelled booking
+    await expect(page.locator('#step-4')).toBeVisible({ timeout: 8_000 })
+    await expect(page.locator('#js-toast')).not.toBeVisible()
+  })
+
+  test('proceeds to OTP step when prior booking was Rejected', async ({ page }) => {
+    await setupMocks(page, { active: false })
+    await page.goto('/')
+    await goToStep3(page)
+    await fillStep3(page)
+    await page.locator('#btn-next').click()
+
+    await expect(page.locator('#step-4')).toBeVisible({ timeout: 8_000 })
+    await expect(page.locator('#js-toast')).not.toBeVisible()
+  })
+
+  test('check-active-booking is called exactly once on step 3 submit', async ({ page }) => {
+    let checkCallCount = 0
+    await page.route('**/config.js', route => route.fulfill({
+      status: 200, contentType: 'application/javascript',
+      body: `const APP_CONFIG = { SUPABASE_URL: "${TEST_SB_URL}", SUPABASE_ANON_KEY: "test-anon-key", VERSION: "2.0.0", IS_MOCK_MODE: false };
+export default APP_CONFIG;
+`,
+    }))
+    await page.route(SB_FUNC_GLOB, async (route, request) => {
+      const path = new URL(request.url()).pathname.split('/').pop()
+      if (path === 'get-slots') {
+        const u = new URL(request.url())
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify(makeMockSlots(parseInt(u.searchParams.get('year'), 10), parseInt(u.searchParams.get('month'), 10))) })
+      }
+      if (path === 'check-active-booking') {
+        checkCallCount++
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ active: false }) })
+      }
+      if (path === 'send-otp')
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
+      return route.fulfill({ status: 400, body: '{}'})
+    })
+    await page.goto('/')
+    await goToStep3(page)
+    await fillStep3(page)
+    await page.locator('#btn-next').click()
+
+    await expect(page.locator('#step-4')).toBeVisible({ timeout: 8_000 })
+    expect(checkCallCount).toBe(1)
+  })
+})
+

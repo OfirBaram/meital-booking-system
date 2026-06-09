@@ -581,7 +581,7 @@ async function deleteBooking(id) {
         );
         if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
-        if (!data.success && data.error !== 'invalid_transition') throw new Error(data.error || 'error');
+        if (!data.success) throw new Error(data.error || 'error');
         apiCall('changeStatus', { bookingId: id, targetStatus: 'Cancelled',
           keepCalendar: _cancelOpts ? _cancelOpts.keepCalendar : false }).catch(e =>
           console.warn('[deleteBooking GAS side-effects failed]', e.message));

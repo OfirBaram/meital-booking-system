@@ -52,15 +52,16 @@
   transition: background var(--duration-fast),
               color      var(--duration-fast),
               transform  var(--duration-fast);
-  cursor: pointer;
+  cursor: default;
 }
-.cal-day.avail:hover  { background: rgba(var(--color-primary-rgb), .10); transform: scale(1.08); }
+.cal-day.avail        { background: rgba(var(--color-primary-rgb), .07); font-weight: 500; cursor: pointer; }
+.cal-day.avail:hover  { background: rgba(var(--color-primary-rgb), .15); transform: scale(1.08); box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), .15); }
 .cal-day.selected     { background: linear-gradient(135deg, var(--color-primary-lt), var(--color-primary)) !important; color: #fff !important; }
 .cal-day.today-ring   { outline: 2px solid var(--color-primary); outline-offset: 1px; color: var(--color-primary); font-weight: 600; }
 .cal-day.disabled            { cursor: not-allowed; pointer-events: none; }
 .cal-day.disabled.past       { opacity: .25; }
 .cal-day.disabled.weekend    { opacity: .30; }
-.cal-day.disabled.no-slots   { opacity: .65; background: rgba(166,124,142,.10); }
+.cal-day.disabled.no-slots   { opacity: .40; }
 .dot-no-slots                { width: 4px; height: 4px; border-radius: 50%; background: rgba(166,124,142,.55); margin-top: 2px; }
 .dot-avail            { width: 4px; height: 4px; border-radius: 50%; background: var(--color-primary); margin-top: 2px; }
 .cal-day.animate-pulse { min-height: 2rem; }

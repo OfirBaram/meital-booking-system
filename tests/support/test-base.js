@@ -73,6 +73,16 @@ export const test = base.extend({
     const failed = testInfo.status !== testInfo.expectedStatus
     if (!failed) return
 
+    // Named screenshot: {test-slug}-{unix-ms}.png so artifacts are self-describing.
+    const slug = testInfo.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 50).replace(/-+$/, '')
+    const screenshotPath = testInfo.outputPath(`${slug}-${Date.now()}.png`)
+    try {
+      await page.screenshot({ path: screenshotPath, fullPage: true })
+      await testInfo.attach('screenshot', { path: screenshotPath, contentType: 'image/png' })
+    } catch {
+      // page may already be closed (navigation failure); screenshot is best-effort
+    }
+
     if (pageErrors.length) {
       await testInfo.attach('page-errors.log', {
         body: pageErrors.join('\n\n'),
