@@ -1,27 +1,22 @@
 'use strict';
 
-const CACHE = 'meital-v1';
+const CACHE = 'meital-v2';
 
 // Resolve all precache URLs relative to this SW file so the same code works
 // for root deployment (https://domain.com/sw.js) and GitHub Pages subdirectory
 // (https://user.github.io/repo/frontend/sw.js).
 const _base = new URL('./', self.location.href).href;
 
+// Only precache stable root-level files. Vite-bundled assets (JS/CSS) are
+// hashed and unknown at SW write time — they get lazily cached on first fetch.
 const PRECACHE = [
   _base,
   _base + 'index.html',
   _base + 'admin.html',
+  _base + 'landing.html',
+  _base + 'takanon.html',
+  _base + 'privacy.html',
   _base + 'manifest.json',
-  _base + 'styles/tailwind.css',
-  _base + 'booking.js',
-  _base + 'config.js',
-  _base + 'admin.js',
-  _base + 'admin-render.js',
-  _base + 'admin-calendar.js',
-  _base + 'admin-sheet.js',
-  _base + 'admin-gestures.js',
-  _base + 'meital_profile_header.webp',
-  _base + 'meital_profile_header.png',
   _base + 'favicon.svg',
 ];
 
