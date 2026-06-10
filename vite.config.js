@@ -14,9 +14,11 @@ export default defineConfig({
     assetsInlineLimit: 0,       // keep all assets as separate files — no base64 blobs
     rollupOptions: {
       input: {
-        landing: entry('landing.html'),
-        main:    entry('index.html'),
-        admin:   entry('admin.html'),
+        landing:  entry('landing.html'),
+        main:     entry('index.html'),
+        admin:    entry('admin.html'),
+        takanon:  entry('takanon.html'),
+        privacy:  entry('privacy.html'),
       },
     },
   },
