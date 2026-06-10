@@ -412,6 +412,23 @@
     .gallery-item:hover .gallery-caption { opacity: 1; }
 
     /* ── CONTACT ── */
+
+    /* ── FAQ ── */
+    .faq-list { max-width: 720px; margin: 2.5rem auto 0; display: flex; flex-direction: column; gap: .75rem; }
+    .faq-item { border: 1px solid var(--border); border-radius: 1rem; background: var(--card); overflow: hidden; transition: border-color .2s; }
+    .faq-item[open] { border-color: var(--primary); }
+    .faq-item summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      padding: 1.25rem 1.5rem; cursor: pointer; list-style: none;
+      font-size: .9375rem; font-weight: 600; color: var(--charcoal);
+      user-select: none;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary:hover { color: var(--primary); }
+    .faq-chevron { flex-shrink: 0; width: 1.25rem; height: 1.25rem; color: var(--primary); transition: transform .3s; }
+    .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+    .faq-answer { padding: 0 1.5rem 1.25rem; font-size: .9375rem; line-height: 1.85; color: var(--muted); }
+
     .contact-section {
       background: var(--charcoal); color: #FAF5F0;
       text-align: center; padding: 6rem 1.5rem;
@@ -552,6 +569,8 @@
         <li><a href="#about">אודות</a></li>
         <li><a href="#services">שירותים</a></li>
         <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#faq">שאלות נפוצות</a></li>
+        <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
       </ul>
     </nav>
@@ -682,6 +701,16 @@
       <div class="gallery-grid" id="gallery-grid" role="list">
         <!-- populated by JS from SiteConfig.gallery -->
       </div>
+    </div>
+  </section>
+
+
+  <!-- ── FAQ ── -->
+  <section id="faq" class="section bg-lp" aria-labelledby="faq-heading">
+    <div class="section-inner" style="text-align:center;">
+      <p class="section-label reveal" aria-hidden="true">שאלות נפוצות</p>
+      <h2 class="section-title reveal" id="faq-heading">מה שרצית לדעת</h2>
+      <div class="faq-list" id="faq-list" role="list"></div>
     </div>
   </section>
 
@@ -817,6 +846,31 @@ const SiteConfig = {
     { src: './gallery/nail-06.jpg', alt: "פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד", span2: false },
     { src: './gallery/nail-07.jpg', alt: "לק ג'ל מט ורדרד — מראה עשיר ומודרני",              span2: false },
     { src: './gallery/nail-08.jpg', alt: "לק ג'ל סגול עמוק — אלגנטיות בולדה ועוצמתית",      span2: false },
+  ],
+
+
+  // ── FAQ ─────────────────────────────────────────────────────
+  faq: [
+    {
+      q: "כמה זמן מחזיק לק ג'ל?",
+      a: "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אנחנו עובדות עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר.",
+    },
+    {
+      q: "האם ההסרה פוגעת בציפורן?",
+      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מיטל מבצעים הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
+    },
+    {
+      q: "כמה עולה לק ג'ל ברמת גן?",
+      a: "מחיר לק ג'ל קלאסי מתחיל מ-₪160, ג'ל לרגליים מ-₪200, והסרת ג'ל מ-₪80. ניתן לתאם ולברר מחיר מדויק לפי הטיפול בווטסאפ.",
+    },
+    {
+      q: "האם צריך לקבוע תור מראש?",
+      a: "כן, הסטודיו עובד בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לקבוע תור בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים.",
+    },
+    {
+      q: "איפה הסטודיו ממוקם?",
+      a: "הסטודיו ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze.",
+    },
   ],
 
   // ── COLORS ────────────────────────────────────────────────────
@@ -1117,6 +1171,19 @@ function initNextSlot() {
   }).catch(function() {});
 }
 
+// ── Render FAQ
+function renderFAQ() {
+  var list = document.getElementById('faq-list');
+  if (!list) return;
+  var chevron = '<svg class="faq-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>';
+  list.innerHTML = SiteConfig.faq.map(function(item) {
+    return '<details class="faq-item reveal" role="listitem">' +
+      '<summary>' + item.q + chevron + '</summary>' +
+      '<p class="faq-answer">' + item.a + '</p>' +
+      '</details>';
+  }).join('');
+}
+
 // ── Scroll Reveal
 function initReveal() {
   if (!window.IntersectionObserver) {
@@ -1139,6 +1206,7 @@ document.addEventListener('DOMContentLoaded', function() {
   renderHeroCta();
   renderServices();
   renderGallery();
+  renderFAQ();
   renderContact();
   renderFooter();
   initMobileMenu();
