@@ -29,10 +29,25 @@ Deno.serve(async (req) => {
 
   try {
     const { adminToken } = await req.json()
-    const expected = (Deno.env.get('ADMIN_TOKEN') ?? '').trim()
+    const submitted = String(adminToken ?? '').trim()
+    const expected  = (Deno.env.get('ADMIN_TOKEN') ?? '').trim()
+    const ip        = req.headers.get('x-forwarded-for') ?? 'unknown'
+    const origin    = req.headers.get('origin') ?? 'unknown'
 
-    if (!adminToken || !expected || !timingSafeEqualHex(String(adminToken).trim(), expected)) {
-      console.warn('[admin-sign-in] failed attempt ip=' + (req.headers.get('x-forwarded-for') ?? 'unknown'))
+    if (!submitted) {
+      console.warn(`[admin-sign-in] reject=no_token ip=${ip} origin=${origin}`)
+      return json({ success: false, error: 'unauthorized' }, 403)
+    }
+    if (!expected) {
+      console.error(`[admin-sign-in] reject=secret_not_configured ip=${ip}`)
+      return json({ success: false, error: 'unauthorized' }, 403)
+    }
+    if (submitted.length !== expected.length) {
+      console.warn(`[admin-sign-in] reject=length_mismatch submitted_len=${submitted.length} expected_len=${expected.length} ip=${ip} origin=${origin}`)
+      return json({ success: false, error: 'unauthorized' }, 403)
+    }
+    if (!timingSafeEqualHex(submitted, expected)) {
+      console.warn(`[admin-sign-in] reject=content_mismatch len=${submitted.length} ip=${ip} origin=${origin}`)
       return json({ success: false, error: 'unauthorized' }, 403)
     }
 
@@ -41,7 +56,7 @@ Deno.serve(async (req) => {
 
     const token = await signAdminSession(secret)
     console.log('[admin-sign-in] session issued')
-    return json({ success: true }, 200, { 'Set-Cookie': sessionCookieHeader(token) })
+    return json({ success: true, sessionToken: token }, 200, { 'Set-Cookie': sessionCookieHeader(token) })
   } catch (err) {
     console.error('[admin-sign-in]', err)
     return json({ success: false, error: 'internal_error' }, 500)

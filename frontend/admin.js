@@ -94,15 +94,15 @@ async function apiCall(action, extra = {}) {
 }
 
 async function sbCall(funcName, body) {
+  const _sbHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+  const _stkn   = sessionStorage.getItem('admin_session_tkn');
+  if (_stkn) _sbHdrs['x-admin-session'] = _stkn;
   const r = await fetch(
     APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
     {
       method:      'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
-      },
+      headers:     _sbHdrs,
       body: JSON.stringify(body),
     }
   );
@@ -211,6 +211,7 @@ function logout() {
   S.slotCache = {};
   sessionStorage.removeItem(LS_TOKEN);
   sessionStorage.removeItem(LS_TS);
+  sessionStorage.removeItem('admin_session_tkn');
   // Expire the httpOnly session cookie server-side (fire-and-forget).
   fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/admin-sign-out', {
     method: 'POST', credentials: 'include',
@@ -251,15 +252,19 @@ async function login() {
     if (!signInData.success) throw new Error(signInData.error || 'auth');
 
     // Token stored in sessionStorage ONLY for GAS side-effect calls (apiCall).
-    // NOT used for Supabase function calls — those use the httpOnly cookie.
     sessionStorage.setItem(LS_TOKEN, token);
+    // Session token for x-admin-session header (fallback when Secure cross-site
+    // cookies are blocked by Chrome on http://127.0.0.1 local dev origins).
+    if (signInData.sessionToken) sessionStorage.setItem('admin_session_tkn', signInData.sessionToken);
     sessionStorage.setItem(LS_TS, String(Date.now()));
 
+    const _lbHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+    if (signInData.sessionToken) _lbHdrs['x-admin-session'] = signInData.sessionToken;
     const r = await fetch(
       APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
       {
         method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        headers: _lbHdrs,
         body: '{}',
       }
     );
@@ -286,11 +291,14 @@ async function login() {
 async function load(silent = false) {
   if (!silent) showSkeleton();
   try {
+    const _loadHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+    const _loadTkn = sessionStorage.getItem('admin_session_tkn');
+    if (_loadTkn) _loadHdrs['x-admin-session'] = _loadTkn;
     const r = await fetch(
       APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
       {
         method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        headers: _loadHdrs,
         body: '{}',
       }
     );
@@ -333,7 +341,7 @@ function setTab(tab) {
       active ? 'text-primary' : 'text-text-muted',
     ].join(' ');
   });
-  if (tab === 'pulse')  renderPulse();
+  if (tab === 'pulse') { renderPulse(); loadFlags(); }
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
   if (_tabEl) {
@@ -970,6 +978,85 @@ async function generateSlots_unused() {
 
 
 function loadSystemInfo() { /* superseded by loadReminderConfig */ }
+
+// ── Feature flags ─────────────────────────────────────────────────────────
+
+let _flagsLoaded = false;
+
+async function loadFlags(force) {
+  if (_flagsLoaded && !force) return;
+  try {
+    const data = await sbCall('admin-flags', { action: 'getFlags' });
+    if (!data.success) throw new Error(data.error);
+    _flagsLoaded = true;
+    renderFlags(data.flags || []);
+  } catch (e) {
+    const el = document.getElementById('js-flags-list');
+    if (el) el.innerHTML = '<div class="text-red-400 text-xs">שגיאה בטעינת הגדרות: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderFlags(flags) {
+  const el = document.getElementById('js-flags-list');
+  if (!el) return;
+  if (!flags.length) {
+    el.innerHTML = '<div class="text-text-muted text-xs italic">אין הגדרות</div>';
+    return;
+  }
+  el.innerHTML = flags.map(function(f) {
+    const flagId  = 'flag-' + f.key;
+    const checked = f.enabled ? 'checked' : '';
+    const label   = f.enabled ? 'פעיל' : 'כבוי';
+    const color   = f.enabled ? 'text-green-600' : 'text-gray-400';
+    return (
+      '<div class="flex items-start justify-between gap-3">' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="text-sm font-bold text-text-main leading-tight">' +
+            esc(f.key.replace(/_/g, ' ')) +
+          '</div>' +
+          '<div class="text-[11px] text-text-muted mt-0.5 leading-snug">' + esc(f.description) + '</div>' +
+        '</div>' +
+        '<label class="relative flex items-center gap-2 cursor-pointer select-none shrink-0 mt-0.5" ' +
+               'title="' + esc(f.key) + '">' +
+          '<span id="' + flagId + '-label" class="text-xs font-black ' + color + '">' + label + '</span>' +
+          '<input type="checkbox" id="' + flagId + '" data-flag-key="' + esc(f.key) + '" class="sr-only peer" ' + checked + '>' +
+          '<div class="relative w-14 h-7 bg-gray-200 rounded-full peer ' +
+               'peer-focus:ring-2 peer-focus:ring-primary/30 ' +
+               'peer-checked:bg-green-500 transition-colors duration-300 ' +
+               'after:content-[\'\'] after:absolute after:top-0.5 after:left-0.5 ' +
+               'after:bg-white after:rounded-full after:h-6 after:w-6 ' +
+               'after:transition-all after:shadow-md ' +
+               'peer-checked:after:translate-x-7"></div>' +
+        '</label>' +
+      '</div>'
+    );
+  }).join('<div class="border-t border-secondary/15 my-2"></div>');
+
+  el.querySelectorAll('[data-flag-key]').forEach(function(input) {
+    input.addEventListener('change', function() {
+      toggleFlag(input.dataset.flagKey, input.checked, input);
+    });
+  });
+}
+
+async function toggleFlag(key, enabled, inputEl) {
+  inputEl.disabled = true;
+  const labelEl = document.getElementById('flag-' + key + '-label');
+  try {
+    const data = await sbCall('admin-flags', { action: 'setFlag', key: key, enabled: enabled });
+    if (!data.success) throw new Error(data.error || 'שגיאה');
+    if (labelEl) {
+      labelEl.textContent  = enabled ? 'פעיל' : 'כבוי';
+      labelEl.className    = 'text-xs font-black ' + (enabled ? 'text-green-600' : 'text-gray-400');
+    }
+    toast((enabled ? 'הופעל' : 'כובה') + ': ' + key.replace(/_/g, ' ') + ' ✅', 'ok');
+  } catch (e) {
+    inputEl.checked = !enabled;
+    toast('שגיאה: ' + e.message, 'err');
+  } finally {
+    inputEl.disabled = false;
+  }
+}
 
 function updateReminderPreview() {
   const list = document.getElementById('js-reminder-list');

@@ -272,6 +272,35 @@ Deno.serve(async (req) => {
     }
     console.log('[verify-and-book] step:slot-found slot_id=' + slotId)
 
+    // ── Step 7b: gap safety check (smart scheduling) ───────────────
+    // When the smart_scheduling flag is active, verify the slot still
+    // passes the no-orphan-gap test. Catches the race window between
+    // the calendar render and form submission.
+    const { data: smFlagRow } = await supabase
+      .from('feature_flags')
+      .select('enabled')
+      .eq('key', 'smart_scheduling')
+      .maybeSingle()
+
+    if (smFlagRow?.enabled === true) {
+      const { data: isSafe, error: gapErr } = await supabase
+        .rpc('check_gap_safety', {
+          p_slot_id:      String(slotId),
+          p_duration_min: booking.duration,
+        })
+
+      if (gapErr) {
+        console.error('[verify-and-book] step:gap-check-fail', gapErr.message)
+        throw gapErr
+      }
+
+      if (!isSafe) {
+        console.warn('[verify-and-book] step:gap-safety-fail slot_id=' + slotId)
+        return json({ success: false, error: 'slot_creates_gap' }, 409)
+      }
+      console.log('[verify-and-book] step:gap-safety-ok slot_id=' + slotId)
+    }
+
     // ── Step 8: generate admin token ───────────────────────────────
     const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
     if (!hmacSecret) {

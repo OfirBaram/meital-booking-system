@@ -388,6 +388,18 @@
         <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">הזמנות קרובות</div>
         <div id="pulse-upcoming-list" class="space-y-1 text-sm"></div>
       </div>
+
+      <!-- Feature flags (system settings) -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">הגדרות מערכת</div>
+          <button id="js-flags-refresh" onclick="loadFlags(true)"
+            class="text-xs text-primary font-semibold hover:text-primary-dk active:scale-95 transition-all">רענן</button>
+        </div>
+        <div id="js-flags-list" class="space-y-3">
+          <div class="text-text-muted text-xs animate-pulse">טוען הגדרות...</div>
+        </div>
+      </div>
     </main>
 
     <!-- ── TAB: SMS CENTER (כל ההודעות במערכת) ── -->
