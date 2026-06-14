@@ -20,15 +20,16 @@ echo "Endpoint: ${ENDPOINT}"
 echo ""
 
 # Capture full response headers + status code
-HTTP_CODE=$(curl -s -o /tmp/chat_headers.txt -D /tmp/chat_headers.txt \
-  -w "%{http_code}" \
+# Use mktemp so headers and body never share a file, which caused
+# a silent overwrite bug when -o and -D pointed at the same path.
+TMPHEAD=$(mktemp)
+HTTP_CODE=$(curl -s -D "${TMPHEAD}" -o /dev/null -w "%{http_code}" \
   -X OPTIONS "${ENDPOINT}" \
   -H "Origin: ${ORIGIN}" \
   -H "Access-Control-Request-Method: POST" \
   -H "Access-Control-Request-Headers: content-type,authorization" \
   --max-time 10)
-
-HEADERS=$(cat /tmp/chat_headers.txt 2>/dev/null || echo "")
+HEADERS=$(cat "${TMPHEAD}"); rm -f "${TMPHEAD}"
 
 pass() { echo "  ✓ $1"; }
 fail() { echo "  ✗ $1"; [ -n "${2:-}" ] && echo "    $2"; exit 1; }

@@ -1,9 +1,10 @@
 /**
  * Smoke test — sends one real POST to the deployed chat-handler.
- * Run: deno run --allow-net scripts/smoke/test-chat.js
+ * Run: node --experimental-fetch scripts/smoke/test-chat.js
+ *       (Node 18+: fetch is global; no flag needed in Node 21+)
  *
  * Costs: ~$0.004 (one Haiku call). Run sparingly — not in CI.
- * Timeout: Deno default (no --timeout flag needed; fetch uses the OS default).
+ * Timeout: 10 s per assertion (hard-coded in the latency check below).
  */
 
 const ENDPOINT = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
@@ -14,7 +15,7 @@ function pass(label) { console.log('  ✓ ' + label); }
 function fail(label, detail) {
   console.error('  ✗ ' + label);
   if (detail) console.error('    ' + detail);
-  Deno.exit(1);
+  process.exitCode = 1;
 }
 
 // ── tests ────────────────────────────────────────────────────────────────────
