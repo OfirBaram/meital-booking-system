@@ -578,7 +578,6 @@
         <li><a href="#services">שירותים</a></li>
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
-        <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
       </ul>
     </nav>
@@ -1294,6 +1293,16 @@ document.addEventListener('DOMContentLoaded', function() {
     #chat-bubble{bottom:18px;right:18px}
   }
   #chat-handle{display:none;width:40px;height:4px;background:#DDC3A5;border-radius:2px;margin:10px auto 2px;flex-shrink:0}
+/* ── QUICK-REPLY CHIPS ─────────────────────────────────────── */
+  #chat-chips{display:flex;gap:6px;padding:8px 12px 4px;flex-wrap:wrap;justify-content:flex-end;background:#fff;flex-shrink:0}
+  #chat-chips[hidden]{display:none!important}
+  .cchip{background:#FAF5F0;border:1.5px solid #e8d5c4;color:#A67C8E;border-radius:20px;padding:5px 12px;font-size:.76rem;font-family:Heebo,sans-serif;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap;line-height:1.4}
+  .cchip:hover,.cchip:focus-visible{background:#F3EBF0;border-color:#A67C8E;outline:none}
+  /* ── LINK BUTTONS IN BOT MESSAGES ─────────────────────────── */
+  .clink{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:7px 16px;border-radius:20px;font-size:.8rem;font-weight:600;text-decoration:none;font-family:Heebo,sans-serif;transition:filter .15s}
+  .clink:hover{filter:brightness(.92)}
+  .wa-link{background:#25D366;color:#fff}
+  .ig-link{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff}
 </style>
 
 <div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותנו 💅">
@@ -1313,6 +1322,11 @@ document.addEventListener('DOMContentLoaded', function() {
     <button id="chat-close" aria-label="סגור שיחה">×</button>
   </div>
   <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
+  <div id="chat-chips" role="group" aria-label="שאלות מהירות">
+    <button class="cchip" data-msg="מה הזמנים הפנויים הקרובים?">📅 זמינות</button>
+    <button class="cchip" data-msg="מה המחירים?">💰 מחירון</button>
+    <button class="cchip" data-msg="אפשר לראות דוגמאות עבודה?">📸 גלריה</button>
+  </div>
   <div id="chat-footer">
     <input id="chat-input" type="text" placeholder="שאלי אותי..." autocomplete="off" maxlength="300" dir="auto" />
     <button id="chat-send" aria-label="שלחי הודעה">
@@ -1332,12 +1346,13 @@ document.addEventListener('DOMContentLoaded', function() {
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || "[]"); } catch(e) { hist = []; } }
   function save() { try { localStorage.setItem(LSK, JSON.stringify(hist.slice(-20))); } catch(e) {} }
 
-  // XSS-safe bot message renderer: splits on [BOOK:...] tokens,
-  // uses createTextNode for all other content — innerHTML never touched.
+  // XSS-safe bot message renderer.
+  // Splits on special tokens: [BOOK:...], [WA], [IG].
+  // All other content uses createTextNode — innerHTML never touched.
   function botMsg(wrap, text) {
     var d = document.createElement("div");
     d.className = "cmsg bot"; d.dir = "auto";
-    var parts = text.split(/(\[BOOK:[^\]]+\])/g);
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[WA\]|\[IG\])/g);
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
@@ -1347,6 +1362,20 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = "cbook"; a.dir = "rtl";
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         d.appendChild(a);
+      } else if (p === '[WA]') {
+        d.appendChild(document.createElement("br"));
+        var aw = document.createElement("a");
+        aw.href = "https://wa.me/972547686865"; aw.className = "clink wa-link";
+        aw.target = "_blank"; aw.rel = "noopener noreferrer"; aw.dir = "rtl";
+        aw.textContent = '📲 שלחי לנו בווטסאפ';
+        d.appendChild(aw);
+      } else if (p === '[IG]') {
+        d.appendChild(document.createElement("br"));
+        var ai = document.createElement("a");
+        ai.href = "https://www.instagram.com/meytal.sheva"; ai.className = "clink ig-link";
+        ai.target = "_blank"; ai.rel = "noopener noreferrer"; ai.dir = "rtl";
+        ai.textContent = '📸 ראי את הגלריה שלנו';
+        d.appendChild(ai);
       } else { d.appendChild(document.createTextNode(p)); }
     });
     wrap.appendChild(d); wrap.scrollTop = wrap.scrollHeight;
@@ -1394,6 +1423,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var txt  = inp ? inp.value.trim() : "";
     if (!txt || !wrap) return;
     inp.value = "";
+    var chips = document.getElementById("chat-chips"); if (chips) chips.hidden = true;
     userMsg(wrap, txt);
     hist = sanitizeHist(hist);  // enforce alternation before appending new user message
     hist.push({ role: "user", content: txt }); save();
@@ -1435,6 +1465,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (wrap && wrap.children.length === 0) {
       if (hist.length > 0) {
         hist.forEach(function(m) { m.role === "user" ? userMsg(wrap, m.content) : botMsg(wrap, m.content); });
+        var chipsEl = document.getElementById("chat-chips"); if (chipsEl) chipsEl.hidden = true;
       } else { botMsg(wrap, WELCOME); }
     }
     var i = document.getElementById("chat-input"); if (i) i.focus();
@@ -1459,6 +1490,13 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
     document.addEventListener("keydown", function(e) { if (e.key === "Escape" && isOpen) closePanel(); });
+    document.querySelectorAll(".cchip").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var inp = document.getElementById("chat-input");
+        if (inp) { inp.value = btn.getAttribute("data-msg") || ""; }
+        send();
+      });
+    });
   }
 
   // Lazy init: defer widget setup until after all LCP-critical resources are loaded.
