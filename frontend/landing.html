@@ -471,7 +471,7 @@
     /* ── STICKY BOOK BUTTON ── */
     #sticky-book {
       position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
-      z-index: 100; transition: opacity .3s, transform .3s;
+      z-index: 100; transition: opacity .3s, transform .3s, bottom .2s ease;
       opacity: 0; pointer-events: none;
     }
     #sticky-book.visible { opacity: 1; pointer-events: auto; }
@@ -1137,6 +1137,22 @@ function initStickyBook() {
   new IntersectionObserver(function(entries) {
     btn.classList.toggle('visible', !entries[0].isIntersecting);
   }, { threshold: 0 }).observe(hero);
+
+  var footer = document.querySelector('footer');
+  if (footer) {
+    function adjustStickyBookBottom() {
+      var footerTop = footer.getBoundingClientRect().top;
+      var vh = window.innerHeight;
+      var gap = 24; // matches default bottom: 1.5rem
+      if (footerTop < vh) {
+        btn.style.bottom = (vh - footerTop + gap) + 'px';
+      } else {
+        btn.style.bottom = '';
+      }
+    }
+    window.addEventListener('scroll', adjustStickyBookBottom, { passive: true });
+    window.addEventListener('resize', adjustStickyBookBottom, { passive: true });
+  }
 }
 
 // ── Next available slot teaser
