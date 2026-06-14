@@ -211,6 +211,7 @@ function logout() {
   S.slotCache = {};
   sessionStorage.removeItem(LS_TOKEN);
   sessionStorage.removeItem(LS_TS);
+  sessionStorage.removeItem('admin_session_tkn');
   // Expire the httpOnly session cookie server-side (fire-and-forget).
   fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/admin-sign-out', {
     method: 'POST', credentials: 'include',
@@ -290,11 +291,14 @@ async function login() {
 async function load(silent = false) {
   if (!silent) showSkeleton();
   try {
+    const _loadHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+    const _loadTkn = sessionStorage.getItem('admin_session_tkn');
+    if (_loadTkn) _loadHdrs['x-admin-session'] = _loadTkn;
     const r = await fetch(
       APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
       {
         method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        headers: _loadHdrs,
         body: '{}',
       }
     );
