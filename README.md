@@ -115,3 +115,103 @@ GitHub Pages redeploys automatically on every push to this branch.
 
 The frontend connects to a Google Apps Script web app via `CONFIG.API_BASE` in `booking.js`.  
 See `backend/gas-backend.js` and the [Deployment Checklist](CLAUDE.md#7-deployment-checklist) in `CLAUDE.md` for backend setup.
+﻿
+
+---
+
+## Updating the Bot (AI Assistant)
+
+The chatbot lives in `supabase/functions/chat-handler/`. All business knowledge
+and configuration is separated from the request-handling logic.
+
+### Changing Business Info (hours, services, contact)
+
+1. Open `config/studio.json` at the repo root.
+2. Edit the relevant fields (hours, services, contact details).
+3. Open `supabase/functions/_shared/bot-config.ts` and update the
+   `SYSTEM_PROMPT` constant to match (it is a plain text template — find the
+   `── STUDIO CONTEXT ──` section).
+4. Redeploy the function:
+   ```bash
+   bash scripts/deploy-functions.sh
+   ```
+
+### Changing the Bot's Tone or Rules
+
+Open `supabase/functions/_shared/bot-config.ts` and edit the `SYSTEM_PROMPT`
+constant directly.  
+**Do not move or remove the `SECURITY BOUNDARY` block** — its position at the
+top of the prompt is a security control.
+
+### Enabling Debug Logging
+
+Set the `CHAT_DEBUG` environment variable to `true` in Supabase Edge Function
+secrets.  The bot will then log conversation state and tool I/O to the
+server-side console (never exposed to users).
+
+```bash
+supabase secrets set CHAT_DEBUG=true
+```
+
+---
+
+## Adding a New Bot Skill (Tool)
+
+Tools extend the chatbot with live-data capabilities (e.g. look up a client's
+booking, check a service's price). The architecture uses a **registry pattern**:
+add your tool once and the agentic loop picks it up automatically.
+
+**Steps:**
+
+1. Open `supabase/functions/_shared/bot-config.ts`.
+2. Define your tool:
+   ```typescript
+   interface MyInput extends Record<string, unknown> { someParam: string }
+   interface MyOutput { result: string }
+
+   const myTool: BotTool<MyInput, MyOutput> = {
+     definition: {
+       name: 'my_tool',
+       description: 'What this tool does — be specific for the model.',
+       input_schema: {
+         type: 'object' as const,
+         properties: { someParam: { type: 'string', description: '...' } },
+         required: ['someParam'],
+       },
+     },
+     async execute(input, { supabase }) {
+       // Use supabase client or any Deno-compatible API here
+       return { result: `processed ${input.someParam}` }
+     },
+   }
+   ```
+3. Register it:
+   ```typescript
+   export const TOOL_REGISTRY = new Map<string, BotTool>([
+     ['check_availability', checkAvailabilityTool],
+     ['my_tool',            myTool],           // ← add here
+   ])
+   ```
+4. Mention the tool in `SYSTEM_PROMPT` so the model knows when to use it.
+5. Redeploy: `bash scripts/deploy-functions.sh`
+
+---
+
+## Changing the Branding / Colors
+
+The design system has two layers, both must be updated for a full rebrand:
+
+### Layer 1 — `frontend/styles/tokens.css` (build-time)
+This is the canonical CSS custom-property file used by the booking wizard
+(`index.html`), admin dashboard (`admin.html`), and landing page.
+Edit the `--color-*` and `--surface-*` variables here.
+
+### Layer 2 — `SiteConfig.colors` in `frontend/landing.html` (runtime)
+The landing page injects overrides at page-load via JavaScript. Find the
+`const SiteConfig` block near the bottom of `landing.html` and update the
+`colors: { ... }` object.  The short variable names (`--primary`, `--bg`, etc.)
+are now aliases to `tokens.css` — changing Layer 1 updates the static fallback;
+changing Layer 2 updates the runtime injection.
+
+**To rebrand fully:** update both Layer 1 (`tokens.css`) and Layer 2
+(`SiteConfig.colors`) with the same values.
