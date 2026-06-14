@@ -94,15 +94,15 @@ async function apiCall(action, extra = {}) {
 }
 
 async function sbCall(funcName, body) {
+  const _sbHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+  const _stkn   = sessionStorage.getItem('admin_session_tkn');
+  if (_stkn) _sbHdrs['x-admin-session'] = _stkn;
   const r = await fetch(
     APP_CONFIG.SUPABASE_URL + '/functions/v1/' + funcName,
     {
       method:      'POST',
       credentials: 'include',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY,
-      },
+      headers:     _sbHdrs,
       body: JSON.stringify(body),
     }
   );
@@ -251,15 +251,19 @@ async function login() {
     if (!signInData.success) throw new Error(signInData.error || 'auth');
 
     // Token stored in sessionStorage ONLY for GAS side-effect calls (apiCall).
-    // NOT used for Supabase function calls — those use the httpOnly cookie.
     sessionStorage.setItem(LS_TOKEN, token);
+    // Session token for x-admin-session header (fallback when Secure cross-site
+    // cookies are blocked by Chrome on http://127.0.0.1 local dev origins).
+    if (signInData.sessionToken) sessionStorage.setItem('admin_session_tkn', signInData.sessionToken);
     sessionStorage.setItem(LS_TS, String(Date.now()));
 
+    const _lbHdrs = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY };
+    if (signInData.sessionToken) _lbHdrs['x-admin-session'] = signInData.sessionToken;
     const r = await fetch(
       APP_CONFIG.SUPABASE_URL + '/functions/v1/list-bookings',
       {
         method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
+        headers: _lbHdrs,
         body: '{}',
       }
     );

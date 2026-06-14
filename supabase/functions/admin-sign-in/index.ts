@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const token = await signAdminSession(secret)
     console.log('[admin-sign-in] session issued')
-    return json({ success: true }, 200, { 'Set-Cookie': sessionCookieHeader(token) })
+    return json({ success: true, sessionToken: token }, 200, { 'Set-Cookie': sessionCookieHeader(token) })
   } catch (err) {
     console.error('[admin-sign-in]', err)
     return json({ success: false, error: 'internal_error' }, 500)

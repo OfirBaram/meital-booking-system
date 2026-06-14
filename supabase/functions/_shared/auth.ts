@@ -19,22 +19,36 @@ export async function signAdminSession(secret: string): Promise<string> {
   return expiryHex + '.' + mac
 }
 
-/** Verify the session cookie from a request; return false if absent/expired/tampered. */
-export async function validateAdminSession(req: Request, secret: string): Promise<boolean> {
-  const token = getSessionCookie(req)
-  if (!token || !secret) return false
-
+/** Validate a raw session token string (expiry + HMAC check). */
+async function verifySessionToken(token: string, secret: string): Promise<boolean> {
   const dot = token.indexOf('.')
   if (dot === -1) return false
-
   const expiryHex = token.slice(0, dot)
   const mac       = token.slice(dot + 1)
   const expiry    = parseInt(expiryHex, 16)
-
   if (!Number.isFinite(expiry) || Date.now() > expiry) return false
-
   const expected = await hmacSha256Hex(secret, 'admin_session:' + expiryHex)
   return timingSafeEqualHex(mac, expected)
+}
+
+/**
+ * Validate an admin request via session cookie (primary) or x-admin-session
+ * header (fallback for local HTTP origins where Secure cross-site cookies are
+ * blocked by the browser even though the API is HTTPS).
+ * Both paths validate the same HMAC-signed 24 h token — identical security.
+ */
+export async function validateAdminSession(req: Request, secret: string): Promise<boolean> {
+  if (!secret) return false
+
+  // Primary: httpOnly cookie (works on HTTPS pages, e.g. GitHub Pages)
+  const cookieToken = getSessionCookie(req)
+  if (cookieToken && await verifySessionToken(cookieToken, secret)) return true
+
+  // Fallback: x-admin-session header (local dev — http://127.0.0.1 Chrome blocks Secure cross-site cookies)
+  const headerToken = (req.headers.get('x-admin-session') ?? '').trim()
+  if (headerToken && await verifySessionToken(headerToken, secret)) return true
+
+  return false
 }
 
 /** Extract the admin_session cookie value from a request, or null. */
