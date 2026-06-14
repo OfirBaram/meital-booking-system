@@ -55,12 +55,16 @@ Deno.serve(async (req) => {
 
       if (error) throw error
 
-      supabase.from('audit_log').insert({
-        action:     'set_feature_flag',
-        new_val:    key + '=' + String(enabled),
-        ip:         req.headers.get('x-forwarded-for') ?? 'unknown',
-        user_agent: (req.headers.get('user-agent') ?? '').slice(0, 200),
-      }).catch((e: Error) => console.error('[admin-flags] audit-insert failed', e.message))
+      ;(async () => {
+        try {
+          await supabase.from('audit_log').insert({
+            action:     'set_feature_flag',
+            new_val:    key + '=' + String(enabled),
+            ip:         req.headers.get('x-forwarded-for') ?? 'unknown',
+            user_agent: (req.headers.get('user-agent') ?? '').slice(0, 200),
+          })
+        } catch (e) { console.error('[admin-flags] audit-insert failed', e) }
+      })()
 
       console.log('[admin-flags] setFlag key=' + key + ' enabled=' + String(enabled))
       return json({ success: true, key, enabled })
