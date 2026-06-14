@@ -1,4 +1,4 @@
-﻿import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
+import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { PUBLIC_CORS, SEC_HEADERS } from '../_shared/cors.ts'
 import {
