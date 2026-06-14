@@ -396,6 +396,12 @@ verify_jwt = false
 [functions.send-reminders]
 verify_jwt = false
 
+# AI chatbot — public customer endpoint; anon key is a valid Supabase JWT so
+# verify_jwt = false matches the pattern of all other customer-facing functions
+# and allows local development without needing a pre-signed token.
+[functions.chat-handler]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
