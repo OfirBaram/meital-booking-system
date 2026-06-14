@@ -68,10 +68,10 @@ Deno.serve(async (req) => {
 
     const smartEnabled = flagRow?.enabled === true
 
-    // ── SMART PATH: gap-aware slot filter ──────────────────────
+    // ── SMART PATH: gap-aware slot filter with per-slot logging ──
     if (smartEnabled) {
-      const { data: viable, error: rpcErr } = await supabase
-        .rpc('get_viable_slots', {
+      const { data: explained, error: rpcErr } = await supabase
+        .rpc('explain_viable_slots', {
           p_month_start:  fromUTC,
           p_month_end:    toUTC,
           p_duration_min: durationMin,
@@ -80,12 +80,20 @@ Deno.serve(async (req) => {
       if (rpcErr) throw rpcErr
 
       const slots: Record<string, string[]> = {}
-      for (const row of viable ?? []) {
+      for (const row of explained ?? []) {
         const dateKey = toJerusalemDate(row.slot_start as string)
         if (!dateKey.startsWith(monthPfx)) continue
         const time = toJerusalemTime(row.slot_start as string)
-        if (!slots[dateKey]) slots[dateKey] = []
-        slots[dateKey].push(time)
+        if (row.viable) {
+          if (!slots[dateKey]) slots[dateKey] = []
+          slots[dateKey].push(time)
+        } else {
+          console.log(
+            `[get-slots][smart] REMOVED ${dateKey} ${time}` +
+            ` gap_before=${row.gap_before_min}m gap_after=${row.gap_after_min}m` +
+            ` service=${service || 'default'} duration=${durationMin}m`
+          )
+        }
       }
       return json({ success: true, slots })
     }
