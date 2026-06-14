@@ -81,19 +81,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet" />
 
-  <!-- Compiled Tailwind -->
+  <!-- Design tokens & compiled Tailwind -->
+  <link rel="stylesheet" href="./styles/tokens.css" />
   <link rel="stylesheet" href="./styles/tailwind.css" />
 
   <style>
-    /* ── DESIGN TOKENS (injected from SiteConfig at runtime) ── */
+    /* ── DESIGN TOKENS ────────────────────────────────────────────────────────
+       Layer 1 (build-time): tokens.css defines --color-* and --surface-* vars.
+       The aliases below forward them to the short names used throughout this file.
+       Layer 2 (runtime): SiteConfig.colors overrides these at page-load via
+       document.documentElement.style.setProperty(). To update branding, edit
+       SiteConfig.colors AND frontend/styles/tokens.css for consistency.
+       ──────────────────────────────────────────────────────────────────────── */
     :root {
-      --bg:        #FAF5F0;
-      --card:      #FFFFFF;
+      /* Aliases from tokens.css — change the canonical value there */
+      --bg:        var(--color-cream,    #FAF5F0);
+      --card:      var(--surface-card,   #FFFFFF);
+      --primary:   var(--color-primary,  #A67C8E);
+      --champagne: var(--color-secondary,#DDC3A5);
+      /* No exact token equivalent — defined here only */
       --charcoal:  #2d2b3d;
-      --champagne: #DDC3A5;
       --muted:     #8a7f8e;
       --border:    #e8d5c4;
-      --primary:   #A67C8E;
     }
 
     /* ── BASE ── */
@@ -569,7 +578,6 @@
         <li><a href="#services">שירותים</a></li>
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
-        <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
       </ul>
     </nav>
@@ -952,21 +960,22 @@ function renderSocialStrip(containerId) {
 function renderHeroCta() {
   var el = document.getElementById('hero-cta');
   if (!el) return;
-  var waHref = SiteConfig.social.whatsapp || '#';
-
+  var waHref = SiteConfig.social.whatsapp || 'https://wa.me/972547686865';
   var wa = document.createElement('a');
   wa.className = 'btn-primary';
-  wa.href = sanitize(waHref);
-  wa.setAttribute('rel', 'noopener noreferrer');
-  if (waHref !== '#') wa.setAttribute('target', '_blank');
-  wa.setAttribute('aria-label', 'שלחי לנו הודעה בווטסאפ לתיאום תור');
-  wa.innerHTML = SOCIAL_ICONS.whatsapp + '<span>לתיאום תור</span>';
+  wa.href = waHref;
+  wa.target = '_blank';
+  wa.rel = 'noopener noreferrer';
+  wa.setAttribute('aria-label', 'שלחי לנו ווטסאפ לתיאום תור');
+  wa.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.098.543 4.067 1.49 5.785L0 24l6.386-1.675A11.955 11.955 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22.001c-1.895 0-3.66-.51-5.17-1.396l-.371-.22-3.793.994.994-3.707-.239-.381A10 10 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10.001-10 10.001z"/></svg><span>לתיאום תור בווטסאפ</span>';
   el.appendChild(wa);
 
   var ig = document.createElement('a');
   ig.className = 'btn-outline';
-  ig.href = '#gallery';
-  ig.setAttribute('aria-label', 'צפי בגלריית העבודות שלנו');
+  ig.href = SiteConfig.social.instagram || '#gallery';
+  ig.target = '_blank';
+  ig.rel = 'noopener noreferrer';
+  ig.setAttribute('aria-label', 'צפי בגלריית העבודות שלנו באינסטגרם');
   ig.textContent = 'הגלריה שלנו';
   el.appendChild(ig);
 }
@@ -1289,6 +1298,16 @@ document.addEventListener('DOMContentLoaded', function() {
     #chat-bubble{bottom:18px;right:18px}
   }
   #chat-handle{display:none;width:40px;height:4px;background:#DDC3A5;border-radius:2px;margin:10px auto 2px;flex-shrink:0}
+/* ── QUICK-REPLY CHIPS ─────────────────────────────────────── */
+  #chat-chips{display:flex;gap:6px;padding:8px 12px 4px;flex-wrap:wrap;justify-content:flex-end;background:#fff;flex-shrink:0}
+  #chat-chips[hidden]{display:none!important}
+  .cchip{background:#FAF5F0;border:1.5px solid #e8d5c4;color:#A67C8E;border-radius:20px;padding:5px 12px;font-size:.76rem;font-family:Heebo,sans-serif;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap;line-height:1.4}
+  .cchip:hover,.cchip:focus-visible{background:#F3EBF0;border-color:#A67C8E;outline:none}
+  /* ── LINK BUTTONS IN BOT MESSAGES ─────────────────────────── */
+  .clink{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:7px 16px;border-radius:20px;font-size:.8rem;font-weight:600;text-decoration:none;font-family:Heebo,sans-serif;transition:filter .15s}
+  .clink:hover{filter:brightness(.92)}
+  .wa-link{background:#25D366;color:#fff}
+  .ig-link{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);color:#fff}
 </style>
 
 <div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותנו 💅">
@@ -1308,6 +1327,11 @@ document.addEventListener('DOMContentLoaded', function() {
     <button id="chat-close" aria-label="סגור שיחה">×</button>
   </div>
   <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
+  <div id="chat-chips" role="group" aria-label="שאלות מהירות">
+    <button class="cchip" data-msg="מה הזמנים הפנויים הקרובים?">📅 זמינות</button>
+    <button class="cchip" data-msg="מה המחירים?">💰 מחירון</button>
+    <button class="cchip" data-msg="אפשר לראות דוגמאות עבודה?">📸 גלריה</button>
+  </div>
   <div id="chat-footer">
     <input id="chat-input" type="text" placeholder="שאלי אותי..." autocomplete="off" maxlength="300" dir="auto" />
     <button id="chat-send" aria-label="שלחי הודעה">
@@ -1327,12 +1351,13 @@ document.addEventListener('DOMContentLoaded', function() {
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || "[]"); } catch(e) { hist = []; } }
   function save() { try { localStorage.setItem(LSK, JSON.stringify(hist.slice(-20))); } catch(e) {} }
 
-  // XSS-safe bot message renderer: splits on [BOOK:...] tokens,
-  // uses createTextNode for all other content — innerHTML never touched.
+  // XSS-safe bot message renderer.
+  // Splits on special tokens: [BOOK:...], [WA], [IG].
+  // All other content uses createTextNode — innerHTML never touched.
   function botMsg(wrap, text) {
     var d = document.createElement("div");
     d.className = "cmsg bot"; d.dir = "auto";
-    var parts = text.split(/(\[BOOK:[^\]]+\])/g);
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[WA\]|\[IG\])/g);
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
@@ -1342,6 +1367,20 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = "cbook"; a.dir = "rtl";
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         d.appendChild(a);
+      } else if (p === '[WA]') {
+        d.appendChild(document.createElement("br"));
+        var aw = document.createElement("a");
+        aw.href = "https://wa.me/972547686865"; aw.className = "clink wa-link";
+        aw.target = "_blank"; aw.rel = "noopener noreferrer"; aw.dir = "rtl";
+        aw.textContent = '📲 שלחי לנו בווטסאפ';
+        d.appendChild(aw);
+      } else if (p === '[IG]') {
+        d.appendChild(document.createElement("br"));
+        var ai = document.createElement("a");
+        ai.href = "https://www.instagram.com/meytal.sheva"; ai.className = "clink ig-link";
+        ai.target = "_blank"; ai.rel = "noopener noreferrer"; ai.dir = "rtl";
+        ai.textContent = '📸 ראי את הגלריה שלנו';
+        d.appendChild(ai);
       } else { d.appendChild(document.createTextNode(p)); }
     });
     wrap.appendChild(d); wrap.scrollTop = wrap.scrollHeight;
@@ -1389,6 +1428,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var txt  = inp ? inp.value.trim() : "";
     if (!txt || !wrap) return;
     inp.value = "";
+    var chips = document.getElementById("chat-chips"); if (chips) chips.hidden = true;
     userMsg(wrap, txt);
     hist = sanitizeHist(hist);  // enforce alternation before appending new user message
     hist.push({ role: "user", content: txt }); save();
@@ -1430,6 +1470,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (wrap && wrap.children.length === 0) {
       if (hist.length > 0) {
         hist.forEach(function(m) { m.role === "user" ? userMsg(wrap, m.content) : botMsg(wrap, m.content); });
+        var chipsEl = document.getElementById("chat-chips"); if (chipsEl) chipsEl.hidden = true;
       } else { botMsg(wrap, WELCOME); }
     }
     var i = document.getElementById("chat-input"); if (i) i.focus();
@@ -1454,6 +1495,13 @@ document.addEventListener('DOMContentLoaded', function() {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
     document.addEventListener("keydown", function(e) { if (e.key === "Escape" && isOpen) closePanel(); });
+    document.querySelectorAll(".cchip").forEach(function(btn) {
+      btn.addEventListener("click", function() {
+        var inp = document.getElementById("chat-input");
+        if (inp) { inp.value = btn.getAttribute("data-msg") || ""; }
+        send();
+      });
+    });
   }
 
   // Lazy init: defer widget setup until after all LCP-critical resources are loaded.

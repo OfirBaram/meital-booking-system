@@ -1,0 +1,51 @@
+{
+  "_doc": "Canonical business config for the Meital chatbot. Update here, then redeploy the chat-handler edge function (bash scripts/deploy-functions.sh).",
+  "studio": {
+    "name": "מיטל שבע ברעם — לק ג'ל בוטק",
+    "location": "רחוב רש\"י 11, רמת גן",
+    "locationNotes": "accessible from Tel Aviv, Givatayim, Petah Tikva",
+    "contact": {
+      "whatsapp": "+972547686865",
+      "instagram": "@meytal.sheva"
+    }
+  },
+  "hours": {
+    "open": "08:00",
+    "close": "19:00",
+    "workdays": "Sunday–Thursday",
+    "closed": [
+      "Friday",
+      "Saturday"
+    ]
+  },
+  "services": [
+    {
+      "id": "gel_classic",
+      "name": "לק ג'ל קלאסי",
+      "nameEn": "Classic Gel Nails",
+      "durationMin": 90,
+      "brands": [
+        "Gelish",
+        "OPI",
+        "CND"
+      ]
+    },
+    {
+      "id": "gel_feet",
+      "name": "לק ג'ל לרגליים",
+      "nameEn": "Gel Feet / Pedicure",
+      "durationMin": 120
+    }
+  ],
+  "bot": {
+    "model": "claude-haiku-4-5-20251001",
+    "maxTokens": 600,
+    "maxToolTurns": 3,
+    "maxSlotsToPresent": 3,
+    "defaultAvailabilityWindowDays": 14,
+    "rateLimit": {
+      "maxRequestsPerWindow": 10,
+      "windowMs": 60000
+    }
+  }
+}

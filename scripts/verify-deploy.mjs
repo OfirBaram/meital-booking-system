@@ -79,7 +79,6 @@ function fmt(ms) {
 
 function main() {
   const deployed   = listDeployed();
-  const sharedTime = gitCommitEpoch(SHARED_DIR);
   const funcs      = sourceFunctions();
 
   const drifted = [];
@@ -87,12 +86,14 @@ function main() {
 
   for (const name of funcs) {
     const ownTime = gitCommitEpoch(join(FUNCTIONS_DIR, name));
-    // _shared/ is bundled into a function only if it imports from it, so a
-    // _shared change forces a redeploy of its importers — but not of unrelated
-    // functions (otherwise every function looks drifted on any _shared edit).
-    const entry      = readFileSync(join(FUNCTIONS_DIR, name, 'index.ts'), 'utf8');
-    const usesShared = /_shared\//.test(entry);
-    const sourceTime = usesShared ? Math.max(ownTime, sharedTime) : ownTime;
+    // Track only the specific _shared/ files this function imports, not the whole dir.
+    // This prevents a bot-config.ts change from false-flagging functions that don't use it.
+    const entry = readFileSync(join(FUNCTIONS_DIR, name, 'index.ts'), 'utf8');
+    const sharedImports = [...entry.matchAll(/_shared\/([^\s'"`,]+)/g)]
+      .map(m => join(SHARED_DIR, m[1].replace(/\.ts$/, '') + '.ts'))
+      .filter(p => existsSync(p));
+    const usedSharedTime = sharedImports.reduce((max, p) => Math.max(max, gitCommitEpoch(p)), 0);
+    const sourceTime = Math.max(ownTime, usedSharedTime);
     const live       = deployed.get(name);
 
     let state;
