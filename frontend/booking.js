@@ -1289,6 +1289,42 @@ function init() {
   wireEvents();
   setupModalListeners();
   prefetchSlots();
+  applyURLPreset();
 }
+function applyURLPreset() {
+  var p      = new URLSearchParams(location.search);
+  var svcId  = p.get('service');
+  var date   = p.get('date');
+  var time   = p.get('time');
+  if (!svcId || !date || !time) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return;
+  var svc = SERVICES.find(function(s) { return s.id === svcId; });
+  if (!svc) return;
+  State.service  = svc;
+  State.date     = date;
+  State.time     = time;
+  var parts      = date.split('-').map(Number);
+  State.calMonth = new Date(parts[0], parts[1] - 1, 1);
+  var lbl = document.getElementById('js-step2-service-label');
+  if (lbl) lbl.textContent = svc.name;
+  var summary = document.getElementById('js-step3-summary');
+  if (summary) summary.textContent = svc.icon + ' ' + svc.name + ' · ' + formatDateHe(date) + ' · ' + time;
+  var saved = LS.get('client');
+  if (saved && saved.name && saved.phone) {
+    var banner = document.getElementById('js-returning-banner');
+    if (banner) banner.classList.remove('hidden');
+    var nameEl = document.getElementById('js-returning-name');
+    if (nameEl) nameEl.textContent = saved.name;
+    var inpN = document.getElementById('inp-name');
+    if (inpN) inpN.value = saved.name;
+    var inpP = document.getElementById('inp-phone');
+    if (inpP) inpP.value = saved.phone;
+    State.name  = saved.name;
+    State.phone = saved.phone;
+  }
+  showStep(3);
+  loadMonthSlots(parts[0], parts[1]);
+}
+
 
 document.addEventListener('DOMContentLoaded', init);
