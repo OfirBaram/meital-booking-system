@@ -8,6 +8,7 @@ import {
   DEBUG_MODE,
   debugLog,
 } from '../_shared/bot-config.ts'
+import { checkFaq } from '../_shared/faq-engine.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -105,6 +106,16 @@ Deno.serve(async (req) => {
   if (!messages) return json({ error: 'invalid_messages' }, 400)
 
   debugLog('incoming', { ip, messageCount: messages.length })
+
+  // Early-exit FAQ: return instant response without calling Anthropic
+  const lastMsg = messages[messages.length - 1]
+  if (lastMsg.role === 'user') {
+    const faqReply = checkFaq(lastMsg.content as string)
+    if (faqReply) {
+      debugLog('faq-hit', { query: (lastMsg.content as string).slice(0, 60) })
+      return json({ reply: faqReply })
+    }
+  }
 
   try {
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
