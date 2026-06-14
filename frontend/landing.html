@@ -1361,6 +1361,9 @@ document.addEventListener('DOMContentLoaded', function() {
         out.push(h[i]);
       }
     }
+    // Must end with 'assistant' (or be empty) — send() is about to push a new user message.
+    // Trailing user entries survive page-refresh-during-request; this drops them.
+    if (out.length > 0 && out[out.length - 1].role === 'user') out.pop();
     return out;
   }
 
