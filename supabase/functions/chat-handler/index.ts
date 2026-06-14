@@ -131,8 +131,13 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
   // ── Rate limiting ──
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-           ?? req.headers.get('x-real-ip')
+  // x-real-ip is set by Supabase/Deno infra and cannot be spoofed by the client.
+  // cf-connecting-ip is Cloudflare's guaranteed real IP.
+  // x-forwarded-for LAST value is CDN-appended; the FIRST value is client-controlled.
+  // Taking [0] from x-forwarded-for would allow trivial rate-limit bypass via header spoofing.
+  const ip = req.headers.get('x-real-ip')
+           ?? req.headers.get('cf-connecting-ip')
+           ?? req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim()
            ?? 'unknown'
   maybeCleanup()
   if (!isAllowed(ip)) {
