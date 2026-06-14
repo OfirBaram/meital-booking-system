@@ -1,4 +1,4 @@
-﻿/**
+/**
  * bot-config.ts — Single source of truth for the Meital chatbot.
  *
  * UPDATING THE BOT
