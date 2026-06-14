@@ -1,11 +1,6 @@
-import Anthropic from 'npm:@anthropic-ai/sdk'
+import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { PUBLIC_CORS, SEC_HEADERS } from '../_shared/cors.ts'
 
 const DATE_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' })
 const TIME_FMT = new Intl.DateTimeFormat('en-GB', {
@@ -47,7 +42,7 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         days_ahead: {
           type: 'number',
-          description: 'Days ahead to search. Defaults to 14.',
+          description: 'Days ahead to search (1–60). Defaults to 14.',
         },
       },
       required: [],
@@ -55,28 +50,54 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ]
 
+const CORS_HEADERS = { ...PUBLIC_CORS, ...SEC_HEADERS }
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
 }
 
+// Runtime validation — TypeScript types offer zero protection at runtime.
+// Guards: max 20 messages, string content only, <= 1000 chars each, strict alternation.
+function validateMessages(raw: unknown): Anthropic.MessageParam[] | null {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) return null
+  const out: Anthropic.MessageParam[] = []
+  for (let i = 0; i < raw.length; i++) {
+    const m = raw[i]
+    if (typeof m !== 'object' || m === null) return null
+    const { role, content } = m as Record<string, unknown>
+    if (role !== 'user' && role !== 'assistant') return null
+    if (typeof content !== 'string' || content.length === 0 || content.length > 1000) return null
+    // Strict alternation: even index = user, odd index = assistant
+    if ((i % 2 === 0 && role !== 'user') || (i % 2 === 1 && role !== 'assistant')) return null
+    out.push({ role, content })
+  }
+  return out
+}
+
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
+  let body: unknown
   try {
-    const body = await req.json()
-    const messages: Anthropic.MessageParam[] = body?.messages
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return json({ error: 'messages_required' }, 400)
-    }
+    body = await req.json()
+  } catch {
+    return json({ error: 'invalid_json' }, 400)
+  }
 
+  const messages = validateMessages((body as Record<string, unknown>)?.messages)
+  if (!messages) return json({ error: 'invalid_messages' }, 400)
+
+  try {
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
-    const supabase  = createClient(
+
+    // Use anon key — read-only, RLS-enforced. Service role is not needed here.
+    const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
     )
 
     const history = [...messages]
@@ -102,10 +123,12 @@ Deno.serve(async (req) => {
         history.push({ role: 'assistant', content: resp.content })
 
         if (toolBlock.name === 'check_availability') {
-          const daysAhead = ((toolBlock.input as Record<string, unknown>).days_ahead as number) ?? 14
-          const now     = new Date()
-          const fromUTC = new Date(now.getTime() - 3 * 3_600_000).toISOString()
-          const toUTC   = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
+          // Clamp days_ahead to prevent timestamp abuse and runaway queries
+          const raw       = (toolBlock.input as Record<string, unknown>).days_ahead
+          const daysAhead = Math.min(Math.max(1, Number(raw) || 14), 60)
+          const now       = new Date()
+          const fromUTC   = new Date(now.getTime() - 3 * 3_600_000).toISOString()
+          const toUTC     = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
 
           const { data, error } = await supabase
             .from('slots')
@@ -117,9 +140,9 @@ Deno.serve(async (req) => {
             .order('start_time')
             .limit(15)
 
-          const slots = error
+          const slots = (error || !data)
             ? []
-            : (data ?? []).map(row => ({
+            : data.map(row => ({
                 date: DATE_FMT.format(new Date(row.start_time as string)),
                 time: TIME_FMT.format(new Date(row.start_time as string)),
               }))
@@ -136,8 +159,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Safeguard: if the loop exhausted turns without producing a reply,
+    // return a friendly fallback rather than an empty string.
+    if (!finalText) {
+      finalText = 'מצטערת, לא הצלחתי לסיים את התשובה. אפשר לנסות שוב או לפנות בווטסאפ 📲'
+    }
+
     return json({ reply: finalText })
   } catch (err) {
+    // Log full error server-side (visible only in Supabase Logs), never leak to client
     console.error('[chat-handler]', err)
     return json({ error: 'internal_error' }, 500)
   }

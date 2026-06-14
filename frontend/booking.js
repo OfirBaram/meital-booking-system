@@ -1297,6 +1297,7 @@ function applyURLPreset() {
   var date   = p.get('date');
   var time   = p.get('time');
   if (!svcId || !date || !time) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return;
   var svc = SERVICES.find(function(s) { return s.id === svcId; });
   if (!svc) return;
   State.service  = svc;
