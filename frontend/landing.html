@@ -1231,6 +1231,162 @@ document.addEventListener('DOMContentLoaded', function() {
   </a>
 </div>
 
+
+<!-- ── AI CHATBOT WIDGET ─────────────────────────────────── -->
+<style>
+  #chat-bubble{position:fixed;bottom:20px;right:20px;width:56px;height:56px;background:#A67C8E;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 20px rgba(166,124,142,.5);z-index:1001;border:none;transition:transform .2s,box-shadow .2s}
+  #chat-bubble:hover,#chat-bubble:focus-visible{transform:scale(1.08);box-shadow:0 6px 28px rgba(166,124,142,.65);outline:2px solid #FAF5F0;outline-offset:2px}
+  #chat-panel{position:fixed;bottom:90px;right:20px;width:360px;max-width:calc(100vw - 32px);height:480px;max-height:calc(100dvh - 110px);background:#FAF5F0;border-radius:20px;box-shadow:0 12px 48px rgba(45,43,61,.2);z-index:1002;display:flex;flex-direction:column;overflow:hidden;font-family:Heebo,sans-serif;transform-origin:bottom right}
+  #chat-panel[hidden]{display:none!important}
+  #chat-panel.chat-in{animation:chatIn .22s cubic-bezier(.34,1.56,.64,1) forwards}
+  @keyframes chatIn{from{opacity:0;transform:scale(.85) translateY(16px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  #chat-header{background:#A67C8E;color:#fff;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+  #chat-title{display:flex;align-items:center;gap:10px}
+  #chat-avatar{width:36px;height:36px;background:rgba(255,255,255,.25);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.95rem;font-weight:700}
+  #chat-name{font-weight:700;font-size:.93rem}
+  #chat-status{font-size:.7rem;opacity:.82}
+  #chat-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:background .15s}
+  #chat-close:hover{background:rgba(255,255,255,.38)}
+  #chat-messages{flex:1;overflow-y:auto;padding:14px 14px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+  .cmsg{max-width:84%;padding:10px 13px;border-radius:16px;font-size:.875rem;line-height:1.58;word-break:break-word}
+  .cmsg.bot{background:#fff;color:#2d2b3d;align-self:flex-start;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.07);white-space:pre-wrap}
+  .cmsg.user{background:#A67C8E;color:#fff;align-self:flex-end;border-bottom-right-radius:4px;white-space:pre-wrap}
+  .cmsg.typing{background:#fff;color:#8a7f8e;align-self:flex-start;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  .cbook{display:inline-flex;align-items:center;gap:6px;margin-top:7px;background:#A67C8E;color:#fff!important;text-decoration:none;padding:8px 16px;border-radius:20px;font-size:.8rem;font-weight:600;font-family:Heebo,sans-serif;transition:background .15s,transform .1s}
+  .cbook:hover{background:#8d677a;transform:translateY(-1px)}
+  #chat-footer{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e8d5c4;background:#fff;flex-shrink:0}
+  #chat-input{flex:1;border:1.5px solid #e8d5c4;border-radius:20px;padding:9px 13px;font-size:.875rem;font-family:Heebo,sans-serif;background:#FAF5F0;color:#2d2b3d;outline:none;transition:border-color .15s}
+  #chat-input:focus{border-color:#A67C8E}
+  #chat-send{width:40px;height:40px;background:#A67C8E;color:#fff;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,transform .1s}
+  #chat-send:hover{background:#8d677a;transform:scale(1.05)}
+  #chat-send:disabled{background:#DDC3A5;cursor:not-allowed;transform:none}
+  @media(max-width:420px){#chat-panel{right:0;left:0;bottom:0;width:100%;max-width:100%;border-radius:20px 20px 0 0;height:72dvh;max-height:72dvh}#chat-bubble{bottom:18px;right:16px}}
+</style>
+
+<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה" title="שאלי אותנו 💅">
+  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+</div>
+
+<div id="chat-panel" role="dialog" aria-modal="true" aria-label="צאט מיטל בוטיק" hidden>
+  <div id="chat-header">
+    <div id="chat-title">
+      <div id="chat-avatar">מ</div>
+      <div><div id="chat-name">מיטל בוטיק</div><div id="chat-status">מענה מהיר ✨</div></div>
+    </div>
+    <button id="chat-close" aria-label="סגור">×</button>
+  </div>
+  <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
+  <div id="chat-footer">
+    <input id="chat-input" type="text" placeholder="שאלי אותי..." autocomplete="off" maxlength="300" dir="auto" />
+    <button id="chat-send" aria-label="שלחי">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var EP  = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
+  var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
+  var LSK = 'meital_chat_h';
+  var WELCOME = 'שלום! אני העוזרת של מיטל בוטיק 💅\nשמחה לענות על שאלות לגבי שירותים, זמינות ואיך מגיעים.\nבמה אוכל לעזור?';
+  var hist = [], isOpen = false;
+  function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || "[]"); } catch(e) { hist = []; } }
+  function save() { try { localStorage.setItem(LSK, JSON.stringify(hist.slice(-20))); } catch(e) {} }
+  // XSS-safe: splits on [BOOK:...] tokens, text nodes everywhere else
+  function botMsg(wrap, text) {
+    var d = document.createElement("div");
+    d.className = "cmsg bot"; d.dir = "auto";
+    var parts = text.split(/(\[BOOK:[^\]]+\])/g);
+    parts.forEach(function(p) {
+      var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
+      if (m) {
+        var url = "./index.html?date=" + encodeURIComponent(m[1]) + "&time=" + encodeURIComponent(m[2]) + "&service=" + encodeURIComponent(m[3]);
+        d.appendChild(document.createElement("br"));
+        var a = document.createElement("a");
+        a.href = url; a.className = "cbook";
+        a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
+        d.appendChild(a);
+      } else { d.appendChild(document.createTextNode(p)); }
+    });
+    wrap.appendChild(d); wrap.scrollTop = wrap.scrollHeight;
+  }
+  function userMsg(wrap, text) {
+    var d = document.createElement("div");
+    d.className = "cmsg user"; d.dir = "auto"; d.textContent = text;
+    wrap.appendChild(d); wrap.scrollTop = wrap.scrollHeight;
+  }
+  function setUI(busy) {
+    ["chat-input","chat-send"].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.disabled = busy;
+    });
+  }
+  function send() {
+    var inp = document.getElementById("chat-input");
+    var wrap = document.getElementById("chat-messages");
+    var txt = inp ? inp.value.trim() : "";
+    if (!txt || !wrap) return;
+    inp.value = "";
+    userMsg(wrap, txt);
+    hist.push({ role: "user", content: txt }); save();
+    setUI(true);
+    var t = document.createElement("div");
+    t.className = "cmsg typing"; t.textContent = "...";
+    wrap.appendChild(t); wrap.scrollTop = wrap.scrollHeight;
+    fetch(EP, { method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + KEY },
+      body: JSON.stringify({ messages: hist }) })
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        t.remove();
+        var rep = (d && d.reply) || 'מצטערת, נתקלתי בתקלה. ניתן לפנות בווטסאפ 📲';
+        botMsg(wrap, rep);
+        hist.push({ role: "assistant", content: rep }); save();
+      })
+      .catch(function() {
+        t.remove();
+        botMsg(wrap, 'מצטערת, לא הצלחתי להתחבר. ווטסאפ: +972547686865 📲');
+      })
+      .finally(function() { setUI(false); var i = document.getElementById("chat-input"); if (i) i.focus(); });
+  }
+  function openPanel() {
+    if (isOpen) return; isOpen = true;
+    var panel = document.getElementById("chat-panel");
+    var wrap  = document.getElementById("chat-messages");
+    panel.hidden = false;
+    panel.classList.add("chat-in");
+    setTimeout(function() { panel.classList.remove("chat-in"); }, 300);
+    if (wrap && wrap.children.length === 0) {
+      if (hist.length > 0) {
+        hist.forEach(function(m) {
+          if (m.role === "user") userMsg(wrap, m.content); else botMsg(wrap, m.content);
+        });
+      } else { botMsg(wrap, WELCOME); }
+    }
+    var i = document.getElementById("chat-input"); if (i) i.focus();
+  }
+  function closePanel() {
+    if (!isOpen) return; isOpen = false;
+    var p = document.getElementById("chat-panel"); if (p) p.hidden = true;
+    var b = document.getElementById("chat-bubble"); if (b) b.focus();
+  }
+  function init() {
+    load();
+    var bubble = document.getElementById("chat-bubble");
+    bubble.addEventListener("click", openPanel);
+    bubble.addEventListener("keydown", function(e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPanel(); }
+    });
+    document.getElementById("chat-close").addEventListener("click", closePanel);
+    document.getElementById("chat-send").addEventListener("click", send);
+    document.getElementById("chat-input").addEventListener("keydown", function(e) {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    document.addEventListener("keydown", function(e) { if (e.key === "Escape" && isOpen) closePanel(); });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
+}());
+</script>
 <script type="module" src="./landing-analytics.js"></script>
 </body>
 </html>
