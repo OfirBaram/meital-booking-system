@@ -81,19 +81,28 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet" />
 
-  <!-- Compiled Tailwind -->
+  <!-- Design tokens & compiled Tailwind -->
+  <link rel="stylesheet" href="./styles/tokens.css" />
   <link rel="stylesheet" href="./styles/tailwind.css" />
 
   <style>
-    /* ── DESIGN TOKENS (injected from SiteConfig at runtime) ── */
+    /* ── DESIGN TOKENS ────────────────────────────────────────────────────────
+       Layer 1 (build-time): tokens.css defines --color-* and --surface-* vars.
+       The aliases below forward them to the short names used throughout this file.
+       Layer 2 (runtime): SiteConfig.colors overrides these at page-load via
+       document.documentElement.style.setProperty(). To update branding, edit
+       SiteConfig.colors AND frontend/styles/tokens.css for consistency.
+       ──────────────────────────────────────────────────────────────────────── */
     :root {
-      --bg:        #FAF5F0;
-      --card:      #FFFFFF;
+      /* Aliases from tokens.css — change the canonical value there */
+      --bg:        var(--color-cream,    #FAF5F0);
+      --card:      var(--surface-card,   #FFFFFF);
+      --primary:   var(--color-primary,  #A67C8E);
+      --champagne: var(--color-secondary,#DDC3A5);
+      /* No exact token equivalent — defined here only */
       --charcoal:  #2d2b3d;
-      --champagne: #DDC3A5;
       --muted:     #8a7f8e;
       --border:    #e8d5c4;
-      --primary:   #A67C8E;
     }
 
     /* ── BASE ── */
@@ -952,15 +961,11 @@ function renderSocialStrip(containerId) {
 function renderHeroCta() {
   var el = document.getElementById('hero-cta');
   if (!el) return;
-  var waHref = SiteConfig.social.whatsapp || '#';
-
   var wa = document.createElement('a');
   wa.className = 'btn-primary';
-  wa.href = sanitize(waHref);
-  wa.setAttribute('rel', 'noopener noreferrer');
-  if (waHref !== '#') wa.setAttribute('target', '_blank');
-  wa.setAttribute('aria-label', 'שלחי לנו הודעה בווטסאפ לתיאום תור');
-  wa.innerHTML = SOCIAL_ICONS.whatsapp + '<span>לתיאום תור</span>';
+  wa.href = './index.html';
+  wa.setAttribute('aria-label', 'מעבר לקביעת תור אונליין');
+  wa.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>לתיאום תור</span>';
   el.appendChild(wa);
 
   var ig = document.createElement('a');
