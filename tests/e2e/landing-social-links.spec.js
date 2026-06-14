@@ -4,7 +4,7 @@
  * Six locations tested:
  *   1. #header-social-strip  — desktop nav bar (hidden on mobile via CSS)
  *   2. #mobile-social-strip  — mobile menu drawer (visible after menu-btn click)
- *   3. #hero-cta .btn-primary — hero WhatsApp CTA
+ *   3. #hero-cta .btn-primary — hero Booking CTA (wizard); .btn-outline — WhatsApp secondary
  *   4. #contact-wa-btn .btn-wa — contact section WhatsApp CTA
  *   5. #contact-social        — contact section social strip (all 5 icons)
  *   6. #footer-social         — footer social strip (all 5 icons)
@@ -63,29 +63,36 @@ test.describe('Mobile menu social strip (#mobile-social-strip)', () => {
   }
 })
 
-// 3. HERO WhatsApp CTA
-test.describe('Hero WhatsApp CTA (#hero-cta .btn-primary)', () => {
+// 3. HERO Booking CTA (primary) + WhatsApp CTA (secondary)
+test.describe('Hero Booking CTA (#hero-cta .btn-primary)', () => {
   test.beforeEach(async ({ page }) => { await page.goto('/landing.html') })
 
-  test('links to WhatsApp number', async ({ page }) => {
+  test('primary CTA links to booking wizard (index.html)', async ({ page }) => {
     const btn = page.locator('#hero-cta a.btn-primary')
     await expect(btn).toBeVisible()
-    await expect(btn).toHaveAttribute('href', WA_HREF)
+    const href = await btn.getAttribute('href')
+    expect(href).toMatch(/index\.html/)
   })
 
-  test('opens in new tab with rel=noopener', async ({ page }) => {
-    await assertExternalAttrs(page.locator('#hero-cta a.btn-primary'))
+  test('primary CTA does NOT open in new tab (same-site navigation)', async ({ page }) => {
+    const btn = page.locator('#hero-cta a.btn-primary')
+    const target = await btn.getAttribute('target')
+    expect(target ?? '').not.toBe('_blank')
   })
 
-  test('has accessible aria-label mentioning WhatsApp', async ({ page }) => {
+  test('primary CTA has accessible aria-label for booking', async ({ page }) => {
     const label = await page.locator('#hero-cta a.btn-primary').getAttribute('aria-label')
     expect(label?.length).toBeGreaterThan(0)
-    expect(label).toContain('ווטסאפ')
   })
 
-  test('href includes pre-filled message text', async ({ page }) => {
-    const href = await page.locator('#hero-cta a.btn-primary').getAttribute('href')
-    expect(href, 'Hero WhatsApp CTA is missing ?text= pre-fill').toContain('?text=')
+  test('secondary CTA (btn-outline) links to WhatsApp', async ({ page }) => {
+    const wa = page.locator('#hero-cta a.btn-outline')
+    await expect(wa).toBeVisible()
+    await expect(wa).toHaveAttribute('href', WA_HREF)
+  })
+
+  test('secondary CTA (btn-outline) opens in new tab with rel=noopener', async ({ page }) => {
+    await assertExternalAttrs(page.locator('#hero-cta a.btn-outline'))
   })
 })
 
