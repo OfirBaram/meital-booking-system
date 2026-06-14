@@ -5,6 +5,7 @@ const ADMIN_ORIGINS = new Set([
   'https://ofirbaram.github.io',
   'http://127.0.0.1:5500',
   'http://localhost:5500',
+  'http://localhost:4173',   // Playwright / npx serve dev server
 ])
 
 /** Primary origin (used as fallback when request has no Origin header). */
