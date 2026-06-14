@@ -1,4 +1,4 @@
-# ✅ מצב מערכת — פרודקשן חי (עודכן 2026-06-06)
+# ✅ מצב מערכת — פרודקשן חי (עודכן 2026-06-15)
 
 ## 🌐 Domain / URL
 - **Landing page (GitHub Pages):** `https://ofirbaram.github.io/meital-booking-system/`
@@ -16,8 +16,20 @@
 
 ### ✅ Phase 6 הושלם (2026-06-04)
 - GAS deployed @80 — auto-block + past-slot filter בתוקף. `Main.js` מסונכרן עם `gas-backend.js`.
-- כל 12 Supabase Edge Functions פרוסות ומסונכרנות (`npm run verify:deploy` ירוק).
+- כל 19 Supabase Edge Functions פרוסות ומסונכרנות (`bash scripts/deploy-functions.sh`).
 - בדיקת קצה-לקצה חיה עברה — OTP → אישור → SMS ללקוח ✓
+
+### ✅ Phase 7 הושלם — Smart Scheduling + Admin Auth (2026-06-15) — PR #80
+- **Smart Scheduling** (feature flag `smart_scheduling`, ברירת מחדל OFF):
+  - SQL: `get_viable_slots()`, `explain_viable_slots()`, `check_gap_safety()` — מסנן חריצים שיוצרים פערים לא שמישים (< 90 דק').
+  - `get-slots` Edge Function: נתיב חכם קורא ל-RPC ומלוגג כל חריץ שסונן.
+  - `verify-and-book`: מפעיל `check_gap_safety()` לפני נעילת החריץ.
+  - הדלקה: Admin Console → Pulse → הגדרות מערכת → toggle. ללא redeployment.
+- **Admin Auth Hardening**:
+  - Session tokens: `<expiryHex>.<HMAC-SHA256>`, TTL 24 שעות.
+  - Dual-mode auth: Cookie HttpOnly (פרודקשן) + header `x-admin-session` (dev מקומי).
+  - `admin-flags` Edge Function חדשה: `getFlags` / `setFlag` + audit log.
+  - `load()` ו-`sbCall()` ב-admin.js שולחים את ה-header; logout מנקה sessionStorage.
 
 > מיגרציית Supabase: Phases 1-4 הושלמו (2026-05-23). ה-DB החי הוא Supabase. **SMS ללקוח/אדמין נשלח כעת מ-Supabase Edge Functions** (`change-status`, `admin-action`, `verify-and-book`) — לא מ-GAS (ה-GAS side-effect קרא את ה-Sheet הריק ולכן ה-SMS לא נשלח). GAS נשאר ל-Calendar בלבד. פריסה: `bash scripts/deploy-functions.sh`.
 
@@ -60,6 +72,19 @@
 
 > **סטטוס casing (חשוב):** SLOT = lowercase (available); BOOKING = Capitalized (Pending). ערבוב שובר את ה-UI בשקט. ב-mocks של slot E2E השתמש ב-lowercase.
 
+### Supabase Live DB Tables (הטבלאות האמיתיות בפרודקשן)
+| טבלה | תיאור |
+|---|---|
+| `slots` | `id BIGSERIAL, start_time TIMESTAMPTZ, end_time TIMESTAMPTZ, status TEXT, last_updated TIMESTAMPTZ`. `end_time` = חלון מלא (טיפול + buffer 30 דק'). |
+| `appointments` | `id UUID, client_id UUID, slot_id BIGINT, treatment_type, treatment_name, duration_min INT, status TEXT, admin_token, calendar_event_id`. |
+| `clients` | פרטי לקוח (phone כ-PK פונקציונלי). |
+| `feature_flags` | `key TEXT PK, enabled BOOLEAN, description TEXT, updated_at TIMESTAMPTZ`. RLS: service_role בלבד. |
+| `audit_log` | Append-only — `action, booking_id, slot_id, prev_val, new_val, ip, user_agent, meta`. |
+| `communication_logs` | לוג SMS/WhatsApp. |
+| `otp_requests` | OTP tracking. |
+
+> **effective_end — כלל קריטי:** `slots.end_time` = הזמן המלא הנחסם (טיפול + 30 דק' buffer). **לעולם אל תשתמש ב-`appointments.duration_min` לחישוב left_wall/right_wall** — זה רק אורך הטיפול, blind spot של 30 דק'.
+
 ## 5. Dev Guidelines
 Mobile-First, JS מודולרי, feature-branch workflow (אין commit ישיר ל-main), תיעוד מתמשך בקובץ זה.
 
@@ -81,8 +106,21 @@ Mobile-First, JS מודולרי, feature-branch workflow (אין commit ישיר
 - `createBackupSnapshot()` — טאב _Backup_YYYYMMDD_HHmm עם עותק של Weekly_Slots+Bookings_Log (action createBackup).
 
 ## 9. Admin Dashboard (admin.html/admin.js)
-ניווט תחתון 3 טאבים: **הזמנות** (ניהול + daily planner), **דופק עסקי** (4 KPI tiles, התפלגות שירותים, 8 הזמנות קרובות, כרטיס בדיקת תקינות), **ניהול זמנים** (Weekly Template editor, Generate Slots לטווח תאריכים, Vacation Override/blockDates, כרטיס תזכורות יומיות).
-Actions אדמין (כולן דורשות ADMIN_TOKEN): getTemplate, saveTemplate, generateSlots, blockDates, sendReminders, getSystemInfo, healthCheck, createBackup.
+ניווט תחתון — **הזמנות**, **לוח שנה**, **דופק עסקי**, **יומן**, **לקוחות**.
+
+**טאב דופק עסקי**: 4 KPI tiles, התפלגות שירותים, 8 הזמנות קרובות, כרטיס בדיקת תקינות, **כרטיס הגדרות מערכת (feature flags)**:
+- `loadFlags()` → `admin-flags` Edge Function (action: `getFlags`).
+- `toggleFlag(key, enabled)` → `admin-flags` (action: `setFlag`) — מעדכן DB + audit log.
+- אלמנטים: `#js-flags-list`, `#js-flags-refresh`.
+
+**Admin Auth (admin.js)**:
+- Login → `admin-sign-in` → `{ success, sessionToken }` + HttpOnly cookie.
+- `sessionStorage.setItem('admin_session_tkn', token)` — fallback לסביבות שחוסמות cookies.
+- `sbCall(funcName, body)` — שולח `x-admin-session` header בכל קריאת Supabase.
+- `load()` (auto-refresh 60 שניות) — גם שולח `x-admin-session`; logout מנקה `admin_session_tkn`.
+
+Actions Supabase Edge Functions (דורשות session): list-bookings, change-status, admin-action, admin-slots, admin-clients, admin-flags, send-reminders, sms-log, twilio-stats.
+Actions GAS (דורשות ADMIN_TOKEN): getTemplate, saveTemplate, generateSlots, blockDates, getSystemInfo, healthCheck, createBackup.
 
 ## 10. Quota Baseline
 Twilio **Paid (pay-as-you-go)** — אין תקרת trial. מחזור הזמנה מלא = 3 SMS + תזכורת = 4. GAS: UrlFetch 20k/יום, ריצה 6 דק', 20 triggers.
@@ -112,6 +150,19 @@ $PYTHON skills/utils/ai_tools.py patch frontend/booking.js --old "old string" --
 או inline דרך `patch_file(path, old, new)` / `verify_contains(path, snippet)` מ-`skills/utils/ai_tools.py`.
 - **לעולם לא** PowerShell לכתיבת קבצים (EPERM אקראי).
 - **לעולם לא** `sed -i` ל-patch רב-שורתי של JS (backticks/template literals נשברים).
+
+### Supabase Deno `.catch()` Hazard — חובה
+`PostgrestBuilder` (תוצר של `supabase.from(...).insert(...)`) הוא thenable אבל **לא** Promise מלא בDeno — אין `.catch()`. קריאה ל-`.catch()` זורקת `TypeError: ... is not a function` → HTTP 500.
+```typescript
+// BAD — זורק 500 בDeno:
+supabase.from('audit_log').insert({...}).catch(e => console.error(e))
+
+// GOOD — async IIFE fire-and-forget:
+;(async () => {
+  try { await supabase.from('audit_log').insert({...}) }
+  catch (e) { console.error('[fn] insert failed', e) }
+})()
+```
 
 ## 13. GAS Date Reading Rule — חובה
 **לעולם לא** `getValues()` לעמודות זמן/תאריך (גורם ל-1899 epoch bug). **תמיד** `getDisplayValues()` + regex `/\d{2}:\d{2}/`. (ה-1899 bug תוקן 2026-05-21 כך.)
@@ -176,6 +227,63 @@ QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService 
 
 ---
 
+# 21. Smart Scheduling — לוגיקה ומבנה
+
+### Feature Flag
+- `feature_flags` table: `key='smart_scheduling'`, `enabled=false` (ברירת מחדל — בטוח).
+- הדלקה/כיבוי: Admin Console → Pulse → הגדרות מערכת → toggle. אפקט מידי, ללא deploy.
+- Migrations: `20260614000000_feature_flags.sql`, `20260614000001_get_viable_slots.sql`, `20260615000000_fix_viable_slots_and_explain.sql`.
+
+### אלגוריתם (לכל חריץ זמין S, שירות משך D דק'):
+```
+left_wall      = slots.end_time של הטיפול התפוס הקודם (או תחילת היום)
+treatment_end  = S.start_time + D
+right_wall     = slots.start_time של הטיפול התפוס הבא (או סוף היום)
+
+gap_before = S.start_time - left_wall
+gap_after  = right_wall   - treatment_end
+
+REJECT S if: 0 < gap_before < 90 min
+          OR 0 < gap_after  < 90 min
+```
+פער == 0 (בסמוך לחומה) → מותר. פער >= 90 → שירות נוסף יכול להיכנס → מותר.
+
+### SQL Functions (supabase/migrations/)
+| פונקציה | שימוש |
+|---|---|
+| `get_viable_slots(start, end, duration_min)` | `get-slots` smart path — מחזיר slot_starts תקינות |
+| `check_gap_safety(slot_id, duration_min)` | `verify-and-book` guard לפני נעילת חריץ |
+| `explain_viable_slots(start, end, duration_min)` | מחזיר כל חריץ עם `(viable, gap_before_min, gap_after_min)` ל-logging |
+
+### Buffer Rule — קריטי
+`effective_end` של חריץ תפוס = `slots.end_time` (כולל 30 דק' buffer). **לעולם לא** `appointments.duration_min` — blind spot של 30 דק'.
+
+### Logging (כשהדגל פעיל)
+```
+[get-slots][smart] REMOVED 2026-07-05 11:30 gap_before=30m gap_after=90m service=gel_classic duration=90m
+```
+
+---
+
+# 22. Admin Session Auth
+
+### Token Format
+`<expiryHex>.<hmacHex>` — `expiryHex=(Date.now()+86400000).toString(16)`, HMAC-SHA256 of `"admin_session:"+expiryHex`, TTL 24h.
+
+### Dual-Mode Auth (`_shared/auth.ts → validateAdminSession`)
+1. **Cookie** `admin_session`: `HttpOnly; Secure; SameSite=None; Max-Age=86400` — פרודקשן HTTPS.
+2. **Header** `x-admin-session` — fallback; Chrome חוסם cookies Secure מ-`http://127.0.0.1`. אחד מהם מספיק.
+
+### admin.js
+- `sbCall(fn, body)` — תמיד שולח `x-admin-session` מ-`sessionStorage.getItem('admin_session_tkn')`.
+- `load()` (60-second auto-refresh) — גם שולח; היה root cause של logout כל 60 שניות.
+- `logout()` — מנקה `LS_TOKEN`, `LS_TS`, **ו-`admin_session_tkn`** מ-sessionStorage + קורא `admin-sign-out`.
+
+### CORS (`_shared/cors.ts → adminCors`)
+Echo-back origin (לא `*`) — נדרש עבור `credentials: 'include'`. `ADMIN_ORIGINS` Set: GitHub Pages, `localhost:5500`, `localhost:4173`, `127.0.0.1:5500`.
+
+---
+
 # 20. Changelog (תמצית — הפרטים המלאים ב-git history)
 
 | גרסה | תאריך | תקציר |
@@ -198,4 +306,5 @@ QA ללא bypass: השתמש ב-`IS_TEST_MODE = true` — CalService/SmsService 
 | v1.8.0 | 06-04 | Customer calendar — slot-count badges, duration hints on time chips, swipe navigation, next-available shortcut |
 | v1.9.0 | 06-04 | Admin calendar — month summary bar, next-pending jump button, swipe navigation, shimmer skeleton |
 | v2.0.0 | 06-04 | Confirmation screen polish (personalized heading, short ref, WhatsApp pre-fill); GAS sync + full live deploy |
+| v2.1.0 | 06-15 | Smart Scheduling (feature flag, gap-safe SQL, per-slot logging); admin-flags Edge Function; dual-mode session auth; הגדרות מערכת card; Deno .catch() fix |
 
