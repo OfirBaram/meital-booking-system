@@ -1350,6 +1350,20 @@ document.addEventListener('DOMContentLoaded', function() {
     ["chat-input","chat-send"].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = busy; });
   }
 
+  // Rebuilds hist into strict [user, assistant, user, ...] alternation.
+  // Handles localStorage state corrupted by a failed request that left
+  // hist ending with a user message that received no assistant reply.
+  function sanitizeHist(h) {
+    var out = [];
+    for (var i = 0; i < h.length; i++) {
+      var expected = out.length % 2 === 0 ? "user" : "assistant";
+      if (h[i].role === expected && typeof h[i].content === "string" && h[i].content.length > 0) {
+        out.push(h[i]);
+      }
+    }
+    return out;
+  }
+
   function send() {
     var inp  = document.getElementById("chat-input");
     var wrap = document.getElementById("chat-messages");
@@ -1357,6 +1371,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!txt || !wrap) return;
     inp.value = "";
     userMsg(wrap, txt);
+    hist = sanitizeHist(hist);  // enforce alternation before appending new user message
     hist.push({ role: "user", content: txt }); save();
     setUI(true);
     var t = showTyping(wrap);
@@ -1379,6 +1394,9 @@ document.addEventListener('DOMContentLoaded', function() {
     .catch(function() {
       t.remove();
       botMsg(wrap, 'מצטערת, לא הצלחתי להתחבר. ווטסאפ: +972547686865 📲');
+      // Roll back the user message — no assistant reply paired with it.
+      // Without this, the NEXT send() would have consecutive user roles.
+      if (hist.length > 0 && hist[hist.length - 1].role === "user") { hist.pop(); save(); }
     })
     .finally(function() { setUI(false); var i = document.getElementById("chat-input"); if (i) i.focus(); });
   }
