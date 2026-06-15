@@ -167,6 +167,9 @@ Deno.serve(async (req) => {
       finalText = 'מצטערת, לא הצלחתי לסיים את התשובה. אפשר לנסות שוב או לפנות בווטסאפ 📲'
     }
 
+    // Strip markdown bold/italic that models occasionally emit despite instructions
+    finalText = finalText.replace(/\*{1,3}([^*\n]+)\*{1,3}/g, '$1')
+
     return json({ reply: finalText })
 
   } catch (err) {

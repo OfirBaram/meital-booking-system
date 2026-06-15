@@ -1570,6 +1570,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function setUI(busy) {
     ["chat-input","chat-send"].forEach(function(id) { var el = document.getElementById(id); if (el) el.disabled = busy; });
+    document.querySelectorAll(".cchip").forEach(function(btn) {
+      btn.disabled = busy;
+      btn.style.opacity = busy ? "0.45" : "";
+    });
   }
 
   // Rebuilds hist into strict [user, assistant, user, ...] alternation.
@@ -1595,7 +1599,6 @@ document.addEventListener('DOMContentLoaded', function() {
     var txt  = inp ? inp.value.trim() : "";
     if (!txt || !wrap) return;
     inp.value = "";
-    var chips = document.getElementById("chat-chips"); if (chips) chips.hidden = true;
     userMsg(wrap, txt);
     hist = sanitizeHist(hist);  // enforce alternation before appending new user message
     hist.push({ role: "user", content: txt }); save();
@@ -1637,7 +1640,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (wrap && wrap.children.length === 0) {
       if (hist.length > 0) {
         hist.forEach(function(m) { m.role === "user" ? userMsg(wrap, m.content) : botMsg(wrap, m.content); });
-        var chipsEl = document.getElementById("chat-chips"); if (chipsEl) chipsEl.hidden = true;
       } else { botMsg(wrap, WELCOME); }
     }
     var i = document.getElementById("chat-input"); if (i) i.focus();
