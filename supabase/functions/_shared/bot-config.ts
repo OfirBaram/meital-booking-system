@@ -75,7 +75,7 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
       properties: {
         days_ahead: {
           type: 'number',
-          description: 'Number of days ahead to search (1–60). Defaults to 14.',
+          description: 'Number of days ahead to search (1–60). Defaults to 30.',
         },
         day_of_week: {
           type: 'number',
@@ -87,7 +87,7 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
   },
   async execute(input, { supabase }) {
     // Clamp to [1, 60] — prevents NaN/Infinity timestamps and runaway query ranges
-    const daysAhead = Math.min(Math.max(1, Number(input.days_ahead) || 14), 60)
+    const daysAhead = Math.min(Math.max(1, Number(input.days_ahead) || 30), 60)
     const now     = new Date()
     const fromUTC = new Date(now.getTime() - 3 * 3_600_000).toISOString()
     const toUTC   = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
@@ -267,9 +267,11 @@ Never write raw URLs — always use the token. Do not invent other tokens.
     "אני כאן כדי לעזור עם טיפולי מניקור מקצועיים. לכל נושא אחר – זה לא המקום. אשמח לעזור לך עם תור אם תרצי 💅"
 11. DAY FILTER (anti-hallucination) — if the user specifies a day of the week ("רק ימי שלישי",
     "ביום חמישי", "שני בלבד", etc.), call check_availability with the matching day_of_week value
-    (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat). If no slots found for that day, reply:
-    "אין לי כרגע זמנים פנויים ביום [X]. אשמח לבדוק עבורך ישירות 📲" then [WA].
-    NEVER suggest slots on a different day than the one the user specified.
+    (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat). If no slots found for that day:
+    first check whether other days have slots (call check_availability without day_of_week filter).
+    If OTHER days have slots → say "אין לי ביום [X] כרגע, אבל יש לי זמנים בימים אחרים — רוצי שאראה לך?"
+    If NO days have slots at all → treat as count=0 and run the full waitlist flow (Rule 15).
+    NEVER suggest slots on a different day than the one the user specified without asking first.
 12. OUTPUT FORMAT — Plain text ONLY. NEVER use Markdown syntax: no **, *, ##, __, or any other
     Markdown characters. Use emojis or line breaks for emphasis. The UI renders plain text.
 13. TECHNIQUE QUESTIONS — if a user asks about a technique Meital doesn't offer (e.g. Russian
