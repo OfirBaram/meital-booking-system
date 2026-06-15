@@ -134,7 +134,16 @@ async function verifyOtp() {
 
 async function loadPortal() {
   const r = await get('client-portal', {}, true);
-  if (!r.success) { toast('שגיאה בטעינת הנתונים', true); return; }
+  if (!r.success) {
+    if (r.error === 'invalid_or_expired_token' || r.error === 'missing_token') {
+      sessionStorage.removeItem(SESSION_KEY);
+      show('screen-phone');
+      toast('פג תוקף הכניסה — הכניסי מספר שוב', true);
+    } else {
+      toast('שגיאה בטעינת הנתונים', true);
+    }
+    return;
+  }
   State.activeBooking = r.active;
   State.history       = r.history ?? [];
   renderDashboard();
@@ -245,8 +254,14 @@ async function confirmCancel() {
       toast('ההזמנה בוטלה בהצלחה');
       await loadPortal();
     } else {
+      if (r.error === 'invalid_or_expired_token' || r.error === 'missing_token') {
+        sessionStorage.removeItem(SESSION_KEY);
+        show('screen-phone');
+        toast('פג תוקף הכניסה — הכניסי מספר שוב', true);
+        return;
+      }
       const msg = r.error === 'too_late_to_cancel'
-        ? `לא ניתן לבטל — פחות מ-48 שעות לטיפול. פני למיטל ישירות.`
+        ? 'לא ניתן לבטל — פחות מ-48 שעות לטיפול. פני למיטל ישירות.'
         : 'שגיאה בביטול — נסי שוב';
       toast(msg, true);
     }
@@ -271,7 +286,7 @@ async function loadRsMonth(year, month) {
   document.getElementById('rs-month-label').textContent = `${HE_MONTHS[month-1]} ${year}`;
   const key = `${year}-${String(month).padStart(2,'0')}`;
   if (State.rsSlots[key] !== undefined) { renderRsCal(); return; }
-  const service = State.activeBooking?.service ?? 'gel_classic';
+  const service = State.activeBooking?.service ?? 'gel_hands';
   const r = await get('get-slots', { year, month, service });
   if (r.slots) Object.assign(State.rsSlots, r.slots);
   renderRsCal();
@@ -370,6 +385,12 @@ async function confirmReschedule() {
       await loadPortal();
       show('screen-dashboard');
     } else {
+      if (r.error === 'invalid_or_expired_token' || r.error === 'missing_token') {
+        sessionStorage.removeItem(SESSION_KEY);
+        show('screen-phone');
+        toast('פג תוקף הכניסה — הכניסי מספר שוב', true);
+        return;
+      }
       const msg = {
         reschedule_limit_reached: 'כבר ביצעת שינוי — לשינוי נוסף פני למיטל',
         too_late_to_reschedule:   'לא ניתן לשנות — פחות מ-48 שעות לטיפול',
