@@ -6,17 +6,18 @@
  * if we used it here, Mixpanel would never fire a request and this
  * test would always time out on the waitForResponse.
  *
- * Run against the Vite dev server:
- *   npm run dev           (keep this running in another terminal)
+ * Runs against the preview server (same port as other E2E specs):
+ *   npm run build && npm run preview
  *   npx playwright test tests/e2e/mixpanel-csp.spec.js --headed
  */
 import { test, expect } from '@playwright/test'
 
-// Target the Vite dev server, not the preview server used by other specs.
-const BASE_URL = process.env.MIXPANEL_TEST_URL ?? 'http://localhost:5173'
+// Use the same preview server as other E2E specs so CI doesn't need a separate dev server.
+// Override with MIXPANEL_TEST_URL=http://localhost:5173 to test against the Vite dev server locally.
+const BASE_URL = process.env.MIXPANEL_TEST_URL ?? 'http://localhost:4173'
 
-// Matches both api.mixpanel.com and api-js.mixpanel.com
-const MIXPANEL_HOST_RE = /https:\/\/api(?:-js)?\.mixpanel\.com/
+// Matches api.mixpanel.com, api-js.mixpanel.com, and api-eu.mixpanel.com
+const MIXPANEL_HOST_RE = /https:\/\/api(?:-(?:js|eu))?\.mixpanel\.com/
 
 test.use({ baseURL: BASE_URL })
 
