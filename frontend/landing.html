@@ -873,6 +873,7 @@
       <div class="footer-links">
         <a href="./takanon.html">תקנון ותנאי שימוש</a>
         <a href="./privacy.html">מדיניות פרטיות</a>
+        <a href="./accessibility.html">הצהרת נגישות</a>
       </div>
     </nav>
     <div class="social-strip footer-social" id="footer-social" aria-label="רשתות חברתיות"></div>
@@ -1398,7 +1399,11 @@ function initReel() {
     slides.push(div);
   });
 
-  function assignKB(slide, idx) {
+  function restartKB(slide, idx) {
+    var img = slide.querySelector('img');
+    img.style.animation = 'none';
+    img.getBoundingClientRect();          // sync reflow — restarts CSS animation
+    img.style.animation = '';
     for (var k = 0; k < 6; k++) slide.classList.remove('kb-' + k);
     slide.classList.add('kb-' + (idx % 6));
   }
@@ -1417,21 +1422,26 @@ function initReel() {
   }
 
   function showSlide(idx) {
-    var prev = current;
-    current  = (idx + total) % total;
-    slides[prev].classList.remove('reel-active');
-    var slide  = slides[current];
-    var oldImg = slide.querySelector('img');
-    var newImg = oldImg.cloneNode(true);
-    slide.replaceChild(newImg, oldImg);
-    assignKB(slide, current);
+    var prev     = current;
+    current      = (idx + total) % total;
+    var slide    = slides[current];
+    var prevSlide = slides[prev];
+
+    // Restart KB in-place — no DOM replacement, no flash frame
+    restartKB(slide, current);
     slide.classList.add('reel-active');
+
+    // Keep old slide visible through the full crossfade, then remove
+    setTimeout(function() {
+      prevSlide.classList.remove('reel-active');
+    }, REEL_FADE + 200);
+
     animateProgress();
     clearTimeout(timer);
     timer = setTimeout(function() { showSlide(current + 1); }, REEL_DURATION);
   }
 
-  assignKB(slides[0], 0);
+  restartKB(slides[0], 0);
   slides[0].classList.add('reel-active');
   animateProgress();
   timer = setTimeout(function() { showSlide(1); }, REEL_DURATION);
