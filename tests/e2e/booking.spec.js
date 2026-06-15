@@ -170,9 +170,9 @@ test.describe('Step 1 — Service selection', () => {
     await page.goto('/')
   })
 
-  test('page loads with exactly 2 service cards and a disabled Next button', async ({ page }) => {
+  test('page loads with exactly 3 service cards and a disabled Next button', async ({ page }) => {
     await expect(page.locator('#step-1')).toBeVisible()
-    await expect(page.locator('.service-card')).toHaveCount(2)
+    await expect(page.locator('.service-card')).toHaveCount(3)
     await expect(page.locator('#btn-next')).toBeDisabled()
   })
 

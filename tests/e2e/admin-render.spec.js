@@ -25,13 +25,13 @@ const MOCK_BOOKINGS_FULL = {
   success: true,
   bookings: [
     { id: 'uuid-p', name: 'לקוחה ממתינה', phone: '0501111111',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands',   serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-01', time: '10:00', status: 'Pending',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90 },
     { id: 'uuid-a', name: 'לקוחה מאושרת', phone: '0502222222',
-      service: 'gel_feet', serviceName: "לק ג'ל רגליים",
+      service: 'regular_feet', serviceName: "לק רגיל לציפורניים ברגליים",
       date: '2099-12-02', time: '12:00', status: 'Approved',
-      timestamp: '2099-11-02T12:00:00+03:00', duration: 120 },
+      timestamp: '2099-11-02T12:00:00+03:00', duration: 30 },
   ],
 }
 

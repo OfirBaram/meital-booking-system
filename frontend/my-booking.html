@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co;">
+  <meta name="theme-color" content="#FAF5F0">
+  <title>ניהול הזמנה — מיטל שבע ברעם</title>
+
+  <link rel="stylesheet" href="./styles/tailwind.css">
+  <link rel="stylesheet" href="./styles/tokens.css">
+  <link rel="stylesheet" href="./styles/animations.css">
+  <link rel="stylesheet" href="./styles/components.css">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="alternate icon" href="./favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+  <script>
+    window.onerror = function(msg, src, line, col, err) {
+      var b = document.getElementById('js-crash-banner');
+      if (b) { b.hidden = false; b.textContent = '⚠️ שגיאה טכנית — אנא רעננו את הדף. אם הבעיה נמשכת, פני למיטל ישירות.'; }
+      return false;
+    };
+  </script>
+</head>
+<body class="bg-[#FAF5F0] min-h-screen font-['Heebo',sans-serif] text-gray-800">
+
+  <div id="js-crash-banner" hidden
+    class="fixed top-0 inset-x-0 bg-red-500 text-white text-center p-3 text-sm z-50 font-semibold"></div>
+
+  <!-- Header -->
+  <header class="bg-white shadow-sm sticky top-0 z-40">
+    <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="./landing.html" class="text-[#A67C8E] text-sm font-medium">← דף הבית</a>
+      <h1 class="text-base font-semibold text-gray-700">ניהול הזמנה</h1>
+      <img src="./meital_profile_header.webp" onerror="this.src='./meital_profile_header.png'"
+        alt="מיטל" class="w-8 h-8 rounded-full object-cover">
+    </div>
+  </header>
+
+  <main class="max-w-md mx-auto px-4 py-8">
+
+    <!-- ── Screen: Phone ─────────────────────────────────────── -->
+    <div id="screen-phone">
+      <div class="text-center mb-8">
+        <div class="text-4xl mb-3">💅</div>
+        <h2 class="text-xl font-bold text-gray-800">ברוכה הבאה</h2>
+        <p class="text-gray-500 text-sm mt-2">הכניסי מספר טלפון כדי לצפות<br>בהזמנה שלך ולנהל אותה</p>
+      </div>
+      <div class="space-y-3">
+        <input id="inp-phone" type="tel" inputmode="tel" placeholder="050-000-0000" dir="ltr"
+          class="w-full border-2 border-gray-200 rounded-2xl p-4 text-center text-lg focus:outline-none focus:border-[#A67C8E] transition-colors bg-white">
+        <button id="btn-send-otp"
+          class="w-full bg-[#A67C8E] text-white rounded-2xl py-4 font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all">
+          שלחי קוד אימות
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Screen: OTP ───────────────────────────────────────── -->
+    <div id="screen-otp" hidden>
+      <div class="text-center mb-8">
+        <div class="text-4xl mb-3">📱</div>
+        <h2 class="text-xl font-bold text-gray-800">הכניסי קוד</h2>
+        <p class="text-gray-500 text-sm mt-2">קוד שישה ספרות נשלח ל-<br>
+          <span id="otp-phone-display" class="font-semibold text-[#A67C8E]"></span></p>
+      </div>
+      <div class="space-y-3">
+        <input id="inp-otp" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}"
+          placeholder="000000" dir="ltr"
+          class="w-full border-2 border-gray-200 rounded-2xl p-4 text-center text-3xl font-mono tracking-[0.4em] focus:outline-none focus:border-[#A67C8E] transition-colors bg-white">
+        <button id="btn-verify-otp"
+          class="w-full bg-[#A67C8E] text-white rounded-2xl py-4 font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all">
+          אמתי
+        </button>
+        <button id="btn-resend-otp" disabled
+          class="w-full text-[#A67C8E] text-sm py-2 disabled:text-gray-300 transition-colors">
+          שלחי שוב (<span id="resend-countdown">60</span>ש׳)
+        </button>
+        <button id="btn-back-phone" class="w-full text-gray-400 text-sm py-1">
+          ← שינוי מספר
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Screen: Dashboard ─────────────────────────────────── -->
+    <div id="screen-dashboard" hidden>
+      <div id="active-section"></div>
+      <div id="history-section" class="mt-5"></div>
+      <div class="mt-5">
+        <a href="./index.html"
+          class="block w-full text-center bg-[#DDC3A5] text-[#7a5c6e] rounded-2xl py-4 font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all">
+          הזמיני שוב →
+        </a>
+      </div>
+    </div>
+
+    <!-- ── Screen: Reschedule ────────────────────────────────── -->
+    <div id="screen-reschedule" hidden>
+      <div class="flex items-center mb-5">
+        <button id="btn-back-dashboard" class="text-[#A67C8E] text-sm font-medium">← חזרי</button>
+        <h2 class="flex-1 text-center text-lg font-bold">בחרי תאריך חדש</h2>
+      </div>
+
+      <!-- Month navigation -->
+      <div class="flex items-center justify-between mb-4 bg-white rounded-xl px-4 py-3 shadow-sm">
+        <button id="rs-btn-prev" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-600">→</button>
+        <span id="rs-month-label" class="font-semibold text-[#A67C8E]"></span>
+        <button id="rs-btn-next" class="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-50 text-gray-600">←</button>
+      </div>
+
+      <!-- Day-of-week headers -->
+      <div class="grid grid-cols-7 gap-1 mb-1">
+        <div class="text-center text-xs text-gray-400 py-1">א׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ב׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ג׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ד׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ה׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ו׳</div>
+        <div class="text-center text-xs text-gray-400 py-1">ש׳</div>
+      </div>
+
+      <!-- Calendar grid (filled by JS) -->
+      <div id="rs-calendar-grid" class="grid grid-cols-7 gap-1 mb-5"></div>
+
+      <!-- Time slots -->
+      <div id="rs-times-section" hidden>
+        <p class="text-sm font-medium text-gray-500 mb-2">בחרי שעה:</p>
+        <div id="rs-times-grid" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <button id="btn-confirm-reschedule" disabled
+        class="mt-5 w-full bg-[#A67C8E] text-white rounded-2xl py-4 font-bold text-base disabled:opacity-40 hover:opacity-90 active:scale-[0.98] transition-all">
+        אשרי שינוי תאריך
+      </button>
+    </div>
+
+  </main>
+
+  <!-- ── Cancel modal ──────────────────────────────────────────── -->
+  <div id="modal-cancel" hidden class="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div id="modal-cancel-backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm p-6 space-y-4 shadow-2xl">
+      <div class="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-2 sm:hidden"></div>
+      <h3 class="text-lg font-bold text-center text-gray-800">💜 לפני שמבטלת...</h3>
+      <p class="text-sm text-gray-500 text-center">לא יכולה להגיע? ניתן לשנות תאריך במקום לבטל לגמרי</p>
+      <button id="modal-btn-reschedule"
+        class="w-full bg-[#A67C8E] text-white rounded-2xl py-3 font-bold text-base hover:opacity-90 active:scale-[0.98] transition-all">
+        📅 שני תאריך במקום →
+      </button>
+      <hr class="border-gray-100">
+      <button id="modal-btn-confirm-cancel"
+        class="w-full text-sm text-gray-400 py-2 hover:text-red-400 transition-colors">
+        אני בטוחה — בטלי את ההזמנה
+      </button>
+      <button id="modal-btn-close" class="w-full text-sm text-gray-400 py-1">חזרי</button>
+    </div>
+  </div>
+
+  <!-- ── Toast ─────────────────────────────────────────────────── -->
+  <div id="toast" hidden
+    class="fixed bottom-6 right-4 left-4 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-80 text-white text-sm text-center rounded-2xl px-4 py-3 z-50 shadow-lg transition-opacity">
+  </div>
+
+  <script type="module" src="./my-booking.js"></script>
+</body>
+</html>

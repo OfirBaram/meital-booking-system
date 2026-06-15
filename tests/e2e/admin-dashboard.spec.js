@@ -31,13 +31,13 @@ const MOCK_BOOKINGS = {
   bookings: [
     {
       id: 'uuid-1', name: 'לקוחה א', phone: '0501111111',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-01', time: '10:00', status: 'Pending',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90,
     },
     {
       id: 'uuid-2', name: 'לקוחה ב', phone: '0502222222',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-15', time: '11:00', status: 'Approved',
       timestamp: '2099-11-15T11:00:00+03:00', duration: 90,
     },

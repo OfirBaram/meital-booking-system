@@ -20,21 +20,25 @@
   },
   "services": [
     {
-      "id": "gel_classic",
-      "name": "לק ג'ל קלאסי",
-      "nameEn": "Classic Gel Nails",
-      "durationMin": 90,
-      "brands": [
-        "Gelish",
-        "OPI",
-        "CND"
-      ]
+      "id": "gel_hands",
+      "name": "לק ג'ל לציפורניים",
+      "nameEn": "Gel Nail Polish",
+      "emoji": "💅",
+      "durationMin": 60
     },
     {
-      "id": "gel_feet",
-      "name": "לק ג'ל לרגליים",
-      "nameEn": "Gel Feet / Pedicure",
-      "durationMin": 120
+      "id": "regular_feet",
+      "name": "לק רגיל לציפורניים ברגליים",
+      "nameEn": "Regular Feet Nail Polish",
+      "emoji": "🦶",
+      "durationMin": 30
+    },
+    {
+      "id": "gel_combo",
+      "name": "לק ג'ל לציפורניים + לק רגיל לרגליים",
+      "nameEn": "Gel Hands + Regular Feet Combo",
+      "emoji": "✨",
+      "durationMin": 90
     }
   ],
   "bot": {

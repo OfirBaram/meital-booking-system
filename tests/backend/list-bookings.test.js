@@ -51,7 +51,7 @@ beforeAll(async () => {
        duration_min, is_verified, status, admin_token)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (id) DO NOTHING
-  `, [BOOKING_ID, clientId, slotId, 'gel_classic', "לק ג'ל קלאסי", 90, true, 'pending', 'tok-view-test'])
+  `, [BOOKING_ID, clientId, slotId, 'gel_hands', "לק ג'ל לציפורניים", 60, true, 'pending', 'tok-view-test'])
 
   await pool.query(`
     INSERT INTO appointments
@@ -59,7 +59,7 @@ beforeAll(async () => {
        duration_min, is_verified, status, admin_token)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (id) DO NOTHING
-  `, [BOOKING_ID_2, clientId, slotId2, 'gel_classic', "לק ג'ל קלאסי", 90, true, 'pending', 'tok-view-test-2'])
+  `, [BOOKING_ID_2, clientId, slotId2, 'gel_hands', "לק ג'ל לציפורניים", 60, true, 'pending', 'tok-view-test-2'])
 })
 
 afterAll(async () => {
@@ -94,7 +94,7 @@ describe('bookings_view', () => {
 
   it('exposes serviceName alias for treatment_name', async () => {
     const { rows } = await pool.query('SELECT * FROM bookings_view WHERE id = $1', [BOOKING_ID])
-    expect(rows[0].serviceName).toBe("לק ג'ל קלאסי")
+    expect(rows[0].serviceName).toBe("לק ג'ל לציפורניים")
   })
 
   it('exposes client name and phone', async () => {

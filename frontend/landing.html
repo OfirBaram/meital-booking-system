@@ -396,36 +396,57 @@
     .gallery-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: 280px;
-      gap: 1rem;
+      grid-auto-rows: 300px;
+      gap: 0.625rem;
       margin-top: 3rem;
     }
     @media (max-width: 767px) {
-      .gallery-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 200px; }
+      .gallery-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 220px; }
     }
     .gallery-item { position: relative; overflow: hidden; }
     .gallery-item.span-2 { grid-row: span 2; }
     .gallery-item img {
       position: absolute; inset: 0;
       width: 100%; height: 100%; object-fit: cover;
-      transition: transform .7s ease;
+      transition: transform .75s ease;
     }
-    .gallery-item:hover img { transform: scale(1.06); }
+    .gallery-item:hover img { transform: scale(1.08); }
     .gallery-overlay {
       position: absolute; inset: 0;
-      background: rgba(45,43,61,0);
-      transition: background .5s;
+      background: linear-gradient(to top, rgba(30,28,48,.72) 0%, rgba(30,28,48,0) 55%);
+      opacity: 0;
+      transition: opacity .4s;
       display: flex; align-items: flex-end;
-      padding: 1rem;
+      padding: 1.125rem;
     }
-    .gallery-item:hover .gallery-overlay { background: rgba(45,43,61,.22); }
+    .gallery-item:hover .gallery-overlay { opacity: 1; }
     .gallery-caption {
       color: #FAF5F0; font-size: .8125rem; font-weight: 500;
-      letter-spacing: .06em; opacity: 0;
-      transition: opacity .4s;
-      text-shadow: 0 1px 4px rgba(0,0,0,.4);
+      letter-spacing: .04em; line-height: 1.45;
+      text-shadow: 0 1px 6px rgba(0,0,0,.6);
     }
-    .gallery-item:hover .gallery-caption { opacity: 1; }
+    .gallery-extra { display: none; }
+    .gallery-extra.revealed {
+      display: block;
+      animation: galleryReveal .5s ease both;
+    }
+    @keyframes galleryReveal {
+      from { opacity: 0; transform: scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+    .gallery-more-wrap { text-align: center; margin-top: 1.75rem; }
+    .gallery-show-more-btn {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .6875rem 2.25rem;
+      background: transparent;
+      border: 1.5px solid var(--primary);
+      border-radius: 2rem;
+      color: var(--primary);
+      font-family: inherit; font-size: .9375rem; font-weight: 600;
+      cursor: pointer; transition: background .2s, color .2s;
+    }
+    .gallery-show-more-btn:hover { background: var(--primary); color: #fff; }
+    .gallery-show-more-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 
     /* ── CONTACT ── */
 
@@ -587,6 +608,7 @@
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
+        <li><a href="./my-booking.html" style="color:var(--primary);font-weight:600;">ניהול הזמנה</a></li>
       </ul>
     </nav>
 
@@ -612,6 +634,7 @@
         <li><a href="#services">שירותים</a></li>
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#contact">צרי קשר</a></li>
+        <li><a href="./my-booking.html">ניהול הזמנה</a></li>
       </ul>
       <div class="social-strip" id="mobile-social-strip" aria-label="קישורים חברתיים"></div>
     </div>
@@ -853,14 +876,23 @@ const SiteConfig = {
   // alt: תיאור נגיש בעברית (חשוב ל-SEO ונגישות)
   // span2: true → משתרע שתי שורות בגריד
   gallery: [
-    { src: './gallery/nail-01.jpg', alt: "לק ג'ל שחור קלאסי — מראה דרמטי ויוקרתי",          span2: true  },
-    { src: './gallery/nail-02.jpg', alt: "לק ג'ל טורקיז עם אקסנט שחור — עיצוב מקורי ועז",   span2: false },
-    { src: './gallery/nail-03.jpg', alt: "עיצוב אמנותי — ורוד עם ציור זברה ייחודי",          span2: false },
-    { src: './gallery/nail-04.jpg', alt: "לק ג'ל ניוד מנצנץ — אלגנטיות טבעית עדינה",        span2: false },
-    { src: './gallery/nail-05.jpg', alt: "ג'ל ניוד עם ציור פרח עדין — רומנטי ובוטי",         span2: false },
-    { src: './gallery/nail-06.jpg', alt: "פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד", span2: false },
-    { src: './gallery/nail-07.jpg', alt: "לק ג'ל מט ורדרד — מראה עשיר ומודרני",              span2: false },
-    { src: './gallery/nail-08.jpg', alt: "לק ג'ל סגול עמוק — אלגנטיות בולדה ועוצמתית",      span2: false },
+    { src: './public/gallery/nail-15.jpg', alt: "פרנץ' שחור בצורת עיט — דרמטי, מינימלי ועוצמתי",    span2: true  },
+    { src: './public/gallery/nail-09.jpg', alt: "פרנץ' קרם עם פרחי פוקסיה ונקודות — קיצי ושובב",     span2: false },
+    { src: './public/gallery/nail-10.jpg', alt: "ג'ל לילך עדין עם קשת לבנה — מינימלי ורומנטי",       span2: false },
+    { src: './public/gallery/nail-12.jpg', alt: "ג'ל פוקסיה עם שפתיים אדומות — שובבי ואיקוני",       span2: false },
+    { src: './public/gallery/nail-11.jpg', alt: "ג'ל ורוד בייבי — חלקלק, מבריק וחמוד",               span2: false },
+    { src: './public/gallery/nail-01.jpg', alt: "לק ג'ל שחור קלאסי — מראה דרמטי ויוקרתי",            span2: false },
+    { src: './public/gallery/nail-13.jpg', alt: "גלשה סגולה-פוקסיה עם ניצוצות — נוצצת ומרהיבה",      span2: true  },
+    { src: './public/gallery/nail-14.jpg', alt: "ג'ל הולוגרפי סגול — מנצנץ ומשנה צבע בכל זווית",     span2: false },
+    { src: './public/gallery/nail-02.jpg', alt: "לק ג'ל טורקיז עם אקסנט שחור — עיצוב מקורי ועז",     span2: false },
+    { src: './public/gallery/nail-03.jpg', alt: "עיצוב אמנותי — ורוד עם ציור זברה ייחודי",            span2: false },
+    { src: './public/gallery/nail-16.jpg', alt: "ג'ל לבן-שמנת עם לבבות אדומים — עדין ומלא אהבה",     span2: false },
+    { src: './public/gallery/nail-04.jpg', alt: "לק ג'ל ניוד מנצנץ — אלגנטיות טבעית עדינה",          span2: false },
+    { src: './public/gallery/nail-05.jpg', alt: "ג'ל ניוד עם ציור פרח עדין — רומנטי ובוטי",           span2: false, hidden: true },
+    { src: './public/gallery/nail-06.jpg', alt: "פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד",   span2: false, hidden: true },
+    { src: './public/gallery/nail-07.jpg', alt: "לק ג'ל מט ורדרד — מראה עשיר ומודרני",               span2: false, hidden: true },
+    { src: './public/gallery/nail-08.jpg', alt: "לק ג'ל סגול עמוק — אלגנטיות בולדה ועוצמתית",        span2: false, hidden: true },
+    { src: './public/gallery/nail-17.jpg', alt: "פרנץ' לבן קלאסי — נצחי, עדין ונשי",                  span2: false, hidden: true },
   ],
 
 
@@ -1016,11 +1048,16 @@ function renderServices() {
 function renderGallery() {
   var grid = document.getElementById('gallery-grid');
   if (!grid) return;
-  SiteConfig.gallery.forEach(function(img, i) {
+  var visIdx = 0;
+  SiteConfig.gallery.forEach(function(img) {
+    var isHidden = !!img.hidden;
     var item = document.createElement('figure');
-    item.className = 'gallery-item reveal' + (img.span2 ? ' span-2' : '');
-    item.style.transitionDelay = (i * 60) + 'ms';
-    item.setAttribute('role', 'listitem');
+    item.className = 'gallery-item' +
+      (img.span2  ? ' span-2'       : '') +
+      (!isHidden  ? ' reveal'        : '') +
+      (isHidden   ? ' gallery-extra' : '');
+    item.style.transitionDelay = isHidden ? '0ms' : (visIdx * 55) + 'ms';
+    if (!isHidden) visIdx++;
     item.style.margin = '0';
     item.style.cursor = 'zoom-in';
     item.setAttribute('tabindex', '0');
@@ -1035,6 +1072,27 @@ function renderGallery() {
       '</figcaption>';
     grid.appendChild(item);
   });
+  var hiddenCount = SiteConfig.gallery.filter(function(g) { return g.hidden; }).length;
+  if (hiddenCount > 0) {
+    var wrap = document.createElement('div');
+    wrap.className = 'gallery-more-wrap reveal';
+    var btn = document.createElement('button');
+    btn.className = 'gallery-show-more-btn';
+    btn.type = 'button';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>' +
+      ' הצג עוד <span style="opacity:.65;font-size:.8125rem;font-weight:400">(' + hiddenCount + ' עבודות נוספות)</span>';
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.gallery-extra').forEach(function(el) {
+        el.classList.add('revealed');
+      });
+      btn.setAttribute('aria-expanded', 'true');
+      wrap.remove();
+    });
+    wrap.appendChild(btn);
+    grid.parentNode.insertBefore(wrap, grid.nextSibling);
+  }
 }
 
 // Contact section
@@ -1589,10 +1647,12 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = 'cbook'; a.dir = 'rtl';
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         bubble.appendChild(a);
-      } else if (p.match(/^\[SVC:(gel_classic|gel_feet)\]$/)) {
+      } else if (p.match(/^\[SVC:(gel_hands|regular_feet|gel_combo)\]$/)) {
         var svcId = p.slice(5, -1);
-        var svcLabel = svcId === 'gel_classic' ? '💅 לק ג\'\u05dc קלאסי — 90 דק\'' : '🦶 לק ג\'\u05dc לרגליים — 120 דק\'';
-        var svcMsg  = svcId === 'gel_classic' ? 'לק ג\'\u05dc קלאסי' : 'לק ג\'\u05dc לרגליים';
+        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל לרגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל — 90 דק\'' };
+        var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל לרגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל לרגליים' };
+        var svcLabel = _SVC_LABELS[svcId] || svcId;
+        var svcMsg   = _SVC_MSGS[svcId]   || svcId;
         bubble.appendChild(document.createElement('br'));
         var sbtn = document.createElement('button');
         sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel; sbtn.type = 'button';

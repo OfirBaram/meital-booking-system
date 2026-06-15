@@ -13,7 +13,7 @@ const MOCK_BOOKINGS = {
   success: true,
   bookings: [
     { id: 'u1', name: 'לקוחה א', phone: '0501111111',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-01', time: '10:00', status: 'Pending',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90 },
   ],
@@ -84,7 +84,7 @@ test.describe('Booking page - desktop 1280x800', () => {
     await mockBookingRoutes(page)
     await page.goto('/')
     const cards = page.locator('#js-services > *')
-    await expect(cards).toHaveCount(2, { timeout: 5_000 })
+    await expect(cards).toHaveCount(3, { timeout: 5_000 })
     const [b0, b1] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()])
     expect(b0).not.toBeNull()
     expect(b1).not.toBeNull()

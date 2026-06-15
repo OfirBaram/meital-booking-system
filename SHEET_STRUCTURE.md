@@ -52,7 +52,7 @@ Use this as the diagnostic checklist whenever `getSlots` returns an error or the
 | A | `UUID` | RFC 4122 v4 UUID — written by backend on booking |
 | B | `Name` | Client full name (free text) |
 | C | `Phone` | E.164 format: `+9725XXXXXXXX` |
-| D | `Service` | Service ID: `gel_classic` or `gel_feet` |
+| D | `Service` | Service ID: `gel_hands`, `regular_feet`, or `gel_combo` |
 | E | `ServiceName` | Human-readable: `לק ג'ל קלאסי` or `לק ג'ל + רגליים` |
 | F | `Date` | `YYYY-MM-DD` |
 | G | `Time` | `HH:MM` |

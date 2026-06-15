@@ -32,7 +32,7 @@ const D_FREE     = `${YM}-04`
 function booking(id, date, status, time) {
   return {
     id, name: 'בדיקה ' + id, phone: '0501234567',
-    service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+    service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
     date, time, status, timestamp: date + 'T' + time + ':00+03:00', duration: 90,
   }
 }
@@ -263,8 +263,8 @@ test.describe('Calendar Clarity — day popup control-center', () => {
   }
 
   function bk(id, date, status, time) {
-    return { id, name: 'לקוחה ' + id, phone: '0501234567', service: 'gel_classic',
-      serviceName: "לק ג'ל קלאסי", date, time, status, timestamp: date + 'T' + time + ':00+03:00', duration: 90 }
+    return { id, name: 'לקוחה ' + id, phone: '0501234567', service: 'gel_hands',
+      serviceName: "לק ג'ל לציפורניים", date, time, status, timestamp: date + 'T' + time + ':00+03:00', duration: 90 }
   }
 
   test('a past day shows booking history and NO add-slot footer', async ({ page }) => {

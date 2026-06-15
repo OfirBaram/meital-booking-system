@@ -380,8 +380,11 @@ function handleVerifyAndBookV2(body) {
     return { success: false, error: 'missing_params' };
   }
 
-  var VALID_SERVICES = { gel_classic: { name: "לק ג'ל קלאסי", duration: 90 },
-                         gel_feet:    { name: "לק ג'ל רגליים", duration: 120 } };
+  var VALID_SERVICES = {
+    gel_hands:    { name: "לק ג'ל לציפורניים",                   duration: 60  },
+    regular_feet: { name: "לק רגיל לציפורניים ברגליים",           duration: 30  },
+    gel_combo:    { name: "לק ג'ל לציפורניים + לק רגיל לרגליים", duration: 90  },
+  };
   var svc = VALID_SERVICES[service];
   if (!svc) return { success: false, error: 'invalid_service' };
 

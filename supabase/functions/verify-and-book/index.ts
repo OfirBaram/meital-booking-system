@@ -18,7 +18,7 @@ function json(body: unknown, status = 200) {
 }
 
 const PHONE_RE         = /^\+9725\d{8}$/
-const VALID_TREATMENTS = ['gel_classic', 'gel_feet']
+const VALID_TREATMENTS = ['gel_hands', 'regular_feet', 'gel_combo']
 const DATE_RE          = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE          = /^\d{2}:\d{2}$/
 const OTP_RE           = /^\d{6}$/

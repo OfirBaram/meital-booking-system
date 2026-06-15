@@ -17,6 +17,7 @@ import { buildAdminFailureAlertSms } from './messages.ts'
 // admin; alerting would recurse) are intentionally excluded.
 const CLIENT_CONTEXTS = new Set<CommContext>([
   'ClientApproval', 'ClientRejection', 'ClientCancellation',
+  'ClientSelfCancel', 'ClientReschedule',
 ])
 
 // Mirrors the communication_logs CHECK constraints (initial_schema migration).
@@ -25,6 +26,7 @@ export type CommContext =
   | 'OTP' | 'AdminNotify'
   | 'ClientApproval' | 'ClientRejection' | 'ClientCancellation'
   | 'DailyReminder'
+  | 'ClientSelfCancel' | 'ClientReschedule'
 
 const VALID_STATUSES: LogStatus[] = ['SENT', 'MOCK', 'ERROR']
 

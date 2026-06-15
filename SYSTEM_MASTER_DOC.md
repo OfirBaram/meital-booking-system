@@ -69,8 +69,9 @@ Exactly two services exist. Duration is hidden from the client-facing booking UI
 
 | ID | Hebrew Name | English | Duration | Icon |
 |---|---|---|---|---|
-| `gel_classic` | לק ג'ל קלאסי | Classic Gel Polish | 90 min | ✨ |
-| `gel_feet` | לק ג'ל + רגליים | Gel Polish + Feet | 120 min | 🌸 |
+| `gel_hands`    | לק ג'ל לציפורניים                   | Gel Nail Polish              | 60 min | 💅 |
+| `regular_feet` | לק רגיל לציפורניים ברגליים           | Regular Feet Nail Polish     | 30 min | 🦶 |
+| `gel_combo`    | לק ג'ל לציפורניים + לק רגיל לרגליים | Gel Hands + Regular Feet     | 90 min | ✨ |
 
 ### 1.4 System-Level Critical Risks
 
@@ -930,7 +931,7 @@ Both layers validate independently. The frontend validates for UX; the backend v
 |---|---|---|
 | Name min 2 chars | `isValidName(n): n.trim().length >= 2` | `booking.name.trim().length < 2 → error: 'invalid_name'` |
 | Phone Israeli mobile | `isValidPhone: /^05[0-9]{8}$/.test(digits)` | `normalizePhone(phone) → null if invalid → throw Error` |
-| Service whitelist | Implicit (only 2 service cards shown) | `!ALLOWED_SERVICES.includes(booking.service) → error: 'invalid_service'` where `ALLOWED_SERVICES = ['gel_classic', 'gel_feet']` |
+| Service whitelist | Implicit (only 3 service cards shown) | `!ALLOWED_SERVICES.includes(booking.service) → error: 'invalid_service'` where `ALLOWED_SERVICES = ['gel_hands', 'regular_feet', 'gel_combo']` |
 | OTP format | UI enforces digits, length 6, auto-submits | `stored !== String(otp) → error: 'invalid_otp'` |
 
 ### 4.8 `window.onerror` Crash Banner
@@ -1073,7 +1074,7 @@ Invalidation: invalidateSlotsCache(dateStr) removes the month key after any book
     "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
     "name": "שרה כהן",
     "phone": "0541234567",
-    "service": "gel_classic",
+    "service": "gel_hands",
     "serviceName": "לק ג'ל קלאסי",
     "date": "2026-06-15",
     "time": "10:30",
@@ -1156,7 +1157,7 @@ All requests include `"token": "<ADMIN_TOKEN>"`. All error responses:
       "id": "uuid-v4",
       "name": "שרה כהן",
       "phone": "+972541234567",
-      "service": "gel_classic",
+      "service": "gel_hands",
       "serviceName": "לק ג'ל קלאסי",
       "date": "2026-06-15",
       "time": "10:30",
@@ -1194,7 +1195,7 @@ All requests include `"token": "<ADMIN_TOKEN>"`. All error responses:
   "token": "...",
   "name": "רחל לוי",
   "phone": "0521234567",
-  "service": "gel_feet",
+  "service": "gel_combo",
   "date": "2026-06-20",
   "time": "14:00"
 }
@@ -1407,7 +1408,7 @@ Every booking ever created. One row per booking. Never deleted (only status chan
 | A | UUID | String | RFC 4122 v4, e.g. `f47ac10b-58cc-4372-a567-0e02b2c3d479` |
 | B | Name | String | Client full name as entered |
 | C | Phone | String | E.164 format, e.g. `+972541234567` |
-| D | Service | String | Service ID: `gel_classic` or `gel_feet` |
+| D | Service | String | Service ID: `gel_hands`, `regular_feet`, or `gel_combo` |
 | E | ServiceName | String | Hebrew display name |
 | F | Date | Date cell | `YYYY-MM-DD` |
 | G | Time | Time cell | `HH:MM` |
@@ -2059,11 +2060,11 @@ Outputs to GAS Execution Log; safe to run at any time.
    ```
 2. **`gas-backend.js`** — add to `ALLOWED_SERVICES` whitelist in `handleVerifyAndBook`:
    ```js
-   const ALLOWED_SERVICES = ['gel_classic', 'gel_feet', 'new_service'];
+   const ALLOWED_SERVICES = ['gel_hands', 'regular_feet', 'gel_combo', 'new_service'];
    ```
 3. **`admin-render.js`** — add to `SERVICE_NAME` map:
    ```js
-   export const SERVICE_NAME = { gel_classic: "...", gel_feet: "...", new_service: "Hebrew Name" };
+   export const SERVICE_NAME = { gel_hands: "...", regular_feet: "...", gel_combo: "...", new_service: "Hebrew Name" };
    ```
 4. Run the Zero-Console-Error Gate.
 5. `clasp push` to deploy backend.

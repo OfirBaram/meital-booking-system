@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
       return json({ success: false, error: 'invalid_params' }, 400)
     }
 
-    // gel_classic = 90 min, gel_feet = 120 min; default conservative (90)
-    const durationMin = service === 'gel_feet' ? 120 : 90
+    const SERVICE_DURATIONS: Record<string, number> = { gel_hands: 60, regular_feet: 30, gel_combo: 90 }
+    const durationMin = SERVICE_DURATIONS[service] ?? 60
 
     // UTC query window: Jerusalem is at most UTC+3 ahead (summer DST).
     const fromUTC  = new Date(Date.UTC(year, month - 1, 1) - 3 * 3_600_000).toISOString()

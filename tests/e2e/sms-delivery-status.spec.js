@@ -26,13 +26,13 @@ const SMS_BOOKINGS = {
   bookings: [
     {
       id: 'b-sent', name: 'דנה כהן', phone: '0501111111',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-01', time: '10:00', status: 'Approved',
       timestamp: '2099-11-01T10:00:00+03:00', duration: 90, smsStatus: 'SENT',
     },
     {
       id: 'b-fail', name: 'רונית לוי', phone: '0502222222',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-02', time: '11:00', status: 'Approved',
       timestamp: '2099-11-02T11:00:00+03:00', duration: 90, smsStatus: 'ERROR',
     },
@@ -161,7 +161,7 @@ test.describe('SMS delivery — approve updates the badge', () => {
     let calls = 0
     const pending = {
       id: 'b-approve', name: 'מאיה לוי', phone: '0503333333',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-10', time: '09:00', status: 'Pending',
       timestamp: '2099-11-10T09:00:00+03:00', duration: 90, smsStatus: null,
     }
