@@ -1526,7 +1526,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 </style>
-<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותנו 💅" style="position:relative">
+<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותנו 💅">
   <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span id="chat-badge" hidden aria-hidden="true">1</span>
 </div>
@@ -1598,6 +1598,11 @@ document.addEventListener('DOMContentLoaded', function() {
         sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel; sbtn.type = 'button';
         (function(msg) {
           sbtn.addEventListener('click', function() {
+            bubble.querySelectorAll('.csvc-btn').forEach(function(b) {
+              b.disabled = true; b.style.opacity = '0.4';
+            });
+            sbtn.style.opacity = '1'; sbtn.style.background = '#A67C8E';
+            sbtn.style.color = '#fff'; sbtn.style.borderColor = '#A67C8E';
             var inp = document.getElementById('chat-input');
             if (inp) { inp.value = msg; autoResize(inp); }
             send();
@@ -1743,6 +1748,7 @@ document.addEventListener('DOMContentLoaded', function() {
     inp.focus();
 
     addRow('user', txt);
+    document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
     hist = sanitizeHist(hist);
     hist.push({ role: 'user', content: txt }); save();
     setSending(true);
