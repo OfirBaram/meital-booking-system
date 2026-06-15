@@ -583,6 +583,79 @@
       .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
     }
 
+    /* ── CINEMATIC HERO REEL ──────────────────────────────────────── */
+    .reel {
+      position: absolute; inset: 0; overflow: hidden;
+      background: var(--charcoal); z-index: 0;
+    }
+    .reel-slide {
+      position: absolute; inset: 0;
+      opacity: 0;
+      transition: opacity 1.8s ease-in-out;
+      will-change: opacity;
+    }
+    .reel-slide.reel-active { opacity: 1; }
+    .reel-slide img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      will-change: transform; transform-origin: center center;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .reel-slide.kb-0 img { animation: kb0 8s ease-in-out forwards; }
+      .reel-slide.kb-1 img { animation: kb1 8s ease-in-out forwards; }
+      .reel-slide.kb-2 img { animation: kb2 8s ease-in-out forwards; }
+      .reel-slide.kb-3 img { animation: kb3 8s ease-in-out forwards; }
+      .reel-slide.kb-4 img { animation: kb4 8s ease-in-out forwards; }
+      .reel-slide.kb-5 img { animation: kb5 8s ease-in-out forwards; }
+    }
+    @keyframes kb0 { from { transform: scale(1)    translate(0,0);     } to { transform: scale(1.13) translate(-2%,-1%);  } }
+    @keyframes kb1 { from { transform: scale(1.11) translate(2%,1%);   } to { transform: scale(1)    translate(0,0);       } }
+    @keyframes kb2 { from { transform: scale(1)    translate(-2%,1%);  } to { transform: scale(1.12) translate(2%,-1%);   } }
+    @keyframes kb3 { from { transform: scale(1.09) translate(-1%,-2%); } to { transform: scale(1)    translate(1%,2%);    } }
+    @keyframes kb4 { from { transform: scale(1)    translate(1%,-1%);  } to { transform: scale(1.11) translate(-1%,1%);   } }
+    @keyframes kb5 { from { transform: scale(1.07) translate(0,2%);    } to { transform: scale(1)    translate(0,-2%);    } }
+    .reel-overlay {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom,
+        rgba(30,28,48,.58) 0%, rgba(30,28,48,.22) 38%,
+        rgba(30,28,48,.28) 62%, rgba(30,28,48,.65) 100%);
+    }
+    .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.72); }
+    .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 28px rgba(30,28,48,.40); }
+    .hero.has-reel .hero-subtitle { color: rgba(250,245,240,.72); }
+    .hero.has-reel .scroll-hint   { color: rgba(250,245,240,.52); }
+    .hero.has-reel #hero-next-slot { color: rgba(250,245,240,.78); }
+    .hero.has-reel #hero-next-slot .slot-dot { background: rgba(250,245,240,.78); }
+    .reel-progress {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 2px; z-index: 2;
+      background: rgba(250,245,240,.10);
+    }
+    .reel-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, rgba(250,245,240,.55) 0%, var(--champagne) 100%);
+      width: 0%;
+    }
+    .reel-mute-btn {
+      position: absolute; bottom: 4.5rem; right: 1.25rem;
+      z-index: 3;
+      width: 2.625rem; height: 2.625rem;
+      border-radius: 50%;
+      border: 1px solid rgba(250,245,240,.30);
+      background: rgba(30,28,48,.35);
+      color: rgba(250,245,240,.82);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: background .22s, border-color .22s, transform .22s;
+    }
+    .reel-mute-btn:hover, .reel-mute-btn:focus-visible {
+      background: rgba(166,124,142,.50);
+      border-color: rgba(250,245,240,.55);
+      transform: scale(1.08); outline: none;
+    }
+    .reel-mute-btn svg { width: 1.0625rem; height: 1.0625rem; }
+
   </style>
 </head>
 
@@ -648,8 +721,13 @@
 <main id="main-content" tabindex="-1">
 
   <!-- ── HERO ── -->
-  <section class="hero" aria-labelledby="hero-heading">
-    <div class="hero-bg" aria-hidden="true"></div>
+  <section class="hero has-reel" aria-labelledby="hero-heading">
+    <div class="reel" id="hero-reel" aria-hidden="true"><div class="reel-overlay"></div></div>
+    <div class="reel-progress" aria-hidden="true"><div class="reel-progress-bar" id="reel-progress-bar"></div></div>
+    <button class="reel-mute-btn" id="reel-mute-btn" aria-label="הפעל מוזיקת רקע" aria-pressed="false">
+      <svg id="reel-icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      <svg id="reel-icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    </button>
     <div class="hero-inner">
       <p class="hero-eyebrow tracking-heb">עיצוב ציפורניים בוטיק | רמת גן</p>
       <h1 class="hero-title" id="hero-heading">
@@ -691,13 +769,13 @@
               שבה כל לקוחה מקבלת טיפול אישי ומלא תשומת לב.
             </p>
             <p>
-              אנחנו עובדים אך ורק עם חומרים מהמותגים המובילים בעולם, ומקפידים
+              אני עובדת אך ורק עם חומרים מהמותגים המובילים בעולם, ומקפידה
               על תהליכי עבודה שמשמרים את בריאות הציפורן הטבעית לצד מראה
               מושלם ועמיד לאורך זמן.
             </p>
             <p>
               כי ציפורניים יפות הן לא עניין של מזל — הן תוצאה של מיומנות, חומרים
-              נכונים ואהבה אמיתית למה שעושים.
+              נכונים ואהבה אמיתית למה שאני עושה.
             </p>
           </div>
         </div>
@@ -718,7 +796,7 @@
   <section id="services" class="section bg-lp" aria-labelledby="services-heading">
     <div class="section-inner">
       <p class="section-label reveal" aria-hidden="true">שירותים</p>
-      <h2 class="section-title reveal" id="services-heading">מה אנחנו מציעות</h2>
+      <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
       <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
         מגוון שירותי עיצוב ציפורניים ברמה הגבוהה ביותר, המותאמים
         אישית לכל לקוחה — בין אם את מחפשת ג'ל קלאסי נקי ועמיד
@@ -760,8 +838,8 @@
         בואי ניצור משהו יפה יחד
       </h2>
       <p class="reveal" style="color:rgba(250,245,240,.70); font-size:1.0625rem; line-height:1.85; margin-bottom:2.5rem; max-width:480px; margin-inline:auto;">
-        לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לנו בווטסאפ
-        ונשמח לעזור.
+        לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לי בווטסאפ
+        ואשמח לעזור.
       </p>
       <div id="contact-wa-btn"><!-- populated by JS --></div>
 
@@ -849,7 +927,7 @@ const SiteConfig = {
       num:   '01',
       title: "ג'ל קלאסי",
       meta:  '90 דקות',
-      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק שמתחרה בחדש.",
+      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
     },
     {
       num:   '02',
@@ -900,19 +978,19 @@ const SiteConfig = {
   faq: [
     {
       q: "כמה זמן מחזיק לק ג'ל?",
-      a: "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אנחנו עובדות עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר.",
+      a: "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אני עובדת עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר.",
     },
     {
       q: "האם ההסרה פוגעת בציפורן?",
-      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מיטל מבצעים הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
+      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
     },
     {
       q: "האם צריך לקבוע תור מראש?",
-      a: "כן, הסטודיו עובד בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לקבוע תור בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים.",
+      a: "כן, אני עובדת בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לכתוב לי בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים.",
     },
     {
       q: "איפה הסטודיו ממוקם?",
-      a: "הסטודיו ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze.",
+      a: "הסטודיו שלי ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze.",
     },
   ],
 
@@ -1293,6 +1371,200 @@ function initReveal() {
   document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
 }
 
+// ── CINEMATIC HERO REEL ─────────────────────────────────────────────────────
+var REEL_DURATION = 6000;
+var REEL_FADE     = 1800;
+
+function initReel() {
+  var container = document.getElementById('hero-reel');
+  if (!container) return;
+
+  var images  = SiteConfig.gallery.map(function(g) { return g.src; });
+  var total   = images.length;
+  var current = 0;
+  var slides  = [];
+  var timer   = null;
+
+  images.forEach(function(src, i) {
+    var div = document.createElement('div');
+    div.className = 'reel-slide';
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    img.setAttribute('draggable', 'false');
+    if (i > 0) img.loading = 'lazy';
+    div.appendChild(img);
+    container.insertBefore(div, container.querySelector('.reel-overlay'));
+    slides.push(div);
+  });
+
+  function assignKB(slide, idx) {
+    for (var k = 0; k < 6; k++) slide.classList.remove('kb-' + k);
+    slide.classList.add('kb-' + (idx % 6));
+  }
+
+  function animateProgress() {
+    var bar = document.getElementById('reel-progress-bar');
+    if (!bar) return;
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        bar.style.transition = 'width ' + REEL_DURATION + 'ms linear';
+        bar.style.width = '100%';
+      });
+    });
+  }
+
+  function showSlide(idx) {
+    var prev = current;
+    current  = (idx + total) % total;
+    slides[prev].classList.remove('reel-active');
+    var slide  = slides[current];
+    var oldImg = slide.querySelector('img');
+    var newImg = oldImg.cloneNode(true);
+    slide.replaceChild(newImg, oldImg);
+    assignKB(slide, current);
+    slide.classList.add('reel-active');
+    animateProgress();
+    clearTimeout(timer);
+    timer = setTimeout(function() { showSlide(current + 1); }, REEL_DURATION);
+  }
+
+  assignKB(slides[0], 0);
+  slides[0].classList.add('reel-active');
+  animateProgress();
+  timer = setTimeout(function() { showSlide(1); }, REEL_DURATION);
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      clearTimeout(timer);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(function() { showSlide(current + 1); }, Math.round(REEL_DURATION * 0.4));
+    }
+  });
+}
+
+// ── AMBIENT AUDIO: Web Audio API crystal-bowl spa soundscape ─────────────────
+var _audioCtx   = null;
+var _masterGain = null;
+var _rvbGain    = null;
+var _delay1     = null;
+var _audioMuted = true;
+
+function buildAmbientAudio() {
+  if (_audioCtx) return;
+
+  _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+  _masterGain = _audioCtx.createGain();
+  _masterGain.gain.value = 0;
+  _masterGain.connect(_audioCtx.destination);
+
+  _delay1 = _audioCtx.createDelay(3);
+  _delay1.delayTime.value = 1.65;
+  var delay2 = _audioCtx.createDelay(3);
+  delay2.delayTime.value = 2.35;
+  var fbGain = _audioCtx.createGain();
+  fbGain.gain.value = 0.28;
+  _rvbGain = _audioCtx.createGain();
+  _rvbGain.gain.value = 0.42;
+  _delay1.connect(delay2);
+  delay2.connect(fbGain);
+  fbGain.connect(_delay1);
+  delay2.connect(_rvbGain);
+  _rvbGain.connect(_masterGain);
+
+  [110, 165, 220].forEach(function(freq, i) {
+    var osc = _audioCtx.createOscillator();
+    var g   = _audioCtx.createGain();
+    var lfo = _audioCtx.createOscillator();
+    var lg  = _audioCtx.createGain();
+    var lpf = _audioCtx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = 0.020 / (i + 1);
+    lfo.frequency.value = 0.068 + i * 0.022;
+    lg.gain.value = freq * 0.0016;
+    lfo.connect(lg); lg.connect(osc.frequency);
+    lpf.type = 'lowpass'; lpf.frequency.value = 850;
+    osc.connect(g); g.connect(lpf);
+    lpf.connect(_masterGain); lpf.connect(_delay1);
+    osc.start(); lfo.start();
+  });
+
+  var bowlFreqs = [440, 523.25, 659.25, 523.25, 880, 392];
+
+  function strikeGong() {
+    var freq = bowlFreqs[Math.floor(Math.random() * bowlFreqs.length)];
+    var t    = _audioCtx.currentTime;
+
+    var osc = _audioCtx.createOscillator();
+    var env = _audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.984, t + 0.35);
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(0.046, t + 0.55);
+    env.gain.exponentialRampToValueAtTime(0.001, t + 7.5);
+    osc.connect(env); env.connect(_masterGain); env.connect(_delay1);
+    osc.start(t); osc.stop(t + 8);
+
+    var osc2 = _audioCtx.createOscillator();
+    var env2 = _audioCtx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.value = freq * 2.756;
+    env2.gain.setValueAtTime(0, t);
+    env2.gain.linearRampToValueAtTime(0.009, t + 0.28);
+    env2.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
+    osc2.connect(env2); env2.connect(_rvbGain);
+    osc2.start(t); osc2.stop(t + 3.5);
+
+    setTimeout(strikeGong, 3600 + Math.random() * 5400);
+  }
+
+  setTimeout(strikeGong, 900);
+  setTimeout(strikeGong, 3100);
+  setTimeout(strikeGong, 5700);
+}
+
+function initAmbientAudio() {
+  var btn     = document.getElementById('reel-mute-btn');
+  var iconOff = document.getElementById('reel-icon-muted');
+  var iconOn  = document.getElementById('reel-icon-sound');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    _audioMuted = !_audioMuted;
+    if (!_audioMuted) {
+      buildAmbientAudio();
+      _audioCtx.resume();
+      _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
+      _masterGain.gain.linearRampToValueAtTime(1, _audioCtx.currentTime + 2.0);
+      btn.setAttribute('aria-label', 'השתק מוזיקה');
+      btn.setAttribute('aria-pressed', 'true');
+      if (iconOff) iconOff.style.display = 'none';
+      if (iconOn)  iconOn.style.display  = '';
+    } else {
+      if (_masterGain) {
+        _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
+        _masterGain.gain.linearRampToValueAtTime(0, _audioCtx.currentTime + 1.2);
+      }
+      btn.setAttribute('aria-label', 'הפעל מוזיקת רקע');
+      btn.setAttribute('aria-pressed', 'false');
+      if (iconOff) iconOff.style.display = '';
+      if (iconOn)  iconOn.style.display  = 'none';
+    }
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (!_audioCtx) return;
+    if (document.hidden) { _audioCtx.suspend(); }
+    else if (!_audioMuted) { _audioCtx.resume(); }
+  });
+}
+
 // ── Init
 document.addEventListener('DOMContentLoaded', function() {
   renderSocialStrip('header-social-strip');
@@ -1309,6 +1581,8 @@ document.addEventListener('DOMContentLoaded', function() {
   initStickyBook();
   initNextSlot();
   initReveal();
+  initReel();
+  initAmbientAudio();
 });
 </script>
 
@@ -1584,7 +1858,7 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 </style>
-<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותנו 💅">
+<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותי 💅">
   <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
   <span id="chat-badge" hidden aria-hidden="true">1</span>
 </div>
@@ -1674,14 +1948,14 @@ document.addEventListener('DOMContentLoaded', function() {
         var aw = document.createElement('a');
         aw.href = 'https://wa.me/972547686865'; aw.className = 'clink wa-link';
         aw.target = '_blank'; aw.rel = 'noopener noreferrer'; aw.dir = 'rtl';
-        aw.textContent = '📲 שלחי לנו בווטסאפ';
+        aw.textContent = '📲 שלחי לי בווטסאפ';
         bubble.appendChild(aw);
       } else if (p === '[IG]') {
         bubble.appendChild(document.createElement('br'));
         var ai = document.createElement('a');
         ai.href = 'https://www.instagram.com/meytal.sheva'; ai.className = 'clink ig-link';
         ai.target = '_blank'; ai.rel = 'noopener noreferrer'; ai.dir = 'rtl';
-        ai.textContent = '📸 ראי את הגלריה שלנו';
+        ai.textContent = '📸 ראי את הגלריה שלי';
         bubble.appendChild(ai);
       } else {
         bubble.appendChild(document.createTextNode(p));
@@ -1826,7 +2100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(function(d) {
       if (typingRow) typingRow.remove();
       lastRole = null;
-      var rep = (d && d.reply) || 'מצטערת, נתקלתי בתקלה. ניתן לפנות בווטסאפ 📲';
+      var rep = (d && d.reply) || 'מצטערת, נתקלתי בתקלה. ניתן לפנות אלי בווטסאפ 📲';
       addRow('bot', rep);
       hist.push({ role: 'assistant', content: rep }); save();
     })

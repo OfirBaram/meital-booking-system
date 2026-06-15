@@ -69,7 +69,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q7 -- French manicure
   {
     triggers: [/פרנץ|french\s*(manicure|tip|nail)/i],
-    response: "לשאלות על סגנונות מיוחדים כמו פרנץ' — שוחחי איתנו 💅\n[WA]",
+    response: "לשאלות על סגנונות מיוחדים כמו פרנץ' — שוחחי איתי 💅\n[WA]",
   },
 
   // Q8 -- Natural nails only
@@ -81,7 +81,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q9 -- Dry manicure
   {
     triggers: [/מניקור\s*יבש|dry\s*manicure/i],
-    response: "לשאלות על סוגי מניקור ספציפיים — שוחחי איתנו:\n[WA]",
+    response: "לשאלות על סוגי מניקור ספציפיים — שוחחי איתי:\n[WA]",
   },
 
   // Q10 -- Hands + feet together
@@ -149,7 +149,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q19 -- Electric / drill tools
   {
     triggers: [/מכשור\s*חשמלי|מכונה|פרייזה|electric|machine|drill|e-file/i],
-    response: "לשאלות על הציוד המקצועי — שוחחי איתנו 💆‍♀️\n[WA]",
+    response: "לשאלות על הציוד המקצועי — שוחחי איתי 💆‍♀️\n[WA]",
   },
 
   // Q20 -- Very short nails
@@ -181,7 +181,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q23 -- Polish chipping
   {
     triggers: [/מתקלף|התקלף|קלוף|לק\s*נפל|chip.{0,5}off|peeling/i],
-    response: "אם זה קרה — שמחים לעזור! 💅\nצרי קשר ונמצא פתרון:\n[WA]",
+    response: "אם זה קרה — אשמח לעזור! 💅\nצרי קשר ונמצא פתרון:\n[WA]",
   },
 
   // Q24 -- Break between treatments
@@ -204,7 +204,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q26 -- Pregnancy (no medical advice -- redirect to physician)
   {
     triggers: [/הריון|בהריון|הרה|pregnant|pregnancy/i],
-    response: "שאלה חשובה! 🌸\nמומלץ להתייעץ עם רופאת הנשים לפני טיפול בהריון.\nלאחר אישור רפואי — נשמח לקבל אותך:\n[WA]",
+    response: "שאלה חשובה! 🌸\nמומלץ להתייעץ עם רופאת הנשים לפני טיפול בהריון.\nלאחר אישור רפואי — אשמח לקבל אותך:\n[WA]",
   },
 
   // Q27 -- Certification / health ministry
@@ -226,13 +226,13 @@ const FAQ_RULES: FaqRule[] = [
   // Q29 -- Do nails breathe under gel?
   {
     triggers: [/נושמ|אוורור|breathe|breathing\s*nail/i],
-    response: "שאלה מקצועית מצוינת ❤️\nנשמח לענות בפירוט — שוחחי איתנו:\n[WA]",
+    response: "שאלה מקצועית מצוינת ❤️\nאשמח לענות בפירוט — שוחחי איתי:\n[WA]",
   },
 
   // Q30 -- Allergic reaction (redirect to dermatologist)
   {
     triggers: [/אלרגי|רגישות|גירוי|גירוד|allerg|sensitivit|reaction/i],
-    response: "במקרה של תגובה אלרגית — פני לרופאת עור בהקדם 🏥\nלאחר מכן, נשמח לדבר ולמצוא פתרון:\n[WA]",
+    response: "במקרה של תגובה אלרגית — פני לרופאת עור בהקדם 🏥\nלאחר מכן, אשמח לדבר ולמצוא פתרון:\n[WA]",
   },
 
   // == GROUP 4: LOGISTICS ======================================================
@@ -242,7 +242,7 @@ const FAQ_RULES: FaqRule[] = [
     triggers: [
       /איך\s*(קובע|מזמינ|ניתן\s*לקבוע|אפשר\s*לקבוע)|לקבוע\s*תור|להזמין\s*תור|how\s*to\s*book/i,
     ],
-    response: "קביעת תור דרך ווטסאפ 📲\n[WA]\nאו דרך מערכת ההזמנות שלנו 📅",
+    response: "קביעת תור דרך ווטסאפ 📲\n[WA]\nאו דרך מערכת ההזמנות שלי 📅",
   },
 
   // Q32 -- Address / location
@@ -284,7 +284,7 @@ const FAQ_RULES: FaqRule[] = [
   // Q37 -- Cancellation policy
   {
     triggers: [/ביטול\s*(תור|הזמנה)|לבטל|cancel|cancellat/i],
-    response: "אנחנו מכבדות את הזמן של כולם 🙏\nלפרטים על מדיניות הביטול:\n[WA]",
+    response: "אני מכבדת את הזמן שלך 🙏\nלפרטים על מדיניות הביטול:\n[WA]",
   },
 
   // Q38 -- Late arrival
@@ -298,7 +298,7 @@ const FAQ_RULES: FaqRule[] = [
     triggers: [
       /תשלום|לשלם|ביט|אשראי|מזומן|אפל\s*פיי|גוגל\s*פיי|payment|credit|cash|bit\b|visa|mastercard/i,
     ],
-    response: "לפרטי אמצעי התשלום — שוחחי איתנו:\n[WA]",
+    response: "לפרטי אמצעי התשלום — שוחחי איתי:\n[WA]",
   },
 
   // == GROUP 5: ABOUT & MISC ===================================================
@@ -332,7 +332,7 @@ const FAQ_RULES: FaqRule[] = [
     triggers: [
       /להביא\s*(ילד|תינוק|ילדים|תינוקות?)|ילד.{0,10}איתי|can\s*I\s*bring\s*(child|kid|baby)/i,
     ],
-    response: "הסטודיו הוא מרחב שקט ורגוע 🌸\nלשאלות נוספות — שוחחי איתנו:\n[WA]",
+    response: "הסטודיו הוא מרחב שקט ורגוע 🌸\nלשאלות נוספות — שוחחי איתי:\n[WA]",
   },
 
   // Q45 -- Job openings / work with Meital
