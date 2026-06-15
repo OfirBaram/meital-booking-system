@@ -579,16 +579,11 @@ async function deleteBooking(id) {
       persistHidden();
       if (!wasActive) return;
       try {
-        const r = await fetch(
-          APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
-          { method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
-            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Cancelled',
-              suppressSms: _cancelOpts ? _cancelOpts.suppressSms : false,
-              customSmsBody: _cancelOpts ? _cancelOpts.customSmsBody : null }) }
-        );
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const data = await r.json();
+        const data = await sbCall('change-status', {
+          bookingId: id, targetStatus: 'Cancelled',
+          suppressSms: _cancelOpts ? _cancelOpts.suppressSms : false,
+          customSmsBody: _cancelOpts ? _cancelOpts.customSmsBody : null,
+        });
         if (!data.success) throw new Error(data.error || 'error');
         apiCall('changeStatus', { bookingId: id, targetStatus: 'Cancelled',
           keepCalendar: _cancelOpts ? _cancelOpts.keepCalendar : false }).catch(e =>
@@ -1585,15 +1580,11 @@ async function _commitCardAction(id, target) {
     OK[target] || 'עודכן',
     async () => {
       try {
-        const r = await fetch(
-          `${APP_CONFIG.SUPABASE_URL}/functions/v1/change-status`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` },
-            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target,
-              suppressSms: _opts ? _opts.suppressSms : false,
-              customSmsBody: _opts ? _opts.customSmsBody : null }) }
-        );
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
+        const data = await sbCall('change-status', {
+          bookingId: id, targetStatus: target,
+          suppressSms: _opts ? _opts.suppressSms : false,
+          customSmsBody: _opts ? _opts.customSmsBody : null,
+        });
         if (!data.success) throw new Error(data.error || 'error');
         // GAS side-effects (Calendar) — fire-and-forget
         apiCall('changeStatus', { bookingId: id, targetStatus: target,
@@ -1638,16 +1629,11 @@ async function _commitSheetAction(id, target) {
     OK[target] || 'עודכן',
     async () => {
       try {
-        const r = await fetch(
-          APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status',
-          { method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
-            body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: target,
-              suppressSms: _opts ? _opts.suppressSms : false,
-              customSmsBody: _opts ? _opts.customSmsBody : null }) }
-        );
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const data = await r.json();
+        const data = await sbCall('change-status', {
+          bookingId: id, targetStatus: target,
+          suppressSms: _opts ? _opts.suppressSms : false,
+          customSmsBody: _opts ? _opts.customSmsBody : null,
+        });
         if (!data.success) throw new Error(data.error || 'error');
         apiCall('changeStatus', { bookingId: id, targetStatus: target,
           keepCalendar: _opts ? _opts.keepCalendar : false }).catch(e => {
@@ -1681,11 +1667,7 @@ async function _commitApproveAll(pendingIds) {
   toast('אושרו ' + pendingIds.length + ' הזמנות ✓', 'ok');
   try {
     await Promise.all(pendingIds.map(id =>
-      fetch(APP_CONFIG.SUPABASE_URL + '/functions/v1/change-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.SUPABASE_ANON_KEY },
-        body: JSON.stringify({ adminToken: S.token, bookingId: id, targetStatus: 'Approved' }),
-      }).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+      sbCall('change-status', { bookingId: id, targetStatus: 'Approved' })
     ));
     await load(true);
   } catch (e) {
