@@ -24,4 +24,5 @@ export default defineConfig({
   },
   server:  { port: 5173, open: false, fs: { allow: [root] } },
   preview: { port: 4173 },
+  optimizeDeps: { include: ['mixpanel-browser'] },
 });

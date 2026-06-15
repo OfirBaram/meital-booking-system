@@ -7,6 +7,7 @@ mixpanel.init(TOKEN, {
   debug: IS_DEV,
   track_pageview: true,
   persistence: 'localStorage',
+  api_host: 'https://api-eu.mixpanel.com',
 });
 
 /**
@@ -15,7 +16,6 @@ mixpanel.init(TOKEN, {
  */
 export function trackEvent(event, properties = {}) {
   try {
-    if (IS_DEV) console.debug('[analytics]', event, properties);
     mixpanel.track(event, properties);
   } catch { /* ad blockers may prevent Mixpanel from loading */ }
 }
