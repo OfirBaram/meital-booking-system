@@ -80,6 +80,8 @@ const FAILED_ACTION_HE: Record<string, string> = {
   ClientApproval:     'אישור התור',
   ClientRejection:    'דחיית התור',
   ClientCancellation: 'ביטול התור',
+  ClientSelfCancel:   'ביטול עצמאי',
+  ClientReschedule:   'שינוי תאריך',
 }
 
 /**
@@ -94,4 +96,33 @@ export function buildAdminFailureAlertSms(
   const act = FAILED_ACTION_HE[context] ?? 'עדכון'
   const why = detail ? ` (${String(detail).slice(0, 30)})` : ''
   return `שגיאה: לקוחה ${who} לא קיבלה SMS - ${act}${why}. יצרי קשר ידני.`
+}
+
+// ── Client portal SMS builders ────────────────────────────────────────────────
+
+export function buildClientSelfCancelSms(f: BookingMsgFields): string {
+  return 'ההזמנה ב' + formatDateDmy(f.date) + ' ' + f.time + ' בוטלה. להזמנה חדשה — דרך האפליקציה.'
+}
+
+export function buildAdminSelfCancelSms(name: string, f: BookingMsgFields): string {
+  const n = (name ?? '').trim()
+  return 'ביטול עצמאי: ' + n + ', ' + formatDateDmy(f.date) + ' ' + f.time + '.'
+}
+
+export interface RescheduleMsgFields {
+  serviceName: string
+  oldDate:     string
+  oldTime:     string
+  newDate:     string
+  newTime:     string
+}
+
+export function buildClientRescheduleSms(f: RescheduleMsgFields): string {
+  const svc = (f.serviceName ?? '').trim() || 'התור'
+  return 'שינוי תאריך אושר! ' + svc + ' עודכן ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
+}
+
+export function buildAdminRescheduleSms(name: string, f: RescheduleMsgFields): string {
+  const n = (name ?? '').trim()
+  return 'שינוי עצמאי: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
 }
