@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <title>הצהרת נגישות — מיטל שבע ברעם</title>
+  <meta name="description" content="הצהרת הנגישות של מיטל שבע ברעם — מחוייבות לנגישות דיגיטלית בהתאם לחוק שוויון זכויות לאנשים עם מוגבלות." />
+  <link rel="canonical" href="https://ofirbaram.github.io/meital-booking-system/accessibility.html" />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --rose:      #A67C8E;
+      --rose-soft: #c9a8b8;
+      --champagne: #DDC3A5;
+      --cream:     #FAF5F0;
+      --ink:       #2d2b3d;
+      --muted:     #8a7f8e;
+      --border:    rgba(166,124,142,.15);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Heebo", sans-serif; background: var(--cream); color: var(--ink); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+    .page-header { background: var(--ink); padding: 2rem 1.5rem 2.5rem; text-align: center; }
+    .header-brand { font-size: .75rem; font-weight: 400; letter-spacing: .18em; color: rgba(250,245,240,.45); text-transform: uppercase; margin-bottom: .5rem; }
+    .header-title { font-size: 1.625rem; font-weight: 300; color: var(--cream); margin-bottom: .25rem; }
+    .header-sub   { font-size: .8125rem; color: rgba(250,245,240,.35); }
+    .header-divider { width: 2.5rem; height: 1px; background: var(--champagne); margin: 1rem auto 0; opacity: .5; }
+    .back-bar { max-width: 740px; margin: 0 auto; padding: 1.25rem 1.5rem .25rem; }
+    .back-link { font-size: .8125rem; color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; gap: .35rem; transition: color .2s; }
+    .back-link:hover { color: var(--rose); }
+    .content { max-width: 740px; margin: 0 auto; padding: 1.5rem 1.5rem 4rem; }
+    .update-badge { display: inline-block; font-size: .75rem; background: rgba(166,124,142,.1); color: var(--rose); border: 1px solid var(--border); border-radius: 20px; padding: .25rem .85rem; margin-bottom: 2rem; }
+    .section { margin-bottom: 2.75rem; }
+    .section-number { font-size: .6875rem; font-weight: 600; letter-spacing: .14em; color: var(--rose); text-transform: uppercase; margin-bottom: .35rem; }
+    .section-title { font-size: 1.125rem; font-weight: 500; color: var(--ink); margin-bottom: .9rem; padding-bottom: .6rem; border-bottom: 1px solid var(--border); }
+    .section p { color: var(--muted); font-size: .9375rem; line-height: 1.9; margin-bottom: .75rem; }
+    .section p:last-child { margin-bottom: 0; }
+    .section p strong { color: var(--ink); }
+    .legal-list { list-style: none; padding: 0; margin: .5rem 0 .75rem; }
+    .legal-list li { color: var(--muted); font-size: .9375rem; line-height: 1.9; padding-right: 1.25rem; position: relative; margin-bottom: .25rem; }
+    .legal-list li::before { content: "◆"; position: absolute; right: 0; font-size: .4rem; color: var(--champagne); top: .65em; }
+    .legal-list li strong { color: var(--ink); }
+    .check-list { list-style: none; padding: 0; margin: .5rem 0 .75rem; }
+    .check-list li { color: var(--muted); font-size: .9375rem; line-height: 1.9; padding-right: 1.75rem; position: relative; margin-bottom: .25rem; }
+    .check-list li::before { content: "✓"; position: absolute; right: 0; font-size: .875rem; color: var(--rose); font-weight: 600; }
+    .highlight-box { background: rgba(166,124,142,.07); border-right: 3px solid var(--rose); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: .75rem 0; }
+    .highlight-box p { margin-bottom: 0 !important; font-size: .9rem !important; }
+    .contact-block { background: var(--ink); border-radius: 12px; padding: 1.5rem 1.75rem; margin-top: 1rem; }
+    .contact-block p { color: rgba(250,245,240,.55); font-size: .875rem; margin-bottom: .75rem; }
+    .contact-block a { display: inline-block; color: var(--champagne); font-size: .9375rem; text-decoration: underline; text-underline-offset: 3px; }
+    .cross-link-box { background: var(--ink); border-radius: 12px; padding: 1.5rem; margin-top: 3rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .cross-link-box p { color: rgba(250,245,240,.55); font-size: .875rem; margin: 0; }
+    .cross-link-btn { display: inline-block; font-size: .8125rem; font-weight: 500; color: var(--cream); background: var(--rose); border-radius: 20px; padding: .5rem 1.25rem; text-decoration: none; white-space: nowrap; transition: background .2s; }
+    .cross-link-btn:hover { background: var(--rose-soft); }
+    .page-footer { background: var(--ink); padding: 1.75rem 1.5rem; text-align: center; }
+    .footer-links { display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .footer-links a { font-size: .75rem; color: rgba(250,245,240,.4); text-decoration: none; transition: color .2s; }
+    .footer-links a:hover,
+    .footer-links a[aria-current="page"] { color: var(--champagne); }
+    .footer-copy { font-size: .6875rem; color: rgba(250,245,240,.25); }
+    @media (max-width: 520px) {
+      .header-title { font-size: 1.375rem; }
+      .cross-link-box { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <p class="header-brand">מיטל שבע ברעם · רמת גן</p>
+  <h1 class="header-title">הצהרת נגישות</h1>
+  <p class="header-sub">עודכן לאחרונה: יוני 2026</p>
+  <div class="header-divider"></div>
+</header>
+
+<div class="back-bar">
+  <a href="./landing.html" class="back-link">&#x2190; חזרה לדף הבית</a>
+</div>
+
+<main class="content">
+  <span class="update-badge">תאריך עדכון: יוני 2026</span>
+
+  <section class="section">
+    <p class="section-number">סעיף 1</p>
+    <h2 class="section-title">מחוייבות לנגישות</h2>
+    <p>סטודיו <strong>מיטל שבע ברעם — לק ג'ל בוטיק</strong> מאמין שכל אדם זכאי לגשת לשירותים דיגיטליים באופן עצמאי ומכובד.</p>
+    <p>אנו פועלים להנגשת האתר בהתאם ל<strong>חוק שוויון זכויות לאנשים עם מוגבלות, התשנח-1998</strong> ותקנות הנגישות לשירות (תשעג-2013), ולתקן הישראלי <strong>5568</strong> המבוסס על <strong>WCAG 2.1 ברמת AA</strong>.</p>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 2</p>
+    <h2 class="section-title">מה הונגש באתר</h2>
+    <ul class="check-list">
+      <li>ניווט מלא במקלדת (Tab, Enter, Esc, חצים)</li>
+      <li>תגי ARIA על כל הרכיבים האינטראקטיביים</li>
+      <li>תמיכה בקוראי מסך (NVDA, VoiceOver, TalkBack)</li>
+      <li>שמירת פוקוס במודלים ודיאלוגים (focus trap)</li>
+      <li>הגדרת שפה (lang="he") ו-dir="rtl" לקורא מסך</li>
+      <li>תיאורי alt לכל תמונות הגלריה</li>
+      <li>תמיכה בהגדלת טקסט עד 200% ללא שבירת פריסה</li>
+      <li>ממשק מלא בעברית (RTL)</li>
+    </ul>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 3</p>
+    <h2 class="section-title">מגבלות ידועות</h2>
+    <p>להלן פערים שזויהו ואנו עובדים לטפל בהם:</p>
+    <ul class="legal-list">
+      <li>יחס הניגוד של צבע מסוים ברכיבים קטנים (טקסט עזר) עשוי שלא לעמוד ב-4.5:1 הנדרש לטקסט רגיל — עומד ב-3:1 (רמת AA לטקסט גדול).</li>
+    </ul>
+    <div class="highlight-box">
+      <p>נתקלת בחסם נגישות שאינו מפורט כאן? אנא פני אלינו ישירות — נטפל בהקדם.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <p class="section-number">סעיף 4</p>
+    <h2 class="section-title">פנייה בנושא נגישות</h2>
+    <p>לדיווח על בעיית נגישות, בקשת סיוע, או הגשת תלונה:</p>
+    <div class="contact-block">
+      <p>ניתן לפנות ישירות לסטודיו בדוא"ל:</p>
+      <a href="mailto:meital_sheva7@hotmail.com">meital_sheva7@hotmail.com</a>
+    </div>
+    <p style="margin-top:1rem;">נשתדל להשיב תוך <strong>5 ימי עסקים</strong>.</p>
+    <p>אם לא קיבלת מענה מספיק, ניתן לפנות לנציב שוויון זכויות לאנשים עם מוגבלות במשרד המשפטים.</p>
+  </section>
+
+  <div class="cross-link-box">
+    <p>רוצה לקבוע תור? מערכת ההזמנות מונגשת ומוכנת עבורך.</p>
+    <a href="./index.html" class="cross-link-btn">לקביעת תור &#x2190;</a>
+  </div>
+
+</main>
+
+<footer class="page-footer">
+  <nav class="footer-links" aria-label="ניווט משפטי">
+    <a href="./accessibility.html" aria-current="page">הצהרת נגישות</a>
+    <a href="./privacy.html">מדיניות פרטיות</a>
+    <a href="./takanon.html">תקנון ותנאי שימוש</a>
+    <a href="./landing.html">דף הבית</a>
+  </nav>
+  <p class="footer-copy">&#169; 2026 מיטל שבע ברעם. כל הזכויות שמורות.</p>
+</footer>
+
+</body>
+</html>

@@ -1039,13 +1039,14 @@ const LEGAL_CONTENT = {
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>ניווט מלא במקלדת ו-Tab</li>
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תגי ARIA לכל הרכיבים האינטראקטיביים</li>
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תמיכה בקוראי מסך (Screen Readers)</li>
-        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>יחס ניגוד צבעים עומד בתקן AA</li>
+        <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>יחס ניגוד צבעים עומד בתקן AA לטקסט גדול</li>
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>ממשק RTL מלא (עברית)</li>
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תמיכה בהגדלת טקסט עד 200%</li>
       </ul>
       <h3 class="font-semibold mt-3">פנייה בנושא נגישות</h3>
       <p>נתקלת בחסם? אשמח לסייע:</p>
       <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
+      <p class="mt-3 text-xs"><a href="./accessibility.html" class="text-primary underline underline-offset-2">להצהרת הנגישות המלאה &#x2192;</a></p>
     `,
   },
 };
