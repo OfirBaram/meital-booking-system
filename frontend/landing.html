@@ -620,9 +620,14 @@
         rgba(30,28,48,.58) 0%, rgba(30,28,48,.22) 38%,
         rgba(30,28,48,.28) 62%, rgba(30,28,48,.65) 100%);
     }
-    .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.72); }
-    .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 28px rgba(30,28,48,.40); }
-    .hero.has-reel .hero-subtitle { color: rgba(250,245,240,.72); }
+    .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.92); text-shadow: 0 1px 10px rgba(0,0,0,.65); }
+    .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 6px rgba(0,0,0,.75), 0 4px 36px rgba(0,0,0,.55), 0 0 80px rgba(0,0,0,.30); }
+    .hero.has-reel .hero-subtitle { color: rgba(250,245,240,.95); text-shadow: 0 1px 10px rgba(0,0,0,.70), 0 2px 28px rgba(0,0,0,.45); }
+    .hero.has-reel .hero-inner::before {
+      content: ""; position: absolute; inset: -3.5rem -5rem;
+      background: radial-gradient(ellipse at center, rgba(20,18,38,.52) 0%, transparent 68%);
+      filter: blur(28px); border-radius: 50%; z-index: -1; pointer-events: none;
+    }
     .hero.has-reel .scroll-hint   { color: rgba(250,245,240,.52); }
     .hero.has-reel #hero-next-slot { color: rgba(250,245,240,.78); }
     .hero.has-reel #hero-next-slot .slot-dot { background: rgba(250,245,240,.78); }
@@ -637,8 +642,8 @@
       width: 0%;
     }
     .reel-mute-btn {
-      position: absolute; bottom: 4.5rem; right: 1.25rem;
-      z-index: 3;
+      position: fixed; bottom: 1.5rem; left: 1.5rem;
+      z-index: 50;
       width: 2.625rem; height: 2.625rem;
       border-radius: 50%;
       border: 1px solid rgba(250,245,240,.30);
@@ -731,7 +736,7 @@
     <div class="hero-inner">
       <p class="hero-eyebrow tracking-heb">עיצוב ציפורניים בוטיק | רמת גן</p>
       <h1 class="hero-title" id="hero-heading">
-        אמנות ציפורניים<br /><em>מרגע ראשון</em>
+        <span id="hero-title-main">אמנות ציפורניים</span><br /><em id="hero-title-em">מרגע ראשון</em>
       </h1>
       <p class="hero-subtitle">
         לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי,
@@ -1456,87 +1461,102 @@ function initReel() {
   });
 }
 
-// ── AMBIENT AUDIO: Web Audio API crystal-bowl spa soundscape ─────────────────
+// ── AMBIENT AUDIO: upbeat A-major pop arpeggio (122 BPM) ────────────────────
 var _audioCtx   = null;
 var _masterGain = null;
-var _rvbGain    = null;
-var _delay1     = null;
 var _audioMuted = true;
+var _arpTimer   = null;
+var _bassTimer  = null;
+var _hatTimer   = null;
 
 function buildAmbientAudio() {
   if (_audioCtx) return;
+  var BPM   = 122;
+  var beat  = 60 / BPM;      // ~0.492s
+  var eighth = beat / 2;     // ~0.246s
 
   _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
   _masterGain = _audioCtx.createGain();
   _masterGain.gain.value = 0;
+
+  // Light reverb (short delay feedback)
+  var rvbDly = _audioCtx.createDelay(0.5);
+  rvbDly.delayTime.value = 0.18;
+  var rvbFb  = _audioCtx.createGain(); rvbFb.gain.value  = 0.22;
+  var rvbMix = _audioCtx.createGain(); rvbMix.gain.value = 0.15;
+  rvbDly.connect(rvbFb); rvbFb.connect(rvbDly); rvbDly.connect(rvbMix);
+  rvbMix.connect(_masterGain);
   _masterGain.connect(_audioCtx.destination);
 
-  _delay1 = _audioCtx.createDelay(3);
-  _delay1.delayTime.value = 1.65;
-  var delay2 = _audioCtx.createDelay(3);
-  delay2.delayTime.value = 2.35;
-  var fbGain = _audioCtx.createGain();
-  fbGain.gain.value = 0.28;
-  _rvbGain = _audioCtx.createGain();
-  _rvbGain.gain.value = 0.42;
-  _delay1.connect(delay2);
-  delay2.connect(fbGain);
-  fbGain.connect(_delay1);
-  delay2.connect(_rvbGain);
-  _rvbGain.connect(_masterGain);
+  // A-major pentatonic arpeggio (8 notes, triangle wave)
+  var ARP = [440, 554.37, 659.25, 830.61, 880, 659.25, 554.37, 440];
 
-  [110, 165, 220].forEach(function(freq, i) {
-    var osc = _audioCtx.createOscillator();
-    var g   = _audioCtx.createGain();
-    var lfo = _audioCtx.createOscillator();
-    var lg  = _audioCtx.createGain();
-    var lpf = _audioCtx.createBiquadFilter();
-
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-    g.gain.value = 0.020 / (i + 1);
-    lfo.frequency.value = 0.068 + i * 0.022;
-    lg.gain.value = freq * 0.0016;
-    lfo.connect(lg); lg.connect(osc.frequency);
-    lpf.type = 'lowpass'; lpf.frequency.value = 850;
-    osc.connect(g); g.connect(lpf);
-    lpf.connect(_masterGain); lpf.connect(_delay1);
-    osc.start(); lfo.start();
-  });
-
-  var bowlFreqs = [440, 523.25, 659.25, 523.25, 880, 392];
-
-  function strikeGong() {
-    var freq = bowlFreqs[Math.floor(Math.random() * bowlFreqs.length)];
-    var t    = _audioCtx.currentTime;
-
-    var osc = _audioCtx.createOscillator();
-    var env = _audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.984, t + 0.35);
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(0.046, t + 0.55);
-    env.gain.exponentialRampToValueAtTime(0.001, t + 7.5);
-    osc.connect(env); env.connect(_masterGain); env.connect(_delay1);
-    osc.start(t); osc.stop(t + 8);
-
-    var osc2 = _audioCtx.createOscillator();
-    var env2 = _audioCtx.createGain();
-    osc2.type = 'sine';
-    osc2.frequency.value = freq * 2.756;
-    env2.gain.setValueAtTime(0, t);
-    env2.gain.linearRampToValueAtTime(0.009, t + 0.28);
-    env2.gain.exponentialRampToValueAtTime(0.001, t + 3.2);
-    osc2.connect(env2); env2.connect(_rvbGain);
-    osc2.start(t); osc2.stop(t + 3.5);
-
-    setTimeout(strikeGong, 3600 + Math.random() * 5400);
+  function scheduleArp() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    ARP.forEach(function(freq, i) {
+      var t   = now + i * eighth;
+      var osc = _audioCtx.createOscillator();
+      var env = _audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.048, t + 0.012);
+      env.gain.exponentialRampToValueAtTime(0.001, t + eighth * 0.80);
+      osc.connect(env); env.connect(_masterGain); env.connect(rvbDly);
+      osc.start(t); osc.stop(t + eighth);
+    });
+    _arpTimer = setTimeout(scheduleArp, ARP.length * eighth * 1000);
   }
 
-  setTimeout(strikeGong, 900);
-  setTimeout(strikeGong, 3100);
-  setTimeout(strikeGong, 5700);
+  // Bass line: A2-E2-A2-B2 on quarter notes
+  var BASS = [110, 82.41, 110, 123.47];
+
+  function scheduleBass() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    BASS.forEach(function(freq, i) {
+      var t   = now + i * beat;
+      var osc = _audioCtx.createOscillator();
+      var env = _audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.072, t + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.68);
+      osc.connect(env); env.connect(_masterGain);
+      osc.start(t); osc.stop(t + beat);
+    });
+    _bassTimer = setTimeout(scheduleBass, BASS.length * beat * 1000);
+  }
+
+  // Hi-hat: filtered noise on every 8th note
+  function scheduleHat() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    for (var i = 0; i < 8; i++) {
+      (function(idx) {
+        var t    = now + idx * eighth;
+        var buf  = _audioCtx.createBuffer(1, Math.ceil(_audioCtx.sampleRate * 0.04), _audioCtx.sampleRate);
+        var data = buf.getChannelData(0);
+        for (var j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+        var src  = _audioCtx.createBufferSource();
+        src.buffer = buf;
+        var hpf  = _audioCtx.createBiquadFilter();
+        hpf.type = 'highpass'; hpf.frequency.value = 9000;
+        var env  = _audioCtx.createGain();
+        env.gain.setValueAtTime(0.014, t);
+        env.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        src.connect(hpf); hpf.connect(env); env.connect(_masterGain);
+        src.start(t);
+      })(i);
+    }
+    _hatTimer = setTimeout(scheduleHat, 8 * eighth * 1000);
+  }
+
+  setTimeout(scheduleArp,  100);
+  setTimeout(scheduleBass, 100);
+  setTimeout(scheduleHat,  100);
 }
 
 function initAmbientAudio() {
@@ -1557,6 +1577,7 @@ function initAmbientAudio() {
       if (iconOff) iconOff.style.display = 'none';
       if (iconOn)  iconOn.style.display  = '';
     } else {
+      clearTimeout(_arpTimer); clearTimeout(_bassTimer); clearTimeout(_hatTimer);
       if (_masterGain) {
         _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
         _masterGain.gain.linearRampToValueAtTime(0, _audioCtx.currentTime + 1.2);
@@ -1575,6 +1596,32 @@ function initAmbientAudio() {
   });
 }
 
+
+// ── HERO TAGLINES: rotate every 8s with fade ─────────────────────────────────
+var HERO_TAGLINES = [
+  { main: 'אמנות ציפורניים', em: 'מרגע ראשון' },
+  { main: 'יוקרה',           em: 'בכל פרט' },
+  { main: 'הסטודיו',         em: 'שמחכה לך' },
+  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול' },
+];
+var _taglineIdx = 0;
+
+function initHeroTaglines() {
+  var mainEl = document.getElementById('hero-title-main');
+  var emEl   = document.getElementById('hero-title-em');
+  if (!mainEl || !emEl) return;
+  setInterval(function() {
+    _taglineIdx = (_taglineIdx + 1) % HERO_TAGLINES.length;
+    var tl = HERO_TAGLINES[_taglineIdx];
+    mainEl.style.transition = emEl.style.transition = 'opacity 0.55s ease';
+    mainEl.style.opacity    = emEl.style.opacity    = '0';
+    setTimeout(function() {
+      mainEl.textContent = tl.main;
+      emEl.textContent   = tl.em;
+      mainEl.style.opacity = emEl.style.opacity = '1';
+    }, 580);
+  }, 8000);
+}
 // ── Init
 document.addEventListener('DOMContentLoaded', function() {
   renderSocialStrip('header-social-strip');
@@ -1592,6 +1639,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initNextSlot();
   initReveal();
   initReel();
+  initHeroTaglines();
   initAmbientAudio();
 });
 </script>
