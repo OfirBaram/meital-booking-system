@@ -1,6 +1,8 @@
 # --- תוספת אישית שלנו ---
 *.bak
 .DS_Store
+# Local dev junction (Live Server) — points to frontend/public/gallery
+frontend/gallery
 
 # Logs
 logs
