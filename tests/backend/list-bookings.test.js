@@ -94,7 +94,7 @@ describe('bookings_view', () => {
 
   it('exposes serviceName alias for treatment_name', async () => {
     const { rows } = await pool.query('SELECT * FROM bookings_view WHERE id = $1', [BOOKING_ID])
-    expect(rows[0].serviceName).toBe("לק ג'ל קלאסי")
+    expect(rows[0].serviceName).toBe("לק ג'ל לציפורניים")
   })
 
   it('exposes client name and phone', async () => {
