@@ -117,7 +117,7 @@ describe('swipeRevealRatio', () => {
 describe('buildSwipeCard', () => {
   const PENDING_BOOKING = {
     id: 'uuid-p', name: 'דנה', phone: '0501234567',
-    service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+    service: 'gel_hands',   serviceName: "לק ג'ל לציפורניים",
     date: '2026-07-01', time: '10:00', status: 'Pending',
   }
   const APPROVED_BOOKING = { ...PENDING_BOOKING, id: 'uuid-a', status: 'Approved' }

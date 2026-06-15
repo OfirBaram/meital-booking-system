@@ -47,7 +47,13 @@ import { html, render, nothing } from 'lit-html';
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
 export const DAY_NAMES_HE   = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
-export const SERVICE_NAME   = { gel_classic: "לק ג'ל קלאסי", gel_feet: "לק ג'ל רגליים" };
+export const SERVICE_NAME   = {
+  gel_hands:    "לק ג'ל לציפורניים",
+  regular_feet: "לק רגיל לציפורניים ברגליים",
+  gel_combo:    "לק ג'ל + לק רגיל לרגליים",
+  gel_classic:  "לק ג'ל קלאסי (ישן)",
+  gel_feet:     "לק ג'ל רגליים (ישן)",
+};
 
 export const LABELS = {
   Pending:'ממתין',   Approved:'מאושר',  Rejected:'נדחה',   Cancelled:'בוטל',

@@ -46,7 +46,7 @@
 - **Calendar:** Google Calendar API (מסונכרן למכשיר Galaxy של מיטל).
 - **Timezone:** ISO 8601 קפדני (Asia/Jerusalem) למניעת DST drift.
 - **SMS:** Twilio API (אימות OTP + לינקים לאדמין).
-- **מיתוג:** RTL, גופן Heebo, פלטת Dust-Rose (#A67C8E, #DDC3A5, #FAF5F0). "מיטל שבע ברעם — לק ג'ל בוטק". 2 שירותים בלבד: gel_classic (90 דק') ו-gel_feet (120 דק').
+- **מיתוג:** RTL, גופן Heebo, פלטת Dust-Rose (#A67C8E, #DDC3A5, #FAF5F0). "מיטל שבע ברעם — לק ג'ל בוטק". 3 שירותים: gel_hands (60 דק'), regular_feet (30 דק'), gel_combo (90 דק').
 
 ## 3. Core Logic & Safety
 - **Race Condition Guard:** `LockService.getScriptLock()` + בדיקה כפולה של סטטוס החריץ לפני כתיבה.
@@ -260,7 +260,7 @@ REJECT S if: 0 < gap_before < 90 min
 
 ### Logging (כשהדגל פעיל)
 ```
-[get-slots][smart] REMOVED 2026-07-05 11:30 gap_before=30m gap_after=90m service=gel_classic duration=90m
+[get-slots][smart] REMOVED 2026-07-05 11:30 gap_before=30m gap_after=90m service=gel_hands duration=60m
 ```
 
 ---
@@ -307,4 +307,5 @@ Echo-back origin (לא `*`) — נדרש עבור `credentials: 'include'`. `ADM
 | v1.9.0 | 06-04 | Admin calendar — month summary bar, next-pending jump button, swipe navigation, shimmer skeleton |
 | v2.0.0 | 06-04 | Confirmation screen polish (personalized heading, short ref, WhatsApp pre-fill); GAS sync + full live deploy |
 | v2.1.0 | 06-15 | Smart Scheduling (feature flag, gap-safe SQL, per-slot logging); admin-flags Edge Function; dual-mode session auth; הגדרות מערכת card; Deno .catch() fix |
+| v2.2.0 | 06-16 | Service catalog update: gel_hands (60m), regular_feet (30m), gel_combo (90m) — replaces gel_classic/gel_feet; skill update-services added; 18 touch-points updated |
 

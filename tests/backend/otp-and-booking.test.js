@@ -155,7 +155,7 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
       `INSERT INTO appointments
          (id, slot_id, client_id, treatment_type, treatment_name, duration_min, admin_token, status, is_verified)
        VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, 'pending', true)`,
-      [BOOKING_ID, slotId, clientId, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+      [BOOKING_ID, slotId, clientId, 'gel_hands', "לק ג'ל לציפורניים", 60, 'fake-admin-token'],
     )
 
     // Slot must be 'locked' (simplified function sets 'locked', not 'pending')
@@ -167,7 +167,7 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
       [BOOKING_ID],
     )
     expect(appt.status).toBe('pending')
-    expect(appt.treatment_type).toBe('gel_classic')
+    expect(appt.treatment_type).toBe('gel_hands')
   })
 
   it('lookup_slot_by_date_time returns null once slot is no longer available', async () => {
@@ -204,7 +204,7 @@ describe('full booking flow — OTP lifecycle + slot lock', () => {
         `INSERT INTO appointments
            (id, slot_id, client_id, treatment_type, treatment_name, duration_min, admin_token, status, is_verified)
          VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, 'pending', true)`,
-        [BOOKING_ID, slot2Id, clientId, 'gel_classic', "לק ג'ל קלאסי", 90, 'fake-admin-token'],
+        [BOOKING_ID, slot2Id, clientId, 'gel_hands', "לק ג'ל לציפורניים", 60, 'fake-admin-token'],
       )
     } catch (err) {
       caughtCode = err.code

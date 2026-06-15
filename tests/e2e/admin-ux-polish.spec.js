@@ -31,7 +31,7 @@ const MOCK_BOOKINGS = {
   bookings: [
     {
       id: 'polish-1', name: 'דנה', phone: '0501234567',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: TODAY, time: '10:00', status: 'Approved',
       timestamp: TODAY + 'T10:00:00+03:00', duration: 90,
     },

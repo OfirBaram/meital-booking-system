@@ -74,7 +74,7 @@ describe('fmtPhone', () => {
 
 // ─── buildCard ───────────────────────────────────────────────────────────────
 
-const BOOKING_PENDING  = { id: 'uuid-1', name: 'נועה כהן', phone: '0501234567', service: 'gel_classic', serviceName: "לק ג'ל קלאסי", date: '2026-06-01', time: '10:00', status: 'Pending' }
+const BOOKING_PENDING  = { id: 'uuid-1', name: 'נועה כהן', phone: '0501234567', service: 'gel_hands',   serviceName: "לק ג'ל לציפורניים", date: '2026-06-01', time: '10:00', status: 'Pending' }
 const BOOKING_APPROVED = { ...BOOKING_PENDING, id: 'uuid-2', status: 'Approved' }
 const BOOKING_REJECTED = { ...BOOKING_PENDING, id: 'uuid-3', status: 'Rejected' }
 

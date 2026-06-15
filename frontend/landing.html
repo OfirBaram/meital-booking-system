@@ -1647,10 +1647,12 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = 'cbook'; a.dir = 'rtl';
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         bubble.appendChild(a);
-      } else if (p.match(/^\[SVC:(gel_classic|gel_feet)\]$/)) {
+      } else if (p.match(/^\[SVC:(gel_hands|regular_feet|gel_combo)\]$/)) {
         var svcId = p.slice(5, -1);
-        var svcLabel = svcId === 'gel_classic' ? '💅 לק ג\'\u05dc קלאסי — 90 דק\'' : '🦶 לק ג\'\u05dc לרגליים — 120 דק\'';
-        var svcMsg  = svcId === 'gel_classic' ? 'לק ג\'\u05dc קלאסי' : 'לק ג\'\u05dc לרגליים';
+        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל לרגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל — 90 דק\'' };
+        var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל לרגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל לרגליים' };
+        var svcLabel = _SVC_LABELS[svcId] || svcId;
+        var svcMsg   = _SVC_MSGS[svcId]   || svcId;
         bubble.appendChild(document.createElement('br'));
         var sbtn = document.createElement('button');
         sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel; sbtn.type = 'button';

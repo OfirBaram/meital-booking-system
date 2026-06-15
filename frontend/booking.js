@@ -17,18 +17,25 @@ const CONFIG = {
 
 const SERVICES = [
   {
-    id: 'gel_classic',
-    name: "לק ג'ל קלאסי",
+    id: 'gel_hands',
+    name: "לק ג'ל לציפורניים",
     desc: "ציפוי ג'ל מושלם — צבע מלא, פרנץ' או ombre לפי בחירה",
-    duration: 90,
-    icon: '✨',
+    duration: 60,
+    icon: '💅',
   },
   {
-    id: 'gel_feet',
-    name: "לק ג'ל + רגליים",
-    desc: "טיפול ג'ל מלא לידיים ולרגליים",
-    duration: 120,
-    icon: '🌸',
+    id: 'regular_feet',
+    name: "לק רגיל לציפורניים ברגליים",
+    desc: "לק רגיל מקצועי לציפורניים ברגליים — מגוון צבעים רחב",
+    duration: 30,
+    icon: '🦶',
+  },
+  {
+    id: 'gel_combo',
+    name: "לק ג'ל לציפורניים + לק רגיל לרגליים",
+    desc: "חבילת הקומבו המלאה — ג'ל לידיים ולק רגיל לרגליים",
+    duration: 90,
+    icon: '✨',
   },
 ];
 
@@ -575,7 +582,7 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  const _dur = State.service === 'gel_feet' ? 120 : 90;
+  const _dur = State.service?.duration ?? 60;
   slotsGrid.innerHTML = times.map(t => {
     const time = typeof t === 'string' ? t : t.time;
     const id   = typeof t === 'string' ? '' : t.id;

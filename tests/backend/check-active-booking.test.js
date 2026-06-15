@@ -67,7 +67,7 @@ beforeAll(async () => {
          (id, client_id, slot_id, treatment_type, treatment_name, duration_min, is_verified, status, admin_token)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (id) DO NOTHING`,
-      [id, clientIdActive, slotIds[slotKey], 'gel_classic', "לק ג'ל קלאסי", 90, true, status, 'tok-' + status]
+      [id, clientIdActive, slotIds[slotKey], 'gel_hands', "לק ג'ל לציפורניים", 60, true, status, 'tok-' + status]
     )
   }
 })

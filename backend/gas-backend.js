@@ -692,7 +692,7 @@ function handleVerifyAndBook(body) {
   const phone = normalizePhone(booking.phone);
 
   // ── 0. Validation parity (mirrors frontend guards) ──
-  const ALLOWED_SERVICES = ['gel_classic', 'gel_feet'];
+  const ALLOWED_SERVICES = ['gel_hands', 'regular_feet', 'gel_combo'];
   if (!booking.name || booking.name.trim().length < 2) {
     return { success: false, error: 'invalid_name' };
   }
@@ -1652,7 +1652,7 @@ function testFullBookingFlow() {
       otp: TEST_OTP,
       booking: {
         id: testId, name: 'AUTO-TEST', phone: '0500000000',
-        service: 'gel_classic', serviceName: "Test Service",
+        service: 'gel_hands', serviceName: "Test Service",
         date: testDate, time: testTime,
         timestamp: testDate + 'T' + testTime + ':00+03:00',
         timezone: TZ, duration: 90, status: 'Pending',
@@ -3175,7 +3175,7 @@ function runFullFlowTest() {
     // -- Step 2: createBooking --
     const cRes = handleCreateBooking({
       token: adminToken, name: 'E2E-FlowTest', phone: '0500000000',
-      service: 'gel_classic', serviceName: 'E2E Test',
+      service: 'gel_hands', serviceName: 'E2E Test',
       date: testDate, time: testTime, duration: 90,
     });
     bookingId = cRes.bookingId || null;

@@ -618,9 +618,9 @@ function setFilter(f) {
   render();
 }
 
-const SERVICE_DURATION = { gel_classic: 90, gel_feet: 120 };
+const SERVICE_DURATION = { gel_hands: 60, regular_feet: 30, gel_combo: 90, gel_classic: 90, gel_feet: 120 };
 function bookingDuration(b) {
-  return b.duration_min || b.duration || SERVICE_DURATION[b.service] || 90;
+  return b.duration_min || b.duration || SERVICE_DURATION[b.service] || 60;
 }
 
 // Up/down delta badge vs a previous period.

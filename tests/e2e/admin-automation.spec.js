@@ -24,7 +24,7 @@ const MOCK_BOOKINGS_RESP = {
   bookings: [
     {
       id: 'uuid-1', name: 'לקוחה א', phone: '0501111111',
-      service: 'gel_classic', serviceName: "לק ג'ל קלאסי",
+      service: 'gel_hands', serviceName: "לק ג'ל לציפורניים",
       date: '2099-12-15', time: '11:00', status: 'Approved',
       timestamp: '2099-11-15T11:00:00+03:00', duration: 90,
     },

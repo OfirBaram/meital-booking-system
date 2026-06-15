@@ -226,9 +226,15 @@ function _fmtDayDate(dateStr) {
   }
 }
 
-const _SVC_EMOJI    = { gel_classic: '💅', gel_feet: '🦶' }
-const _SVC_DURATION = { gel_classic: 90,   gel_feet: 120   }
-const _SVC_LABEL    = { gel_classic: "לק ג'ל קלאסי", gel_feet: "לק ג'ל רגליים" }
+const _SVC_EMOJI    = { gel_hands:'💅', regular_feet:'🦶', gel_combo:'✨', gel_classic:'💅', gel_feet:'🦶' }
+const _SVC_DURATION = { gel_hands:60,  regular_feet:30,  gel_combo:90,  gel_classic:90,  gel_feet:120  }
+const _SVC_LABEL    = {
+  gel_hands:    "לק ג'ל לציפורניים",
+  regular_feet: "לק רגיל לרגליים",
+  gel_combo:    "לק ג'ל + לק רגיל לרגליים",
+  gel_classic:  "לק ג'ל קלאסי (ישן)",
+  gel_feet:     "לק ג'ל רגליים (ישן)",
+}
 
 function _svcLine(b) {
   const svc      = b.service || ''

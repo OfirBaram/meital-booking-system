@@ -52,8 +52,8 @@ beforeAll(async () => {
       (id, client_id, slot_id, treatment_type, treatment_name,
        duration_min, is_verified, status, admin_token)
     VALUES
-      ($1, $2, $3, 'gel_classic', 'test', 90, true, 'pending', 'tok-cs-1'),
-      ($4, $2, $5, 'gel_classic', 'test', 90, true, 'pending', 'tok-cs-2')
+      ($1, $2, $3, 'gel_hands', 'test', 60, true, 'pending', 'tok-cs-1'),
+      ($4, $2, $5, 'gel_hands', 'test', 60, true, 'pending', 'tok-cs-2')
     ON CONFLICT (id) DO NOTHING
   `, [BOOKING_ID_1, clientId, slotId1, BOOKING_ID_2, slotId2])
 })

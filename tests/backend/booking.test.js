@@ -56,9 +56,9 @@ describe('BookingService.bookSlot', () => {
       slotId,
       clientId,
       bookingId:     BOOKING_ID,
-      treatmentType: 'gel_classic',
+      treatmentType: 'gel_hands',
       treatmentName: 'gel classic',
-      durationMin:   90,
+      durationMin:   60,
       adminToken:    'test-hmac-token',
     });
 
@@ -74,7 +74,7 @@ describe('BookingService.bookSlot', () => {
 
     expect(rows).toHaveLength(1);
     const appt = rows[0];
-    expect(appt.treatment_type).toBe('gel_classic');
+    expect(appt.treatment_type).toBe('gel_hands');
     expect(appt.status).toBe('pending');
     expect(appt.is_verified).toBe(true);
     expect(appt.client_id).toBe(clientId);
@@ -95,9 +95,9 @@ describe('BookingService.bookSlot', () => {
       slotId,
       clientId,
       bookingId:     BOOKING_ID_2,
-      treatmentType: 'gel_classic',
+      treatmentType: 'gel_hands',
       treatmentName: 'gel classic',
-      durationMin:   90,
+      durationMin:   60,
       adminToken:    'test-hmac-token-2',
     });
 
@@ -130,9 +130,9 @@ describe('BookingService.bookSlot', () => {
       slotId:        slot2Id,
       clientId,
       bookingId:     BOOKING_ID,   // collision
-      treatmentType: 'gel_classic',
+      treatmentType: 'gel_hands',
       treatmentName: 'gel classic',
-      durationMin:   90,
+      durationMin:   60,
       adminToken:    'test-hmac-token-dup',
     });
 
