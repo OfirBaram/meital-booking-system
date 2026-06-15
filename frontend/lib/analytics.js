@@ -17,13 +17,23 @@ mixpanel.init(TOKEN, {
 export function trackEvent(event, properties = {}) {
   try {
     mixpanel.track(event, properties);
-  } catch { /* ad blockers may prevent Mixpanel from loading */ }
+  } catch (err) {
+    console.warn('[Mixpanel] track failed (ad-blocker?):', err);
+  }
 }
 
 export function identifyUser(phone) {
-  mixpanel.identify(phone);
+  try {
+    mixpanel.identify(phone);
+  } catch (err) {
+    console.warn('[Mixpanel] identify failed:', err);
+  }
 }
 
 export function resetUser() {
-  mixpanel.reset();
+  try {
+    mixpanel.reset();
+  } catch (err) {
+    console.warn('[Mixpanel] reset failed:', err);
+  }
 }
