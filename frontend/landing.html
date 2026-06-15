@@ -813,7 +813,7 @@ const SiteConfig = {
   // ── SOCIAL LINKS ──────────────────────────────────────────────
   // החלף '#' ב-URL האמיתי. הסר רשת שאינך רוצה — כתוב null.
   social: {
-    whatsapp:  'https://wa.me/972547686865?text=%D7%94%D7%99%D7%99%20%D7%9E%D7%99%D7%98%D7%9C%21%20%F0%9F%98%8A%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%AA%D7%90%D7%9E%D7%A0%20%D7%AA%D7%95%D7%A8%20%D7%9C%D7%98%D7%99%D7%A4%D7%95%D7%9C.%20%D7%90%D7%A4%D7%A9%D7%A8%20%D7%9C%D7%93%D7%A2%D7%AA%20%D7%9E%D7%94%20%D7%94%D7%96%D7%9E%D7%A0%D7%99%D7%9D%20%D7%94%D7%A4%D7%A0%D7%95%D7%99%D7%99%D7%9D%3F',
+    whatsapp:  'https://wa.me/972547686865',
     instagram: 'https://www.instagram.com/meytal.sheva',
     tiktok:    'https://www.tiktok.com/@meytal.sheva',
     waze:      'https://waze.com/ul?q=רש%22י%2011%20רמת%20גן',
@@ -936,6 +936,12 @@ var SOCIAL_LABELS = {
   easy:      'Easy',
 };
 
+var WA_PREFILL = 'היי מיטל! 😊 אשמח לתאם תור לטיפול. אפשר לדעת מה הזמנים הפנויים?';
+function openWA(e) {
+  if (e) e.preventDefault();
+  window.open('https://wa.me/972547686865?text=' + encodeURIComponent(WA_PREFILL), '_blank', 'noopener,noreferrer');
+}
+
 function buildSocialIcon(name, href) {
   if (!href || !SOCIAL_ICONS[name]) return '';
   var a = document.createElement('a');
@@ -983,6 +989,7 @@ function renderHeroCta() {
   wa.target = '_blank';
   wa.rel = 'noopener noreferrer';
   wa.setAttribute('aria-label', 'שלחי הודעת ווטסאפ');
+  wa.addEventListener('click', openWA);
   wa.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.098.543 4.067 1.49 5.785L0 24l6.386-1.675A11.955 11.955 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22.001c-1.895 0-3.66-.51-5.17-1.396l-.371-.22-3.793.994.994-3.707-.239-.381A10 10 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10.001-10 10.001z"/></svg><span>ווטסאפ</span>';
   el.appendChild(wa);
 }
@@ -1045,6 +1052,8 @@ function renderContact() {
         SOCIAL_ICONS.whatsapp +
         '<span>שלחי הודעה בווטסאפ</span>' +
       '</a>';
+    var waLink = waBtn.querySelector('a');
+    if (waLink) waLink.addEventListener('click', openWA);
   }
   // Phone + Email
   var contactLinks = document.getElementById('contact-links');
