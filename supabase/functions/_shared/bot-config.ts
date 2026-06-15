@@ -75,7 +75,7 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
       properties: {
         days_ahead: {
           type: 'number',
-          description: 'Number of days ahead to search (1–60). Defaults to 14.',
+          description: 'Number of days ahead to search (1–60). Defaults to 30.',
         },
         day_of_week: {
           type: 'number',
@@ -87,7 +87,7 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
   },
   async execute(input, { supabase }) {
     // Clamp to [1, 60] — prevents NaN/Infinity timestamps and runaway query ranges
-    const daysAhead = Math.min(Math.max(1, Number(input.days_ahead) || 14), 60)
+    const daysAhead = Math.min(Math.max(1, Number(input.days_ahead) || 30), 60)
     const now     = new Date()
     const fromUTC = new Date(now.getTime() - 3 * 3_600_000).toISOString()
     const toUTC   = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
@@ -127,11 +127,72 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
   },
 }
 
+// ── join_waitlist ─────────────────────────────────────────────────────────────
+interface WaitlistInput extends Record<string, unknown> {
+  name: string
+  phone: string
+  service?: string
+}
+interface WaitlistOutput {
+  success: boolean
+  existing?: boolean
+  error?: string
+}
+
+const joinWaitlistTool: BotTool<WaitlistInput, WaitlistOutput> = {
+  definition: {
+    name: 'join_waitlist',
+    description: 'Add a customer to the waitlist so Meital can contact them when a slot opens. Call only after you have collected: name, phone (Israeli mobile), and optionally a service choice. Do NOT call if any required field is missing — ask first.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Customer first name (or full name).',
+        },
+        phone: {
+          type: 'string',
+          description: 'Israeli mobile number — any common format (05X, 972, +972).',
+        },
+        service: {
+          type: 'string',
+          description: 'Desired service id: "gel_hands" | "regular_feet" | "gel_combo". Omit if unknown.',
+          enum: ['gel_hands', 'regular_feet', 'gel_combo'],
+        },
+      },
+      required: ['name', 'phone'],
+    },
+  },
+  async execute(input) {
+    try {
+      const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/waitlist-add`
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+        },
+        body: JSON.stringify({
+          name:    input.name,
+          phone:   input.phone,
+          service: input.service ?? null,
+        }),
+      })
+      const data = await resp.json() as WaitlistOutput
+      return data
+    } catch (e) {
+      console.error('[join_waitlist]', e)
+      return { success: false, error: 'network_error' }
+    }
+  },
+}
+
 // ── Tool registry ────────────────────────────────────────────────────────────
 // Register new tools here. The agentic loop dispatches by name — no other
 // code needs to change when you add a tool.
 export const TOOL_REGISTRY = new Map<string, BotTool>([
   ['check_availability', checkAvailabilityTool],
+  ['join_waitlist',      joinWaitlistTool],
 ])
 
 // Flat list of definitions for the Anthropic API call.
@@ -206,9 +267,11 @@ Never write raw URLs — always use the token. Do not invent other tokens.
     "אני כאן כדי לעזור עם טיפולי מניקור מקצועיים. לכל נושא אחר – זה לא המקום. אשמח לעזור לך עם תור אם תרצי 💅"
 11. DAY FILTER (anti-hallucination) — if the user specifies a day of the week ("רק ימי שלישי",
     "ביום חמישי", "שני בלבד", etc.), call check_availability with the matching day_of_week value
-    (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat). If no slots found for that day, reply:
-    "אין לי כרגע זמנים פנויים ביום [X]. אשמח לבדוק עבורך ישירות 📲" then [WA].
-    NEVER suggest slots on a different day than the one the user specified.
+    (0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat). If no slots found for that day:
+    first check whether other days have slots (call check_availability without day_of_week filter).
+    If OTHER days have slots → say "אין לי ביום [X] כרגע, אבל יש לי זמנים בימים אחרים — רוצי שאראה לך?"
+    If NO days have slots at all → treat as count=0 and run the full waitlist flow (Rule 15).
+    NEVER suggest slots on a different day than the one the user specified without asking first.
 12. OUTPUT FORMAT — Plain text ONLY. NEVER use Markdown syntax: no **, *, ##, __, or any other
     Markdown characters. Use emojis or line breaks for emphasis. The UI renders plain text.
 13. TECHNIQUE QUESTIONS — if a user asks about a technique Meital doesn't offer (e.g. Russian
@@ -216,4 +279,37 @@ Never write raw URLs — always use the token. Do not invent other tokens.
     "אני מתמקדת בשיטות העבודה שלי (לק ג׳ל קלאסי) שנותנות את התוצאה הכי טובה ושומרות על בריאות הציפורן. אשמח להראות לך עבודות כאלו 💅"
     Then add [IG] on a new line. Do NOT rush to send [WA] — keep the user engaged in the chat.
 14. GENDER (customer) — Always address the customer in feminine (נקבה): 'תרצי', 'יכולה', 'בחרי', 'בואי', 'לחצי', 'קבעת', 'תוכלי'. Never use masculine forms ('תרצה', 'יכול', 'בחר').
-   This applies to ALL messages — greetings, slot offers, follow-ups, WhatsApp nudges.`
+   This applies to ALL messages — greetings, slot offers, follow-ups, WhatsApp nudges.
+15. NO-SLOTS FLOW (CRITICAL — when check_availability returns count=0) ──────────────────
+    When the tool returns { count: 0, slots: [] } — whether for a specific day or for all days
+    in the search window — NEVER say "אין תורים" flatly or leave the user without a next step.
+    Instead, follow this exact three-part response:
+
+    PART 1 — FOMO framing (1 sentence, warm):
+    Frame fullness as proof of quality, not a dead end. Examples:
+    "הסטודיו שלי עמוס כרגע — זה תמיד סימן טוב! 💅"
+    "הביקוש גבוה ואין לי מקומות פנויים ברגע זה."
+
+    PART 2 — Waitlist offer (collect name + phone + service):
+    Invite the customer to join the waitlist so Meital contacts them first when a slot opens.
+    Ask for the three pieces of information ONE AT A TIME (do NOT ask for all at once):
+    Step A: "מה שמך?"
+    Step B (after name): "ומה מספר הטלפון שלך?"  (any Israeli format is fine)
+    Step C (after phone): present the three SVC chips:
+    [SVC:gel_hands]
+    [SVC:regular_feet]
+    [SVC:gel_combo]
+    Once you have all three, call join_waitlist(name, phone, service).
+
+    PART 3 — Confirm + Instagram bridge:
+    On success ({ success: true }):
+    "נהדר [name]! רשמתי אותך ✨ מיטל תחזור אלייך ראשונה כשמקום יתפנה.
+    בינתיים תוכלי לראות את העבודות האחרונות שלי ולהתאהב בעיצוב הבא:"
+    [IG]
+    On failure: send [WA] with "משהו לא הצליח — שלחי לי בווטסאפ וארשום אותך ישירות:"
+
+    IDEMPOTENCY: if join_waitlist returns { existing: true }, reply:
+    "את כבר ברשימה שלי [name] 💅 מיטל תחזור אלייך בהקדם!"
+
+    IMPORTANT: Do NOT skip to [WA] before attempting the waitlist flow.
+    The waitlist is the primary fallback — WhatsApp is the backup if the bot fails.`

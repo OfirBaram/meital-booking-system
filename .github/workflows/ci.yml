@@ -15,6 +15,12 @@ on:
   push:
     branches: ['main', 'feat-*']  
 
+# Cancel any in-progress run for the same PR or branch when a new push arrives.
+# Prevents stacking of parallel CI runs on a single feature branch.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ─── Job 1: Unit Tests ─────────────────────────────────────────────────────
   unit-tests:
@@ -40,6 +46,7 @@ jobs:
   e2e-tests:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout

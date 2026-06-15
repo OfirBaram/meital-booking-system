@@ -2152,7 +2152,7 @@ document.addEventListener('DOMContentLoaded', function() {
       body: JSON.stringify({ messages: hist })
     })
     .then(function(r) {
-      if (r.status === 429) return { reply: 'נשלחו יותר מדי הודעות. נסי שוב בעוד דקה 🙏' };
+      if (r.status === 429) throw { is429: true };
       return r.json();
     })
     .then(function(d) {
@@ -2162,10 +2162,13 @@ document.addEventListener('DOMContentLoaded', function() {
       addRow('bot', rep);
       hist.push({ role: 'assistant', content: rep }); save();
     })
-    .catch(function() {
+    .catch(function(e) {
       if (typingRow) typingRow.remove();
       lastRole = null;
-      addRow('bot', 'מצטערת, לא הצלחתי להתחבר. ווטסאפ: +972547686865 📲');
+      var msg = (e && e.is429)
+        ? 'נשלחו יותר מדי הודעות. נסי שוב בעוד דקה 🙏'
+        : 'מצטערת, לא הצלחתי להתחבר. ווטסאפ: +972547686865 📲';
+      addRow('bot', msg);
       if (hist.length > 0 && hist[hist.length - 1].role === 'user') { hist.pop(); save(); }
     })
     .finally(function() {
@@ -2261,5 +2264,6 @@ document.addEventListener('DOMContentLoaded', function() {
 }());
 </script>
 <script type="module" src="./landing-analytics.js"></script>
+<script src="./chatbot.js"></script>
 </body>
 </html>
