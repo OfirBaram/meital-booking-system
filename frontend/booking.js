@@ -1019,7 +1019,7 @@ const LEGAL_CONTENT = {
     title: 'מדיניות פרטיות',
     html: `
       <p class="font-semibold text-text-muted text-xs uppercase tracking-widest mb-1">עדכון אחרון: יוני 2026</p>
-      <p>סטודיו <strong>מיטל שבע ברעם — לק ג'ל בוטק</strong> מחויב לשמירה על פרטיות לקוחותיו.</p>
+      <p>סטודיו <strong>מיטל שבע ברעם — לק ג'ל בוטיק</strong> מחויב לשמירה על פרטיות לקוחותיו.</p>
       <h3 class="font-semibold mt-3">מידע שנאסף</h3>
       <p>האתר אוסף <strong>שם מלא ומספר טלפון בלבד</strong>, לצורך תיאום תורים. המידע אינו משמש למטרות שיווקיות ואינו מועבר לצדדים שלישיים — למעט שירות SMS (Twilio) לאימות זהות בתהליך ההזמנה.</p>
       <h3 class="font-semibold mt-3">אחסון המידע</h3>
@@ -1044,7 +1044,7 @@ const LEGAL_CONTENT = {
         <li class="flex gap-2"><span class="text-primary shrink-0">✓</span>תמיכה בהגדלת טקסט עד 200%</li>
       </ul>
       <h3 class="font-semibold mt-3">פנייה בנושא נגישות</h3>
-      <p>נתקלת בחסם? נשמח לסייע:</p>
+      <p>נתקלת בחסם? אשמח לסייע:</p>
       <a href="mailto:meital_sheva7@hotmail.com" class="text-primary underline underline-offset-2">meital_sheva7@hotmail.com</a>
     `,
   },

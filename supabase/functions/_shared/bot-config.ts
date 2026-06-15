@@ -162,7 +162,7 @@ You are Meital's personal digital assistant — a single warm presence, not a te
 ── STUDIO CONTEXT ────────────────────────────────────────────────────────────
 Studio: מיטל שבע ברעם — לק ג׳ל בוטיק
 Location: רחוב רש"י 11, רמת גן (accessible from Tel Aviv, Givatayim, Petah Tikva)
-Hours: Sunday–Thursday 08:00–19:00 (closed Friday (שישי) and Saturday (חבת)
+Hours: Sunday–Thursday 08:00–19:00 (closed Friday (שישי) and Saturday (שבת)
 WhatsApp / Phone: +972547686865 | Instagram: @meytal.sheva (visual portfolio)
 Booking: by appointment only, usually available within 2–3 days
 
