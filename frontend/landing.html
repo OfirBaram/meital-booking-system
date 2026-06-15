@@ -1327,9 +1327,8 @@ document.addEventListener('DOMContentLoaded', function() {
 #chat-title { display: flex; align-items: center; gap: 10px; }
 #chat-avatar {
   width: 38px; height: 38px;
-  background: rgba(255,255,255,.22); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: .95rem; font-weight: 700; flex-shrink: 0;
+  border-radius: 50%; overflow: hidden;
+  flex-shrink: 0;
   border: 1.5px solid rgba(255,255,255,.35);
 }
 #chat-name { font-weight: 700; font-size: .875rem; white-space: nowrap; }
@@ -1446,6 +1445,14 @@ document.addEventListener('DOMContentLoaded', function() {
 #chat-send:hover { transform: scale(1.07); box-shadow: 0 4px 14px rgba(166,124,142,.5); }
 #chat-send:active { transform: scale(.92); }
 #chat-send:disabled { background: #DDC3A5; cursor: not-allowed; transform: none; box-shadow: none; }
+.csvc-btn {
+  display: inline-block; margin: 4px 0; padding: 8px 16px;
+  background: #FAF5F0; border: 1.5px solid #A67C8E; border-radius: 20px;
+  color: #A67C8E; font-family: inherit; font-size: .82rem; font-weight: 600;
+  cursor: pointer; direction: rtl; transition: background .18s, transform .12s;
+}
+.csvc-btn:hover, .csvc-btn:focus-visible { background: #DDC3A5; transform: scale(1.03); outline: none; }
+.csvc-btn:active { transform: scale(.97); }
 
 /* === LINK BUTTONS IN BOT MESSAGES === */
 .clink {
@@ -1493,7 +1500,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="chat-handle" aria-hidden="true"></div>
   <div id="chat-header">
     <div id="chat-title">
-      <div id="chat-avatar">מ</div>
+      <div id="chat-avatar"><picture>
+        <source srcset="meital_profile_header.webp" type="image/webp">
+        <img src="meital_profile_header.png" alt="מיטל" style="width:100%;height:100%;object-fit:cover;object-position:center top;">
+      </picture></div>
       <div>
         <div id="chat-name">מיטל שבע ברעם — לק ג'ל</div>
         <div id="chat-status">מענה מהיר ✨</div>
@@ -1522,7 +1532,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var EP  = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
   var LSK     = 'meital_chat_h';
-  var WELCOME = 'שלום! 💅\nאני הסוכן האישי של מיטל שבע ברעם — לק ג\'ל בוטיק.\nאשמח לעזור לך עם הזמנת תור, שאלות על שירותים ועוד!\nבמה אוכל לעזור?';
+  var WELCOME = 'שלום! 💅\nאני הסוכנת האישית של מיטל שבע ברעם — לק ג\'ל בוטיק.\nאשמח לעזור לך עם הזמנת תור, שאלות על שירותים ועוד!\nבמה אוכל לעזור?';
   var hist = [], isOpen = false;
 
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || "[]"); } catch(e) { hist = []; } }
@@ -1534,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', function() {
   function botMsg(wrap, text) {
     var d = document.createElement("div");
     d.className = "cmsg bot"; d.dir = "auto";
-    var parts = text.split(/(\[BOOK:[^\]]+\]|\[WA\]|\[IG\])/g);
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\])/g);
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
@@ -1544,6 +1554,22 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = "cbook"; a.dir = "rtl";
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         d.appendChild(a);
+      } else if (p.match(/^\[SVC:(gel_classic|gel_feet)\]$/)) {
+        var svcId = p.slice(5, -1);
+        var svcLabel = svcId === 'gel_classic' ? '💅 לק ג\'ל קלאסי — 90 דק\'' : '🦶 לק ג\'ל לרגליים — 120 דק\'';
+        var svcMsg  = svcId === 'gel_classic' ? 'לק ג\'ל קלאסי' : 'לק ג\'ל לרגליים';
+        d.appendChild(document.createElement('br'));
+        var sbtn = document.createElement('button');
+        sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel;
+        sbtn.setAttribute('type', 'button');
+        (function(msg) {
+          sbtn.addEventListener('click', function() {
+            var inp = document.getElementById('chat-input');
+            if (inp) { inp.value = msg; }
+            send();
+          });
+        })(svcMsg);
+        d.appendChild(sbtn);
       } else if (p === '[WA]') {
         d.appendChild(document.createElement("br"));
         var aw = document.createElement("a");
