@@ -315,8 +315,8 @@ test.describe('State preservation — localStorage returning-client', () => {
     // Must land cleanly on step 1
     await expect(page.locator('#step-1')).toBeVisible({ timeout: 5_000 })
     await expect(page.locator('#step-4')).not.toBeVisible()
-    // App must have re-initialised: both service cards present
-    await expect(page.locator('[data-qa^="card-service"]')).toHaveCount(2)
+    // App must have re-initialised: all 3 service cards present
+    await expect(page.locator('[data-qa^="card-service"]')).toHaveCount(3)
   })
 })
 
@@ -332,7 +332,7 @@ test.describe('data-qa structural smoke — every functional element is reachabl
   })
 
   test('step 1: service cards and navigation', async ({ page }) => {
-    await expect(page.locator('[data-qa^="card-service"]')).toHaveCount(2)
+    await expect(page.locator('[data-qa^="card-service"]')).toHaveCount(3)
     await expect(page.locator('[data-qa="btn-next"]')).toBeVisible()
   })
 

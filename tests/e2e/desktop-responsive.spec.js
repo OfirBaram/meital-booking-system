@@ -84,7 +84,7 @@ test.describe('Booking page - desktop 1280x800', () => {
     await mockBookingRoutes(page)
     await page.goto('/')
     const cards = page.locator('#js-services > *')
-    await expect(cards).toHaveCount(2, { timeout: 5_000 })
+    await expect(cards).toHaveCount(3, { timeout: 5_000 })
     const [b0, b1] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()])
     expect(b0).not.toBeNull()
     expect(b1).not.toBeNull()

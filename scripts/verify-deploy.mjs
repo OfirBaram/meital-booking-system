@@ -33,9 +33,9 @@ const SHARED_DIR    = `${FUNCTIONS_DIR}/_shared`;
 // If a deploy happened within this window BEFORE the commit, treat as in sync.
 // Covers the "deploy → commit minutes later" pattern where Supabase returns
 // "No change found" and does not update updated_at (code was already live).
-// 10 min is generous enough for local deploy→commit workflows while still
-// catching the original class of bug (3-day-old stale deploy).
-const DEPLOY_GRACE_MS = 600_000;
+// 4 h covers multi-session workflows (deploy in session 1, commit in session 2)
+// while still catching the original class of bug (3-day-old stale deploy).
+const DEPLOY_GRACE_MS = 14_400_000; // 4 h — covers multi-session deploy-before-commit workflows
 
 function gitCommitEpoch(path) {
   // %ct = committer date, epoch seconds. Empty when the path has no commits yet.
