@@ -1069,7 +1069,7 @@ async function loadWaitlist(force) {
   }
 }
 
-var SVC_LABELS = { gel_hands: 'לק ג'ל לציפורניים', regular_feet: 'לק רגיל לרגליים', gel_combo: 'לק ג'ל + לק רגיל' };
+var SVC_LABELS = { gel_hands: "לק ג'ל לציפורניים", regular_feet: "לק רגיל לרגליים", gel_combo: "לק ג'ל + לק רגיל" };
 
 function renderWaitlist(list) {
   var el = document.getElementById('js-waitlist-list');
