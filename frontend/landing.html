@@ -1481,9 +1481,11 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
   <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
   <div id="chat-chips" role="group" aria-label="שאלות מהירות">
+    <button class="cchip" data-msg="אני רוצה לקבוע תור">📌 קביעת תור</button>
     <button class="cchip" data-msg="מה הזמנים הפנויים הקרובים?">📅 זמינות</button>
-    <button class="cchip" data-msg="מה המחירים?">💰 מחירון</button>
     <button class="cchip" data-msg="אפשר לראות דוגמאות עבודה?">📸 גלריה</button>
+    <button class="cchip" data-msg="מה שעות הפתיחה?">🕐 שעות פתיחה</button>
+    <button class="cchip" data-msg="איפה נמצא הסטודיו?">📍 מיקום</button>
   </div>
   <div id="chat-footer">
     <input id="chat-input" type="text" placeholder="שאלי אותי..." autocomplete="off" maxlength="300" dir="auto" />
@@ -1498,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var EP  = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
   var LSK     = 'meital_chat_h';
-  var WELCOME = 'שלום! אני העוזרת של מיטל שבע ברעם 💅\nשמחה לענות על שאלות לגבי שירותים, זמינות ואיך מגיעים.\nבמה אוכל לעזור?';
+  var WELCOME = 'שלום! 💅\nאני הסוכן האישי של מיטל שבע ברעם — לק ג\'ל בוטיק.\nאשמח לעזור לך עם הזמנת תור, שאלות על שירותים ועוד!\nבמה אוכל לעזור?';
   var hist = [], isOpen = false;
 
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || "[]"); } catch(e) { hist = []; } }
