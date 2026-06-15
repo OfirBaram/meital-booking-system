@@ -8,7 +8,6 @@ import {
   DEBUG_MODE,
   debugLog,
 } from '../_shared/bot-config.ts'
-import { checkFaq } from '../_shared/faq-engine.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -107,16 +106,6 @@ Deno.serve(async (req) => {
 
   debugLog('incoming', { ip, messageCount: messages.length })
 
-  // Early-exit FAQ: return instant response without calling Anthropic
-  const lastMsg = messages[messages.length - 1]
-  if (lastMsg.role === 'user') {
-    const faqReply = checkFaq(lastMsg.content as string)
-    if (faqReply) {
-      debugLog('faq-hit', { query: (lastMsg.content as string).slice(0, 60) })
-      return json({ reply: faqReply })
-    }
-  }
-
   try {
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
@@ -177,6 +166,9 @@ Deno.serve(async (req) => {
     if (!finalText) {
       finalText = 'מצטערת, לא הצלחתי לסיים את התשובה. אפשר לנסות שוב או לפנות בווטסאפ 📲'
     }
+
+    // Strip markdown bold/italic that models occasionally emit despite instructions
+    finalText = finalText.replace(/\*{1,3}([^*\n]+)\*{1,3}/g, '$1')
 
     return json({ reply: finalText })
 

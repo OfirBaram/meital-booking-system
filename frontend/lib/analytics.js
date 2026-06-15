@@ -7,6 +7,7 @@ mixpanel.init(TOKEN, {
   debug: IS_DEV,
   track_pageview: true,
   persistence: 'localStorage',
+  api_host: 'https://api-eu.mixpanel.com',
 });
 
 /**
@@ -15,15 +16,24 @@ mixpanel.init(TOKEN, {
  */
 export function trackEvent(event, properties = {}) {
   try {
-    if (IS_DEV) console.debug('[analytics]', event, properties);
     mixpanel.track(event, properties);
-  } catch { /* ad blockers may prevent Mixpanel from loading */ }
+  } catch (err) {
+    console.warn('[Mixpanel] track failed (ad-blocker?):', err);
+  }
 }
 
 export function identifyUser(phone) {
-  mixpanel.identify(phone);
+  try {
+    mixpanel.identify(phone);
+  } catch (err) {
+    console.warn('[Mixpanel] identify failed:', err);
+  }
 }
 
 export function resetUser() {
-  mixpanel.reset();
+  try {
+    mixpanel.reset();
+  } catch (err) {
+    console.warn('[Mixpanel] reset failed:', err);
+  }
 }

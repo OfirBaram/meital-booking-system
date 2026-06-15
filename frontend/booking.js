@@ -901,12 +901,13 @@ async function submitOTP(otp) {
   if (res.success) {
     identifyUser(State.phone);
     trackEvent('booking_completed', {
+      booking_id:   State.bookingId,
+      service_type: State.service.id,
       service_id:   State.service.id,
       service_name: State.service.name,
       duration_min: State.service.duration,
       date:         State.date,
       time:         State.time,
-      booking_id:   State.bookingId,
     });
     showStep(5);
     renderConfirmation();
