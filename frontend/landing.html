@@ -1043,9 +1043,10 @@ function renderContact() {
   var waBtn = document.getElementById('contact-wa-btn');
   if (waBtn) {
     var waHref = SiteConfig.social.whatsapp || '#';
+    var waFull = waHref !== '#' ? waHref + '?text=' + encodeURIComponent(WA_PREFILL) : '#';
     waBtn.innerHTML =
       '<a class="btn-wa"' +
-         ' href="' + sanitize(waHref) + '"' +
+         ' href="' + sanitize(waFull) + '"' +
          ' rel="noopener noreferrer"' +
          (waHref !== '#' ? ' target="_blank"' : '') +
          ' aria-label="צרי קשר בווטסאפ">' +
