@@ -341,7 +341,7 @@ function setTab(tab) {
       active ? 'text-primary' : 'text-text-muted',
     ].join(' ');
   });
-  if (tab === 'pulse') { renderPulse(); loadFlags(); }
+  if (tab === 'pulse') { renderPulse(); loadFlags(); loadWaitlist(); }
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
   if (_tabEl) {
@@ -1051,6 +1051,78 @@ async function toggleFlag(key, enabled, inputEl) {
   } finally {
     inputEl.disabled = false;
   }
+}
+
+// ── Waitlist ─────────────────────────────────────────────────────────────────
+var _waitlistLoaded = false;
+
+async function loadWaitlist(force) {
+  if (_waitlistLoaded && !force) return;
+  var el = document.getElementById('js-waitlist-list');
+  try {
+    var data = await sbCall('admin-waitlist', { action: 'getWaitlist' });
+    if (!data.success) throw new Error(data.error);
+    _waitlistLoaded = true;
+    renderWaitlist(data.waitlist || []);
+  } catch (e) {
+    if (el) el.innerHTML = '<div class="text-red-400 text-xs">שגיאה בטעינת רשימת המתנה</div>';
+  }
+}
+
+var SVC_LABELS = { gel_hands: 'לק ג'ל לציפורניים', regular_feet: 'לק רגיל לרגליים', gel_combo: 'לק ג'ל + לק רגיל' };
+
+function renderWaitlist(list) {
+  var el = document.getElementById('js-waitlist-list');
+  if (!el) return;
+
+  var active = list.filter(function(w) { return w.status === 'waiting' || w.status === 'contacted'; });
+
+  if (!active.length) {
+    el.innerHTML = '<div class="text-text-muted text-xs italic">אין ממתינות כרגע 🎉</div>';
+    return;
+  }
+
+  el.innerHTML = active.map(function(w) {
+    var svcLabel = SVC_LABELS[w.service] || (w.service || '—');
+    var dateStr  = w.created_at ? new Date(w.created_at).toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) : '';
+    var statusBadge = w.status === 'contacted'
+      ? '<span class="text-[10px] bg-blue-50 text-blue-500 font-bold px-1.5 py-0.5 rounded-full">יצרת קשר</span>'
+      : '<span class="text-[10px] bg-amber-50 text-amber-600 font-bold px-1.5 py-0.5 rounded-full">ממתינה</span>';
+
+    var phone = esc(w.phone);
+    var waMsg = encodeURIComponent('היי ' + w.name + '! 💅 מיטל מדברת — נפתח מקום ולא שכחתי אותך! אשמח לתאם תור ל' + svcLabel + '. מתי נוח לך?');
+    var waUrl = 'https://wa.me/' + phone.replace(/^\+/, '') + '?text=' + waMsg;
+
+    return (
+      '<div class="flex items-start justify-between gap-2 py-2 border-b border-secondary/10 last:border-0">' +
+        '<div class="min-w-0 flex-1">' +
+          '<div class="flex items-center gap-1.5 flex-wrap">' +
+            '<span class="font-bold text-sm text-text-main">' + esc(w.name) + '</span>' +
+            statusBadge +
+          '</div>' +
+          '<div class="text-[11px] text-text-muted mt-0.5">' + esc(svcLabel) + ' · ' + esc(dateStr) + '</div>' +
+        '</div>' +
+        '<div class="flex items-center gap-1.5 shrink-0">' +
+          '<a href="' + waUrl + '" target="_blank" rel="noopener noreferrer" ' +
+             'onclick="markWaitlistContacted(' + w.id + ')" ' +
+             'class="text-[11px] font-bold bg-green-500 text-white px-2 py-1 rounded-lg hover:bg-green-600 active:scale-95 transition-all whitespace-nowrap">📲 ווטסאפ</a>' +
+          '<button onclick="dismissWaitlist(' + w.id + ')" ' +
+             'class="text-[11px] font-bold text-text-muted border border-secondary/30 px-2 py-1 rounded-lg hover:bg-gray-50 active:scale-95 transition-all">הסר</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+}
+
+async function markWaitlistContacted(id) {
+  try { await sbCall('admin-waitlist', { action: 'markContacted', id: id }); } catch(e) {}
+}
+
+async function dismissWaitlist(id) {
+  try {
+    await sbCall('admin-waitlist', { action: 'dismiss', id: id });
+    loadWaitlist(true);
+  } catch(e) { toast('שגיאה', 'err'); }
 }
 
 function updateReminderPreview() {
