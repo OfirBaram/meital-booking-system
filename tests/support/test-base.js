@@ -66,6 +66,11 @@ export const test = base.extend({
     await page.route('**/landing-analytics.js', route => route.fulfill({
       status: 200, contentType: 'application/javascript', body: '',
     }))
+    // With the Vite preview build the real Mixpanel SDK loads — intercept its API
+    // calls so CI runs don't pollute production analytics.
+    await page.route('https://api-eu.mixpanel.com/**', route => route.fulfill({
+      status: 200, contentType: 'text/plain', body: '1',
+    }))
 
     await use(page)
 
