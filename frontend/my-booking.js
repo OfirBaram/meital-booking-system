@@ -15,7 +15,8 @@ const State = {
   activeBooking: null,
   history: [],
   rsYear: 0, rsMonth: 0,
-  rsSlots: {},      // loaded month keys -> { "YYYY-MM-DD": ["HH:MM", ...] }
+  rsSlots: {},         // { "YYYY-MM-DD": ["HH:MM", ...] }
+  rsLoadedMonths: new Set(),
   rsDate: null, rsTime: null,
   resendTimer: null,
 };
@@ -264,8 +265,12 @@ async function confirmCancel() {
         ? 'לא ניתן לבטל — פחות מ-48 שעות לטיפול. פני למיטל ישירות.'
         : 'שגיאה בביטול — נסי שוב';
       toast(msg, true);
+      setLoad('btn-open-cancel', false);
     }
-  } catch { toast('בעיית תקשורת — נסי שוב', true); }
+  } catch {
+    toast('בעיית תקשורת — נסי שוב', true);
+    setLoad('btn-open-cancel', false);
+  }
 }
 
 // ── Reschedule ────────────────────────────────────────────────────────────────
@@ -285,13 +290,16 @@ async function startReschedule() {
 async function loadRsMonth(year, month) {
   document.getElementById('rs-month-label').textContent = `${HE_MONTHS[month-1]} ${year}`;
   const key = `${year}-${String(month).padStart(2,'0')}`;
-  if (State.rsSlots[key] !== undefined) { renderRsCal(); return; }
+  if (State.rsLoadedMonths.has(key)) { renderRsCal(); return; }
   const service = State.activeBooking?.service ?? 'gel_hands';
   try {
     const qs = new URLSearchParams({ year, month, service }).toString();
-    const r  = await fetch(`${BASE}/get-slots?${qs}`).then(res => res.json());
+    const r  = await fetch(`${BASE}/get-slots?${qs}`, {
+      headers: { 'apikey': ANON, 'Authorization': `Bearer ${ANON}` },
+    }).then(res => res.json());
     if (r.slots) {
       Object.assign(State.rsSlots, r.slots);
+      State.rsLoadedMonths.add(key);
     } else {
       toast('שגיאה בטעינת מועדים — נסי שוב', true);
     }
@@ -337,6 +345,14 @@ function renderRsCal() {
     html += `<div class="text-center"><div class="${cls}"${onclick}>${d}</div>${dot}</div>`;
   }
   grid.innerHTML = html;
+
+  // Show hint when no available slots in this month
+  const hasAnySlot = Object.entries(State.rsSlots).some(([ds, times]) => {
+    const [dy, dm] = ds.split('-').map(Number);
+    return dy === y && dm === m && times.length > 0;
+  });
+  const hint = document.getElementById('rs-no-slots-hint');
+  if (hint) hint.hidden = hasAnySlot;
 
   grid.querySelectorAll('[data-rs-date]').forEach(el => {
     el.addEventListener('click', () => selectRsDate(el.dataset.rsDate));
@@ -390,7 +406,7 @@ async function confirmReschedule() {
     const r = await post('client-reschedule', { booking_id: b.id, new_date: State.rsDate, new_time: State.rsTime }, true);
     if (r.success) {
       toast(`✅ שינוי אושר! ${fmtDate(r.new_date)} ${r.new_time}`);
-      State.rsSlots = {};
+      State.rsSlots = {}; State.rsLoadedMonths = new Set();
       await loadPortal();
       show('screen-dashboard');
     } else {
