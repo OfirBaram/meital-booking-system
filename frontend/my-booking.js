@@ -238,10 +238,10 @@ function renderHistory() {
 // ── Cancel modal ──────────────────────────────────────────────────────────────
 
 function openCancel() {
-  document.getElementById('modal-cancel').hidden = false;
+  document.getElementById('modal-cancel').style.display = 'flex';
 }
 function closeCancel() {
-  document.getElementById('modal-cancel').hidden = true;
+  document.getElementById('modal-cancel').style.display = 'none';
 }
 
 async function confirmCancel() {

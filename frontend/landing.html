@@ -943,7 +943,7 @@ const SiteConfig = {
     },
     {
       num:   '03',
-      title: "קומבו — ג'ל ידיים + לק רגליים",
+      title: "ג'ל ידיים + לק רגיל ברגליים",
       meta:  '90 דקות',
       desc:  "השילוב המנצח: ג'ל ידיים מושלם ולק רגיל ברגליים — טיפול יחיד לסיום יוקרתי מכף רגל ועד ידיים.",
     },
@@ -1976,7 +1976,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bubble.appendChild(a);
       } else if (p.match(/^\[SVC:(gel_hands|regular_feet|gel_combo)\]$/)) {
         var svcId = p.slice(5, -1);
-        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל ברגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל — 90 דק\'' };
+        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל ברגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל ברגליים — 90 דק\'' };
         var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל ברגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל ברגליים' };
         var svcLabel = _SVC_LABELS[svcId] || svcId;
         var svcMsg   = _SVC_MSGS[svcId]   || svcId;
@@ -2258,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', function() {
   else { window.addEventListener('load', lazyInit, { once: true }); }
 }());
 </script>
+<script type="importmap">{ "imports": { "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
 <script type="module" src="./landing-analytics.js"></script>
-<script src="./chatbot.js?v=92"></script>
 </body>
 </html>
