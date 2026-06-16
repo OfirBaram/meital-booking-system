@@ -287,8 +287,17 @@ async function loadRsMonth(year, month) {
   const key = `${year}-${String(month).padStart(2,'0')}`;
   if (State.rsSlots[key] !== undefined) { renderRsCal(); return; }
   const service = State.activeBooking?.service ?? 'gel_hands';
-  const r = await get('get-slots', { year, month, service });
-  if (r.slots) Object.assign(State.rsSlots, r.slots);
+  try {
+    const qs = new URLSearchParams({ year, month, service }).toString();
+    const r  = await fetch(`${BASE}/get-slots?${qs}`).then(res => res.json());
+    if (r.slots) {
+      Object.assign(State.rsSlots, r.slots);
+    } else {
+      toast('שגיאה בטעינת מועדים — נסי שוב', true);
+    }
+  } catch {
+    toast('שגיאה בטעינת מועדים — נסי שוב', true);
+  }
   renderRsCal();
 }
 

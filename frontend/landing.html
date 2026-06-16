@@ -28,8 +28,8 @@
   -->
 
   <title>מיטל שבע ברעם — עיצוב ציפורניים בוטיק | רמת גן</title>
-  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל קלאסי, טיפולי ספא לידיים ורגליים. חוויה אישית, איכות פרימיום." />
-  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, ג'ל קלאסי, בוטיק, מיטל שבע ברעם" />
+  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וקומבו יוקרתי. חוויה אישית, איכות פרימיום." />
+  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, ג'ל ידיים, בוטיק, מיטל שבע ברעם" />
   <meta name="author" content="מיטל שבע ברעם" />
   <link rel="canonical" href="https://ofirbaram.github.io/meital-booking-system/" />
 
@@ -37,7 +37,7 @@
   <meta property="og:type"        content="website" />
   <meta property="og:locale"      content="he_IL" />
   <meta property="og:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
-  <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל, ג'ל קלאסי וטיפולי ספא." />
+  <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וקומבו יוקרתי." />
   <meta property="og:image"       content="./gallery/nail-01.jpg" />
   <meta property="og:url"         content="https://ofirbaram.github.io/meital-booking-system/" />
 
@@ -803,9 +803,9 @@
       <p class="section-label reveal" aria-hidden="true">שירותים</p>
       <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
       <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
-        מגוון שירותי עיצוב ציפורניים ברמה הגבוהה ביותר, המותאמים
-        אישית לכל לקוחה — בין אם את מחפשת ג'ל קלאסי נקי ועמיד
-        ובין אם עיצוב אמנותי ייחודי.
+        שלושה שירותים מדויקים ברמה הגבוהה ביותר — לק ג'ל לידיים,
+        לק רגיל ברגליים, או קומבו שניהם. כל טיפול מותאם אישית
+        לכל לקוחה עם תוצאה מושלמת.
       </p>
 
       <div class="services-grid" id="services-grid" role="list">
@@ -931,27 +931,21 @@ const SiteConfig = {
   services: [
     {
       num:   '01',
-      title: "ג'ל קלאסי",
-      meta:  '90 דקות',
+      title: "ג'ל ידיים",
+      meta:  '60 דקות',
       desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
     },
     {
       num:   '02',
-      title: "ג'ל לרגליים",
-      meta:  '120 דקות',
-      desc:  "טיפול פדיקור מלא הכולל הכנת העור, עיצוב ציפורן ולק ג'ל. תוצאה נקייה ועמידה לקיץ ולכל השנה.",
+      title: 'לק רגיל ברגליים',
+      meta:  '30 דקות',
+      desc:  "פדיקור בסיסי עם לק רגיל — הכנת העור, עיצוב ציפורן ושכבות צבע עמידות. תוצאה נקייה ומטופחת.",
     },
     {
       num:   '03',
-      title: 'עיצוב אמנותי',
-      meta:  'לפי הזמנה',
-      desc:  "עיצוב ציפורניים ייחודי — ציורים, stone art, ombre ועוד. מתאים לאירועים, ימי הולדת ויום-יום.",
-    },
-    {
-      num:   '04',
-      title: "הסרת ג'ל",
-      meta:  '30 דקות',
-      desc:  "הסרה עדינה ומקצועית שמשמרת את הציפורן הטבעית. בלי שבירה, בלי נזק — הדרך הנכונה להסיר.",
+      title: "קומבו — ג'ל ידיים + לק רגליים",
+      meta:  '90 דקות',
+      desc:  "השילוב המנצח: ג'ל ידיים מושלם ולק רגיל ברגליים — טיפול יחיד לסיום יוקרתי מכף רגל ועד ידיים.",
     },
   ],
 
@@ -1446,10 +1440,11 @@ function initReel() {
     timer = setTimeout(function() { showSlide(current + 1); }, REEL_DURATION);
   }
 
-  restartKB(slides[0], 0);
-  slides[0].classList.add('reel-active');
+  var startIdx = Math.floor(Math.random() * total);
+  restartKB(slides[startIdx], startIdx);
+  slides[startIdx].classList.add('reel-active');
   animateProgress();
-  timer = setTimeout(function() { showSlide(1); }, REEL_DURATION);
+  timer = setTimeout(function() { showSlide(startIdx + 1); }, REEL_DURATION);
 
   document.addEventListener('visibilitychange', function() {
     if (document.hidden) {
@@ -1981,8 +1976,8 @@ document.addEventListener('DOMContentLoaded', function() {
         bubble.appendChild(a);
       } else if (p.match(/^\[SVC:(gel_hands|regular_feet|gel_combo)\]$/)) {
         var svcId = p.slice(5, -1);
-        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל לרגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל — 90 דק\'' };
-        var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל לרגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל לרגליים' };
+        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל ברגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל — 90 דק\'' };
+        var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל ברגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל ברגליים' };
         var svcLabel = _SVC_LABELS[svcId] || svcId;
         var svcMsg   = _SVC_MSGS[svcId]   || svcId;
         bubble.appendChild(document.createElement('br'));

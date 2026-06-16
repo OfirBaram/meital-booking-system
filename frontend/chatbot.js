@@ -48,8 +48,7 @@
     #cb-avatar {
       width: 36px; height: 36px; border-radius: 50%;
       background: rgba(255,255,255,.22);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      overflow: hidden; flex-shrink: 0;
     }
     #cb-name { font-weight: 700; font-size: 15px; line-height: 1.2; }
     #cb-sub  { font-size: 11px; opacity: .85; }
@@ -138,7 +137,7 @@
       qr: ['אילו שירותים קיימים?', 'איך מזמינים תור?', 'יצירת קשר']
     },
     services: {
-      text: 'אני מציעה שלושה שירותים עיקריים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל לרגליים — 30 דקות\n✨ קומבו ג\'ל ידיים + רגליים — 90 דקות',
+      text: 'אני מציעה שלושה שירותים עיקריים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ קומבו ג\'ל ידיים + רגליים — 90 דקות',
       qr: ['איך מזמינים?', 'מחירים?', 'חזרה ⬅']
     },
     prices: {
@@ -146,7 +145,7 @@
       qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     duration: {
-      text: 'משכי הטיפולים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל לרגליים — 30 דקות\n✨ קומבו — 90 דקות',
+      text: 'משכי הטיפולים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ קומבו — 90 דקות',
       qr: ['לקביעת תור', 'חזרה ⬅']
     },
     booking: {
@@ -195,7 +194,9 @@
     win.setAttribute('aria-label','צ\'אט עם מיטל');
     var hdr = document.createElement('div'); hdr.id = 'cb-header';
     var hdrl = document.createElement('div'); hdrl.id = 'cb-header-left';
-    var av = document.createElement('div'); av.id = 'cb-avatar'; av.textContent = '💅';
+    var av = document.createElement('div'); av.id = 'cb-avatar';
+    var avImg = document.createElement('img'); avImg.src = './meital_profile_header.webp'; avImg.alt = 'מיטל'; avImg.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:center top;';
+    av.appendChild(avImg);
     var nw = document.createElement('div');
     var nm = document.createElement('div'); nm.id = 'cb-name'; nm.textContent = 'מיטל';
     var sb = document.createElement('div'); sb.id = 'cb-sub'; sb.textContent = 'לק ג\'ל בוטיק';
