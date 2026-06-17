@@ -119,10 +119,10 @@ export interface RescheduleMsgFields {
 
 export function buildClientRescheduleSms(f: RescheduleMsgFields): string {
   const svc = (f.serviceName ?? '').trim() || 'התור'
-  return 'שינוי תאריך אושר! ' + svc + ' עודכן ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
+  return 'בקשת שינוי תאריך התקבלה! ' + svc + ' ב' + formatDateDmy(f.newDate) + ' ' + f.newTime + ' — ממתין לאישור מיטל.'
 }
 
 export function buildAdminRescheduleSms(name: string, f: RescheduleMsgFields): string {
   const n = (name ?? '').trim()
-  return 'שינוי עצמאי: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
+  return 'שינוי עצמאי: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '. אשרי את ההזמנה.'
 }
