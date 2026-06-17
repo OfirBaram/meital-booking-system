@@ -40,9 +40,12 @@ export default defineConfig({
   ],
 
   webServer: {
-    command:            'npx serve frontend -p 4173',
+    // Vite dev server correctly maps frontend/public/* -> /* (public/ convention),
+    // so gallery images at ./gallery/nail-XX.jpg resolve without duplication.
+    // npx serve does not honour this convention.
+    command:            'npx vite --port 4173 --logLevel error',
     port:               4173,
     reuseExistingServer: !process.env.CI,
-    timeout:            10_000,
+    timeout:            20_000,
   },
 })

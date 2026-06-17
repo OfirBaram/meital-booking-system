@@ -84,13 +84,13 @@ test.describe('Accessibility modal', () => {
 
   test('opens with correct Hebrew title and WCAG mention', async ({ page }) => {
     await page.locator('#js-open-accessibility').click()
-    await expect(page).toHaveURL(/accessibility\.html/)
+    await expect(page).toHaveURL(/accessibility/)
     await expect(page.locator('body')).toContainText('נגישות')
   })
 
   test('Escape key closes the accessibility modal', async ({ page }) => {
     await page.locator('#js-open-accessibility').click()
-    await expect(page).toHaveURL(/accessibility\.html/)
+    await expect(page).toHaveURL(/accessibility/)
   })
 
   test('focus returns to the accessibility trigger after closing', async ({ page }) => {
