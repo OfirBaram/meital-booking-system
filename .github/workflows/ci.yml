@@ -41,6 +41,21 @@ jobs:
 
       - name: Run unit tests
         run: npm run test:unit
+        continue-on-error: true
+        id: unit-run
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vitest-results
+          path: test-results/vitest-results.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Fail if unit tests failed
+        if: steps.unit-run.outcome == 'failure'
+        run: exit 1
 
   # ─── Job 2: E2E Tests ──────────────────────────────────────────────────────
   e2e-tests:
@@ -181,3 +196,63 @@ jobs:
             exit 0
           fi
           npm run verify:deploy
+
+  # ─── Job 5: AI Test Healer ─────────────────────────────────────────────────
+  # Triggers only on feature branches when tests fail (never on main).
+  # Reads CLAUDE-FAILURES.md (E2E) + vitest-results.json (unit), calls Claude
+  # to classify and group failures, applies patches, commits and pushes fixes.
+  # Skips automatically if the last commit was already a healer commit (loop guard).
+  ai-heal:
+    name: AI Test Healer
+    runs-on: ubuntu-latest
+    needs: [unit-tests, e2e-tests]
+    if: |
+      failure() &&
+      github.ref != 'refs/heads/main' &&
+      github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout branch (with push access)
+        uses: actions/checkout@v4
+        with:
+          ref:        ${{ github.head_ref || github.ref_name }}
+          token:      ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install healer dependencies
+        run: pip install anthropic
+
+      - name: Download E2E failure report
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results/
+        continue-on-error: true   # E2E artifact only exists when E2E job failed
+
+      - name: Download unit test results
+        uses: actions/download-artifact@v4
+        with:
+          name: vitest-results
+          path: test-results/
+        continue-on-error: true   # unit artifact only exists when unit job ran in CI
+
+      - name: Ensure GH labels exist
+        run: |
+          gh label create "auto-heal"         --color "e4e669" --description "Created by AI Test Healer" 2>/dev/null || true
+          gh label create "needs-manual-fix"  --color "d93f0b" --description "Healer skipped — fix manually" 2>/dev/null || true
+          gh label create "flaky-test"        --color "0075ca" --description "Intermittent test failure" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run AI healer
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/ai_healer.py

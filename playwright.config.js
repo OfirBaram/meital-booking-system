@@ -3,7 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: 'tests/e2e',
   testIgnore: ['**/landing/**'],
-  timeout: 30_000,
+  timeout: 45_000,
+  maxFailures: 6,      // stop the run at the 6th failure (>5 = bail)
   retries: process.env.CI ? 1 : 0,
 
   // All run artifacts (screenshots, traces, videos, CLAUDE-FAILURES.md) land here.

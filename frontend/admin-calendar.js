@@ -18,6 +18,8 @@ const MONTHS_HE = [
   'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר',
 ];
 
+const _DAY_NAMES_HE = ['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+
 const DOT_CLS = {
   amber: 'bg-amber-400',
   green: 'bg-green-500',
@@ -188,7 +190,16 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
 
     const btn               = document.createElement('button');
     btn.dataset.date        = cell.dateStr;
-    btn.setAttribute('aria-label', cell.dateStr);
+    const _aD = new Date(cell.dateStr + 'T00:00:00');
+    let _ariaLabel = 'יום ' + _DAY_NAMES_HE[_aD.getDay()] + ' ' + _aD.getDate() + ' ב' + MONTHS_HE[_aD.getMonth()];
+    if (!cell.isOtherMonth) {
+      const _ap = [];
+      if (pendingCount  > 0) _ap.push(pendingCount  + ' ממתינות');
+      if (approvedCount > 0) _ap.push(approvedCount + ' מאושרות');
+      if (freeSlotCount > 0) _ap.push(freeSlotCount + ' פנויות');
+      if (_ap.length) _ariaLabel += ' — ' + _ap.join(', ');
+    }
+    btn.setAttribute('aria-label', _ariaLabel);
     btn.className           = _cellClass(cell, tone);
     btn.type                = 'button';
 
@@ -207,12 +218,21 @@ export function renderCalendar(gridEl, titleEl, year, month, calData, opts = {})
         pill.textContent = activeCount;
         btn.appendChild(pill);
       }
-      // Rose free-slot marker — shows there is open capacity, even alongside
-      // bookings. Suppressed only when the cell is already a pure-free tint.
+      // Free-slot count pill — shows exact open count; suppressed when the cell
+      // already carries a pure-free tint (the background makes it self-evident).
       if (freeSlotCount > 0 && tone !== 'free') {
-        const freeDot = document.createElement('span');
-        freeDot.className = 'cal-free-dot';
-        btn.appendChild(freeDot);
+        const freePill = document.createElement('span');
+        freePill.className = 'cal-free-count';
+        freePill.textContent = freeSlotCount;
+        btn.appendChild(freePill);
+      }
+      // Density bar — thin bottom stripe proportional to active booking load
+      // (1 booking=25%, 2=50%, 3=75%, 4+=100%). Invisible on other-month cells.
+      if (activeCount > 0) {
+        const bar = document.createElement('div');
+        bar.className = 'cal-density-bar';
+        bar.style.width = Math.min(100, activeCount * 25) + '%';
+        btn.appendChild(bar);
       }
     }
 

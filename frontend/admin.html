@@ -167,22 +167,57 @@
 
       <!-- Status legend — at-a-glance key, always visible above the grid -->
       <!-- Month summary: pending/approved/free count chips for visible month -->
-      <div id="js-cal-month-stats" class="hidden flex flex-wrap items-center justify-center gap-1.5 mb-2 text-xs font-semibold"></div>
+      <div id="js-cal-month-stats" class="flex flex-wrap items-center justify-center gap-1.5 mb-3 text-xs font-semibold min-h-[22px]" data-qa="cal-month-stats"></div>
       <div id="js-cal-legend" class="cal-legend mb-3" data-qa="cal-legend">
         <span><i style="background:#E3A04A"></i>ממתין לאישור</span>
         <span><i style="background:#2E9E54"></i>מאושר</span>
         <span><i style="background:#F2789F"></i>זמן פנוי</span>
       </div>
 
+      <!-- Quick guide — collapsible tips for main calendar actions -->
+      <div class="mb-3">
+        <button id="js-cal-guide-toggle" type="button"
+          class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-primary/10 hover:bg-primary/20 active:scale-[0.98] transition-all">
+          <span class="flex items-center gap-2 text-xs font-bold text-primary">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            מדריך מהיר
+          </span>
+          <svg id="js-cal-guide-chevron" class="w-3.5 h-3.5 text-primary" style="transition:transform .2s" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div id="js-cal-guide-content" class="hidden mt-1.5 px-4 py-3 bg-cream rounded-xl space-y-2.5 border border-secondary/30">
+          <div class="flex items-start gap-2.5">
+            <span class="shrink-0 w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary text-[11px]">+</span>
+            <span class="text-[11.5px] leading-relaxed"><span class="font-bold text-text-main">הוספת תור:</span> <span class="text-text-muted">לחצי על יום ← "ניהול זמנים" ← בחרי שעה ← "הוסף"</span></span>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="shrink-0 w-5 h-5 rounded-full bg-green-100 flex items-center justify-center font-black text-green-700 text-[11px]">✓</span>
+            <span class="text-[11.5px] leading-relaxed"><span class="font-bold text-text-main">אישור הזמנה:</span> <span class="text-text-muted">לחצי על יום ← "הזמנות" ← כפתור "אשר" ירוק</span></span>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="shrink-0 w-5 h-5 rounded-full bg-red-100 flex items-center justify-center font-black text-red-500 text-[11px]">✕</span>
+            <span class="text-[11.5px] leading-relaxed"><span class="font-bold text-text-main">ביטול הזמנה:</span> <span class="text-text-muted">לחצי על יום ← "הזמנות" ← "בטל הזמנה"</span></span>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="shrink-0 w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-[11px]">🔒</span>
+            <span class="text-[11.5px] leading-relaxed"><span class="font-bold text-text-main">חסימת זמן:</span> <span class="text-text-muted">"ניהול זמנים" ← "חסום" ← מסתיר את השעה מלקוחות</span></span>
+          </div>
+        </div>
+      </div>
+
       <!-- Day-of-week header (RTL: Sunday=rightmost, rendered first in DOM) -->
       <div class="grid grid-cols-7 mb-1 px-0.5 select-none">
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1">א</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ב</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ג</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ד</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1">ה</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40">ו</div>
-        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40">ש</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1" title="ראשון">א</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1" title="שני">ב</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1" title="שלישי">ג</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1" title="רביעי">ד</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1" title="חמישי">ה</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40" title="שישי — לא פעיל">ו</div>
+        <div class="text-center text-[11px] font-semibold text-text-muted py-1 opacity-40" title="שבת — לא פעיל">ש</div>
       </div>
 
       <!-- Calendar grid — populated by admin-calendar.js; 35 skeleton cells shown meanwhile -->
@@ -207,6 +242,11 @@
         <div class="cal-cell skeleton-cell"></div>
       </div>
 
+      <!-- One-time swipe navigation hint (mobile only, dismissed after 3 s) -->
+      <div id="js-cal-swipe-hint" class="hidden justify-center items-center gap-2 py-1.5 text-[11px] text-text-muted select-none pointer-events-none" aria-hidden="true">
+        <span>→</span><span>החלקי לניווט בין חודשים</span><span>←</span>
+      </div>
+
       <!-- Selected-day peek strip -->
       <div id="js-cal-peek" class="mt-3 bg-white rounded-2xl border border-secondary/30 shadow-sm overflow-hidden">
         <div class="px-4 py-3 flex items-center justify-between">
@@ -220,7 +260,10 @@
           </button>
         </div>
         <div id="js-cal-peek-content" class="px-4 pb-3 text-xs text-text-muted">
-          לחצי על יום בלוח השנה לצפייה בהזמנות
+          <span class="flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 shrink-0 text-primary/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            לחצי על יום בלוח השנה לצפייה בהזמנות ↑
+          </span>
         </div>
       </div>
     </main>

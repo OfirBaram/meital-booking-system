@@ -1500,6 +1500,7 @@ function renderVisibleCalendar() {
   );
   _updateCalMonthStats();
   _updateNextPendingBtn();
+  _autoOpenToday();
 }
 
 function _updateCalMonthStats() {
@@ -1514,11 +1515,53 @@ function _updateCalMonthStats() {
     free += e.freeSlotCount || 0;
   }
   const chip = (n, label, cls) =>
-    n ? '<span class="px-2 py-0.5 rounded-full ' + cls + '">' + n + ' ' + label + '</span>' : '';
-  el.innerHTML = chip(pending, 'ממתינות', 'bg-amber-100 text-amber-700')
+    n ? '<span class="px-2.5 py-0.5 rounded-full font-bold ' + cls + '">'
+      + '<strong class="font-black">' + n + '</strong> ' + label + '</span>' : '';
+  const chips = chip(pending, 'ממתינות', 'bg-amber-100 text-amber-700')
     + chip(approved, 'מאושרות', 'bg-green-100 text-green-700')
     + chip(free, 'פנויות', 'bg-rose-100 text-rose-500');
-  el.classList.toggle('hidden', !pending && !approved && !free);
+  const monthLabel = '<span class="text-[10px] font-semibold text-text-muted ml-1.5">'
+    + formatCalTitle(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1) + ' ·</span> ';
+  el.innerHTML = chips
+    ? monthLabel + chips
+    : '<span class="text-[11px] text-text-muted">אין הזמנות החודש</span>';
+}
+
+function _markCalSelected(dateStr) {
+  const grid = document.getElementById('js-cal-grid');
+  if (!grid) return;
+  grid.querySelectorAll('.cal-selected').forEach(c => c.classList.remove('cal-selected'));
+  const cell = grid.querySelector('[data-date="' + dateStr + '"]');
+  if (cell) cell.classList.add('cal-selected');
+}
+
+function _autoOpenToday() {
+  const today = _todayISO();
+  if (S.calMonth.getFullYear() !== parseInt(today.slice(0, 4)) ||
+      (S.calMonth.getMonth() + 1) !== parseInt(today.slice(5, 7))) return;
+  _markCalSelected(today);
+  _updatePeekStrip(today, S.calData[today] || null);
+}
+
+function _showSwipeHintOnce() {
+  if (window.innerWidth > 640) return;
+  const LS_KEY = 'cal_swipe_hint_v1';
+  if (localStorage.getItem(LS_KEY)) return;
+  const el = document.getElementById('js-cal-swipe-hint');
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  setTimeout(() => {
+    el.style.transition = 'opacity .5s';
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+      el.style.opacity = '';
+      el.style.transition = '';
+    }, 500);
+  }, 3000);
+  localStorage.setItem(LS_KEY, '1');
 }
 
 function _updateNextPendingBtn() {
@@ -1577,6 +1620,7 @@ function _dayPayload(dateStr) {
 
 function onCalDayClick(dateStr, entry) {
   _sheetOpenDate = dateStr;
+  _markCalSelected(dateStr);
   _updatePeekStrip(dateStr, entry);
   openSheet('day', _dayPayload(dateStr), 'full');
 }
@@ -1792,7 +1836,10 @@ async function init() {
   });
 
   document.querySelectorAll('.nav-tab').forEach(btn =>
-    btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+    btn.addEventListener('click', () => {
+      setTab(btn.dataset.tab);
+      if (btn.dataset.tab === 'calendar') _showSwipeHintOnce();
+    }));
 
   document.getElementById('js-cal-prev').addEventListener('click', () => {
     S.calMonth = new Date(S.calMonth.getFullYear(), S.calMonth.getMonth() + 1, 1);
@@ -1832,6 +1879,17 @@ async function init() {
       const d = peekAddBtn.dataset.peekDate;
       if (!d) return;
       if (!isSheetOpen()) { _sheetOpenDate = d; openSheet('day', _dayPayload(d)); }
+    });
+  }
+
+  const _guideToggle  = document.getElementById('js-cal-guide-toggle');
+  const _guideContent = document.getElementById('js-cal-guide-content');
+  const _guideChevron = document.getElementById('js-cal-guide-chevron');
+  if (_guideToggle && _guideContent) {
+    _guideToggle.addEventListener('click', () => {
+      const open = !_guideContent.classList.contains('hidden');
+      _guideContent.classList.toggle('hidden', open);
+      if (_guideChevron) _guideChevron.style.transform = open ? '' : 'rotate(180deg)';
     });
   }
 

@@ -170,7 +170,8 @@
   background: repeating-linear-gradient(45deg, #F2EEF1, #F2EEF1 4px, #EBE5EA 4px, #EBE5EA 8px);
 }
 .cal-cell.other-month .cal-count,
-.cal-cell.other-month .cal-free-dot { display: none; }
+.cal-cell.other-month .cal-free-dot,
+.cal-cell.other-month .cal-free-count { display: none; }
 .cal-cell.past    { opacity: 0.6; background: #F1EDF0; color: #B3A8AE; }
 .cal-cell.blocked { opacity: 0.28; pointer-events: none; }
 
@@ -199,6 +200,27 @@
   background: var(--color-free-dot);
 }
 .cal-cell.today .cal-free-dot { background: #fff; }
+
+/* Free-slot count pill — replaces the plain dot when count matters */
+.cal-free-count {
+  position: absolute; top: 3px; inset-inline-start: 3px;
+  min-width: 14px; height: 14px; padding: 0 2.5px;
+  border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 8px; font-weight: 900; line-height: 1;
+  background: var(--color-free-dot); color: #fff;
+}
+.cal-cell.today .cal-free-count { background: rgba(255,255,255,.85); color: var(--color-free-dot); }
+
+/* Booking-density bar — thin bottom gradient proportional to active load */
+.cal-density-bar {
+  position: absolute; bottom: 0; inset-inline-start: 0;
+  height: 3px;
+  background: var(--color-primary);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  opacity: .35; pointer-events: none;
+}
+.cal-cell.today .cal-density-bar { background: rgba(255,255,255,.7); opacity: 1; }
 
 .cal-legend {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 14px;
