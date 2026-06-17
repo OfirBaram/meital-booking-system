@@ -167,13 +167,15 @@ function renderActive() {
   const el = document.getElementById('active-section');
   if (!el) return;
   const b = State.activeBooking;
-
+  const rebookSection = document.getElementById('rebook-section');
   if (!b) {
+    if (rebookSection) rebookSection.style.display = '';
     el.innerHTML = `<div class="bg-white rounded-2xl p-6 text-center shadow-sm">
       <p class="text-gray-400">אין לך הזמנה פעילה כרגע</p>
     </div>`;
     return;
   }
+  if (rebookSection) rebookSection.style.display = 'none';
 
   const chip = b.status === 'approved'
     ? '<span class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded-full font-medium">מאושרת ✅</span>'
@@ -402,7 +404,7 @@ async function confirmReschedule() {
   try {
     const r = await post('client-reschedule', { booking_id: b.id, new_date: State.rsDate, new_time: State.rsTime }, true);
     if (r.success) {
-      toast(`✅ שינוי אושר! ${fmtDate(r.new_date)} ${r.new_time}`);
+      toast('✅ בקשת השינוי התקבלה — ממתין לאישור מיטל');
       State.rsSlots = {}; State.rsLoadedMonths = new Set();
       const ok = await loadPortal();
       if (ok) show('screen-dashboard');
