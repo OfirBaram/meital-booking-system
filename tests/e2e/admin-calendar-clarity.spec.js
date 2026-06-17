@@ -150,7 +150,7 @@ test.describe('Calendar Clarity — day status indicators', () => {
     await loginAndWait(page)
 
     const c = cell(page, D_PENDING)
-    await expect(c.locator('.cal-free-dot')).toHaveCount(1)
+    await expect(c.locator('.cal-free-count')).toHaveCount(1)
   })
 
   test('no JS console errors while rendering the clarity calendar', async ({ page }) => {

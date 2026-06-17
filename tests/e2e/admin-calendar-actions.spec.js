@@ -523,12 +523,13 @@ test.describe('Inline slot picker in sheet footer', () => {
 // ─── 19–21. Peek-strip button ─────────────────────────────────────────────────
 
 test.describe('Peek-strip "הוסף שעה" button', () => {
-  test('#js-cal-peek-add is hidden before any calendar day is clicked', async ({ page }) => {
+  test('#js-cal-peek-add is visible on load (auto-opens today)', async ({ page }) => {
     await setupMocks(page, makeBookings(PENDING_BOOKING))
     await page.goto('/admin.html')
     await loginAndWait(page)
 
-    await expect(page.locator('#js-cal-peek-add')).toBeHidden()
+    // auto-open-today shows today's peek strip without requiring a click
+    await expect(page.locator('#js-cal-peek-add')).toBeVisible({ timeout: 3_000 })
   })
 
   test('clicking a calendar day unhides #js-cal-peek-add', async ({ page }) => {
