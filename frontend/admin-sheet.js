@@ -334,6 +334,8 @@ function _renderDay(titleEl, contentEl, footerEl, payload) {
 
   let slotsHtml = ''
   if (!isPast) {
+    slotsHtml +=
+      '<p class="text-[11px] text-text-muted mb-3 leading-relaxed">ניהלי זמנים: הוסיפי שעות פנויות להזמנה, חסמי שעות כדי להסתירן מלקוחות, או מחקי לחלוטין.</p>'
     const used = usedTimeSet(bookings, slots)
     const opts = slotTimeOptions().map(t =>
       '<option value="' + t + '">' + t + (used.has(t) ? ' · תפוס' : '') + '</option>'
@@ -470,8 +472,8 @@ function _freeSlotRow(s) {
     + '<div class="text-[11px] text-rose-400 font-medium mt-0.5">פנוי להזמנה</div>'
     + '</div>'
     + '<div class="flex gap-2">'
-    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-text-muted border border-secondary/40 hover:bg-cream active:scale-95 transition-all">🔒 חסום</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" title="הסתר שעה זו מלקוחות" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-text-muted border border-secondary/40 hover:bg-cream active:scale-95 transition-all">🔒 חסום</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" title="מחק תור לצמיתות" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
@@ -486,8 +488,8 @@ function _blockedSlotRow(s) {
     + '<div class="text-[11px] text-gray-400 font-medium mt-0.5">חסום</div>'
     + '</div>'
     + '<div class="flex gap-2">'
-    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="blockSlot" data-slot-id="' + id + '" title="החזר שעה זו לזמינות ללקוחות" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" title="מחק תור לצמיתות" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
@@ -501,7 +503,7 @@ function _unfulfilledSlotRow(s) {
     + '<div class="text-sm font-black text-gray-400">' + _esc(s.time || '') + '</div>'
     + '<div class="text-[11px] text-gray-400 font-medium mt-0.5">לא מומש</div>'
     + '</div>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" title="מחק תור לצמיתות" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
   )
 }
@@ -515,8 +517,8 @@ function _lockedSlotRow(s) {
     + '<div class="text-[11px] text-amber-500 font-medium mt-0.5">🔒 חסום</div>'
     + '</div>'
     + '<div class="flex gap-2">'
-    + '<button data-sheet-action="unblockSlot" data-slot-id="' + id + '" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
-    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
+    + '<button data-sheet-action="unblockSlot" data-slot-id="' + id + '" title="החזר שעה זו לזמינות ללקוחות" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-emerald-600 border border-secondary/40 hover:bg-emerald-50 active:scale-95 transition-all">🔓 שחרר</button>'
+    + '<button data-sheet-action="deleteSlot" data-slot-id="' + id + '" title="מחק תור לצמיתות" aria-label="מחק תור" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white text-red-400 border border-secondary/40 hover:bg-red-50 active:scale-95 transition-all">מחק</button>'
     + '</div>'
     + '</div>'
   )
