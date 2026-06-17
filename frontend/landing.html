@@ -213,7 +213,8 @@
     .hero-subtitle {
       font-size: clamp(1rem, 2.5vw, 1.2rem);
       color: var(--muted); line-height: 1.8;
-      max-width: 480px; margin: 0 auto 2.5rem;
+      max-width: 540px; margin: 0 auto 2.5rem;
+      text-wrap: balance;
     }
     .btn-group { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
 
@@ -738,11 +739,7 @@
       <h1 class="hero-title" id="hero-heading">
         <span id="hero-title-main">אמנות ציפורניים</span><br /><em id="hero-title-em">מרגע ראשון</em>
       </h1>
-      <p class="hero-subtitle">
-        לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי,
-        עם תשומת לב לכל פרט. חוויה אישית ואינטימית
-        בסטודיו הבוטיק של מיטל שבע ברעם.
-      </p>
+      <p class="hero-subtitle" id="hero-subtitle">לק ג'ל ועיצוב ציפורניים יוקרתי, עם תשומת לב לכל פרט.</p>
       <div id="hero-next-slot" hidden><span class="slot-dot" aria-hidden="true"></span><span id="hero-next-slot-text"></span></div>
       <div class="btn-group" id="hero-cta">
         <!-- populated by JS -->
@@ -1650,26 +1647,30 @@ function initAmbientAudio() {
 
 // ── HERO TAGLINES: rotate every 8s with fade ─────────────────────────────────
 var HERO_TAGLINES = [
-  { main: 'אמנות ציפורניים', em: 'מרגע ראשון' },
-  { main: 'יוקרה',           em: 'בכל פרט' },
-  { main: 'הסטודיו',         em: 'שמחכה לך' },
-  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול' },
+  { main: 'אמנות ציפורניים', em: 'מרגע ראשון',     sub: "לק ג'ל ועיצוב ציפורניים יוקרתי, עם תשומת לב לכל פרט." },
+  { main: 'יוקרה',           em: 'בכל פרט',          sub: 'כי הציפורניים שלך מגיעות לטיפול שמרשים.' },
+  { main: 'הסטודיו',         em: 'שמחכה לך',         sub: 'חוויה אישית ואינטימית. תוצאה שמחזיקה שבועות.' },
+  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פינוק שמתחיל מקצה האצבע — עיצוב שמשקף אותך.' },
 ];
 var _taglineIdx = 0;
 
 function initHeroTaglines() {
   var mainEl = document.getElementById('hero-title-main');
   var emEl   = document.getElementById('hero-title-em');
+  var subEl  = document.getElementById('hero-subtitle');
   if (!mainEl || !emEl) return;
   setInterval(function() {
     _taglineIdx = (_taglineIdx + 1) % HERO_TAGLINES.length;
     var tl = HERO_TAGLINES[_taglineIdx];
     mainEl.style.transition = emEl.style.transition = 'opacity 0.55s ease';
     mainEl.style.opacity    = emEl.style.opacity    = '0';
+    if (subEl) { subEl.style.transition = 'opacity 0.45s ease'; subEl.style.opacity = '0'; }
     setTimeout(function() {
       mainEl.textContent = tl.main;
       emEl.textContent   = tl.em;
+      if (subEl && tl.sub) subEl.textContent = tl.sub;
       mainEl.style.opacity = emEl.style.opacity = '1';
+      if (subEl) subEl.style.opacity = '1';
     }, 580);
   }, 8000);
 }
