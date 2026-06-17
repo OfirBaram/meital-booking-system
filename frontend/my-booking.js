@@ -26,21 +26,17 @@ const tok = () => sessionStorage.getItem(SESSION_KEY) ?? '';
 // ── API ──────────────────────────────────────────────────────────────────────
 
 async function post(fn, body, useToken = false) {
-  const auth = useToken ? tok() : ANON;
-  const r = await fetch(`${BASE}/${fn}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': ANON, 'Authorization': `Bearer ${auth}` },
-    body: JSON.stringify(body),
-  });
+  const headers = { 'Content-Type': 'application/json', 'apikey': ANON, 'Authorization': `Bearer ${ANON}` };
+  if (useToken && tok()) headers['x-client-session'] = tok();
+  const r = await fetch(`${BASE}/${fn}`, { method: 'POST', headers, body: JSON.stringify(body) });
   return r.json();
 }
 
 async function get(fn, params = {}, useToken = false) {
-  const auth = useToken ? tok() : ANON;
-  const qs   = Object.keys(params).length ? '?' + new URLSearchParams(params) : '';
-  const r = await fetch(`${BASE}/${fn}${qs}`, {
-    headers: { 'apikey': ANON, 'Authorization': `Bearer ${auth}` },
-  });
+  const headers = { 'apikey': ANON, 'Authorization': `Bearer ${ANON}` };
+  if (useToken && tok()) headers['x-client-session'] = tok();
+  const qs = Object.keys(params).length ? '?' + new URLSearchParams(params) : '';
+  const r = await fetch(`${BASE}/${fn}${qs}`, { headers });
   return r.json();
 }
 
@@ -119,8 +115,8 @@ async function verifyOtp() {
     const r = await post('client-auth', { phone: State.phone, otp });
     if (r.success && r.token) {
       sessionStorage.setItem(SESSION_KEY, r.token);
-      await loadPortal();
-      show('screen-dashboard');
+      const ok = await loadPortal();
+      if (ok) show('screen-dashboard');
     } else {
       const msg = r.error === 'invalid_otp'              ? 'קוד שגוי — נסי שוב'
                 : r.error === 'otp_not_found_or_expired' ? 'הקוד פג תוקף — שלחי שוב'
@@ -143,11 +139,12 @@ async function loadPortal() {
     } else {
       toast('שגיאה בטעינת הנתונים', true);
     }
-    return;
+    return false;
   }
   State.activeBooking = r.active;
   State.history       = r.history ?? [];
   renderDashboard();
+  return true;
 }
 
 function renderDashboard() {
@@ -407,8 +404,8 @@ async function confirmReschedule() {
     if (r.success) {
       toast(`✅ שינוי אושר! ${fmtDate(r.new_date)} ${r.new_time}`);
       State.rsSlots = {}; State.rsLoadedMonths = new Set();
-      await loadPortal();
-      show('screen-dashboard');
+      const ok = await loadPortal();
+      if (ok) show('screen-dashboard');
     } else {
       if (r.error === 'invalid_or_expired_token' || r.error === 'missing_token') {
         sessionStorage.removeItem(SESSION_KEY);
@@ -468,7 +465,7 @@ function init() {
   // Auto-load if token already in session
   if (tok()) {
     loadPortal()
-      .then(() => show('screen-dashboard'))
+      .then(ok => { if (ok) show('screen-dashboard'); })
       .catch(() => { sessionStorage.removeItem(SESSION_KEY); });
   }
 }

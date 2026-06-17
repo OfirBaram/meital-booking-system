@@ -9,7 +9,7 @@ import { verifyClientSession, extractBearerToken } from '../_shared/client-auth.
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-session',
 }
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
