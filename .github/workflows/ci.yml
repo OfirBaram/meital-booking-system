@@ -243,7 +243,16 @@ jobs:
           path: test-results/
         continue-on-error: true   # unit artifact only exists when unit job ran in CI
 
+      - name: Ensure GH labels exist
+        run: |
+          gh label create "auto-heal"         --color "e4e669" --description "Created by AI Test Healer" 2>/dev/null || true
+          gh label create "needs-manual-fix"  --color "d93f0b" --description "Healer skipped — fix manually" 2>/dev/null || true
+          gh label create "flaky-test"        --color "0075ca" --description "Intermittent test failure" 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run AI healer
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python .github/scripts/ai_healer.py
