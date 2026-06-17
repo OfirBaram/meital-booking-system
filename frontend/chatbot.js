@@ -183,8 +183,9 @@
   };
 
   /* --- STATE --- */
-  var isOpen   = false;
-  var typingEl = null;
+  var isOpen    = false;
+  var typingEl  = null;
+  var dragState = { active: false, wasDragging: false, timer: null, startX: 0, startY: 0, origLeft: 0, origTop: 0 };
 
   /* --- BUILD DOM --- */
   function buildWidget() {
@@ -226,10 +227,62 @@
   function init() {
     var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
     var els = buildWidget();
-    els.tog.addEventListener('click', toggleWindow);
+    var widget = document.getElementById('cb-widget');
+
+    els.tog.addEventListener('click', function() {
+      if (dragState.wasDragging) { dragState.wasDragging = false; return; }
+      toggleWindow();
+    });
     els.closeBtn.addEventListener('click', closeWindow);
     els.snd.addEventListener('click', handleSend);
     els.inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') handleSend(); });
+
+    /* --- DRAG: long-press (500ms) to reposition widget --- */
+    els.tog.style.touchAction = 'none';
+
+    els.tog.addEventListener('pointerdown', function(e) {
+      dragState.startX = e.clientX;
+      dragState.startY = e.clientY;
+      dragState.timer  = setTimeout(function() {
+        var rect = widget.getBoundingClientRect();
+        widget.style.right  = '';
+        widget.style.bottom = '';
+        widget.style.left   = rect.left + 'px';
+        widget.style.top    = rect.top  + 'px';
+        dragState.origLeft  = rect.left;
+        dragState.origTop   = rect.top;
+        dragState.active    = true;
+        try { els.tog.setPointerCapture(e.pointerId); } catch (_) {}
+        els.tog.style.transform = 'scale(1.12)';
+        els.tog.style.boxShadow = '0 8px 28px rgba(166,124,142,.7)';
+      }, 500);
+    });
+
+    els.tog.addEventListener('pointermove', function(e) {
+      if (!dragState.active) {
+        if (dragState.timer &&
+            (Math.abs(e.clientX - dragState.startX) > 8 ||
+             Math.abs(e.clientY - dragState.startY) > 8)) {
+          clearTimeout(dragState.timer); dragState.timer = null;
+        }
+        return;
+      }
+      var l = Math.max(4, Math.min(window.innerWidth  - 60, dragState.origLeft + (e.clientX - dragState.startX)));
+      var t = Math.max(4, Math.min(window.innerHeight - 60, dragState.origTop  + (e.clientY - dragState.startY)));
+      widget.style.left = l + 'px';
+      widget.style.top  = t + 'px';
+    });
+
+    function endDrag() {
+      clearTimeout(dragState.timer); dragState.timer = null;
+      if (!dragState.active) return;
+      dragState.active      = false;
+      dragState.wasDragging = true;
+      els.tog.style.transform = '';
+      els.tog.style.boxShadow = '';
+    }
+    els.tog.addEventListener('pointerup',     endDrag);
+    els.tog.addEventListener('pointercancel', endDrag);
   }
 
   /* --- WINDOW --- */

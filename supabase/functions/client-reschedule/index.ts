@@ -13,7 +13,7 @@ import { buildClientRescheduleSms, buildAdminRescheduleSms } from '../_shared/me
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-client-session',
 }
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

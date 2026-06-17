@@ -34,6 +34,8 @@ export async function verifyClientSession(token: string, secret: string): Promis
 }
 
 export function extractBearerToken(req: Request): string | null {
+  const custom = (req.headers.get('x-client-session') ?? '').trim()
+  if (custom) return custom
   const h = (req.headers.get('authorization') ?? '').trim()
   if (!h.startsWith('Bearer ')) return null
   return h.slice(7).trim() || null

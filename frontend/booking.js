@@ -1088,9 +1088,8 @@ function setupModalListeners() {
     _modalTrigger = e.currentTarget;
     openModal('privacy');
   });
-  document.getElementById('js-open-accessibility').addEventListener('click', e => {
-    _modalTrigger = e.currentTarget;
-    openModal('accessibility');
+  document.getElementById('js-open-accessibility').addEventListener('click', () => {
+    window.location.href = './accessibility.html';
   });
 
   // Esc closes modal

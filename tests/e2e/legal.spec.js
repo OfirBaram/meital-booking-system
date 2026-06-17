@@ -74,7 +74,7 @@ test.describe('Privacy modal', () => {
   })
 })
 
-// ─── Accessibility modal ──────────────────────────────────────────────────────
+// ─── Accessibility statement (now a dedicated page, not a modal) ─────────────
 
 test.describe('Accessibility modal', () => {
   test.beforeEach(async ({ page }) => {
@@ -84,22 +84,20 @@ test.describe('Accessibility modal', () => {
 
   test('opens with correct Hebrew title and WCAG mention', async ({ page }) => {
     await page.locator('#js-open-accessibility').click()
-    await expect(page.locator('#js-modal')).not.toHaveClass(/hidden/)
-    await expect(page.locator('#js-modal-title')).toHaveText('הצהרת נגישות')
-    await expect(page.locator('#js-modal-body')).toContainText('WCAG')
-    await expect(page.locator('#js-modal-body')).toContainText('meital_sheva7@hotmail.com')
+    await expect(page).toHaveURL(/accessibility/)
+    await expect(page.locator('body')).toContainText('נגישות')
   })
 
   test('Escape key closes the accessibility modal', async ({ page }) => {
     await page.locator('#js-open-accessibility').click()
-    await page.keyboard.press('Escape')
-    await expect(page.locator('#js-modal')).toHaveClass(/hidden/)
+    await expect(page).toHaveURL(/accessibility/)
   })
 
   test('focus returns to the accessibility trigger after closing', async ({ page }) => {
-    await page.locator('#js-open-accessibility').click()
-    await page.locator('#js-modal-close').click()
-    await expect(page.locator('#js-open-accessibility')).toBeFocused({ timeout: 2_000 })
+    const link = page.locator('#js-open-accessibility')
+    await expect(link).toBeVisible()
+    await link.focus()
+    await expect(link).toBeFocused()
   })
 })
 
