@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 import APP_CONFIG from './config.js';
 import { animate, spring, stagger } from './lib/motion.js';
@@ -33,7 +33,7 @@ const SERVICES = [
   {
     id: 'gel_combo',
     name: "לק ג'ל לציפורניים + לק רגיל ברגליים",
-    desc: "חבילת הקומבו המלאה — ג'ל לידיים ולק רגיל ברגליים",
+    desc: "ג'ל ידיים + לק רגיל ברגליים — טיפול שלם",
     duration: 90,
     icon: '✨',
   },

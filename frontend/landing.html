@@ -28,7 +28,7 @@
   -->
 
   <title>מיטל שבע ברעם — עיצוב ציפורניים בוטיק | רמת גן</title>
-  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וקומבו יוקרתי. חוויה אישית, איכות פרימיום." />
+  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וסט שלם יוקרתי. חוויה אישית, איכות פרימיום." />
   <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, פדיקור, ג'ל ידיים, בוטיק, מיטל שבע ברעם" />
   <meta name="author" content="מיטל שבע ברעם" />
   <link rel="canonical" href="https://ofirbaram.github.io/meital-booking-system/" />
@@ -37,7 +37,7 @@
   <meta property="og:type"        content="website" />
   <meta property="og:locale"      content="he_IL" />
   <meta property="og:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
-  <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וקומבו יוקרתי." />
+  <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים, לק רגיל ברגליים וסט שלם." />
   <meta property="og:image"       content="./gallery/nail-01.jpg" />
   <meta property="og:url"         content="https://ofirbaram.github.io/meital-booking-system/" />
 
@@ -394,60 +394,82 @@
     .service-desc  { font-size: .9375rem; color: var(--muted); line-height: 1.75; margin: 0; }
 
     /* ── GALLERY ── */
-    .gallery-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      grid-auto-rows: 300px;
-      gap: 0.625rem;
-      margin-top: 3rem;
+    /* ── GALLERY STRIP ─────────────────────────────────────── */
+    .gallery-strip-outer { position: relative; margin-top: 2.5rem; }
+    .gallery-strip {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      gap: 10px;
+      cursor: grab;
+      user-select: none;
+    }
+    .gallery-strip:active { cursor: grabbing; }
+    .gallery-strip::-webkit-scrollbar { display: none; }
+    .gallery-item {
+      flex: 0 0 calc(33.333% - 7px);
+      scroll-snap-align: start;
+      aspect-ratio: 2 / 3;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      cursor: zoom-in;
+      background: linear-gradient(135deg, #f5eee8 0%, #e8d8cc 100%);
     }
     @media (max-width: 767px) {
-      .gallery-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 220px; }
+      .gallery-item { flex: 0 0 calc(50% - 5px); }
     }
-    .gallery-item { position: relative; overflow: hidden; }
-    .gallery-item.span-2 { grid-row: span 2; }
+    @media (max-width: 430px) {
+      .gallery-item { flex: 0 0 calc(72% - 5px); }
+    }
     .gallery-item img {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%; object-fit: cover;
-      transition: transform .75s ease;
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      opacity: 0; transition: opacity .55s ease, transform .55s ease;
     }
-    .gallery-item:hover img { transform: scale(1.08); }
+    .gallery-item img.img-loaded { opacity: 1; }
+    .gallery-item:hover img { transform: scale(1.05); }
     .gallery-overlay {
       position: absolute; inset: 0;
-      background: linear-gradient(to top, rgba(30,28,48,.72) 0%, rgba(30,28,48,0) 55%);
-      opacity: 0;
-      transition: opacity .4s;
-      display: flex; align-items: flex-end;
-      padding: 1.125rem;
+      background: linear-gradient(to top, rgba(20,16,32,.75) 0%, rgba(20,16,32,0) 52%);
+      opacity: 0; transition: opacity .35s;
+      display: flex; align-items: flex-end; padding: 1rem;
+      pointer-events: none;
     }
-    .gallery-item:hover .gallery-overlay { opacity: 1; }
+    .gallery-item:hover .gallery-overlay,
+    .gallery-item:focus-visible .gallery-overlay { opacity: 1; }
     .gallery-caption {
-      color: #FAF5F0; font-size: .8125rem; font-weight: 500;
-      letter-spacing: .04em; line-height: 1.45;
-      text-shadow: 0 1px 6px rgba(0,0,0,.6);
+      color: #FAF5F0; font-size: .8rem; font-weight: 500;
+      letter-spacing: .04em; line-height: 1.4;
+      text-shadow: 0 1px 6px rgba(0,0,0,.7);
     }
-    .gallery-extra { display: none; }
-    .gallery-extra.revealed {
-      display: block;
-      animation: galleryReveal .5s ease both;
+    .gallery-nav-btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 42px; height: 42px;
+      background: rgba(250,245,240,.93);
+      border: none; border-radius: 50%; font-size: 1.25rem; line-height: 1;
+      cursor: pointer; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 14px rgba(0,0,0,.18);
+      transition: background .2s, transform .2s;
+      color: var(--charcoal);
     }
-    @keyframes galleryReveal {
-      from { opacity: 0; transform: scale(.97); }
-      to   { opacity: 1; transform: none; }
+    .gallery-nav-btn:hover { background: #fff; transform: translateY(-50%) scale(1.08); }
+    .gallery-nav-btn.gallery-prev { right: 6px; }
+    .gallery-nav-btn.gallery-next { left:  6px; }
+    @media (max-width: 640px) { .gallery-nav-btn { display: none; } }
+    .gallery-dots {
+      display: flex; justify-content: center; gap: 7px; margin-top: 1.125rem;
     }
-    .gallery-more-wrap { text-align: center; margin-top: 1.75rem; }
-    .gallery-show-more-btn {
-      display: inline-flex; align-items: center; gap: .5rem;
-      padding: .6875rem 2.25rem;
-      background: transparent;
-      border: 1.5px solid var(--primary);
-      border-radius: 2rem;
-      color: var(--primary);
-      font-family: inherit; font-size: .9375rem; font-weight: 600;
-      cursor: pointer; transition: background .2s, color .2s;
+    .gallery-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary); opacity: .22;
+      cursor: pointer; border: none; padding: 0;
+      transition: opacity .3s, transform .3s;
     }
-    .gallery-show-more-btn:hover { background: var(--primary); color: #fff; }
-    .gallery-show-more-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .gallery-dot.active { opacity: 1; transform: scale(1.35); }
 
     /* ── CONTACT ── */
 
@@ -801,7 +823,7 @@
       <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
       <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
         שלושה שירותים מדויקים ברמה הגבוהה ביותר — לק ג'ל לידיים,
-        לק רגיל ברגליים, או קומבו שניהם. כל טיפול מותאם אישית
+        לק רגיל ברגליים, או שניהם יחד. כל טיפול מותאם אישית
         לכל לקוחה עם תוצאה מושלמת.
       </p>
 
@@ -816,8 +838,8 @@
     <div class="section-inner">
       <p class="section-label reveal" aria-hidden="true">גלריה</p>
       <h2 class="section-title reveal" id="gallery-heading">עבודות נבחרות</h2>
-      <div class="gallery-grid" id="gallery-grid" role="list">
-        <!-- populated by JS from SiteConfig.gallery -->
+      <div class="gallery-strip-outer" id="gallery-grid">
+        <div class="gallery-strip" id="gallery-strip" role="list"></div>
       </div>
     </div>
   </section>
@@ -1141,53 +1163,136 @@ function renderServices() {
 
 // Gallery grid
 function renderGallery() {
-  var grid = document.getElementById('gallery-grid');
-  if (!grid) return;
-  var visIdx = 0;
-  SiteConfig.gallery.forEach(function(img) {
-    var isHidden = !!img.hidden;
+  var outer = document.getElementById('gallery-grid');
+  if (!outer) return;
+  var strip = document.getElementById('gallery-strip');
+  if (!strip) return;
+
+  // Build slides — keep .gallery-item so initLightbox() still attaches
+  SiteConfig.gallery.forEach(function(img, idx) {
     var item = document.createElement('figure');
-    item.className = 'gallery-item' +
-      (img.span2  ? ' span-2'       : '') +
-      (!isHidden  ? ' reveal'        : '') +
-      (isHidden   ? ' gallery-extra' : '');
-    item.style.transitionDelay = isHidden ? '0ms' : (visIdx * 55) + 'ms';
-    if (!isHidden) visIdx++;
-    item.style.margin = '0';
-    item.style.cursor = 'zoom-in';
+    item.className = 'gallery-item reveal';
+    item.style.transitionDelay = (Math.min(idx, 6) * 40) + 'ms';
     item.setAttribute('tabindex', '0');
     item.setAttribute('role', 'button');
     item.setAttribute('aria-label', 'הגדל תמונה: ' + sanitize(img.alt));
-    item.innerHTML =
-      '<img src="' + sanitize(img.src) + '"' +
-           ' alt="' + sanitize(img.alt) + '"' +
-           ' loading="lazy" />' +
-      '<figcaption class="gallery-overlay">' +
-        '<span class="gallery-caption">' + sanitize(img.alt) + '</span>' +
-      '</figcaption>';
-    grid.appendChild(item);
+
+    // Image with blur-up skeleton (background stays until loaded)
+    var el = document.createElement('img');
+    el.alt  = sanitize(img.alt);
+    el.decoding = 'async';
+    if (idx < 3) {
+      el.loading = 'eager';
+      el.setAttribute('fetchpriority', 'high');
+    } else {
+      el.loading = 'lazy';
+    }
+    el.addEventListener('load',  function() { el.classList.add('img-loaded'); });
+    el.addEventListener('error', function() { el.classList.add('img-loaded'); }); // hide broken too
+    el.src = sanitize(img.src); // set src AFTER event listener
+    if (el.complete && el.naturalWidth) el.classList.add('img-loaded');
+
+    var overlay = document.createElement('figcaption');
+    overlay.className = 'gallery-overlay';
+    overlay.innerHTML = '<span class="gallery-caption">' + sanitize(img.alt) + '</span>';
+
+    item.appendChild(el);
+    item.appendChild(overlay);
+    strip.appendChild(item);
   });
-  var hiddenCount = SiteConfig.gallery.filter(function(g) { return g.hidden; }).length;
-  if (hiddenCount > 0) {
-    var wrap = document.createElement('div');
-    wrap.className = 'gallery-more-wrap reveal';
-    var btn = document.createElement('button');
-    btn.className = 'gallery-show-more-btn';
-    btn.type = 'button';
-    btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML =
-      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>' +
-      ' הצג עוד <span style="opacity:.65;font-size:.8125rem;font-weight:400">(' + hiddenCount + ' עבודות נוספות)</span>';
-    btn.addEventListener('click', function() {
-      document.querySelectorAll('.gallery-extra').forEach(function(el) {
-        el.classList.add('revealed');
-      });
-      btn.setAttribute('aria-expanded', 'true');
-      wrap.remove();
-    });
-    wrap.appendChild(btn);
-    grid.parentNode.insertBefore(wrap, grid.nextSibling);
+
+  // Prev / Next buttons
+  var btnPrev = document.createElement('button');
+  btnPrev.type = 'button';
+  btnPrev.className = 'gallery-nav-btn gallery-prev';
+  btnPrev.setAttribute('aria-label', 'תמונה הבאה');
+  btnPrev.innerHTML = '&#8250;';
+  var btnNext = document.createElement('button');
+  btnNext.type = 'button';
+  btnNext.className = 'gallery-nav-btn gallery-next';
+  btnNext.setAttribute('aria-label', 'תמונה קודמת');
+  btnNext.innerHTML = '&#8249;';
+  outer.appendChild(btnPrev);
+  outer.appendChild(btnNext);
+
+  // Dots
+  var dotsWrap = document.createElement('div');
+  dotsWrap.className = 'gallery-dots';
+  var perPage  = window.innerWidth > 767 ? 3 : (window.innerWidth > 430 ? 2 : 1);
+  var pageCount = Math.ceil(SiteConfig.gallery.length / perPage);
+  var dots = [];
+  for (var p = 0; p < pageCount; p++) {
+    var d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'gallery-dot' + (p === 0 ? ' active' : '');
+    d.setAttribute('aria-label', 'עמוד ' + (p + 1));
+    d.dataset.page = p;
+    dots.push(d);
+    dotsWrap.appendChild(d);
   }
+  outer.parentNode.insertBefore(dotsWrap, outer.nextSibling);
+
+  // Helpers
+  function slideW() {
+    var el = strip.querySelector('.gallery-item');
+    return el ? el.offsetWidth + 10 : 1;
+  }
+  function currentPage() {
+    return Math.round(strip.scrollLeft / (slideW() * perPage));
+  }
+  function updateDots() {
+    var pg = currentPage();
+    dots.forEach(function(d, i) { d.classList.toggle('active', i === pg); });
+  }
+  function scrollToPage(pg) {
+    strip.scrollTo({ left: pg * slideW() * perPage, behavior: 'smooth' });
+  }
+
+  // Auto-scroll (advances 1 full slide, loops)
+  var autoTimer;
+  function startAuto() {
+    clearInterval(autoTimer);
+    autoTimer = setInterval(function() {
+      var atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 8;
+      if (atEnd) { strip.scrollTo({ left: 0, behavior: 'smooth' }); }
+      else        { strip.scrollBy({ left: slideW(), behavior: 'smooth' }); }
+      setTimeout(updateDots, 650);
+    }, 3800);
+  }
+  function stopAuto() { clearInterval(autoTimer); }
+
+  strip.addEventListener('scroll',     updateDots,  { passive: true });
+  strip.addEventListener('mouseenter', stopAuto);
+  strip.addEventListener('mouseleave', startAuto);
+
+  btnPrev.addEventListener('click', function() {
+    strip.scrollBy({ left:  slideW(), behavior: 'smooth' }); startAuto();
+  });
+  btnNext.addEventListener('click', function() {
+    strip.scrollBy({ left: -slideW(), behavior: 'smooth' }); startAuto();
+  });
+  dots.forEach(function(d) {
+    d.addEventListener('click', function() { scrollToPage(+d.dataset.page); startAuto(); });
+  });
+
+  // Pointer drag (desktop)
+  var dragX, dragScroll;
+  strip.addEventListener('pointerdown', function(e) {
+    if (e.button !== 0) return;
+    dragX      = e.clientX;
+    dragScroll = strip.scrollLeft;
+    strip.setPointerCapture(e.pointerId);
+    stopAuto();
+  });
+  strip.addEventListener('pointermove', function(e) {
+    if (dragX === undefined) return;
+    strip.scrollLeft = dragScroll - (e.clientX - dragX);
+  });
+  strip.addEventListener('pointerup',     function() { dragX = undefined; startAuto(); });
+  strip.addEventListener('pointercancel', function() { dragX = undefined; startAuto(); });
+
+  // Kick off auto-scroll after a short delay
+  setTimeout(startAuto, 1800);
 }
 
 // Contact section
@@ -1648,9 +1753,9 @@ function initAmbientAudio() {
 // ── HERO TAGLINES: rotate every 8s with fade ─────────────────────────────────
 var HERO_TAGLINES = [
   { main: 'אמנות ציפורניים', em: 'מרגע ראשון',     sub: "לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם." },
-  { main: 'יוקרה',           em: 'בכל פרט',          sub: 'כי הציפורניים שלך מגיעות לטיפול שמרשים ומחזיק שבועות. עיצוב מדויק, יחס אישי ופינוק שמרגישים — בסטודיו בוטיק ברמת גן.' },
-  { main: 'הסטודיו',         em: 'שמחכה לך',         sub: 'ציפורניים יפות הן לא רק פינוק — הן הצהרה. אווירה אינטימית, מקצועיות ותשומת לב שתרגישי מהרגע הראשון.' },
-  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פרטים קטנים עושים את כל ההבדל — בגוון, בצורה, בדיוק. ג'ל לידיים, לק לרגליים, או הקומבו המושלם — כולם כאן.' },
+  { main: 'יוקרה',           em: 'בכל פרט',          sub: 'כי הציפורניים שלך מגיעות לטיפול שמרשים ומחזיק שבועות. עיצוב מדויק, יחס אישי ופינוק שמרגישים — בסטודיו הבוטיק של מיטל שבע ברעם.' },
+  { main: 'הסטודיו',         em: 'שמחכה לך',         sub: 'ציפורניים יפות הן לא רק פינוק — הן הצהרה. אווירה אינטימית, מקצועיות ותשומת לב שתרגישי — אצל מיטל שבע ברעם.' },
+  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פרטים קטנים עושים את כל ההבדל — בגוון, בצורה, בדיוק. ג'ל לידיים, לק לרגליים, או הסט המושלם — הכל אצל מיטל שבע ברעם.' },
 ];
 var _taglineIdx = 0;
 
