@@ -36,9 +36,9 @@ export function hexToRgbChannels(hex) {
  * Apply colour config to :root CSS variables.
  * Tailwind utilities read --color-*-rgb; components.css reads --color-*.
  */
-export function applyTheme(config) {
+export function applyTheme(config, root) {
   if (!config) return;
-  const root = document.documentElement;
+  root = root || document.documentElement;
   for (const [cfgKey, base] of Object.entries(COLOR_VAR_MAP)) {
     const hex = config[cfgKey];
     if (!hex) continue;
@@ -46,8 +46,23 @@ export function applyTheme(config) {
     const rgb = hexToRgbChannels(hex);
     if (rgb) root.style.setProperty(`--${base}-rgb`, rgb);
   }
-  // Card background — raw var consumed via arbitrary value where needed.
-  if (config.color_card_bg) root.style.setProperty('--color-card-bg', config.color_card_bg);
+  // Card background — raw var + rgb channel (effects use the channel).
+  if (config.color_card_bg) {
+    root.style.setProperty('--color-card-bg', config.color_card_bg);
+    const cbRgb = hexToRgbChannels(config.color_card_bg);
+    if (cbRgb) root.style.setProperty('--color-card-bg-rgb', cbRgb);
+  }
+  // Special effects (fx-* classes on the root), driven by theme_effects.
+  if ('theme_effects' in config) applyEffects(config.theme_effects, root);
+}
+
+/** Apply the comma-separated effect ids as fx-* classes on `root`. */
+export function applyEffects(effectsCsv, root) {
+  root = root || document.documentElement;
+  const want = new Set(String(effectsCsv || '').split(',').map(s => s.trim()).filter(Boolean));
+  // Remove any existing fx-* classes, then add the requested ones.
+  [...root.classList].forEach(c => { if (c.startsWith('fx-')) root.classList.remove(c); });
+  want.forEach(id => root.classList.add('fx-' + id));
 }
 
 /**
