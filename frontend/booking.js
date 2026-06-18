@@ -3,6 +3,7 @@
 import APP_CONFIG from './config.js';
 import { animate, spring, stagger } from './lib/motion.js';
 import { trackEvent, identifyUser } from './lib/analytics.js';
+import { fetchSiteConfig, applyTheme } from './site-config-client.js';
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -15,29 +16,30 @@ const CONFIG = {
   LS_PREFIX: 'meital_',
 };
 
-const SERVICES = [
-  {
-    id: 'gel_hands',
-    name: "לק ג'ל לציפורניים",
-    desc: "ציפוי ג'ל מושלם — צבע מלא, פרנץ' או ombre לפי בחירה",
-    duration: 60,
-    icon: '💅',
-  },
-  {
-    id: 'regular_feet',
-    name: "לק רגיל לציפורניים ברגליים",
-    desc: "לק רגיל מקצועי לציפורניים ברגליים — מגוון צבעים רחב",
-    duration: 30,
-    icon: '🦶',
-  },
-  {
-    id: 'gel_combo',
-    name: "לק ג'ל לציפורניים + לק רגיל ברגליים",
-    desc: "ג'ל ידיים + לק רגיל ברגליים — טיפול שלם",
-    duration: 90,
-    icon: '✨',
-  },
+// Static fallback — shown until get-site-config resolves, in mock mode,
+// and if the network call fails. Mirrors the seeded `services` rows.
+// Shape is normalised to the DB row shape (name_he / duration_min) via
+// normalizeService() so render code has one contract.
+const FALLBACK_SERVICES = [
+  { id: 'gel_hands',    name_he: "לק ג'ל לציפורניים",            desc_he: "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות.", duration_min: 60, icon: '💅', sort_order: 0 },
+  { id: 'regular_feet', name_he: "לק רגיל לציפורניים ברגליים",  desc_he: "לק רגיל מקצועי לציפורניים ברגליים — מגוון צבעים רחב, תוצאה נקייה ומטופחת.", duration_min: 30, icon: '🦶', sort_order: 1 },
 ];
+
+// Runtime catalog of selectable services (populated from get-site-config).
+let CATALOG = FALLBACK_SERVICES.slice();
+
+// ── Multi-service selection helpers ─────────────────────────────────
+// State.services is an array of selected service rows. These derive the
+// combined duration, the display summary, and the primary id everywhere.
+function selectedDuration() {
+  return State.services.reduce((sum, s) => sum + (s.duration_min || 0), 0);
+}
+function servicesSummary() {
+  return State.services.map(s => `${s.icon} ${s.name_he}`).join(' + ');
+}
+function primaryServiceId() {
+  return State.services.length ? State.services[0].id : null;
+}
 
 const HE_MONTHS = [
   'ינואר','פברואר','מרץ','אפריל','מאי','יוני',
@@ -60,7 +62,7 @@ const STEP_LABELS = [
 /**
  * @typedef {{
  *   step: 1|2|3|4|5,
- *   service: string|null,
+ *   services: Array<object>,
  *   date: string|null,
  *   time: string|null,
  *   slotId: string|null,
@@ -78,7 +80,8 @@ const STEP_LABELS = [
 /** @type {AppState} */
 const State = {
   step: 1,
-  service: null,
+  services: [],          // selected service rows (multi-select, min 1)
+  config: {},            // site_config map (texts; colours applied via CSS vars)
   date: null,
   time: null,
   slotId: null,
@@ -201,10 +204,11 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
-async function apiGetSlots(year, month) {
+async function apiGetSlots(year, month, duration) {
   if (APP_CONFIG.SUPABASE_URL && !APP_CONFIG.IS_MOCK_MODE) {
+    const durQs = (duration && duration > 0) ? `&duration=${duration}` : '';
     const r = await fetchWithTimeout(
-      `${APP_CONFIG.SUPABASE_URL}/functions/v1/get-slots?year=${year}&month=${month}`,
+      `${APP_CONFIG.SUPABASE_URL}/functions/v1/get-slots?year=${year}&month=${month}${durQs}`,
       { headers: { 'Authorization': `Bearer ${APP_CONFIG.SUPABASE_ANON_KEY}` } }
     );
     return r.json();
@@ -271,14 +275,15 @@ async function apiVerifyAndBook(otp) {
         body: JSON.stringify({
           otp,
           booking: {
-            id:          State.bookingId,
-            name:        State.name,
-            phone:       toE164(State.phone),
-            service:     State.service.id,
-            serviceName: State.service.name,
-            date:        State.date,
-            time:        State.time,
-            duration:    State.service.duration,
+            id:           State.bookingId,
+            name:         State.name,
+            phone:        toE164(State.phone),
+            service:      primaryServiceId(),          // primary id (backward compat)
+            service_ids:  State.services.map(s => s.id),
+            serviceName:  servicesSummary(),           // display summary
+            date:         State.date,
+            time:         State.time,
+            duration:     selectedDuration(),          // combined duration
           },
         }),
       }
@@ -332,7 +337,7 @@ function renderProgress() {
       </div>
       <span class="text-[10px] font-medium text-primary/80 mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
     } else if (curr) {
-      html += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-md shadow-primary/30 ring-[3px] ring-cream transition-all">
+      html += `<div class="w-7 h-7 rounded-full bg-gradient-to-br from-primary-lt to-primary flex items-center justify-center shadow-md shadow-primary/30 ring-[3px] ring-cream transition-all">
         <span class="text-white font-bold text-[11px]">${n}</span>
       </div>
       <span class="text-[10px] font-semibold text-primary mt-1.5 leading-none whitespace-nowrap">${lbl}</span>`;
@@ -358,36 +363,85 @@ function renderProgress() {
 // ═══════════════════════════════════════════════════
 
 function renderServices() {
-  document.getElementById('js-services').innerHTML = SERVICES.map(s => `
+  const wrap = document.getElementById('js-services');
+  wrap.innerHTML = CATALOG.map(s => {
+    const selected = State.services.some(x => x.id === s.id);
+    const iconHtml = s.image_url
+      ? `<img src="${sanitize(s.image_url)}" alt="" class="w-9 h-9 rounded-lg object-cover mt-0.5" />`
+      : `<span class="text-2xl mt-0.5" aria-hidden="true">${sanitize(s.icon)}</span>`;
+    const checkHtml = selected
+      ? '<svg class="w-3.5 h-3.5" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+      : '';
+    return `
     <button
-      class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full"
-      data-id="${s.id}" data-qa="card-service-${s.id}"
+      class="service-card text-right bg-white rounded-2xl p-4 shadow-sm w-full ${selected ? 'selected' : ''}"
+      data-id="${sanitize(s.id)}" data-qa="card-service-${sanitize(s.id)}"
+      aria-pressed="${selected ? 'true' : 'false'}"
     >
       <div class="flex items-start gap-3">
-        <span class="text-2xl mt-0.5" aria-hidden="true">${s.icon}</span>
-        <div class="flex-1">
-          <div class="font-semibold text-text-main text-[15px] mb-1">${s.name}</div>
-          <p class="text-text-muted text-xs font-light leading-relaxed">${s.desc}</p>
+        ${iconHtml}
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-text-main text-[15px] mb-1">${sanitize(s.name_he)}</div>
+          <p class="text-text-muted text-xs font-light leading-relaxed">${sanitize(s.desc_he)}</p>
+          <span class="inline-block mt-1.5 text-[11px] font-medium text-primary/70">${Number(s.duration_min)} דק׳</span>
         </div>
+        <span class="shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selected ? 'bg-primary border-primary' : 'border-secondary'}" aria-hidden="true">${checkHtml}</span>
       </div>
-    </button>
-  `).join('');
+    </button>`;
+  }).join('');
 
-  document.getElementById('js-services').addEventListener('click', e => {
-    const btn = e.target.closest('[data-id]');
-    if (!btn) return;
-    State.service = SERVICES.find(s => s.id === btn.dataset.id);
-    trackEvent('service_selected', {
-      service_id:   State.service.id,
-      service_name: State.service.name,
-      duration_min: State.service.duration,
+  // Delegated click — attached once; survives innerHTML re-renders.
+  if (!wrap._svcWired) {
+    wrap._svcWired = true;
+    wrap.addEventListener('click', e => {
+      const btn = e.target.closest('[data-id]');
+      if (btn) toggleService(btn.dataset.id);
     });
-    document.querySelectorAll('[data-qa^="card-service"]').forEach(c =>
-      c.classList.toggle('selected', c.dataset.id === btn.dataset.id));
-    updateNav();
-    animate(btn, { scale: [0.97, 1.03, 1] },
-      { type: spring, stiffness: 500, damping: 18 });
+  }
+  renderServiceSummary();
+}
+
+// Toggle a service in/out of the multi-select. Minimum-1 is enforced by
+// updateNav (the Continue button stays disabled while nothing is chosen).
+function toggleService(id) {
+  const svc = CATALOG.find(x => x.id === id);
+  if (!svc) return;
+  const idx = State.services.findIndex(x => x.id === id);
+  if (idx >= 0) State.services.splice(idx, 1);
+  else          State.services.push(svc);
+
+  trackEvent('service_selected', {
+    service_id:     id,
+    service_name:   svc.name_he,
+    duration_min:   svc.duration_min,
+    selected_count: State.services.length,
   });
+
+  renderServices();
+  updateNav();
+  const fresh = document.querySelector(`[data-id="${id}"]`);
+  if (fresh) animate(fresh, { scale: [0.97, 1.03, 1] }, { type: spring, stiffness: 500, damping: 18 });
+}
+
+// Live summary of the current selection shown beneath the service grid.
+function renderServiceSummary() {
+  let bar = document.getElementById('js-service-summary');
+  if (!bar) {
+    const step1 = document.getElementById('step-1');
+    if (!step1) return;
+    bar = document.createElement('div');
+    bar.id = 'js-service-summary';
+    bar.className = 'mt-4';
+    bar.setAttribute('data-qa', 'service-summary');
+    step1.appendChild(bar);
+  }
+  if (!State.services.length) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+  bar.classList.remove('hidden');
+  bar.innerHTML = `
+    <div class="flex items-center justify-between gap-3 rounded-2xl bg-primary/5 border border-primary/15 px-4 py-3">
+      <span class="text-sm font-semibold text-text-main leading-snug">${sanitize(servicesSummary())}</span>
+      <span class="text-xs font-bold text-primary whitespace-nowrap">${selectedDuration()} דק׳</span>
+    </div>`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -519,12 +573,13 @@ function _setCalendarLoading(on) {
 }
 
 async function loadMonthSlots(year, month) {
-  const key = `${year}-${month}`;
+  const _dur = selectedDuration();
+  const key = `${year}-${month}-${_dur}`;
   if (State.prefetchedMonths.has(key)) { renderCalendar(); return; }
   renderCalendarSkeleton();
   _setCalendarLoading(true);
   try {
-    const res = await apiGetSlots(year, month);
+    const res = await apiGetSlots(year, month, _dur);
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
@@ -582,7 +637,7 @@ function renderSlots(dateKey) {
   noSlots.classList.add('hidden');
   slotsWrap.classList.remove('hidden');
 
-  const _dur = State.service?.duration ?? 60;
+  const _dur = selectedDuration() || 60;
   slotsGrid.innerHTML = times.map(t => {
     const time = typeof t === 'string' ? t : t.time;
     const id   = typeof t === 'string' ? '' : t.id;
@@ -676,8 +731,15 @@ function clearOTPInputs(markError = false) {
 // ═══════════════════════════════════════════════════
 
 function renderConfirmation() {
+  const svcRows = State.services.map((svc, i) => ({
+    label: i === 0 ? 'שירות' : '',
+    value: sanitize(`${svc.icon} ${svc.name_he} (${svc.duration_min} דק׳)`),
+  }));
   const rows = [
-    { label: 'שירות', value: sanitize(`${State.service.icon} ${State.service.name}`) },
+    ...svcRows,
+    ...(State.services.length > 1
+      ? [{ label: 'סה״כ זמן', value: sanitize(`${selectedDuration()} דק׳`) }]
+      : []),
     { label: 'תאריך', value: sanitize(formatDateHe(State.date)) },
     { label: 'שעה',   value: sanitize(State.time) },
     { label: 'לקוחה', value: sanitize(State.name) },
@@ -710,7 +772,7 @@ function renderConfirmation() {
   // WhatsApp pre-filled message with booking details.
   const waText = [
     `שלום מיטל! קבעתי תור ✨`,
-    `${State.service.icon} ${State.service.name}`,
+    `${servicesSummary()} (${selectedDuration()} דק׳)`,
     `📅 ${formatDateHe(State.date)} · 🕐 ${State.time}`,
     `אני ${State.name} (${formatPhone(State.phone)})`,
   ].join('\n');
@@ -754,7 +816,7 @@ function showStep(n) {
 }
 
 function updateNav() {
-  const { step, service, date, time, name, phone } = State;
+  const { step, date, time, name, phone } = State;
   const btnNext = document.getElementById('btn-next');
   const btnBack = document.getElementById('btn-back');
 
@@ -762,7 +824,7 @@ function updateNav() {
 
   let ok = false;
   switch (step) {
-    case 1: ok = !!service;                              btnNext.textContent = 'המשך';          break;
+    case 1: ok = State.services.length >= 1;             btnNext.textContent = State.config.booking_continue_btn || 'המשך'; break;
     case 2: ok = !!date && !!time;                       btnNext.textContent = 'המשך';          break;
     case 3: ok = isValidName(name) && isValidPhone(phone); btnNext.textContent = "שלחי קוד SMS"; break;
     case 4: ok = getOTP().length === CONFIG.OTP_LENGTH;  btnNext.textContent = 'אמתי';          break;
@@ -781,10 +843,10 @@ async function handleNext() {
     const now = new Date();
     State.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     showStep(2);
-    document.getElementById('js-step2-service-label').textContent =
-      `${State.service.icon} ${State.service.name}`;
+    document.getElementById('js-step2-service-label').textContent = servicesSummary();
     const year = now.getFullYear(), month = now.getMonth() + 1;
-    if (State.prefetchedMonths.has(`${year}-${month}`)) {
+    const _dur = selectedDuration();
+    if (State.prefetchedMonths.has(`${year}-${month}-${_dur}`)) {
       renderCalendar();
       const _pfx = `${year}-${String(month).padStart(2,'0')}`;
       const _pfSlots = Object.entries(State.slots).filter(([k]) => k.startsWith(_pfx));
@@ -806,7 +868,7 @@ async function handleNext() {
   else if (step === 2) {
     showStep(3);
     document.getElementById('js-step3-summary').textContent =
-      `${State.service.icon} ${State.service.name} · ${formatDateHe(State.date)} · ${State.time}`;
+      `${servicesSummary()} · ${formatDateHe(State.date)} · ${State.time}`;
 
     const saved = LS.get('client');
     if (saved?.name && saved?.phone) {
@@ -840,7 +902,7 @@ async function handleNext() {
     if (activeCheck.active) {
       setLoading(false);
       toast(`כבר קיים תור פעיל בתאריך ${activeCheck.date} בשעה ${activeCheck.time}. לשינוי או ביטול — צרי קשר.`, 'error');
-      trackEvent('active_booking_blocked', { service_id: State.service?.id, date: State.date });
+      trackEvent('active_booking_blocked', { service_id: primaryServiceId(), date: State.date });
       return;
     }
     let res;
@@ -856,7 +918,7 @@ async function handleNext() {
     if (res.success || APP_CONFIG.IS_MOCK_MODE) {
       State.otpCooldownUntil = Date.now() + 30_000;
       trackEvent('otp_requested', {
-        service_id: State.service.id,
+        service_id: primaryServiceId(),
         date:       State.date,
         time:       State.time,
       });
@@ -909,10 +971,10 @@ async function submitOTP(otp) {
     identifyUser(State.phone);
     trackEvent('booking_completed', {
       booking_id:   State.bookingId,
-      service_type: State.service.id,
-      service_id:   State.service.id,
-      service_name: State.service.name,
-      duration_min: State.service.duration,
+      service_type: primaryServiceId(),
+      service_id:   primaryServiceId(),
+      service_name: servicesSummary(),
+      duration_min: selectedDuration(),
       date:         State.date,
       time:         State.time,
     });
@@ -920,7 +982,7 @@ async function submitOTP(otp) {
     renderConfirmation();
   } else if (res.error === 'slot_not_available' || res.error === 'slot_not_found') {
     // Slot was taken, locked, or never existed — clear selection and send user back.
-    trackEvent('slot_conflict_detected', { service_id: State.service?.id, date: State.date, time: State.time });
+    trackEvent('slot_conflict_detected', { service_id: primaryServiceId(), date: State.date, time: State.time });
     toast('התור שבחרת כבר לא זמין. בחרי תאריך ושעה חדשים.', 'error');
     State.date            = null;
     State.time            = null;
@@ -1201,7 +1263,7 @@ function wireEvents() {
     trackEvent('time_selected', {
       time:       State.time,
       date:       State.date,
-      service_id: State.service?.id,
+      service_id: primaryServiceId(),
     });
     renderSlots(State.date);
     updateNav();
@@ -1251,7 +1313,7 @@ function wireEvents() {
 // the pending-confirmation screen (the WhatsApp CTA replaced it), so this is no
 // longer wired to any control; kept for programmatic reuse / tests.
 function resetApp() {
-  State.service   = null;
+  State.services  = [];
   State.date      = null;
   State.time      = null;
   State.slotId    = null;
@@ -1273,10 +1335,13 @@ async function prefetchSlots() {
   const now   = new Date();
   const year  = now.getFullYear();
   const month = now.getMonth() + 1;
-  const key   = `${year}-${month}`;
+  // Warm with the default 60-min duration (legacy get-slots ignores duration;
+  // smart path re-fetches per real total via the duration-keyed cache).
+  const _dur  = 60;
+  const key   = `${year}-${month}-${_dur}`;
   if (State.prefetchedMonths.has(key)) return;
   try {
-    const res = await apiGetSlots(year, month);
+    const res = await apiGetSlots(year, month, _dur);
     if (res.success) {
       State.slots = { ...State.slots, ...res.slots };
       State.prefetchedMonths.add(key);
@@ -1284,20 +1349,44 @@ async function prefetchSlots() {
   } catch { /* silent — calendar will load on demand */ }
 }
 
-function init() {
+async function init() {
   if (APP_CONFIG.IS_MAINTENANCE_MODE) {
     document.getElementById('js-maintenance').classList.remove('hidden');
     return;
   }
   renderProgress();
   renderDayHeaders();
+  // Load live catalog + theme + texts before first render. Falls back to
+  // FALLBACK_SERVICES + shipped defaults if the network call fails — the
+  // page must never block on this.
+  await loadSiteConfig();
   renderServices();
+  applyTexts();
   trackEvent('wizard_started', { is_returning_user: !!LS.get('client') });
   setupFormListeners();
   wireEvents();
   setupModalListeners();
   prefetchSlots();
   applyURLPreset();
+}
+
+// Fetch services + config from get-site-config; apply colours immediately.
+async function loadSiteConfig() {
+  if (APP_CONFIG.IS_MOCK_MODE) return;
+  const data = await fetchSiteConfig(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
+  if (!data) return;
+  if (Array.isArray(data.services) && data.services.length) CATALOG = data.services;
+  State.config = data.config || {};
+  applyTheme(State.config);
+}
+
+// Apply editable texts from site_config to the page chrome.
+function applyTexts() {
+  const c = State.config || {};
+  const set = (sel, val) => { if (!val) return; const el = document.querySelector(sel); if (el) el.textContent = val; };
+  set('#step-1 > h2', c.booking_step1_title);
+  const note = document.getElementById('js-confirm-note');
+  if (note && c.booking_confirm_note) note.textContent = c.booking_confirm_note;
 }
 function applyURLPreset() {
   var p      = new URLSearchParams(location.search);
@@ -1306,17 +1395,18 @@ function applyURLPreset() {
   var time   = p.get('time');
   if (!svcId || !date || !time) return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return;
-  var svc = SERVICES.find(function(s) { return s.id === svcId; });
+  var svc = CATALOG.find(function(s) { return s.id === svcId; });
   if (!svc) return;
-  State.service  = svc;
+  State.services = [svc];
   State.date     = date;
   State.time     = time;
   var parts      = date.split('-').map(Number);
   State.calMonth = new Date(parts[0], parts[1] - 1, 1);
+  renderServices();
   var lbl = document.getElementById('js-step2-service-label');
-  if (lbl) lbl.textContent = svc.name;
+  if (lbl) lbl.textContent = servicesSummary();
   var summary = document.getElementById('js-step3-summary');
-  if (summary) summary.textContent = svc.icon + ' ' + svc.name + ' · ' + formatDateHe(date) + ' · ' + time;
+  if (summary) summary.textContent = servicesSummary() + ' · ' + formatDateHe(date) + ' · ' + time;
   var saved = LS.get('client');
   if (saved && saved.name && saved.phone) {
     var banner = document.getElementById('js-returning-banner');

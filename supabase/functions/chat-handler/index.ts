@@ -3,6 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { PUBLIC_CORS, SEC_HEADERS } from '../_shared/cors.ts'
 import {
   SYSTEM_PROMPT,
+  buildSystemPrompt,
   TOOLS,
   TOOL_REGISTRY,
   DEBUG_MODE,
@@ -116,6 +117,19 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY')!,
     )
 
+    // Build the system prompt from the live, active service catalogue so the
+    // bot offers exactly the services that currently exist. Falls back to the
+    // static SYSTEM_PROMPT (default catalogue) if the read fails.
+    let systemPrompt = SYSTEM_PROMPT
+    try {
+      const { data: svcRows } = await supabase
+        .from('services')
+        .select('id, name_he, duration_min, active, sort_order')
+        .eq('active', true)
+        .order('sort_order', { ascending: true })
+      if (svcRows && svcRows.length) systemPrompt = buildSystemPrompt(svcRows as never)
+    } catch (e) { console.warn('[chat-handler] service-load failed, using default prompt', e) }
+
     const history  = [...messages]
     let finalText  = ''
 
@@ -125,7 +139,7 @@ Deno.serve(async (req) => {
       const resp = await anthropic.messages.create({
         model:      'claude-haiku-4-5-20251001',
         max_tokens: 600,
-        system:     SYSTEM_PROMPT,
+        system:     systemPrompt,
         tools:      TOOLS,
         messages:   history,
       })

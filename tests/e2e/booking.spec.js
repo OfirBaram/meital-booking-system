@@ -170,15 +170,30 @@ test.describe('Step 1 — Service selection', () => {
     await page.goto('/')
   })
 
-  test('page loads with exactly 3 service cards and a disabled Next button', async ({ page }) => {
+  test('page loads with the active service cards and a disabled Next button', async ({ page }) => {
     await expect(page.locator('#step-1')).toBeVisible()
-    await expect(page.locator('.service-card')).toHaveCount(3)
+    // Catalogue is dynamic; the seeded/fallback catalogue has 2 active services.
+    await expect(page.locator('.service-card')).toHaveCount(2)
     await expect(page.locator('#btn-next')).toBeDisabled()
   })
 
   test('selecting a service enables the Next button', async ({ page }) => {
     await page.locator('.service-card').first().click()
     await expect(page.locator('#btn-next')).toBeEnabled()
+  })
+
+  test('multi-select: a second service can be added and removed (toggle)', async ({ page }) => {
+    await page.locator('.service-card').first().click()
+    await page.locator('.service-card').nth(1).click()
+    // Both selected → summary bar reflects the combined choice.
+    await expect(page.locator('[data-qa="service-summary"]')).toBeVisible()
+    await expect(page.locator('#btn-next')).toBeEnabled()
+    // Toggle the first off — still one selected, Next stays enabled.
+    await page.locator('.service-card').first().click()
+    await expect(page.locator('#btn-next')).toBeEnabled()
+    // Toggle the remaining one off — nothing selected, Next disabled.
+    await page.locator('.service-card').nth(1).click()
+    await expect(page.locator('#btn-next')).toBeDisabled()
   })
 
   test('selecting the second service also works', async ({ page }) => {

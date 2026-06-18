@@ -455,6 +455,48 @@
           <div class="text-text-muted text-xs animate-pulse">טוען הגדרות...</div>
         </div>
       </div>
+
+      <!-- Service catalog management -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mt-4" data-qa="services-card">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">ניהול שירותים</div>
+          <div class="flex items-center gap-2">
+            <button id="js-svc-preview-btn" type="button"
+              class="text-xs text-primary font-semibold hover:text-primary-dk active:scale-95 transition-all">👁️ תצוגה</button>
+            <button id="js-svc-add-btn" type="button"
+              class="text-xs text-white bg-primary rounded-lg px-2.5 py-1 font-semibold hover:bg-primary-dk active:scale-95 transition-all">+ הוסף</button>
+          </div>
+        </div>
+        <p class="text-[11px] text-text-muted mb-3 leading-relaxed">גררי כדי לשנות את סדר ההופעה ללקוחות. כיבוי מסתיר שירות מבלי למחוק אותו.</p>
+        <div id="js-svc-list" class="space-y-2">
+          <div class="text-text-muted text-xs animate-pulse">טוען שירותים...</div>
+        </div>
+        <div id="js-svc-reorder-bar" class="hidden mt-3 flex items-center justify-between gap-2 rounded-xl bg-pending-bg border border-pending/30 px-3 py-2">
+          <span class="text-[11px] font-bold text-pending">⚠️ סדר חדש לא נשמר</span>
+          <button id="js-svc-save-order" type="button" class="text-xs text-white bg-primary rounded-lg px-3 py-1.5 font-bold hover:bg-primary-dk active:scale-95 transition-all">שמור סדר</button>
+        </div>
+      </div>
+
+      <!-- Design & branding -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mt-4" data-qa="design-card">
+        <div class="text-xs font-bold text-text-muted uppercase tracking-widest mb-3">עיצוב ומיתוג</div>
+        <div class="flex gap-1.5 mb-3 overflow-x-auto" id="js-design-tabs">
+          <button type="button" data-dtab="colors"  class="design-tab text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap bg-primary text-white">צבעים</button>
+          <button type="button" data-dtab="booking" class="design-tab text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap bg-cream text-text-muted">טקסטים — הזמנה</button>
+          <button type="button" data-dtab="landing" class="design-tab text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap bg-cream text-text-muted">טקסטים — נחיתה</button>
+        </div>
+        <div id="js-design-body" class="space-y-3">
+          <div class="text-text-muted text-xs animate-pulse">טוען...</div>
+        </div>
+        <button id="js-colors-reset" type="button" class="hidden mt-3 text-[11px] text-rejected font-semibold hover:underline">↩ איפוס כל הצבעים לברירת מחדל</button>
+        <div id="js-design-save-bar" class="hidden mt-3 flex items-center justify-between gap-2 rounded-xl bg-pending-bg border border-pending/30 px-3 py-2">
+          <span class="text-[11px] font-bold text-pending"><span id="js-design-dirty-count">0</span> שינויים לא נשמרו</span>
+          <div class="flex gap-2">
+            <button id="js-design-cancel" type="button" class="text-[11px] text-text-muted font-semibold px-2 py-1">בטל</button>
+            <button id="js-design-save" type="button" class="text-xs text-white bg-primary rounded-lg px-3 py-1.5 font-bold hover:bg-primary-dk active:scale-95 transition-all">שמור</button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <!-- ── TAB: SMS CENTER (כל ההודעות במערכת) ── -->
@@ -955,6 +997,106 @@
       <button id="js-toast-undo"
         class="hidden shrink-0 text-xs font-black tracking-wide underline underline-offset-2
                opacity-80 hover:opacity-100 active:scale-95 transition-all whitespace-nowrap">בטל</button>
+    </div>
+  </div>
+
+  <!-- ════ Service edit / create modal ════ -->
+  <div id="js-svc-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    <div id="js-svc-modal-backdrop" class="absolute inset-0 bg-text-main/40 backdrop-blur-sm"></div>
+    <div class="relative bg-white w-full sm:max-w-md sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="js-svc-modal-title" class="text-base font-black text-text-main">עריכת שירות</h3>
+        <button id="js-svc-modal-close" type="button" class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-cream transition-colors">✕</button>
+      </div>
+      <form id="js-svc-form" class="space-y-3.5">
+        <input type="hidden" id="js-svc-id">
+        <div>
+          <label class="block text-xs font-bold text-text-main mb-1">שם השירות *</label>
+          <input id="js-svc-name" type="text" maxlength="60" required
+            class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none transition-all">
+          <div id="js-svc-name-sug" class="hidden mt-1.5 flex flex-wrap gap-1.5"></div>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-text-main mb-1">תיאור קצר</label>
+          <textarea id="js-svc-desc" rows="2" maxlength="200"
+            class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none transition-all resize-none"></textarea>
+          <div class="flex items-center justify-between mt-1">
+            <div id="js-svc-text-sug" class="flex flex-wrap gap-1.5"></div>
+            <span id="js-svc-desc-count" class="text-[10px] text-text-muted">0/200</span>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label class="block text-xs font-bold text-text-main mb-1">משך (דקות) *</label>
+            <input id="js-svc-duration" type="number" min="5" max="360" step="5" required
+              class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none transition-all">
+          </div>
+          <div class="w-28">
+            <label class="block text-xs font-bold text-text-main mb-1">אייקון</label>
+            <button id="js-svc-icon-btn" type="button" class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-xl text-center hover:border-primary transition-all">💅</button>
+          </div>
+        </div>
+        <div id="js-svc-icon-grid" class="hidden flex-wrap gap-1.5 p-2 rounded-xl bg-cream"></div>
+        <div>
+          <label class="block text-xs font-bold text-text-main mb-1">תמונה (URL) — מחליפה את האייקון</label>
+          <input id="js-svc-image" type="url" placeholder="https://..."
+            class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm text-left focus:border-primary outline-none transition-all" dir="ltr">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-text-main mb-1">מצב</label>
+          <div class="flex gap-2">
+            <label class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 border-secondary/50 cursor-pointer text-sm font-semibold has-[:checked]:border-approved has-[:checked]:bg-approved-bg has-[:checked]:text-approved">
+              <input type="radio" name="svc-active" value="1" class="sr-only" checked> פעיל
+            </label>
+            <label class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border-2 border-secondary/50 cursor-pointer text-sm font-semibold has-[:checked]:border-text-muted has-[:checked]:bg-cream">
+              <input type="radio" name="svc-active" value="0" class="sr-only"> לא פעיל
+            </label>
+          </div>
+        </div>
+        <p id="js-svc-form-err" class="hidden text-xs text-rejected font-semibold"></p>
+        <div class="flex gap-2 pt-1">
+          <button type="button" id="js-svc-cancel" class="flex-1 py-2.5 rounded-xl border-2 border-secondary text-text-main text-sm font-bold">ביטול</button>
+          <button type="submit" id="js-svc-submit" class="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-primary-dk active:scale-95 transition-all">שמור</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ════ Add-from-library panel ════ -->
+  <div id="js-svc-library" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    <div id="js-svc-library-backdrop" class="absolute inset-0 bg-text-main/40 backdrop-blur-sm"></div>
+    <div class="relative bg-white w-full sm:max-w-lg sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between p-5 pb-3 border-b border-secondary/20">
+        <h3 class="text-base font-black text-text-main">הוספת שירות</h3>
+        <button id="js-svc-library-close" type="button" class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-cream transition-colors">✕</button>
+      </div>
+      <div class="px-5 pt-3">
+        <input id="js-svc-search" type="search" placeholder="🔍 חיפוש — ג'ל, גבות, ריסים, שפם..."
+          class="w-full px-3.5 py-2.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none transition-all">
+        <div id="js-svc-cats" class="flex gap-1.5 mt-2.5 overflow-x-auto pb-1"></div>
+      </div>
+      <div id="js-svc-library-grid" class="flex-1 overflow-y-auto px-5 py-3 grid grid-cols-2 gap-2"></div>
+      <div class="p-4 border-t border-secondary/20 flex items-center justify-between gap-3">
+        <button id="js-svc-scratch" type="button" class="text-xs text-primary font-bold hover:underline">✏️ צור שירות חדש מאפס</button>
+        <span id="js-svc-added-count" class="text-[11px] text-approved font-bold"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ Customer preview sheet ════ -->
+  <div id="js-svc-preview" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+    <div id="js-svc-preview-backdrop" class="absolute inset-0 bg-text-main/40 backdrop-blur-sm"></div>
+    <div class="relative bg-cream w-full sm:max-w-sm sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between p-5 pb-2">
+        <h3 class="text-sm font-black text-text-main">👁️ כך הלקוחות יראו</h3>
+        <button id="js-svc-preview-close" type="button" class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-white transition-colors">✕</button>
+      </div>
+      <div class="px-5 pb-5">
+        <h2 class="text-xl font-bold text-text-main mb-3">בחרי שירות</h2>
+        <div id="js-svc-preview-cards" class="space-y-2.5"></div>
+        <div id="js-svc-preview-summary" class="hidden mt-4"></div>
+        <button class="mt-4 w-full py-3 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-40" id="js-svc-preview-continue" disabled>המשיכי</button>
+      </div>
     </div>
   </div>
 

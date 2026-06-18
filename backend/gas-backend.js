@@ -963,8 +963,8 @@ function createCalendarEvent(params) {
     const [hour, min]        = params.time.split(':').map(Number);
     start       = new Date(year, month - 1, day, hour, min, 0);
     end         = new Date(start.getTime() + params.duration * 60 * 1000);
-    title       = `💅 ${params.serviceName} — ${params.clientName}`;
-    description = `הזמנה #${params.bookingId}\nלקוחה: ${params.clientName}\nשירות: ${params.serviceName}`;
+    title       = `💅 ${params.servicesSummary || params.serviceName} — ${params.clientName}`;
+    description = `הזמנה #${params.bookingId}\nלקוחה: ${params.clientName}\nשירות: ${params.servicesSummary || params.serviceName}`;
   }
 
   const event = cal.createEvent(title, start, end, {

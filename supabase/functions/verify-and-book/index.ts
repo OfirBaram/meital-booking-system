@@ -18,7 +18,7 @@ function json(body: unknown, status = 200) {
 }
 
 const PHONE_RE         = /^\+9725\d{8}$/
-const VALID_TREATMENTS = ['gel_hands', 'regular_feet', 'gel_combo']
+const SERVICE_ID_RE    = /^[a-z0-9_]{2,40}$/   // dynamic service ids (services table)
 const DATE_RE          = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE          = /^\d{2}:\d{2}$/
 const OTP_RE           = /^\d{6}$/
@@ -118,7 +118,8 @@ Deno.serve(async (req) => {
       PHONE_RE.test(phone)                          &&
       !!booking?.id                                 &&
       (booking?.name?.trim()?.length >= 2)          &&
-      VALID_TREATMENTS.includes(booking?.service)   &&
+      typeof booking?.service === 'string'          &&
+      SERVICE_ID_RE.test(booking?.service ?? '')    &&
       DATE_RE.test(booking?.date ?? '')             &&
       TIME_RE.test(booking?.time ?? '')             &&
       Number.isInteger(booking?.duration)
@@ -331,12 +332,16 @@ Deno.serve(async (req) => {
         id:             booking.id,
         client_id:      client.id,
         slot_id:        slotId,
-        treatment_type: booking.service,
-        treatment_name: booking.serviceName,
-        duration_min:   booking.duration,
-        is_verified:    true,
-        status:         'pending',
-        admin_token:    adminToken,
+        treatment_type:   booking.service,
+        treatment_name:   booking.serviceName,
+        service_ids:      Array.isArray(booking.service_ids) && booking.service_ids.length
+                            ? booking.service_ids
+                            : [booking.service],
+        services_summary: booking.serviceName,
+        duration_min:     booking.duration,
+        is_verified:      true,
+        status:           'pending',
+        admin_token:      adminToken,
       })
 
     if (apptError) {
