@@ -94,15 +94,16 @@
        SiteConfig.colors AND frontend/styles/tokens.css for consistency.
        ──────────────────────────────────────────────────────────────────────── */
     :root {
-      /* Aliases from tokens.css — change the canonical value there */
-      --bg:        var(--color-cream,    #FAF5F0);
-      --card:      var(--surface-card,   #FFFFFF);
-      --primary:   var(--color-primary,  #A67C8E);
-      --champagne: var(--color-secondary,#DDC3A5);
-      /* No exact token equivalent — defined here only */
-      --charcoal:  #2d2b3d;
-      --muted:     #8a7f8e;
-      --border:    #e8d5c4;
+      /* All landing colours follow the active palette (applyLiveSiteConfig
+         injects --color-* at runtime). Fallbacks = the Dust-Rose brand. */
+      --bg:        var(--color-cream,        #FAF5F0);
+      --card:      var(--color-card-bg,      #FFFFFF);
+      --primary:   var(--color-primary,      #A67C8E);
+      --champagne: var(--color-secondary,    #DDC3A5);
+      --charcoal:  var(--color-text-main,    #2d2b3d);
+      --muted:     var(--color-text-muted,   #8a7f8e);
+      --border:    var(--color-secondary,    #e8d5c4);
+      --ink:       #2d2b3d;  /* fixed dark surface — contact/footer/overlays, palette-agnostic */
     }
 
     /* ── BASE ── */
@@ -116,7 +117,7 @@
     /* ── SKIP LINK (WCAG 2.4.1) ── */
     .skip-link {
       position: absolute; top: -100%; right: 1rem;
-      background: var(--charcoal); color: #fff;
+      background: var(--ink); color: #fff;
       padding: .5rem 1rem; border-radius: 0 0 4px 4px;
       font-size: .875rem; text-decoration: none; z-index: 9999;
       transition: top .2s;
@@ -126,7 +127,7 @@
     /* ── UTILITY ── */
     .font-serif      { font-family: 'Assistant', 'Heebo', serif; }
     .bg-champagne    { background-color: var(--champagne); }
-    .bg-charcoal     { background-color: var(--charcoal); }
+    .bg-charcoal     { background-color: var(--ink); }
     .bg-lp           { background-color: var(--bg); }
     .bg-lp-card      { background-color: var(--card); }
     .text-champagne  { color: var(--champagne); }
@@ -222,13 +223,13 @@
     .btn-primary {
       display: inline-flex; align-items: center; gap: .5rem;
       padding: .875rem 2.25rem;
-      background: var(--charcoal); color: #FAF5F0;
+      background: var(--primary); color: #FAF5F0;
       font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
       text-transform: uppercase; text-decoration: none;
-      border: 2px solid var(--charcoal);
+      border: 2px solid var(--primary);
       transition: background .25s, color .25s; cursor: pointer;
     }
-    .btn-primary:hover { background: transparent; color: var(--charcoal); }
+    .btn-primary:hover { background: transparent; color: var(--primary); }
 
     /* Hero Booking CTA — primary conversion, pill shape, brand dusty rose */
     #hero-cta a.btn-primary {
@@ -280,10 +281,10 @@
       background: transparent; color: var(--charcoal);
       font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
       text-transform: uppercase; text-decoration: none;
-      border: 2px solid var(--charcoal);
+      border: 2px solid var(--primary);
       transition: background .25s, color .25s; cursor: pointer;
     }
-    .btn-outline:hover { background: var(--charcoal); color: #FAF5F0; }
+    .btn-outline:hover { background: var(--primary); color: #FAF5F0; }
 
     .btn-wa {
       display: inline-flex; align-items: center; gap: .75rem;
@@ -490,7 +491,7 @@
     .faq-answer { padding: 0 1.5rem 1.25rem; font-size: .9375rem; line-height: 1.85; color: var(--muted); }
 
     .contact-section {
-      background: var(--charcoal); color: #FAF5F0;
+      background: var(--ink); color: #FAF5F0;
       text-align: center; padding: 6rem 1.5rem;
     }
     .contact-inner { max-width: 640px; margin: 0 auto; }
@@ -509,7 +510,7 @@
 
     /* ── FOOTER ── */
     footer {
-      background: var(--charcoal);
+      background: var(--ink);
       border-top: 1px solid rgba(250,245,240,.08);
       padding: 1.75rem 1.5rem;
     }
@@ -609,7 +610,7 @@
     /* ── CINEMATIC HERO REEL ──────────────────────────────────────── */
     .reel {
       position: absolute; inset: 0; overflow: hidden;
-      background: var(--charcoal); z-index: 0;
+      background: var(--ink); z-index: 0;
     }
     .reel-slide {
       position: absolute; inset: 0;
@@ -1179,7 +1180,39 @@ function applyLiveSiteConfig() {
     var c = data.config || {};
     var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
     setText('#services-heading', c.landing_services_title);
+    // Apply the active palette + effects to the whole landing page.
+    applyLandingTheme(c);
   }).catch(function(){ /* keep static defaults */ });
+}
+
+// Inject palette colours (+ rgb channels) and fx-* effects on :root so the
+// landing fully follows the admin-selected theme. Mirrors site-config-client.
+function applyLandingTheme(config) {
+  if (!config) return;
+  var root = document.documentElement;
+  var MAP = {
+    color_primary: 'color-primary', color_secondary: 'color-secondary',
+    color_background: 'color-cream', color_card_bg: 'color-card-bg',
+    color_text_main: 'color-text', color_text_muted: 'color-text-muted',
+    color_progress_bar: 'color-primary-lt'
+  };
+  var hexToRgb = function(hex){
+    var m = String(hex||'').trim().match(/^#([0-9a-fA-F]{6})$/); if(!m) return null;
+    var n = parseInt(m[1],16); return ((n>>16)&255)+', '+((n>>8)&255)+', '+(n&255);
+  };
+  Object.keys(MAP).forEach(function(k){
+    var hex = config[k]; if(!hex) return;
+    root.style.setProperty('--'+MAP[k], hex);
+    var rgb = hexToRgb(hex); if(rgb) root.style.setProperty('--'+MAP[k]+'-rgb', rgb);
+  });
+  if (config.color_card_bg) {
+    root.style.setProperty('--color-card-bg', config.color_card_bg);
+    var cb = hexToRgb(config.color_card_bg); if(cb) root.style.setProperty('--color-card-bg-rgb', cb);
+  }
+  // Effects (fx-* classes) — landing reuses the booking effect rules where applicable.
+  var want = String(config.theme_effects||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  Array.prototype.slice.call(root.classList).forEach(function(cl){ if(cl.indexOf('fx-')===0) root.classList.remove(cl); });
+  want.forEach(function(id){ root.classList.add('fx-'+id); });
 }
 
 function renderServices() {
