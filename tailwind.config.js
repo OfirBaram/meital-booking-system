@@ -15,14 +15,17 @@ export default {
         'lp-card':     '#FFFFFF',
         'lp-muted':    '#8a7f8e',
         'lp-border':   '#e8d5c4',
-        primary:       '#A67C8E',
+        // Runtime-themeable brand palette — mapped to CSS-variable RGB
+        // channels so admin colour edits (applyTheme) flow into every
+        // utility class while opacity modifiers (bg-primary/30) keep working.
+        primary:       'rgb(var(--color-primary-rgb) / <alpha-value>)',
         'primary-dk':  '#8B6175',
-        'primary-lt':  '#C4A0B0',
-        secondary:     '#DDC3A5',
-        cream:         '#FAF5F0',
+        'primary-lt':  'rgb(var(--color-primary-lt-rgb) / <alpha-value>)',
+        secondary:     'rgb(var(--color-secondary-rgb) / <alpha-value>)',
+        cream:         'rgb(var(--color-cream-rgb) / <alpha-value>)',
         'admin-bg':    '#FBF6F1',
-        'text-main':   '#4A2E3A',
-        'text-muted':  '#9B8090',
+        'text-main':   'rgb(var(--color-text-rgb) / <alpha-value>)',
+        'text-muted':  'rgb(var(--color-text-muted-rgb) / <alpha-value>)',
         'text-subtle': '#7A6470',
         // Semantic status — enables bg-pending, text-approved, border-rejected, etc.
         pending:       '#E8972E',

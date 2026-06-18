@@ -46,8 +46,14 @@ Deno.serve(async (req) => {
       return json({ success: false, error: 'invalid_params' }, 400)
     }
 
+    // Multi-service bookings pass the combined duration directly via ?duration=
+    // (sum of the selected services). Fall back to the per-service map for
+    // single-service / legacy callers.
     const SERVICE_DURATIONS: Record<string, number> = { gel_hands: 60, regular_feet: 30, gel_combo: 90 }
-    const durationMin = SERVICE_DURATIONS[service] ?? 60
+    const durParam    = parseInt(url.searchParams.get('duration') ?? '', 10)
+    const durationMin = (Number.isFinite(durParam) && durParam > 0)
+      ? Math.min(durParam, 360)
+      : (SERVICE_DURATIONS[service] ?? 60)
 
     // UTC query window: Jerusalem is at most UTC+3 ahead (summer DST).
     const fromUTC  = new Date(Date.UTC(year, month - 1, 1) - 3 * 3_600_000).toISOString()

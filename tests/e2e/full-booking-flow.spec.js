@@ -89,6 +89,17 @@ export default APP_CONFIG;
   await page.route(SB_FUNC_GLOB, async (route, request) => {
     const path = new URL(request.url()).pathname.split('/').pop()
 
+    if (path === 'get-site-config') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+        success: true,
+        services: [
+          { id: 'gel_hands',    name_he: "לק ג'ל לציפורניים",           desc_he: 'תיאור', duration_min: 60, icon: '💅', sort_order: 0 },
+          { id: 'regular_feet', name_he: 'לק רגיל לציפורניים ברגליים', desc_he: 'תיאור', duration_min: 30, icon: '🦶', sort_order: 1 },
+        ],
+        config: {},
+      }) })
+    }
+
     if (path === 'get-slots') {
       const u = new URL(request.url())
       const year = parseInt(u.searchParams.get('year'), 10)

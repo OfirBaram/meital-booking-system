@@ -1144,6 +1144,44 @@ function renderHeroCta() {
 }
 
 // Services grid
+// ── Live site-config (services + texts) from get-site-config ──────
+// Static SiteConfig renders first (no flash); this overrides it async so
+// admin add/remove/edit of services reflects on the landing page.
+var SUPA_URL  = 'https://callmnxlcganwugxwiym.supabase.co';
+var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
+
+function applyLiveSiteConfig() {
+  fetch(SUPA_URL + '/functions/v1/get-site-config', {
+    headers: { 'Authorization': 'Bearer ' + SUPA_ANON }
+  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
+    if (!data || data.success !== true) return;
+    // Services → SiteConfig shape, re-render the grid.
+    if (Array.isArray(data.services) && data.services.length) {
+      SiteConfig.services = data.services.map(function(svc, i){
+        return {
+          num:   String(i + 1).padStart(2, '0'),
+          title: svc.name_he,
+          meta:  svc.duration_min + ' דקות',
+          desc:  svc.desc_he || ''
+        };
+      });
+      var grid = document.getElementById('services-grid');
+      if (grid) { grid.innerHTML = ''; renderServices(); initReveal(); }
+      window._SVC_MAP = {};
+      data.services.forEach(function(svc){
+        window._SVC_MAP[svc.id] = {
+          label: (svc.icon || '💅') + ' ' + svc.name_he + ' — ' + svc.duration_min + ' דק׳',
+          msg:   svc.name_he
+        };
+      });
+    }
+    // Editable texts.
+    var c = data.config || {};
+    var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
+    setText('#services-heading', c.landing_services_title);
+  }).catch(function(){ /* keep static defaults */ });
+}
+
 function renderServices() {
   var grid = document.getElementById('services-grid');
   if (!grid) return;
@@ -1786,6 +1824,7 @@ document.addEventListener('DOMContentLoaded', function() {
   renderSocialStrip('footer-social');
   renderHeroCta();
   renderServices();
+  applyLiveSiteConfig();
   renderGallery();
   renderFAQ();
   renderContact();
@@ -2136,12 +2175,11 @@ document.addEventListener('DOMContentLoaded', function() {
         a.href = url; a.className = 'cbook'; a.dir = 'rtl';
         a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
         bubble.appendChild(a);
-      } else if (p.match(/^\[SVC:(gel_hands|regular_feet|gel_combo)\]$/)) {
+      } else if (p.match(/^\[SVC:[a-z0-9_]+\]$/)) {
         var svcId = p.slice(5, -1);
-        var _SVC_LABELS = { gel_hands: '💅 לק ג\'\u05dc לציפורניים — 60 דק\'', regular_feet: '🦶 לק רגיל ברגליים — 30 דק\'', gel_combo: '✨ לק ג\'\u05dc + לק רגיל ברגליים — 90 דק\'' };
-        var _SVC_MSGS   = { gel_hands: 'לק ג\'\u05dc לציפורניים', regular_feet: 'לק רגיל ברגליים', gel_combo: 'לק ג\'\u05dc + לק רגיל ברגליים' };
-        var svcLabel = _SVC_LABELS[svcId] || svcId;
-        var svcMsg   = _SVC_MSGS[svcId]   || svcId;
+        var _map = (window._SVC_MAP && window._SVC_MAP[svcId]) || null;
+        var svcLabel = _map ? _map.label : svcId;
+        var svcMsg   = _map ? _map.msg   : svcId;
         bubble.appendChild(document.createElement('br'));
         var sbtn = document.createElement('button');
         sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel; sbtn.type = 'button';

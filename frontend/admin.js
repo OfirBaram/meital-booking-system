@@ -12,6 +12,7 @@ import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './ad
 import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
 import { animate, spring, stagger } from './lib/motion.js';
+import { applyTheme } from './site-config-client.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -341,7 +342,7 @@ function setTab(tab) {
       active ? 'text-primary' : 'text-text-muted',
     ].join(' ');
   });
-  if (tab === 'pulse') { renderPulse(); loadFlags(); loadWaitlist(); }
+  if (tab === 'pulse') { renderPulse(); loadFlags(); loadWaitlist(); initServiceSettings(); loadServicesAdmin(); loadDesignConfig(); }
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
   if (_tabEl) {
@@ -2329,6 +2330,594 @@ async function _processHistoryDecision(bookingId, adminToken, decision) {
     btns.forEach(b => { b.disabled = false; });
     toast('שגיאה בעדכון הסטטוס', 'err');
   }
+}
+
+
+
+// ════════════════════════════════════════════════════════════════
+// SERVICE CATALOG + DESIGN MANAGEMENT (Pulse tab)
+// ════════════════════════════════════════════════════════════════
+
+const BEAUTY_ICONS = ['💅','🦶','🦋','👁️','👄','✨','💆','🌸','💎','🌿','✂️','🎨','💄','🪮','🧖','🤍','💕','🌷'];
+
+let _svcWired      = false;
+let _svcLib        = null;     // service-library.json (lazy)
+let _svcList       = [];       // current services from DB
+let _svcOrderDirty = false;
+let _svcSortable   = null;
+let _svcLibCat     = 'all';
+let _svcAdded      = 0;
+let _designRows    = [];       // site_config rows
+let _designDirty   = {};       // key -> new value
+let _designTab     = 'colors';
+
+// ── Library (static catalog) ───────────────────────────────────
+async function loadServiceLibrary() {
+  if (_svcLib) return _svcLib;
+  try {
+    const r = await fetch('./service-library.json');
+    _svcLib = await r.json();
+  } catch { _svcLib = { categories: [], services: [] }; }
+  return _svcLib;
+}
+
+// ── One-time wiring of all static buttons/inputs ────────────────
+function initServiceSettings() {
+  if (_svcWired) return;
+  _svcWired = true;
+
+  const $ = (id) => document.getElementById(id);
+
+  // Services card
+  $('js-svc-add-btn')?.addEventListener('click', openLibrary);
+  $('js-svc-preview-btn')?.addEventListener('click', openPreview);
+  $('js-svc-save-order')?.addEventListener('click', saveSvcOrder);
+
+  // Edit modal
+  $('js-svc-modal-close')?.addEventListener('click', closeSvcModal);
+  $('js-svc-cancel')?.addEventListener('click', closeSvcModal);
+  $('js-svc-modal-backdrop')?.addEventListener('click', closeSvcModal);
+  $('js-svc-form')?.addEventListener('submit', submitSvcForm);
+  $('js-svc-desc')?.addEventListener('input', () => {
+    const el = $('js-svc-desc'); const c = $('js-svc-desc-count');
+    if (c) c.textContent = el.value.length + '/200';
+  });
+  $('js-svc-icon-btn')?.addEventListener('click', toggleIconGrid);
+  $('js-svc-name')?.addEventListener('input', onSvcNameInput);
+
+  // Library panel
+  $('js-svc-library-close')?.addEventListener('click', closeLibrary);
+  $('js-svc-library-backdrop')?.addEventListener('click', closeLibrary);
+  $('js-svc-scratch')?.addEventListener('click', () => { closeLibrary(); openSvcModal(null); });
+  $('js-svc-search')?.addEventListener('input', renderLibraryGrid);
+
+  // Preview
+  $('js-svc-preview-close')?.addEventListener('click', closePreview);
+  $('js-svc-preview-backdrop')?.addEventListener('click', closePreview);
+
+  // Design
+  $('js-colors-reset')?.addEventListener('click', resetColors);
+  $('js-design-save')?.addEventListener('click', saveDesign);
+  $('js-design-cancel')?.addEventListener('click', () => { _designDirty = {}; renderDesignTab(_designTab); updateDesignSaveBar(); });
+  document.getElementById('js-design-tabs')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-dtab]');
+    if (!btn) return;
+    _designTab = btn.dataset.dtab;
+    document.querySelectorAll('#js-design-tabs .design-tab').forEach(b => {
+      const on = b.dataset.dtab === _designTab;
+      b.className = 'design-tab text-[11px] font-bold px-3 py-1.5 rounded-lg whitespace-nowrap ' + (on ? 'bg-primary text-white' : 'bg-cream text-text-muted');
+    });
+    document.getElementById('js-colors-reset')?.classList.toggle('hidden', _designTab !== 'colors');
+    renderDesignTab(_designTab);
+  });
+
+  // Esc closes any open overlay
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('js-svc-modal')?.classList.contains('hidden'))   closeSvcModal();
+    if (!document.getElementById('js-svc-library')?.classList.contains('hidden')) closeLibrary();
+    if (!document.getElementById('js-svc-preview')?.classList.contains('hidden')) closePreview();
+  });
+}
+
+// ── Load + render services list ─────────────────────────────────
+async function loadServicesAdmin(force) {
+  if (_svcList.length && !force) { renderSvcList(); return; }
+  const el = document.getElementById('js-svc-list');
+  try {
+    const data = await sbCall('admin-site-config', { action: 'listServices' });
+    if (!data.success) throw new Error(data.error || 'error');
+    _svcList = data.services || [];
+    _svcOrderDirty = false;
+    renderSvcList();
+  } catch (e) {
+    if (el) el.innerHTML = '<div class="text-rejected text-xs">שגיאה בטעינת שירותים: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderSvcList() {
+  const el = document.getElementById('js-svc-list');
+  if (!el) return;
+  if (!_svcList.length) {
+    el.innerHTML = '<div class="text-text-muted text-xs italic py-2">אין שירותים. הוסיפי שירות ראשון ←</div>';
+    return;
+  }
+  el.innerHTML = _svcList.map(s => {
+    const iconHtml = s.image_url
+      ? '<img src="' + esc(s.image_url) + '" alt="" class="w-7 h-7 rounded-md object-cover shrink-0">'
+      : '<span class="text-xl shrink-0">' + esc(s.icon || '💅') + '</span>';
+    const dot = s.active
+      ? '<span class="w-2 h-2 rounded-full bg-approved shrink-0" title="פעיל"></span>'
+      : '<span class="w-2 h-2 rounded-full bg-text-muted/40 shrink-0" title="לא פעיל"></span>';
+    return (
+      '<div class="svc-row flex items-center gap-2 rounded-xl border border-secondary/30 bg-white px-2.5 py-2" data-id="' + esc(s.id) + '">' +
+        '<span class="svc-drag cursor-grab text-text-muted/50 text-lg leading-none select-none touch-none" title="גרור">≡</span>' +
+        iconHtml +
+        '<div class="flex-1 min-w-0">' +
+          '<div class="text-sm font-bold text-text-main truncate">' + esc(s.name_he) + '</div>' +
+          '<div class="text-[11px] text-text-muted">' + Number(s.duration_min) + ' דק׳</div>' +
+        '</div>' +
+        dot +
+        '<button type="button" data-svc-toggle class="text-[11px] font-bold px-2 py-1 rounded-lg ' + (s.active ? 'text-approved' : 'text-text-muted') + '">' + (s.active ? 'פעיל' : 'כבוי') + '</button>' +
+        '<button type="button" data-svc-edit class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-cream text-text-muted" title="ערוך">✏️</button>' +
+        '<button type="button" data-svc-del class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-rejected/10 text-rejected" title="מחק">🗑️</button>' +
+      '</div>'
+    );
+  }).join('');
+
+  // Row actions (delegated)
+  el.querySelectorAll('[data-svc-edit]').forEach(b => b.addEventListener('click', () => {
+    const id = b.closest('[data-id]').dataset.id;
+    openSvcModal(_svcList.find(x => x.id === id));
+  }));
+  el.querySelectorAll('[data-svc-del]').forEach(b => b.addEventListener('click', () => {
+    const id = b.closest('[data-id]').dataset.id;
+    const svc = _svcList.find(x => x.id === id);
+    deleteSvc(id, svc ? svc.name_he : '');
+  }));
+  el.querySelectorAll('[data-svc-toggle]').forEach(b => b.addEventListener('click', () => {
+    const id = b.closest('[data-id]').dataset.id;
+    const svc = _svcList.find(x => x.id === id);
+    if (svc) toggleSvcActive(svc);
+  }));
+
+  initSvcSortable();
+}
+
+// ── Drag-to-reorder (SortableJS via esm.sh, graceful fallback) ──
+async function initSvcSortable() {
+  const el = document.getElementById('js-svc-list');
+  if (!el) return;
+  try {
+    if (!window._SortableMod) {
+      window._SortableMod = (await import('https://esm.sh/sortablejs@1.15.2')).default;
+    }
+    const Sortable = window._SortableMod;
+    if (_svcSortable) { try { _svcSortable.destroy(); } catch {} }
+    _svcSortable = Sortable.create(el, {
+      handle: '.svc-drag',
+      animation: 150,
+      onEnd: () => {
+        const ids = [...el.querySelectorAll('[data-id]')].map(r => r.dataset.id);
+        // reorder _svcList to match DOM
+        _svcList.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        _svcOrderDirty = true;
+        document.getElementById('js-svc-reorder-bar')?.classList.remove('hidden');
+      },
+    });
+  } catch {
+    /* SortableJS unavailable — reorder disabled, edit still works */
+  }
+}
+
+async function saveSvcOrder() {
+  const ids = _svcList.map(s => s.id);
+  try {
+    const data = await sbCall('admin-site-config', { action: 'reorderServices', ids });
+    if (!data.success) throw new Error(data.error);
+    _svcOrderDirty = false;
+    document.getElementById('js-svc-reorder-bar')?.classList.add('hidden');
+    toast('סדר השירותים נשמר ✓', 'ok');
+  } catch (e) { toast('שגיאה בשמירת הסדר', 'err'); }
+}
+
+async function toggleSvcActive(svc) {
+  const next = !svc.active;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'upsertService', service: { ...svc, active: next } });
+    if (!data.success) throw new Error(data.error || 'error');
+    svc.active = next;
+    renderSvcList();
+    toast(next ? 'השירות הופעל ✓' : 'השירות כובה', 'ok');
+  } catch (e) {
+    toast(e.message && e.message.indexOf('פעיל') >= 0 ? 'חייב להישאר שירות פעיל אחד לפחות' : 'שגיאה בעדכון', 'err');
+  }
+}
+
+// ── Edit / create modal ─────────────────────────────────────────
+function openSvcModal(svc) {
+  const m = document.getElementById('js-svc-modal');
+  if (!m) return;
+  document.getElementById('js-svc-modal-title').textContent = svc ? 'עריכת שירות' : 'שירות חדש';
+  document.getElementById('js-svc-id').value       = svc ? svc.id : '';
+  document.getElementById('js-svc-name').value     = svc ? svc.name_he : '';
+  document.getElementById('js-svc-desc').value     = svc ? (svc.desc_he || '') : '';
+  document.getElementById('js-svc-duration').value = svc ? svc.duration_min : 60;
+  document.getElementById('js-svc-image').value    = svc ? (svc.image_url || '') : '';
+  document.getElementById('js-svc-icon-btn').textContent = svc ? (svc.icon || '💅') : '💅';
+  document.getElementById('js-svc-desc-count').textContent = (svc && svc.desc_he ? svc.desc_he.length : 0) + '/200';
+  const active = svc ? svc.active !== false : true;
+  m.querySelectorAll('input[name="svc-active"]').forEach(r => { r.checked = (r.value === (active ? '1' : '0')); });
+  document.getElementById('js-svc-form-err').classList.add('hidden');
+  document.getElementById('js-svc-icon-grid').classList.add('hidden');
+  document.getElementById('js-svc-text-sug').innerHTML = '';
+  document.getElementById('js-svc-name-sug').classList.add('hidden');
+  m.classList.remove('hidden');
+  if (svc) onSvcNameInput();   // surface text suggestions if library match
+  setTimeout(() => document.getElementById('js-svc-name')?.focus(), 50);
+}
+function closeSvcModal() { document.getElementById('js-svc-modal')?.classList.add('hidden'); }
+
+function toggleIconGrid() {
+  const grid = document.getElementById('js-svc-icon-grid');
+  if (!grid) return;
+  if (grid.classList.contains('hidden')) {
+    grid.innerHTML = BEAUTY_ICONS.map(e =>
+      '<button type="button" class="w-9 h-9 rounded-lg text-xl hover:bg-white" data-ic="' + e + '">' + e + '</button>'
+    ).join('');
+    grid.querySelectorAll('[data-ic]').forEach(b => b.addEventListener('click', () => {
+      document.getElementById('js-svc-icon-btn').textContent = b.dataset.ic;
+      grid.classList.add('hidden');
+    }));
+    grid.classList.remove('hidden');
+    grid.classList.add('flex');
+  } else {
+    grid.classList.add('hidden');
+    grid.classList.remove('flex');
+  }
+}
+
+// Surface library text suggestions + name autocomplete chips.
+async function onSvcNameInput() {
+  const name = document.getElementById('js-svc-name').value.trim();
+  const lib  = await loadServiceLibrary();
+  const sugWrap  = document.getElementById('js-svc-name-sug');
+  const textWrap = document.getElementById('js-svc-text-sug');
+
+  // Name autocomplete (only while typing a new service, ≥2 chars, no exact match)
+  if (name.length >= 2) {
+    const matches = lib.services.filter(it =>
+      it.name_he.includes(name) || (it.keywords || []).some(k => k.includes(name) || name.includes(k))
+    ).slice(0, 4);
+    const exact = lib.services.find(it => it.name_he === name);
+    if (matches.length && !exact) {
+      sugWrap.innerHTML = matches.map((it, i) =>
+        '<button type="button" data-libpick="' + i + '" class="text-[11px] bg-cream text-primary font-semibold px-2 py-1 rounded-lg">💡 ' + esc(it.name_he) + ' (' + it.duration_min + ' דק׳)</button>'
+      ).join('');
+      sugWrap.querySelectorAll('[data-libpick]').forEach(b => b.addEventListener('click', () => {
+        const it = matches[+b.dataset.libpick];
+        applyLibToForm(it);
+      }));
+      sugWrap.classList.remove('hidden');
+    } else { sugWrap.classList.add('hidden'); }
+  } else { sugWrap.classList.add('hidden'); }
+
+  // Text variant chips for the matching library service
+  const match = lib.services.find(it => it.name_he === name) ||
+                lib.services.find(it => name && (it.name_he.includes(name) || name.includes(it.name_he)));
+  if (match && match.texts) {
+    const variants = [['short','קצר'],['medium','בינוני'],['long','מפורט']];
+    textWrap.innerHTML = variants.filter(([k]) => match.texts[k]).map(([k, lbl]) =>
+      '<button type="button" data-txt="' + k + '" title="' + esc(match.texts[k]) + '" class="text-[10px] bg-primary/10 text-primary font-bold px-2 py-1 rounded-lg">' + lbl + '</button>'
+    ).join('');
+    textWrap.querySelectorAll('[data-txt]').forEach(b => b.addEventListener('click', () => {
+      const el = document.getElementById('js-svc-desc');
+      el.value = match.texts[b.dataset.txt];
+      document.getElementById('js-svc-desc-count').textContent = el.value.length + '/200';
+    }));
+  } else { textWrap.innerHTML = ''; }
+}
+
+function applyLibToForm(it) {
+  document.getElementById('js-svc-name').value     = it.name_he;
+  document.getElementById('js-svc-duration').value = it.duration_min;
+  document.getElementById('js-svc-icon-btn').textContent = it.icon || '💅';
+  if (it.texts && it.texts.medium) {
+    const el = document.getElementById('js-svc-desc');
+    el.value = it.texts.medium;
+    document.getElementById('js-svc-desc-count').textContent = el.value.length + '/200';
+  }
+  onSvcNameInput();
+}
+
+async function submitSvcForm(e) {
+  e.preventDefault();
+  const err = document.getElementById('js-svc-form-err');
+  err.classList.add('hidden');
+  const service = {
+    id:           document.getElementById('js-svc-id').value || undefined,
+    name_he:      document.getElementById('js-svc-name').value.trim(),
+    desc_he:      document.getElementById('js-svc-desc').value.trim(),
+    duration_min: parseInt(document.getElementById('js-svc-duration').value, 10),
+    icon:         document.getElementById('js-svc-icon-btn').textContent.trim() || '💅',
+    image_url:    document.getElementById('js-svc-image').value.trim() || null,
+    active:       document.querySelector('input[name="svc-active"]:checked')?.value === '1',
+  };
+  if (!service.name_he) { err.textContent = 'שם השירות חובה'; err.classList.remove('hidden'); return; }
+  if (!(service.duration_min >= 5 && service.duration_min <= 360)) { err.textContent = 'משך חייב להיות בין 5 ל-360 דקות'; err.classList.remove('hidden'); return; }
+
+  const submitBtn = document.getElementById('js-svc-submit');
+  submitBtn.disabled = true;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'upsertService', service });
+    if (!data.success) throw new Error(data.error || 'error');
+    closeSvcModal();
+    await loadServicesAdmin(true);
+    toast('השירות נשמר ✓', 'ok');
+  } catch (ex) {
+    err.textContent = ex.message && ex.message.length < 80 ? ex.message : 'שגיאה בשמירה';
+    err.classList.remove('hidden');
+  } finally { submitBtn.disabled = false; }
+}
+
+async function deleteSvc(id, name) {
+  const activeCount = _svcList.filter(s => s.active).length;
+  const target = _svcList.find(s => s.id === id);
+  if (target && target.active && activeCount <= 1) {
+    toast('לא ניתן למחוק את השירות הפעיל היחיד', 'err');
+    return;
+  }
+  if (!confirm('למחוק את "' + name + '"? פעולה זו אינה הפיכה.')) return;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'deleteService', id });
+    if (!data.success) throw new Error(data.error || 'error');
+    await loadServicesAdmin(true);
+    toast('השירות נמחק', 'ok');
+  } catch (e) {
+    toast(e.message && e.message.indexOf('פעיל') >= 0 ? 'לא ניתן למחוק את השירות הפעיל היחיד' : 'שגיאה במחיקה', 'err');
+  }
+}
+
+// ── Add-from-library panel ──────────────────────────────────────
+async function openLibrary() {
+  const lib = await loadServiceLibrary();
+  _svcAdded = 0;
+  _svcLibCat = 'all';
+  document.getElementById('js-svc-added-count').textContent = '';
+  document.getElementById('js-svc-search').value = '';
+  // category pills
+  const cats = [{ id: 'all', label_he: 'הכל', icon: '✨' }, ...(lib.categories || [])];
+  const catWrap = document.getElementById('js-svc-cats');
+  catWrap.innerHTML = cats.map(c =>
+    '<button type="button" data-cat="' + esc(c.id) + '" class="text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ' + (c.id === 'all' ? 'bg-primary text-white' : 'bg-cream text-text-muted') + '">' + esc(c.icon || '') + ' ' + esc(c.label_he) + '</button>'
+  ).join('');
+  catWrap.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => {
+    _svcLibCat = b.dataset.cat;
+    catWrap.querySelectorAll('[data-cat]').forEach(x => {
+      const on = x.dataset.cat === _svcLibCat;
+      x.className = 'text-[11px] font-bold px-2.5 py-1 rounded-lg whitespace-nowrap ' + (on ? 'bg-primary text-white' : 'bg-cream text-text-muted');
+    });
+    renderLibraryGrid();
+  }));
+  renderLibraryGrid();
+  document.getElementById('js-svc-library').classList.remove('hidden');
+}
+function closeLibrary() { document.getElementById('js-svc-library')?.classList.add('hidden'); }
+
+function renderLibraryGrid() {
+  const lib  = _svcLib || { services: [] };
+  const q    = (document.getElementById('js-svc-search')?.value || '').trim();
+  const grid = document.getElementById('js-svc-library-grid');
+  let items = lib.services;
+  if (_svcLibCat !== 'all') items = items.filter(it => it.category === _svcLibCat);
+  if (q) items = items.filter(it => it.name_he.includes(q) || (it.keywords || []).some(k => k.includes(q) || q.includes(k)));
+  if (!items.length) { grid.innerHTML = '<div class="col-span-2 text-center text-text-muted text-xs py-6">לא נמצאו שירותים</div>'; return; }
+  grid.innerHTML = items.map((it, i) =>
+    '<div class="rounded-xl border border-secondary/30 bg-white p-2.5 flex flex-col gap-1.5" data-lib="' + i + '">' +
+      '<div class="flex items-center gap-1.5"><span class="text-lg">' + esc(it.icon || '💅') + '</span>' +
+        '<span class="text-[12px] font-bold text-text-main leading-tight flex-1">' + esc(it.name_he) + '</span></div>' +
+      '<span class="text-[10px] text-text-muted">' + it.duration_min + ' דק׳</span>' +
+      '<div class="flex gap-1 mt-0.5">' +
+        '<button type="button" data-add="' + i + '" class="flex-1 text-[10px] font-bold text-white bg-primary rounded-lg py-1 active:scale-95">הוסף+</button>' +
+        '<button type="button" data-addedit="' + i + '" class="text-[10px] font-bold text-primary bg-primary/10 rounded-lg px-2 py-1" title="הוסף וערוך">✏️</button>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+  // map filtered index → item
+  const filtered = items;
+  grid.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => addFromLibrary(filtered[+b.dataset.add], false)));
+  grid.querySelectorAll('[data-addedit]').forEach(b => b.addEventListener('click', () => addFromLibrary(filtered[+b.dataset.addedit], true)));
+}
+
+async function addFromLibrary(it, openEdit) {
+  if (!it) return;
+  const service = {
+    name_he:      it.name_he,
+    desc_he:      (it.texts && it.texts.medium) || '',
+    duration_min: it.duration_min,
+    icon:         it.icon || '💅',
+    active:       true,
+  };
+  try {
+    const data = await sbCall('admin-site-config', { action: 'upsertService', service });
+    if (!data.success) throw new Error(data.error || 'error');
+    _svcAdded++;
+    document.getElementById('js-svc-added-count').textContent = '✓ נוספו ' + _svcAdded;
+    await loadServicesAdmin(true);
+    if (openEdit && data.service) { closeLibrary(); openSvcModal(data.service); }
+  } catch (e) { toast('שגיאה בהוספה', 'err'); }
+}
+
+// ── Interactive customer preview ────────────────────────────────
+let _previewSel = [];
+function openPreview() {
+  _previewSel = [];
+  renderPreview();
+  document.getElementById('js-svc-preview').classList.remove('hidden');
+}
+function closePreview() { document.getElementById('js-svc-preview')?.classList.add('hidden'); }
+
+function renderPreview() {
+  const active = _svcList.filter(s => s.active);
+  const wrap = document.getElementById('js-svc-preview-cards');
+  if (!active.length) { wrap.innerHTML = '<div class="text-center text-text-muted text-xs py-4">אין שירותים פעילים</div>'; return; }
+  wrap.innerHTML = active.map(s => {
+    const sel = _previewSel.includes(s.id);
+    const iconHtml = s.image_url
+      ? '<img src="' + esc(s.image_url) + '" alt="" class="w-9 h-9 rounded-lg object-cover">'
+      : '<span class="text-2xl">' + esc(s.icon || '💅') + '</span>';
+    return (
+      '<button type="button" data-pv="' + esc(s.id) + '" class="w-full text-right bg-white rounded-2xl p-3.5 border-2 ' + (sel ? 'border-primary' : 'border-transparent') + ' shadow-sm flex items-start gap-3">' +
+        iconHtml +
+        '<div class="flex-1 min-w-0"><div class="font-semibold text-text-main text-sm">' + esc(s.name_he) + '</div>' +
+          '<p class="text-text-muted text-[11px] leading-snug">' + esc(s.desc_he || '') + '</p>' +
+          '<span class="text-[10px] font-medium text-primary/70">' + Number(s.duration_min) + ' דק׳</span></div>' +
+        '<span class="shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ' + (sel ? 'bg-primary border-primary text-white' : 'border-secondary') + '">' + (sel ? '✓' : '') + '</span>' +
+      '</button>'
+    );
+  }).join('');
+  wrap.querySelectorAll('[data-pv]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.pv;
+    const i = _previewSel.indexOf(id);
+    if (i >= 0) _previewSel.splice(i, 1); else _previewSel.push(id);
+    renderPreview();
+  }));
+  // summary + continue
+  const sum = document.getElementById('js-svc-preview-summary');
+  const cont = document.getElementById('js-svc-preview-continue');
+  const chosen = active.filter(s => _previewSel.includes(s.id));
+  if (chosen.length) {
+    const total = chosen.reduce((a, s) => a + s.duration_min, 0);
+    sum.innerHTML = '<div class="flex items-center justify-between gap-3 rounded-2xl bg-primary/5 border border-primary/15 px-4 py-3">' +
+      '<span class="text-sm font-semibold text-text-main">' + chosen.map(s => esc(s.icon + ' ' + s.name_he)).join(' + ') + '</span>' +
+      '<span class="text-xs font-bold text-primary whitespace-nowrap">' + total + ' דק׳</span></div>';
+    sum.classList.remove('hidden');
+    cont.disabled = false;
+  } else { sum.classList.add('hidden'); cont.disabled = true; }
+}
+
+// ════════════════════════════════════════════════════════════════
+// DESIGN & BRANDING
+// ════════════════════════════════════════════════════════════════
+async function loadDesignConfig(force) {
+  if (_designRows.length && !force) { renderDesignTab(_designTab); return; }
+  try {
+    const data = await sbCall('admin-site-config', { action: 'listConfig' });
+    if (!data.success) throw new Error(data.error || 'error');
+    _designRows = data.config || [];
+    _designDirty = {};
+    renderDesignTab(_designTab);
+    document.getElementById('js-colors-reset')?.classList.toggle('hidden', _designTab !== 'colors');
+  } catch (e) {
+    const el = document.getElementById('js-design-body');
+    if (el) el.innerHTML = '<div class="text-rejected text-xs">שגיאה בטעינת הגדרות עיצוב</div>';
+  }
+}
+
+function _designCategory(tab) {
+  return tab === 'colors' ? 'colors' : tab === 'booking' ? 'booking' : 'landing';
+}
+
+function renderDesignTab(tab) {
+  const body = document.getElementById('js-design-body');
+  if (!body) return;
+  const cat  = _designCategory(tab);
+  const rows = _designRows.filter(r => r.category === cat);
+  if (!rows.length) { body.innerHTML = '<div class="text-text-muted text-xs">אין הגדרות</div>'; return; }
+
+  if (tab === 'colors') {
+    body.innerHTML = rows.map(r => {
+      const val = _designDirty[r.key] ?? r.value;
+      return (
+        '<div class="flex items-center gap-2" data-cfg="' + esc(r.key) + '">' +
+          '<input type="color" value="' + esc(val) + '" data-color class="w-9 h-9 rounded-lg border border-secondary/40 cursor-pointer shrink-0 bg-white">' +
+          '<div class="flex-1 min-w-0"><div class="text-xs font-bold text-text-main truncate">' + esc(r.label_he) + '</div></div>' +
+          '<input type="text" value="' + esc(val) + '" data-hex maxlength="7" dir="ltr" class="w-20 px-2 py-1 rounded-lg border border-secondary/40 text-[11px] font-mono text-text-main">' +
+        '</div>'
+      );
+    }).join('');
+    body.querySelectorAll('[data-cfg]').forEach(row => {
+      const key = row.dataset.cfg;
+      const color = row.querySelector('[data-color]');
+      const hex   = row.querySelector('[data-hex]');
+      const onChange = (v) => {
+        v = v.trim();
+        if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
+        color.value = v; hex.value = v;
+        _designDirty[key] = v;
+        applyTheme({ [key]: v });    // live preview on the admin page
+        updateDesignSaveBar();
+      };
+      color.addEventListener('input', () => onChange(color.value));
+      hex.addEventListener('change', () => onChange(hex.value));
+    });
+  } else {
+    body.innerHTML = rows.map(r => {
+      const val = _designDirty[r.key] ?? r.value;
+      const long = (r.value || '').length > 40;
+      const field = long
+        ? '<textarea data-text rows="2" maxlength="200" class="w-full px-3 py-2 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none resize-none">' + esc(val) + '</textarea>'
+        : '<input type="text" data-text maxlength="200" value="' + esc(val) + '" class="w-full px-3 py-2 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none">';
+      return (
+        '<div data-cfg="' + esc(r.key) + '">' +
+          '<label class="block text-[11px] font-bold text-text-muted mb-1">' + esc(r.label_he) + '</label>' +
+          field +
+        '</div>'
+      );
+    }).join('');
+    body.querySelectorAll('[data-cfg]').forEach(row => {
+      const key = row.dataset.cfg;
+      const field = row.querySelector('[data-text]');
+      field.addEventListener('input', () => {
+        const orig = (_designRows.find(r => r.key === key) || {}).value;
+        if (field.value === orig) delete _designDirty[key];
+        else _designDirty[key] = field.value;
+        updateDesignSaveBar();
+      });
+    });
+  }
+}
+
+function updateDesignSaveBar() {
+  const n = Object.keys(_designDirty).length;
+  const bar = document.getElementById('js-design-save-bar');
+  const cnt = document.getElementById('js-design-dirty-count');
+  if (cnt) cnt.textContent = n;
+  if (bar) bar.classList.toggle('hidden', n === 0);
+}
+
+async function saveDesign() {
+  const updates = { ..._designDirty };
+  if (!Object.keys(updates).length) return;
+  const btn = document.getElementById('js-design-save');
+  btn.disabled = true;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'updateConfig', updates });
+    if (!data.success) throw new Error(data.error || 'error');
+    // commit to local rows
+    _designRows.forEach(r => { if (r.key in updates) r.value = updates[r.key]; });
+    _designDirty = {};
+    updateDesignSaveBar();
+    toast('השינויים נשמרו ✓', 'ok');
+  } catch (e) {
+    toast(e.message && e.message.length < 80 ? e.message : 'שגיאה בשמירה', 'err');
+  } finally { btn.disabled = false; }
+}
+
+async function resetColors() {
+  if (!confirm('לאפס את כל הצבעים לברירת המחדל?')) return;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'resetColors' });
+    if (!data.success) throw new Error(data.error);
+    _designDirty = {};
+    await loadDesignConfig(true);
+    // re-apply default colours live
+    const map = {};
+    _designRows.filter(r => r.category === 'colors').forEach(r => { map[r.key] = r.value; });
+    applyTheme(map);
+    updateDesignSaveBar();
+    toast('הצבעים אופסו ✓', 'ok');
+  } catch (e) { toast('שגיאה באיפוס', 'err'); }
 }
 
 
