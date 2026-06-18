@@ -1,0 +1,52 @@
+/* =========================================================
+   theme-effects.css — opt-in visual effects toggled by the
+   admin "עיצוב ומיתוג" studio. Applied as fx-* classes on the
+   page root (<html>); each effect reads the live colour vars
+   so it works with any palette. Loaded by index.html.
+   ========================================================= */
+
+/* ── ✨ glow — soft halo on primary buttons + selected items ── */
+.fx-glow #btn-next:not(:disabled) {
+  box-shadow: 0 8px 26px -6px rgb(var(--color-primary-rgb) / .55);
+}
+.fx-glow .service-card.selected {
+  box-shadow: 0 10px 30px -8px rgb(var(--color-primary-rgb) / .45);
+}
+.fx-glow .time-slot.selected {
+  box-shadow: 0 6px 20px -6px rgb(var(--color-primary-rgb) / .50);
+}
+
+/* ── 🌈 gradient — graduated fill on the primary CTA ── */
+.fx-gradient #btn-next:not(:disabled) {
+  background-image: linear-gradient(135deg,
+    rgb(var(--color-primary-lt-rgb)) 0%,
+    rgb(var(--color-primary-rgb)) 100%);
+  border: none;
+}
+
+/* ── 🧊 glass — translucent, blurred cards ── */
+.fx-glass .service-card,
+.fx-glass #js-service-summary > div,
+.fx-glass #js-confirm-details {
+  background-color: rgb(var(--color-card-bg-rgb, 255 255 255) / .68) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgb(var(--color-primary-rgb) / .12);
+}
+
+/* ── 🫧 rounded — softer, larger corner radii ── */
+.fx-rounded .service-card,
+.fx-rounded .time-slot,
+.fx-rounded #btn-next,
+.fx-rounded #btn-back,
+.fx-rounded #js-service-summary > div,
+.fx-rounded #js-confirm-details {
+  border-radius: 1.75rem !important;
+}
+
+/* Honour reduced-motion / contrast: glass falls back to opaque if the
+   browser can't blur (older engines simply ignore backdrop-filter). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .fx-glass .service-card,
+  .fx-glass #js-confirm-details { background-color: rgb(var(--color-card-bg-rgb, 255 255 255)) !important; }
+}

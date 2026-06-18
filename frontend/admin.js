@@ -12,7 +12,8 @@ import { buildCalData, renderCalendar, formatCalTitle, calDayStatus } from './ad
 import { initSheet, openSheet, closeSheet, isSheetOpen } from './admin-sheet.js';
 import { initCardSwipe } from './admin-gestures.js';
 import { animate, spring, stagger } from './lib/motion.js';
-import { applyTheme } from './site-config-client.js';
+import { applyTheme, applyEffects } from './site-config-client.js';
+import { PALETTES, EFFECTS, COLOR_KEYS, resolvePalette, DEFAULT_PRESET } from './theme-presets.js';
 
 const API         = APP_CONFIG.API_URL;
 const LS_TOKEN    = 'meital_admin_token';
@@ -2350,6 +2351,12 @@ let _svcAdded      = 0;
 let _designRows    = [];       // site_config rows
 let _designDirty   = {};       // key -> new value
 let _designTab     = 'colors';
+// Theme studio state
+let _themePreset     = DEFAULT_PRESET;
+let _themeBrightness = 0;
+let _themeEffects    = new Set();
+let _designAdvOpen   = false;
+let _previewReady    = false;
 
 // ── Library (static catalog) ───────────────────────────────────
 async function loadServiceLibrary() {
@@ -2397,6 +2404,11 @@ function initServiceSettings() {
 
   // Design
   $('js-colors-reset')?.addEventListener('click', resetColors);
+  $('js-theme-preview-refresh')?.addEventListener('click', () => {
+    _previewReady = false;
+    const f = document.getElementById('js-theme-preview');
+    if (f) f.src = './index.html?preview=1';
+  });
   $('js-design-save')?.addEventListener('click', saveDesign);
   $('js-design-cancel')?.addEventListener('click', () => { _designDirty = {}; renderDesignTab(_designTab); updateDesignSaveBar(); });
   document.getElementById('js-design-tabs')?.addEventListener('click', (e) => {
@@ -2806,6 +2818,7 @@ async function loadDesignConfig(force) {
     if (!data.success) throw new Error(data.error || 'error');
     _designRows = data.config || [];
     _designDirty = {};
+    initThemeStateFromRows();
     renderDesignTab(_designTab);
     document.getElementById('js-colors-reset')?.classList.toggle('hidden', _designTab !== 'colors');
   } catch (e) {
@@ -2826,32 +2839,11 @@ function renderDesignTab(tab) {
   if (!rows.length) { body.innerHTML = '<div class="text-text-muted text-xs">אין הגדרות</div>'; return; }
 
   if (tab === 'colors') {
-    body.innerHTML = rows.map(r => {
-      const val = _designDirty[r.key] ?? r.value;
-      return (
-        '<div class="flex items-center gap-2" data-cfg="' + esc(r.key) + '">' +
-          '<input type="color" value="' + esc(val) + '" data-color class="w-9 h-9 rounded-lg border border-secondary/40 cursor-pointer shrink-0 bg-white">' +
-          '<div class="flex-1 min-w-0"><div class="text-xs font-bold text-text-main truncate">' + esc(r.label_he) + '</div></div>' +
-          '<input type="text" value="' + esc(val) + '" data-hex maxlength="7" dir="ltr" class="w-20 px-2 py-1 rounded-lg border border-secondary/40 text-[11px] font-mono text-text-main">' +
-        '</div>'
-      );
-    }).join('');
-    body.querySelectorAll('[data-cfg]').forEach(row => {
-      const key = row.dataset.cfg;
-      const color = row.querySelector('[data-color]');
-      const hex   = row.querySelector('[data-hex]');
-      const onChange = (v) => {
-        v = v.trim();
-        if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
-        color.value = v; hex.value = v;
-        _designDirty[key] = v;
-        applyTheme({ [key]: v });    // live preview on the admin page
-        updateDesignSaveBar();
-      };
-      color.addEventListener('input', () => onChange(color.value));
-      hex.addEventListener('change', () => onChange(hex.value));
-    });
+    document.getElementById('js-theme-preview-wrap')?.classList.remove('hidden');
+    renderColorStudio(body, rows);
+    ensurePreview();
   } else {
+    document.getElementById('js-theme-preview-wrap')?.classList.add('hidden');
     body.innerHTML = rows.map(r => {
       const val = _designDirty[r.key] ?? r.value;
       const long = (r.value || '').length > 40;
@@ -2877,6 +2869,163 @@ function renderDesignTab(tab) {
     });
   }
 }
+
+// ── Theme studio (palettes + brightness + effects + 1:1 preview) ──
+
+function _swatchStrip(p) {
+  return ['color_primary', 'color_secondary', 'color_background', 'color_text_main', 'color_progress_bar']
+    .map(k => '<span style="background:' + p.colors[k] + '" class="block flex-1"></span>').join('');
+}
+
+function renderColorStudio(body, rows) {
+  const palettesHtml = PALETTES.map(p => {
+    const sel = p.id === _themePreset;
+    return '<button type="button" data-pal="' + esc(p.id) + '" class="text-right rounded-xl border-2 ' +
+      (sel ? 'border-primary' : 'border-secondary/30') + ' bg-white overflow-hidden shadow-sm active:scale-95 transition-all">' +
+        '<span class="flex h-7 w-full">' + _swatchStrip(p) + '</span>' +
+        '<span class="flex items-center justify-between px-2 pt-1.5">' +
+          '<span class="text-[11px] font-bold text-text-main">' + esc(p.name) + (p.dark ? ' 🌙' : '') + '</span>' +
+          (sel ? '<span class="text-primary text-[11px] font-black">✓</span>' : '') +
+        '</span>' +
+        '<span class="block px-2 pb-1.5 text-[9px] text-text-muted">' + esc(p.mood) + '</span>' +
+      '</button>';
+  }).join('');
+
+  const effHtml = EFFECTS.map(e => {
+    const on = _themeEffects.has(e.id);
+    return '<button type="button" data-eff="' + esc(e.id) + '" title="' + esc(e.hint) + '" ' +
+      'class="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border ' +
+      (on ? 'bg-primary text-white border-primary' : 'bg-cream text-text-muted border-secondary/30') + '">' +
+      e.emoji + ' ' + esc(e.name) + '</button>';
+  }).join('');
+
+  body.innerHTML =
+    '<div class="text-[11px] font-bold text-text-muted mb-1.5">בחרי ערכת צבעים</div>' +
+    '<div class="grid grid-cols-2 gap-2">' + palettesHtml + '</div>' +
+    '<div class="mt-4">' +
+      '<div class="flex items-center justify-between mb-1">' +
+        '<span class="text-[11px] font-bold text-text-muted">בהירות הערכה</span>' +
+        '<span class="text-[11px] font-mono text-primary" id="js-bright-val">' + (_themeBrightness > 0 ? '+' : '') + _themeBrightness + '</span>' +
+      '</div>' +
+      '<input type="range" id="js-bright" min="-20" max="20" step="2" value="' + _themeBrightness + '" class="w-full accent-primary cursor-pointer">' +
+      '<div class="flex justify-between text-[9px] text-text-muted mt-0.5"><span>כהה יותר</span><span>בהיר יותר</span></div>' +
+    '</div>' +
+    '<div class="mt-4"><div class="text-[11px] font-bold text-text-muted mb-1.5">אפקטים מיוחדים</div>' +
+      '<div class="flex flex-wrap gap-1.5">' + effHtml + '</div></div>' +
+    '<button type="button" id="js-adv-toggle" class="mt-4 text-[11px] font-bold text-primary hover:underline">' +
+      (_designAdvOpen ? '▾' : '▸') + ' התאמה אישית מתקדמת (צבע-צבע)</button>' +
+    '<div id="js-adv-colors" class="' + (_designAdvOpen ? '' : 'hidden') + ' mt-2 space-y-2"></div>';
+
+  body.querySelectorAll('[data-pal]').forEach(b => b.addEventListener('click', () => selectPalette(b.dataset.pal)));
+  body.querySelectorAll('[data-eff]').forEach(b => b.addEventListener('click', () => toggleEffect(b.dataset.eff)));
+  const slider = document.getElementById('js-bright');
+  if (slider) slider.addEventListener('input', () => setBrightness(parseInt(slider.value, 10)));
+  document.getElementById('js-adv-toggle')?.addEventListener('click', () => {
+    _designAdvOpen = !_designAdvOpen;
+    renderColorStudio(body, rows);
+  });
+  if (_designAdvOpen) renderAdvancedColors(rows);
+}
+
+function _colorRows() { return _designRows.filter(r => r.category === 'colors'); }
+
+function recomputePaletteColors() {
+  const colors = resolvePalette(_themePreset, _themeBrightness);
+  COLOR_KEYS.forEach(k => { _designDirty[k] = colors[k]; });
+  _designDirty['theme_preset']     = _themePreset;
+  _designDirty['theme_brightness'] = String(_themeBrightness);
+  _designDirty['theme_effects']    = [..._themeEffects].join(',');
+}
+
+function selectPalette(id) {
+  _themePreset = id;
+  recomputePaletteColors();
+  renderColorStudio(document.getElementById('js-design-body'), _colorRows());
+  injectPreview();
+  updateDesignSaveBar();
+}
+
+function setBrightness(v) {
+  _themeBrightness = v;
+  const el = document.getElementById('js-bright-val');
+  if (el) el.textContent = (v > 0 ? '+' : '') + v;
+  recomputePaletteColors();
+  injectPreview();
+  updateDesignSaveBar();
+}
+
+function toggleEffect(id) {
+  if (_themeEffects.has(id)) _themeEffects.delete(id); else _themeEffects.add(id);
+  _designDirty['theme_effects'] = [..._themeEffects].join(',');
+  renderColorStudio(document.getElementById('js-design-body'), _colorRows());
+  injectPreview();
+  updateDesignSaveBar();
+}
+
+function renderAdvancedColors(rows) {
+  const wrap = document.getElementById('js-adv-colors');
+  if (!wrap) return;
+  wrap.innerHTML = rows.map(r => {
+    const val = _designDirty[r.key] ?? r.value;
+    return '<div class="flex items-center gap-2" data-cfg="' + esc(r.key) + '">' +
+      '<input type="color" value="' + esc(val) + '" data-color class="w-8 h-8 rounded-lg border border-secondary/40 cursor-pointer shrink-0">' +
+      '<div class="flex-1 min-w-0"><div class="text-[11px] font-bold text-text-main truncate">' + esc(r.label_he) + '</div></div>' +
+      '<input type="text" value="' + esc(val) + '" data-hex maxlength="7" dir="ltr" class="w-20 px-2 py-1 rounded-lg border border-secondary/40 text-[11px] font-mono text-text-main">' +
+      '</div>';
+  }).join('');
+  wrap.querySelectorAll('[data-cfg]').forEach(row => {
+    const key = row.dataset.cfg;
+    const color = row.querySelector('[data-color]');
+    const hex   = row.querySelector('[data-hex]');
+    const onChange = (v) => {
+      v = v.trim();
+      if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
+      color.value = v; hex.value = v;
+      _designDirty[key] = v;
+      injectPreview();
+      updateDesignSaveBar();
+    };
+    color.addEventListener('input', () => onChange(color.value));
+    hex.addEventListener('change', () => onChange(hex.value));
+  });
+}
+
+function initThemeStateFromRows() {
+  const get = (k) => (_designRows.find(r => r.key === k) || {}).value;
+  _themePreset     = get('theme_preset') || DEFAULT_PRESET;
+  _themeBrightness = parseInt(get('theme_brightness') || '0', 10) || 0;
+  _themeEffects    = new Set(String(get('theme_effects') || '').split(',').map(s => s.trim()).filter(Boolean));
+}
+
+// ── 1:1 live preview iframe (real booking page) ──
+function ensurePreview() {
+  const f = document.getElementById('js-theme-preview');
+  if (!f) return;
+  if (!f.getAttribute('src')) {
+    f.addEventListener('load', () => { _previewReady = true; injectPreview(); });
+    f.setAttribute('src', './index.html?preview=1');
+  } else if (_previewReady) {
+    injectPreview();
+  }
+}
+
+function _previewRoot() {
+  const f = document.getElementById('js-theme-preview');
+  try { return (f && f.contentDocument && f.contentDocument.documentElement) || null; }
+  catch { return null; }
+}
+
+function injectPreview() {
+  const root = _previewRoot();
+  if (!root) return;
+  const colors = {};
+  COLOR_KEYS.forEach(k => {
+    colors[k] = _designDirty[k] || (_designRows.find(r => r.key === k) || {}).value;
+  });
+  applyTheme(colors, root);
+  applyEffects([..._themeEffects].join(','), root);
+}
+
 
 function updateDesignSaveBar() {
   const n = Object.keys(_designDirty).length;
@@ -2905,19 +3054,15 @@ async function saveDesign() {
 }
 
 async function resetColors() {
-  if (!confirm('לאפס את כל הצבעים לברירת המחדל?')) return;
-  try {
-    const data = await sbCall('admin-site-config', { action: 'resetColors' });
-    if (!data.success) throw new Error(data.error);
-    _designDirty = {};
-    await loadDesignConfig(true);
-    // re-apply default colours live
-    const map = {};
-    _designRows.filter(r => r.category === 'colors').forEach(r => { map[r.key] = r.value; });
-    applyTheme(map);
-    updateDesignSaveBar();
-    toast('הצבעים אופסו ✓', 'ok');
-  } catch (e) { toast('שגיאה באיפוס', 'err'); }
+  if (!confirm('לאפס את העיצוב לברירת המחדל (ורד אבק)?')) return;
+  _themePreset = DEFAULT_PRESET;
+  _themeBrightness = 0;
+  _themeEffects = new Set();
+  recomputePaletteColors();
+  renderColorStudio(document.getElementById('js-design-body'), _colorRows());
+  injectPreview();
+  updateDesignSaveBar();
+  toast('נבחרה ערכת ברירת המחדל — לחצי שמור כדי להחיל', 'ok');
 }
 
 

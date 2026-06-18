@@ -1382,9 +1382,16 @@ async function loadSiteConfig() {
     if (State.step === 1) renderServices();
   }
   State.config = data.config || {};
-  applyTheme(State.config);
-  applyTexts();
+  // Preview mode (admin design studio iframe): the parent injects the
+  // unsaved palette directly, so skip theming here to avoid clobbering it.
+  if (!IS_PREVIEW) {
+    applyTheme(State.config);
+    applyTexts();
+  }
 }
+
+// True when rendered inside the admin 1:1 preview iframe (index.html?preview=1).
+const IS_PREVIEW = new URLSearchParams(location.search).get('preview') === '1';
 
 // Apply editable texts from site_config to the page chrome.
 function applyTexts() {
