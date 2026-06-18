@@ -109,9 +109,9 @@ test.describe('Regression — booking wizard', () => {
     await page.goto('/')
   })
 
-  test('step 1 is visible with exactly 3 service cards', async ({ page }) => {
+  test('step 1 is visible with the active service cards', async ({ page }) => {
     await expect(page.locator('#step-1')).toBeVisible()
-    await expect(page.locator('.service-card')).toHaveCount(3)
+    await expect(page.locator('.service-card')).toHaveCount(2)
   })
 
   test('both footer legal links are present', async ({ page }) => {

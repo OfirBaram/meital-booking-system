@@ -1349,35 +1349,41 @@ async function prefetchSlots() {
   } catch { /* silent — calendar will load on demand */ }
 }
 
-async function init() {
+function init() {
   if (APP_CONFIG.IS_MAINTENANCE_MODE) {
     document.getElementById('js-maintenance').classList.remove('hidden');
     return;
   }
   renderProgress();
   renderDayHeaders();
-  // Load live catalog + theme + texts before first render. Falls back to
-  // FALLBACK_SERVICES + shipped defaults if the network call fails — the
-  // page must never block on this.
-  await loadSiteConfig();
+  // Render immediately with the static fallback catalogue, wire everything,
+  // THEN refresh from the live catalogue asynchronously. init() must never
+  // block on the network — otherwise modal/form wiring is delayed and the
+  // page feels (and tests as) broken when the config call is slow.
   renderServices();
-  applyTexts();
   trackEvent('wizard_started', { is_returning_user: !!LS.get('client') });
   setupFormListeners();
   wireEvents();
   setupModalListeners();
   prefetchSlots();
   applyURLPreset();
+  loadSiteConfig();   // fire-and-forget — re-renders services + applies theme when it lands
 }
 
-// Fetch services + config from get-site-config; apply colours immediately.
+// Fetch services + config from get-site-config; apply colours + texts and
+// re-render the (now live) catalogue. Never throws — falls back silently.
 async function loadSiteConfig() {
   if (APP_CONFIG.IS_MOCK_MODE) return;
   const data = await fetchSiteConfig(APP_CONFIG.SUPABASE_URL, APP_CONFIG.SUPABASE_ANON_KEY);
   if (!data) return;
-  if (Array.isArray(data.services) && data.services.length) CATALOG = data.services;
+  if (Array.isArray(data.services) && data.services.length) {
+    CATALOG = data.services;
+    // Only re-render step 1 if the customer hasn't advanced past it yet.
+    if (State.step === 1) renderServices();
+  }
   State.config = data.config || {};
   applyTheme(State.config);
+  applyTexts();
 }
 
 // Apply editable texts from site_config to the page chrome.
