@@ -2355,7 +2355,6 @@ let _designTab     = 'colors';
 let _themePreset     = DEFAULT_PRESET;
 let _themeBrightness = 0;
 let _themeEffects    = new Set();
-let _designAdvOpen   = false;
 let _previewReady    = false;
 
 // ── Library (static catalog) ───────────────────────────────────
@@ -2377,6 +2376,7 @@ function initServiceSettings() {
 
   // Services card
   $('js-svc-add-btn')?.addEventListener('click', openLibrary);
+  $('js-svc-quickadd')?.addEventListener('submit', quickAddService);
   $('js-svc-preview-btn')?.addEventListener('click', openPreview);
   $('js-svc-save-order')?.addEventListener('click', saveSvcOrder);
 
@@ -2690,6 +2690,30 @@ async function deleteSvc(id, name) {
   }
 }
 
+// Inline quick-add: name + minutes -> instant new service.
+async function quickAddService(e) {
+  e.preventDefault();
+  const nameEl = document.getElementById('js-qa-name');
+  const durEl  = document.getElementById('js-qa-dur');
+  const name = (nameEl.value || '').trim();
+  const duration = parseInt(durEl.value, 10);
+  if (!name) { nameEl.focus(); return; }
+  if (!(duration >= 5 && duration <= 360)) { toast('משך חייב להיות 5–360 דקות', 'err'); return; }
+  const btn = e.target.querySelector('button[type="submit"]');
+  if (btn) btn.disabled = true;
+  try {
+    const data = await sbCall('admin-site-config', { action: 'upsertService',
+      service: { name_he: name, desc_he: '', duration_min: duration, icon: '💅', active: true } });
+    if (!data.success) throw new Error(data.error || 'error');
+    nameEl.value = ''; durEl.value = '60';
+    await loadServicesAdmin(true);
+    toast('✨ ”' + name + '” נוסף', 'ok');
+    nameEl.focus();
+  } catch (ex) {
+    toast(ex.message && ex.message.length < 80 ? ex.message : 'שגיאה בהוספה', 'err');
+  } finally { if (btn) btn.disabled = false; }
+}
+
 // ── Add-from-library panel ──────────────────────────────────────
 async function openLibrary() {
   const lib = await loadServiceLibrary();
@@ -2899,32 +2923,116 @@ function renderColorStudio(body, rows) {
       e.emoji + ' ' + esc(e.name) + '</button>';
   }).join('');
 
+  const curBg = _curColor('color_background').toUpperCase();
+  const tintsHtml = BG_TINTS.map(t =>
+    '<button type="button" data-bgtint="' + t.v + '" title="' + esc(t.name) + '" ' +
+    'class="w-7 h-7 rounded-full border-2 transition-transform active:scale-90 ' +
+    (curBg === t.v.toUpperCase() ? 'border-primary ring-2 ring-primary/30' : 'border-white shadow') +
+    '" style="background:' + t.v + '"></button>'
+  ).join('');
+
+  const section = (title, inner) =>
+    '<div class="mt-4"><div class="text-[11px] font-black text-text-main mb-1.5 flex items-center gap-1">' + title + '</div>' + inner + '</div>';
+
   body.innerHTML =
-    '<div class="text-[11px] font-bold text-text-muted mb-1.5">בחרי ערכת צבעים</div>' +
+    '<div class="flex items-center justify-between mb-1.5">' +
+      '<span class="text-[11px] font-black text-text-main">🎨 ערכות מוכנות</span>' +
+      '<button type="button" id="js-surprise" class="text-[11px] font-bold text-primary hover:underline active:scale-95 transition-transform">🎲 הפתע אותי</button>' +
+    '</div>' +
     '<div class="grid grid-cols-2 gap-2">' + palettesHtml + '</div>' +
+    section('🖼️ רקע הדף ובסיס',
+      '<div class="grid grid-cols-1 gap-2">' + _swatchHTML('color_background', 'רקע הדף') + _swatchHTML('color_card_bg', 'רקע הכרטיסים') + '</div>' +
+      '<div class="flex flex-wrap gap-1.5 mt-2 items-center"><span class="text-[10px] text-text-muted ml-1">גוונים מהירים:</span>' + tintsHtml + '</div>') +
+    section('💠 צבעים ראשיים',
+      '<div class="grid grid-cols-1 gap-2">' + _swatchHTML('color_primary', 'צבע ראשי (כפתורים)') + _swatchHTML('color_secondary', 'צבע משני (אקסנט)') + _swatchHTML('color_progress_bar', 'בר התקדמות') + '</div>') +
+    section('🔤 טקסט',
+      '<div class="grid grid-cols-1 gap-2">' + _swatchHTML('color_text_main', 'טקסט ראשי') + _swatchHTML('color_text_muted', 'טקסט משני') + '</div>') +
     '<div class="mt-4">' +
       '<div class="flex items-center justify-between mb-1">' +
-        '<span class="text-[11px] font-bold text-text-muted">בהירות הערכה</span>' +
+        '<span class="text-[11px] font-black text-text-main">☀️ בהירות הערכה</span>' +
         '<span class="text-[11px] font-mono text-primary" id="js-bright-val">' + (_themeBrightness > 0 ? '+' : '') + _themeBrightness + '</span>' +
       '</div>' +
       '<input type="range" id="js-bright" min="-20" max="20" step="2" value="' + _themeBrightness + '" class="w-full accent-primary cursor-pointer">' +
       '<div class="flex justify-between text-[9px] text-text-muted mt-0.5"><span>כהה יותר</span><span>בהיר יותר</span></div>' +
     '</div>' +
-    '<div class="mt-4"><div class="text-[11px] font-bold text-text-muted mb-1.5">אפקטים מיוחדים</div>' +
-      '<div class="flex flex-wrap gap-1.5">' + effHtml + '</div></div>' +
-    '<button type="button" id="js-adv-toggle" class="mt-4 text-[11px] font-bold text-primary hover:underline">' +
-      (_designAdvOpen ? '▾' : '▸') + ' התאמה אישית מתקדמת (צבע-צבע)</button>' +
-    '<div id="js-adv-colors" class="' + (_designAdvOpen ? '' : 'hidden') + ' mt-2 space-y-2"></div>';
+    section('✨ אפקטים מיוחדים', '<div class="flex flex-wrap gap-1.5">' + effHtml + '</div>');
 
   body.querySelectorAll('[data-pal]').forEach(b => b.addEventListener('click', () => selectPalette(b.dataset.pal)));
   body.querySelectorAll('[data-eff]').forEach(b => b.addEventListener('click', () => toggleEffect(b.dataset.eff)));
+  body.querySelectorAll('[data-bgtint]').forEach(b => b.addEventListener('click', () => { setColorKey('color_background', b.dataset.bgtint); refreshTintRings(); }));
+  body.querySelectorAll('[data-swinput]').forEach(inp => {
+    const sw = inp.closest('[data-sw]');
+    inp.addEventListener('input', () => setColorKey(sw.dataset.sw, inp.value));
+  });
+  document.getElementById('js-surprise')?.addEventListener('click', surpriseMe);
   const slider = document.getElementById('js-bright');
   if (slider) slider.addEventListener('input', () => setBrightness(parseInt(slider.value, 10)));
-  document.getElementById('js-adv-toggle')?.addEventListener('click', () => {
-    _designAdvOpen = !_designAdvOpen;
-    renderColorStudio(body, rows);
+}
+
+// Quick background tints (one-tap page background).
+const BG_TINTS = [
+  { name: 'לבן',    v: '#FFFFFF' },
+  { name: 'קרם',    v: '#FAF5F0' },
+  { name: 'ורוד',   v: '#FDF1F4' },
+  { name: 'חול',    v: '#F7F1E8' },
+  { name: 'מנטה',   v: '#F0F6F2' },
+  { name: 'שמיים',  v: '#EEF3F8' },
+  { name: 'לבנדר',  v: '#F5F2FB' },
+  { name: 'פחם',    v: '#211D1F' },
+];
+
+function _curColor(key) {
+  return _designDirty[key] || (_designRows.find(r => r.key === key) || {}).value || '#FFFFFF';
+}
+
+// A tappable colour-swatch chip with an embedded native picker.
+function _swatchHTML(key, label) {
+  const v = _curColor(key);
+  return '<label class="flex items-center gap-2.5 rounded-xl border border-secondary/30 bg-white px-2.5 py-2 cursor-pointer hover:border-primary/50 transition-colors" data-sw="' + esc(key) + '">' +
+    '<span class="w-9 h-9 rounded-lg border border-secondary/40 shrink-0" data-swdot style="background:' + esc(v) + '"></span>' +
+    '<span class="flex-1 min-w-0">' +
+      '<span class="block text-[12px] font-bold text-text-main truncate">' + esc(label) + '</span>' +
+      '<span class="block text-[10px] font-mono text-text-muted" data-swhex dir="ltr">' + esc(v.toUpperCase()) + '</span>' +
+    '</span>' +
+    '<span class="text-text-muted text-sm">✎</span>' +
+    '<input type="color" value="' + esc(v) + '" class="sr-only" data-swinput>' +
+  '</label>';
+}
+
+// Update a single colour key + its on-screen swatch live (no full re-render).
+function setColorKey(key, val) {
+  val = String(val).trim();
+  if (!/^#[0-9A-Fa-f]{6}$/.test(val)) return;
+  _designDirty[key] = val;
+  const sw = document.querySelector('[data-sw="' + key + '"]');
+  if (sw) {
+    const dot = sw.querySelector('[data-swdot]'); if (dot) dot.style.background = val;
+    const hx  = sw.querySelector('[data-swhex]'); if (hx)  hx.textContent = val.toUpperCase();
+    const inp = sw.querySelector('[data-swinput]'); if (inp) inp.value = val;
+  }
+  injectPreview();
+  updateDesignSaveBar();
+}
+
+function refreshTintRings() {
+  const cur = _curColor('color_background').toUpperCase();
+  document.querySelectorAll('[data-bgtint]').forEach(b => {
+    const on = b.dataset.bgtint.toUpperCase() === cur;
+    b.className = 'w-7 h-7 rounded-full border-2 transition-transform active:scale-90 ' +
+      (on ? 'border-primary ring-2 ring-primary/30' : 'border-white shadow');
   });
-  if (_designAdvOpen) renderAdvancedColors(rows);
+}
+
+function surpriseMe() {
+  const pick = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+  const bright = [-12, -6, 0, 0, 6, 12][Math.floor(Math.random() * 6)];
+  _themePreset = pick.id;
+  _themeBrightness = bright;
+  recomputePaletteColors();
+  renderColorStudio(document.getElementById('js-design-body'), _colorRows());
+  injectPreview();
+  updateDesignSaveBar();
+  toast('✨ ' + pick.name + (bright ? ' · בהירות ' + (bright > 0 ? '+' : '') + bright : ''), 'ok');
 }
 
 function _colorRows() { return _designRows.filter(r => r.category === 'colors'); }
@@ -2960,34 +3068,6 @@ function toggleEffect(id) {
   renderColorStudio(document.getElementById('js-design-body'), _colorRows());
   injectPreview();
   updateDesignSaveBar();
-}
-
-function renderAdvancedColors(rows) {
-  const wrap = document.getElementById('js-adv-colors');
-  if (!wrap) return;
-  wrap.innerHTML = rows.map(r => {
-    const val = _designDirty[r.key] ?? r.value;
-    return '<div class="flex items-center gap-2" data-cfg="' + esc(r.key) + '">' +
-      '<input type="color" value="' + esc(val) + '" data-color class="w-8 h-8 rounded-lg border border-secondary/40 cursor-pointer shrink-0">' +
-      '<div class="flex-1 min-w-0"><div class="text-[11px] font-bold text-text-main truncate">' + esc(r.label_he) + '</div></div>' +
-      '<input type="text" value="' + esc(val) + '" data-hex maxlength="7" dir="ltr" class="w-20 px-2 py-1 rounded-lg border border-secondary/40 text-[11px] font-mono text-text-main">' +
-      '</div>';
-  }).join('');
-  wrap.querySelectorAll('[data-cfg]').forEach(row => {
-    const key = row.dataset.cfg;
-    const color = row.querySelector('[data-color]');
-    const hex   = row.querySelector('[data-hex]');
-    const onChange = (v) => {
-      v = v.trim();
-      if (!/^#[0-9A-Fa-f]{6}$/.test(v)) return;
-      color.value = v; hex.value = v;
-      _designDirty[key] = v;
-      injectPreview();
-      updateDesignSaveBar();
-    };
-    color.addEventListener('input', () => onChange(color.value));
-    hex.addEventListener('change', () => onChange(hex.value));
-  });
 }
 
 function initThemeStateFromRows() {
