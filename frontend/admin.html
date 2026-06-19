@@ -464,10 +464,18 @@
             <button id="js-svc-preview-btn" type="button"
               class="text-xs text-primary font-semibold hover:text-primary-dk active:scale-95 transition-all">👁️ תצוגה</button>
             <button id="js-svc-add-btn" type="button"
-              class="text-xs text-white bg-primary rounded-lg px-2.5 py-1 font-semibold hover:bg-primary-dk active:scale-95 transition-all">+ הוסף</button>
+              class="text-xs text-primary border border-primary/40 rounded-lg px-2.5 py-1 font-semibold hover:bg-primary/5 active:scale-95 transition-all">📚 מהמאגר</button>
           </div>
         </div>
-        <p class="text-[11px] text-text-muted mb-3 leading-relaxed">גררי כדי לשנות את סדר ההופעה ללקוחות. כיבוי מסתיר שירות מבלי למחוק אותו.</p>
+        <p class="text-[11px] text-text-muted mb-2 leading-relaxed">הוסיפי שירות מהיר למטה, או בחרי מהמאגר. גררי ≡ לשינוי סדר; כיבוי מסתיר ללא מחיקה.</p>
+        <form id="js-svc-quickadd" class="flex items-center gap-2 mb-3">
+          <input id="js-qa-name" type="text" maxlength="60" placeholder="שם שירות חדש…"
+            class="flex-1 min-w-0 px-3 py-2 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm focus:border-primary outline-none transition-all">
+          <input id="js-qa-dur" type="number" min="5" max="360" step="5" value="60" title="דקות"
+            class="w-14 px-1.5 py-2 rounded-xl border-2 border-secondary/50 bg-white text-text-main text-sm text-center focus:border-primary outline-none transition-all">
+          <button type="submit"
+            class="shrink-0 text-white bg-primary rounded-xl px-3 py-2 text-sm font-bold hover:bg-primary-dk active:scale-95 transition-all">הוסף ✓</button>
+        </form>
         <div id="js-svc-list" class="space-y-2">
           <div class="text-text-muted text-xs animate-pulse">טוען שירותים...</div>
         </div>
@@ -1110,7 +1118,7 @@
     </div>
   </div>
 
-  <script type="module" src="./admin.js?v=2.3.0"></script>
+  <script type="module" src="./admin.js?v=2.4.0"></script>
   <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>
