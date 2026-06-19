@@ -1181,7 +1181,9 @@ function applyLiveSiteConfig() {
     var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
     setText('#services-heading', c.landing_services_title);
     // Apply the active palette + effects to the whole landing page.
-    applyLandingTheme(c);
+    // In admin preview mode (?preview=1) the parent injects the unsaved
+    // palette directly, so don't clobber it with the saved one.
+    if (new URLSearchParams(location.search).get('preview') !== '1') applyLandingTheme(c);
   }).catch(function(){ /* keep static defaults */ });
 }
 
