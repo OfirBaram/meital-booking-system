@@ -2356,6 +2356,7 @@ let _themePreset     = DEFAULT_PRESET;
 let _themeBrightness = 0;
 let _themeEffects    = new Set();
 let _previewReady    = false;
+let _previewPage     = 'booking';   // 'booking' | 'landing'
 
 // ── Library (static catalog) ───────────────────────────────────
 async function loadServiceLibrary() {
@@ -2404,11 +2405,8 @@ function initServiceSettings() {
 
   // Design
   $('js-colors-reset')?.addEventListener('click', resetColors);
-  $('js-theme-preview-refresh')?.addEventListener('click', () => {
-    _previewReady = false;
-    const f = document.getElementById('js-theme-preview');
-    if (f) f.src = './index.html?preview=1';
-  });
+  $('js-theme-preview-refresh')?.addEventListener('click', () => { loadPreviewPage(_previewPage, true); });
+  document.querySelectorAll('[data-pvpage]').forEach(b => b.addEventListener('click', () => switchPreviewPage(b.dataset.pvpage)));
   $('js-design-save')?.addEventListener('click', saveDesign);
   $('js-design-cancel')?.addEventListener('click', () => { _designDirty = {}; renderDesignTab(_designTab); updateDesignSaveBar(); });
   document.getElementById('js-design-tabs')?.addEventListener('click', (e) => {
@@ -3078,15 +3076,43 @@ function initThemeStateFromRows() {
 }
 
 // ── 1:1 live preview iframe (real booking page) ──
+function _previewSrc(page) {
+  return (page === 'landing' ? './landing.html' : './index.html') + '?preview=1';
+}
+
 function ensurePreview() {
   const f = document.getElementById('js-theme-preview');
   if (!f) return;
   if (!f.getAttribute('src')) {
-    f.addEventListener('load', () => { _previewReady = true; injectPreview(); });
-    f.setAttribute('src', './index.html?preview=1');
+    f.addEventListener('load', () => {
+      _previewReady = true;
+      document.getElementById('js-pv-loading')?.classList.add('hidden');
+      injectPreview();
+    });
+    f.setAttribute('src', _previewSrc(_previewPage));
   } else if (_previewReady) {
     injectPreview();
   }
+}
+
+// (Re)load a specific page into the preview iframe.
+function loadPreviewPage(page, force) {
+  const f = document.getElementById('js-theme-preview');
+  if (!f) return;
+  if (!force && _previewReady && _previewPage === page) { injectPreview(); return; }
+  _previewPage = page;
+  _previewReady = false;
+  document.getElementById('js-pv-loading')?.classList.remove('hidden');
+  f.src = _previewSrc(page);
+}
+
+function switchPreviewPage(page) {
+  document.querySelectorAll('[data-pvpage]').forEach(b => {
+    const on = b.dataset.pvpage === page;
+    b.className = 'js-pv-tab flex-1 text-[11px] font-bold px-3 py-1.5 rounded-lg ' +
+      (on ? 'bg-primary text-white' : 'bg-cream text-text-muted');
+  });
+  loadPreviewPage(page, false);
 }
 
 function _previewRoot() {
