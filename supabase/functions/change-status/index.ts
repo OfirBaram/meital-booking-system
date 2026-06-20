@@ -1,7 +1,7 @@
 import { createClient }                                 from 'npm:@supabase/supabase-js@2'
 import { buildClientStatusSms, type ClientStatus }     from '../_shared/messages.ts'
 import { twilioCredsFromEnv }                           from '../_shared/sms.ts'
-import { sendAndLogSms, statusToContext }               from '../_shared/notify.ts'
+import { sendAndLogSms, statusToContext, sendClientStatusNotification } from '../_shared/notify.ts'
 import { toDialable }                                   from '../_shared/phone.ts'
 import { validateAdminSession }                         from '../_shared/auth.ts'
 import { adminCors, SEC_HEADERS }                       from '../_shared/cors.ts'
@@ -10,6 +10,12 @@ const ALLOWED: string[] = ['Approved', 'Rejected', 'Cancelled']
 
 // deno-lint-ignore no-explicit-any
 async function notifyClient(supabase: any, bookingId: string, targetStatus: string, customBody?: string | null): Promise<void> {
+  // Default (no custom body) → channel-aware notify (WhatsApp template for
+  // WhatsApp bookings, else SMS). A custom admin SMS body keeps the SMS path below.
+  if (!customBody) {
+    await sendClientStatusNotification(supabase, bookingId, targetStatus.toLowerCase() as ClientStatus)
+    return
+  }
   const needsSlotFields = !customBody
   const { data: bk, error } = await supabase
     .from('bookings_view')

@@ -21,6 +21,7 @@ import { buildTwilioSignatureBase, verifyTwilioSignature } from '../_shared/twil
 import { TOOL_REGISTRY, toolsForChannel } from '../_shared/bot-config.ts'
 import { checkFaq } from '../_shared/faq-engine.ts'
 import { buildAdminApprovalWhatsApp } from '../_shared/messages.ts'
+import { sendClientStatusNotification } from '../_shared/notify.ts'
 
 // ── A chainable, configurable Supabase mock ─────────────────────────────────────
 interface MockCfg {
@@ -400,4 +401,51 @@ Deno.test('buildAdminApprovalWhatsApp: includes details + tappable approve/rejec
   assertStringIncludes(msg, 'action=approve')
   assertStringIncludes(msg, 'action=reject')
   assertStringIncludes(msg, 'לאישור')
+})
+
+// ── Channel-aware client notification (WhatsApp template vs SMS) ─────────────────
+// deno-lint-ignore no-explicit-any
+function makeNotifyMock(source: string): any {
+  const builder = (table: string) => {
+    const b: any = {
+      select: () => b, eq: () => b,
+      insert: () => Promise.resolve({ error: null }),
+      maybeSingle: () => {
+        if (table === 'bookings_view') return Promise.resolve({ data: { name: 'דנה כהן', phone: '+972501234567', serviceName: 'לק ג׳ל', date: '2026-06-23', time: '16:00' } })
+        if (table === 'appointments')  return Promise.resolve({ data: { source } })
+        return Promise.resolve({ data: null })
+      },
+    }
+    return b
+  }
+  return { from: (t: string) => builder(t) }
+}
+function captureFetch(): { body: () => string; restore: () => void } {
+  let captured = ''
+  const orig = globalThis.fetch
+  // deno-lint-ignore no-explicit-any
+  globalThis.fetch = ((_u: any, opts: any) => { captured = String(opts?.body ?? ''); return Promise.resolve(new Response('{"sid":"SM1"}', { status: 201 })) }) as typeof fetch
+  return { body: () => captured, restore: () => { globalThis.fetch = orig } }
+}
+
+Deno.test('sendClientStatusNotification: WhatsApp booking + template configured -> sends TEMPLATE', async () => {
+  Deno.env.set('TWILIO_ACCOUNT_SID', 'AC'); Deno.env.set('TWILIO_AUTH_TOKEN', 'tok'); Deno.env.set('TWILIO_FROM_NUMBER', '+10000000000')
+  Deno.env.set('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'); Deno.env.set('TWILIO_TEMPLATE_APPROVED', 'HXapproved')
+  const cap = captureFetch()
+  try {
+    await sendClientStatusNotification(makeNotifyMock('whatsapp'), 'b1', 'approved' as never)
+    assertStringIncludes(cap.body(), 'ContentSid=HXapproved')
+    assert(!cap.body().includes('Body='), 'must NOT send an SMS body when a template is used')
+  } finally { cap.restore(); Deno.env.delete('TWILIO_TEMPLATE_APPROVED') }
+})
+
+Deno.test('sendClientStatusNotification: no template configured -> SMS fallback', async () => {
+  Deno.env.set('TWILIO_ACCOUNT_SID', 'AC'); Deno.env.set('TWILIO_AUTH_TOKEN', 'tok'); Deno.env.set('TWILIO_FROM_NUMBER', '+10000000000')
+  Deno.env.set('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'); Deno.env.delete('TWILIO_TEMPLATE_APPROVED')
+  const cap = captureFetch()
+  try {
+    await sendClientStatusNotification(makeNotifyMock('whatsapp'), 'b1', 'approved' as never)
+    assertStringIncludes(cap.body(), 'Body=')
+    assert(!cap.body().includes('ContentSid'), 'no template when none is configured')
+  } finally { cap.restore(); for (const k of ['TWILIO_ACCOUNT_SID','TWILIO_AUTH_TOKEN','TWILIO_FROM_NUMBER','TWILIO_WHATSAPP_FROM']) Deno.env.delete(k) }
 })
