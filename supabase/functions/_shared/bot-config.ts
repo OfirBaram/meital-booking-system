@@ -27,10 +27,10 @@
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import { hmacSha256Hex }            from './crypto.ts'
-import { twilioCredsFromEnv }       from './sms.ts'
+import { twilioCredsFromEnv, sendTwilioWhatsApp } from './sms.ts'
 import { sendAndLogSms }            from './notify.ts'
 import { toDialable }               from './phone.ts'
-import { buildAdminNewBookingSms }  from './messages.ts'
+import { buildAdminNewBookingSms, buildAdminApprovalWhatsApp } from './messages.ts'
 import { scrubPhones }              from './whatsapp.ts'
 import { signClientSession }        from './client-auth.ts'
 
@@ -410,6 +410,27 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
               appointmentId: bookingId,
             })
           } catch (e) { console.error('[book_appointment] admin sms:', scrubPhones(e instanceof Error ? e.message : String(e))) }
+        })()
+
+        // 7b. WhatsApp to Meital with tappable Approve/Reject links (human-in-the-loop)
+        //     — mirrors the SMS/dashboard approval, delivered on WhatsApp where links
+        //     work. Best-effort: the link-free SMS above + the dashboard stay the
+        //     reliable fallback if Meital's WhatsApp is outside the 24h window.
+        ;(async () => {
+          try {
+            const waCreds = twilioCredsFromEnv()
+            const waFrom  = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
+            const adminWa = toDialable(Deno.env.get('ADMIN_PHONE'))
+            const base    = (Deno.env.get('SUPABASE_URL') ?? '').trim()
+            if (waCreds && waFrom && adminWa && adminToken && base) {
+              const link = (a: string) =>
+                base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
+              await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
+                name, serviceName: treatmentName, date, time, phone,
+                approveUrl: link('approve'), rejectUrl: link('reject'),
+              }), waCreds, waFrom)
+            }
+          } catch (e) { console.error('[book_appointment] admin wa:', scrubPhones(e instanceof Error ? e.message : String(e))) }
         })()
 
         // 8. Clear final confirmation — she never needs to check the website.

@@ -20,6 +20,7 @@ import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
 import { buildTwilioSignatureBase, verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
 import { TOOL_REGISTRY, toolsForChannel } from '../_shared/bot-config.ts'
 import { checkFaq } from '../_shared/faq-engine.ts'
+import { buildAdminApprovalWhatsApp } from '../_shared/messages.ts'
 
 // ── A chainable, configurable Supabase mock ─────────────────────────────────────
 interface MockCfg {
@@ -386,4 +387,17 @@ Deno.test('renderForWhatsApp: [WA] becomes "keep chatting here", not a wa.me sel
   const out = renderForWhatsApp('לבירור מחיר 📲\n[WA]')
   assert(!out.includes('wa.me'), 'no pointless self-link on WhatsApp')
   assertStringIncludes(out, 'כתבי לי כאן')
+})
+
+// ── HITL: admin approval WhatsApp message ───────────────────────────────────────
+Deno.test('buildAdminApprovalWhatsApp: includes details + tappable approve/reject links', () => {
+  const msg = buildAdminApprovalWhatsApp({
+    name: 'דנה', serviceName: 'לק ג׳ל', date: '2026-06-23', time: '16:00', phone: '+972501234567',
+    approveUrl: 'https://x.supabase.co/functions/v1/admin-action?action=approve&bookingId=b1&token=t1',
+    rejectUrl:  'https://x.supabase.co/functions/v1/admin-action?action=reject&bookingId=b1&token=t1',
+  })
+  assertStringIncludes(msg, 'דנה')
+  assertStringIncludes(msg, 'action=approve')
+  assertStringIncludes(msg, 'action=reject')
+  assertStringIncludes(msg, 'לאישור')
 })

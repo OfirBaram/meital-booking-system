@@ -5,8 +5,9 @@
 > this feature, read this. Architecture spec lives in `CLAUDE.md`.
 
 ## 1. What it is
-Customers book / inquire / cancel entirely over WhatsApp (Twilio), driven by the
-SAME Claude-Haiku brain as the website chatbot. No website form, no manual triage.
+Customers book / inquire / cancel / reschedule entirely over WhatsApp (Twilio),
+driven by the SAME Claude-Haiku brain as the website chatbot. No website form.
+Bookings still require Meital's approval (human-in-the-loop, §2c).
 
 ## 2. Architecture (transport ↔ brain split)
 ```
@@ -17,8 +18,39 @@ Twilio ──webhook──▶ chat-handler (Deno Edge, verify_jwt=false)
               runConversation()  (_shared/bot-core.ts)   ◀── the ONE brain (web + WhatsApp)
                       ▼
               TOOL_REGISTRY (_shared/bot-config.ts): check_availability, join_waitlist,
-                            escalate_to_support, book_appointment
+                            escalate_to_support, book_appointment, my_appointments,
+                            cancel_appointment, reschedule_appointment
 ```
+
+## 2b. Tools — the 7 capabilities (channel-scoped via `toolsForChannel`)
+| Tool | What it does | Reuses |
+|---|---|---|
+| `check_availability` | live free slots (+ day-of-week filter) | `slots` |
+| `book_appointment` | real in-chat booking → `pending` | `lookup_slot_by_date_time` + `lock_slot_for_booking` + `appointments`; sets `source='whatsapp'` + `admin_token` + `audit_log` |
+| `my_appointments` | "what / when is my appointment?" | `client-portal` (signed client-session) |
+| `cancel_appointment` | cancel the active booking (48h policy) | `client-cancel` |
+| `reschedule_appointment` | move the active booking (48h, once) | `client-reschedule` (`swap_slot_for_reschedule`) |
+| `join_waitlist` | no slots → waitlist | `waitlist-add` |
+| `escalate_to_support` | edge cases → human ticket | `support_requests` + `admin-support` |
+
+- **Channel scope**: the WEB bot gets ONLY `check_availability` + `join_waitlist`; the
+  5 phone-requiring tools are WhatsApp-only. The web bot advises via `[BOOK]`/`[SVC]`
+  tokens + the website wizard.
+- **Identity**: phone comes from the verified `ctx`, NEVER the model (no spoofing).
+- Tokens are saved with a deterministic FAQ fast-path (`faq-engine`) for static,
+  non-booking questions + Anthropic prompt caching.
+
+## 2c. Human-in-the-loop approval (mirrors the SMS/dashboard flow — nothing forked)
+A WhatsApp booking is created `pending` (NOT auto-confirmed). Meital approves exactly
+as in the existing flow:
+- `book_appointment` notifies Meital on **WhatsApp** with the booking details +
+  tappable **Approve / Reject** links to the existing `admin-action` (one-tap,
+  HMAC-secured by the per-booking `admin_token`) — PLUS the existing link-free SMS
+  heads-up and the dashboard. All three are reliable approval paths.
+- Approve → `admin-action` → `change_appointment_status` (status `approved`, slot
+  finalised) → client confirmation SMS. Reject → slot freed + client SMS.
+- This is the SAME approval pipeline as web bookings. (Client confirmation via
+  WhatsApp instead of SMS is a future, template-gated enhancement.)
 - **State**: `whatsapp_conversations` (PK=phone, RLS service-role only) — history,
   `last_msg_sid` (dedupe), `client_id`. Twilio sends one msg with no history, so
   the server holds it.
