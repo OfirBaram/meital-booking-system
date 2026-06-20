@@ -32,6 +32,7 @@ import { sendAndLogSms }            from './notify.ts'
 import { toDialable }               from './phone.ts'
 import { buildAdminNewBookingSms }  from './messages.ts'
 import { scrubPhones }              from './whatsapp.ts'
+import { signClientSession }        from './client-auth.ts'
 
 // ── Debug mode ──────────────────────────────────────────────────────────────
 export const DEBUG_MODE = Deno.env.get('CHAT_DEBUG') === 'true'
@@ -426,6 +427,74 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
   },
 }
 
+// ── my_appointments + cancel_appointment ──────────────────────────────────────
+// Complete the booking life-cycle in chat (book / inquire / cancel) by REUSING
+// the existing self-service Edge Functions (client-portal, client-cancel). The
+// bot mints a client-session token over the VERIFIED WhatsApp phone, so the exact
+// same server-side logic runs as the website portal: 48h policy, atomic slot
+// release, client + admin SMS, and audit_log — zero duplication.
+function clientApiHeaders(token: string): Record<string, string> {
+  return {
+    'Content-Type':    'application/json',
+    'x-client-session': token,
+    Authorization:     'Bearer ' + (Deno.env.get('SUPABASE_ANON_KEY') ?? ''),
+  }
+}
+
+const myAppointmentsTool: BotTool<Record<string, unknown>, unknown> = {
+  definition: {
+    name: 'my_appointments',
+    description: "Look up THIS customer's own current appointment (and recent history). Call when she asks what/when her appointment is, or right before cancelling. Her identity is taken automatically from WhatsApp — never ask for a phone or booking number.",
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  async execute(_input, ctx) {
+    const phone = (ctx.phone ?? '').trim()
+    if (!phone) return { success: false, error: 'no_verified_phone' }
+    try {
+      const token = await signClientSession(phone, (Deno.env.get('HMAC_SECRET') ?? '').trim())
+      const resp  = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/client-portal`, {
+        method: 'GET', headers: clientApiHeaders(token),
+      })
+      return await resp.json()   // { success, active, history }
+    } catch (e) {
+      console.error('[my_appointments]', e instanceof Error ? e.message : String(e))
+      return { success: false, error: 'lookup_failed' }
+    }
+  },
+}
+
+interface CancelOutput { success: boolean; cancelled?: { date: string; time: string; serviceName: string }; error?: string; hours_until?: number }
+const cancelAppointmentTool: BotTool<Record<string, unknown>, CancelOutput> = {
+  definition: {
+    name: 'cancel_appointment',
+    description: "Cancel the customer's CURRENT (active) appointment. Call ONLY when she clearly asks to cancel. Cancellation is allowed up to 48h before the appointment; the system enforces this, frees the slot, and notifies Meital automatically. Identity is automatic — no phone/booking id needed.",
+    input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  async execute(_input, ctx) {
+    const phone = (ctx.phone ?? '').trim()
+    if (!phone) return { success: false, error: 'no_verified_phone' }
+    const base = Deno.env.get('SUPABASE_URL')
+    try {
+      const token = await signClientSession(phone, (Deno.env.get('HMAC_SECRET') ?? '').trim())
+      // 1. resolve her active booking
+      const p      = await fetch(`${base}/functions/v1/client-portal`, { method: 'GET', headers: clientApiHeaders(token) })
+      const portal = await p.json()
+      const active = portal?.active
+      if (!active?.id) return { success: false, error: 'no_active_booking' }
+      // 2. cancel via the same path the website portal uses (48h policy enforced there)
+      const c   = await fetch(`${base}/functions/v1/client-cancel`, {
+        method: 'POST', headers: clientApiHeaders(token), body: JSON.stringify({ booking_id: active.id }),
+      })
+      const res = await c.json()
+      if (res?.success) return { success: true, cancelled: { date: active.date, time: active.time, serviceName: active.serviceName } }
+      return { success: false, error: res?.error ?? 'cancel_failed', hours_until: res?.hours_until }
+    } catch (e) {
+      console.error('[cancel_appointment]', e instanceof Error ? e.message : String(e))
+      return { success: false, error: 'cancel_failed' }
+    }
+  },
+}
+
 // ── Tool registry ────────────────────────────────────────────────────────────
 // Register new tools here. The agentic loop dispatches by name — no other
 // code needs to change when you add a tool.
@@ -434,6 +503,8 @@ export const TOOL_REGISTRY = new Map<string, BotTool>([
   ['join_waitlist',       joinWaitlistTool],
   ['escalate_to_support', escalateToSupportTool],
   ['book_appointment',    bookAppointmentTool],
+  ['my_appointments',     myAppointmentsTool],
+  ['cancel_appointment',  cancelAppointmentTool],
 ])
 
 // Flat list of definitions for the Anthropic API call.
@@ -594,7 +665,8 @@ You are chatting on WhatsApp, NOT the website. Therefore:
 • TO BOOK: as soon as you know (1) the service, (2) a concrete date + time she chose from check_availability, and (3) her name — call book_appointment(service_id, date, time, customer_name). Her phone is taken automatically; NEVER ask for it.
 • If her name is missing, ask "ומה השם שלך?" before booking. If the date/time is vague, call check_availability first and let her pick a concrete slot.
 • After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.
-• If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.`
+• If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.
+• MANAGING an existing appointment: if she asks what/when her appointment is, call my_appointments and tell her. If she clearly asks to cancel, call cancel_appointment (it cancels her active booking). On "no_active_booking" tell her she has no upcoming appointment. On "too_late_to_cancel" tell her gently that cancellation is only possible up to 48 hours before, so she should message Meital. On success, confirm warmly that the appointment was cancelled.`
 
 export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web'): string {
   const NL = String.fromCharCode(10)

@@ -21,10 +21,11 @@ import {
 } from './bot-config.ts'
 import { checkFaq } from './faq-engine.ts'
 
-// Booking-intent messages MUST reach the model + tools (live availability,
-// in-chat booking) and never the static FAQ. Everything else (hours, location,
-// "does it hurt", products…) can be answered deterministically — zero LLM tokens.
-const BOOKING_INTENT = /תור|לקבוע|הזמ|פנוי|זמינ|מחר|היום|ראשון|שני|שלישי|רביעי|חמישי|שעה|\d{1,2}:\d{2}|book|appointment|availab|schedule|slot/i
+// Action-intent messages MUST reach the model + tools (live availability,
+// in-chat booking, look-up, cancel) and never the static FAQ. Everything else
+// (hours, location, "does it hurt", products…) is answered deterministically —
+// zero LLM tokens.
+const BOOKING_INTENT = /תור|לקבוע|הזמ|פנוי|זמינ|מחר|היום|ראשון|שני|שלישי|רביעי|חמישי|שעה|\d{1,2}:\d{2}|בטל|ביטול|לשנות|book|appointment|availab|schedule|slot|cancel|reschedul/i
 
 function lastUserText(messages: Anthropic.MessageParam[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
