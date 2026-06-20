@@ -131,6 +131,14 @@ export async function runConversation(
             content:     JSON.stringify(result),
           }],
         })
+      } else {
+        // Unknown tool name — push an error tool_result so the next API call
+        // isn’t missing the required tool_result for this tool_use block.
+        console.error('[bot-core] unknown tool: ' + toolBlock.name)
+        history.push({
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify({ error: 'tool_not_found' }) }],
+        })
       }
     }
   }

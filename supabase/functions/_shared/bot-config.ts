@@ -744,6 +744,7 @@ export interface ServiceRow {
 export const DEFAULT_SERVICES: ServiceRow[] = [
   { id: 'gel_hands',    name_he: "לק ג׳ל לציפורניים",           duration_min: 60, sort_order: 0 },
   { id: 'regular_feet', name_he: "לק רגיל לציפורניים ברגליים", duration_min: 30, sort_order: 1 },
+  { id: 'gel_combo',    name_he: "לק ג'ל ידיים + לק רגליים",   duration_min: 90, sort_order: 2 },
 ]
 
 // Build the system prompt from the live service catalogue. Fills the

@@ -102,8 +102,8 @@ Deno.serve(async (req) => {
         if (lastMs > 0 && (nowMs - lastMs) / 3_600_000 < MIN_H) { termsSkipped++; continue }
         const newCount = (row.terms_reminder_count ?? 0) + 1
         const waBody = newCount === 1
-          ? 'שלום! רצינו להזכיר — כדי לאשר את תורך, נא לקרוא ולאשר את התקנון שלנו. שלחי 1 לאישור'
-          : 'תזכורת אחרונה — נא לאשר את קריאת התקנון שלנו על ידי שליחת 1. ללא אישור לא נוכל לאשר את התור'
+          ? 'שלום! רציתי להזכיר — כדי לאשר את תורך, נא לקרוא ולאשר את התקנון שלי. שלחי 1 לאישור'
+          : 'תזכורת אחרונה — נא לאשר את קריאת התקנון שלי על ידי שליחת 1. ללא אישור לא אוכל לאשר את התור'
         try {
           await sendTwilioWhatsAppFreeform(row.phone, waBody, creds, waFrom, termsUrl || undefined)
           ;(async () => {
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
           await sendAndLogSms(supabase, {
             to: adminPhone,
             body: 'התראה: ' + overdue.length + ' לקוחות לא אישרו תקנון לאחר 2 תזכורות: ' + names,
-            context: 'TermsAlert', creds, alertAdminPhone: null, clientLabel: 'admin',
+            context: 'AdminNotify', creds, alertAdminPhone: null, clientLabel: 'admin',
           })
         }
       }

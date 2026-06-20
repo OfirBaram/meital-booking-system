@@ -327,6 +327,9 @@ async function handleWhatsApp(req: Request): Promise<Response> {
         const reminder = termsMediaUrl
           ? 'נא לקרוא את התקנון. לאחר הקריאה, שלחי 1 לאישור: ' + termsMediaUrl
           : 'כדי לאשר קריאת התקנון, שלחי 1'
+        // Update last_msg_sid so duplicate Twilio retries are deduplicated.
+        const _prevH2: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+        await persistConversation(supabase, phone, conv?.client_id ?? null, _prevH2, messageSid)
         return twiml(reminder)
       }
     }

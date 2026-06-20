@@ -1,7 +1,7 @@
 // wa-terms-reminder — sends WhatsApp terms reminders to clients who haven't confirmed.
 //
 // Policy:
-//   • Fires every 24 hours via pg_cron.
+//   • Piggybacked on the GAS daily send-reminders run (pg_cron removed, migration 20260620201125).
 //   • Finds conversations where state='awaiting_terms' AND last reminder was >20h ago
 //     AND reminder count < 2 (max 2 auto-reminders total).
 //   • After 2 reminders with no confirmation, stops sending and logs an admin alert.
@@ -12,7 +12,7 @@
 import { createClient }            from 'npm:@supabase/supabase-js@2'
 import { validateAdminSession }    from '../_shared/auth.ts'
 import { adminCors, SEC_HEADERS }  from '../_shared/cors.ts'
-import { sendTwilioWhatsAppFreeform, twilioCredsFromEnv } from '../_shared/sms.ts'
+import { sendTwilioWhatsAppFreeform, sendTwilioSms, twilioCredsFromEnv } from '../_shared/sms.ts'
 import { toDialable }              from '../_shared/phone.ts'
 
 const MAX_REMINDERS   = 2
@@ -70,8 +70,8 @@ Deno.serve(async (req) => {
 
     const newCount = (row.terms_reminder_count ?? 0) + 1
     const body = newCount === 1
-      ? 'שלום! רצינו להזכיר — כדי לאשר את תורך, נא לקרוא ולאשר את התקנון שלנו. שלחי 1 לאישור'
-      : 'תזכורת אחרונה — נא לאשר את קריאת התקנון שלנו על ידי שליחת 1. ללא אישור לא נוכל לאשר את התור'
+      ? 'שלום! רציתי להזכיר — כדי לאשר את תורך, נא לקרוא ולאשר את התקנון שלי. שלחי 1 לאישור'
+      : 'תזכורת אחרונה — נא לאשר את קריאת התקנון שלי על ידי שליחת 1. ללא אישור לא אוכל לאשר את התור'
 
     try {
       await sendTwilioWhatsAppFreeform(row.phone, body, creds, waFrom, termsUrl || undefined)
@@ -95,7 +95,6 @@ Deno.serve(async (req) => {
   if (overdue && overdue.length > 0 && adminPh && creds) {
     const names = overdue.map((r: { client_name: string }) => r.client_name || '(לא ידוע)').join(', ')
     try {
-      const { sendTwilioSms } = await import('../_shared/sms.ts')
       await sendTwilioSms(
         adminPh,
         'התראה: ' + overdue.length + ' לקוחות לא אישרו תקנון לאחר 2 תזכורות: ' + names,
