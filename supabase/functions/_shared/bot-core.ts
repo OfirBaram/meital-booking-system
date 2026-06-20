@@ -19,6 +19,20 @@ import {
   debugLog,
   type ToolContext,
 } from './bot-config.ts'
+import { checkFaq } from './faq-engine.ts'
+
+// Booking-intent messages MUST reach the model + tools (live availability,
+// in-chat booking) and never the static FAQ. Everything else (hours, location,
+// "does it hurt", products…) can be answered deterministically — zero LLM tokens.
+const BOOKING_INTENT = /תור|לקבוע|הזמ|פנוי|זמינ|מחר|היום|ראשון|שני|שלישי|רביעי|חמישי|שעה|\d{1,2}:\d{2}|book|appointment|availab|schedule|slot/i
+
+function lastUserText(messages: Anthropic.MessageParam[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m.role === 'user' && typeof m.content === 'string') return m.content
+  }
+  return ''
+}
 
 // Tunables kept in one place so every channel shares identical model behaviour.
 const MODEL      = 'claude-haiku-4-5-20251001'
@@ -41,6 +55,16 @@ export async function runConversation(
   ctx: ToolContext,
 ): Promise<string> {
   const { supabase } = ctx
+
+  // ── FAST-PATH: deterministic FAQ — ZERO LLM tokens for static, non-booking
+  //    questions (hours, location, "does it hurt", products…). Booking intent
+  //    always falls through to the model + tools below.
+  const lastUser = lastUserText(messages)
+  if (lastUser && !BOOKING_INTENT.test(lastUser)) {
+    const faq = checkFaq(lastUser)
+    if (faq) { debugLog('faq-hit', lastUser.slice(0, 40)); return faq }
+  }
+
   const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
   // Build the system prompt from the live, active service catalogue so the bot
@@ -69,7 +93,10 @@ export async function runConversation(
     const resp = await anthropic.messages.create({
       model:      MODEL,
       max_tokens: MAX_TOKENS,
-      system:     systemPrompt,
+      // Prompt caching: cache_control on the system block caches tools+system, so
+      // the large static prompt is billed at ~10% on repeat calls within the
+      // 5-min window — a big token saving for a chatty bot.
+      system:     [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools:      TOOLS,
       messages:   history,
     })
