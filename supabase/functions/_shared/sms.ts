@@ -103,3 +103,34 @@ export async function sendTwilioWhatsAppTemplate(
     throw new Error('Twilio WA template ' + res.status + ': ' + (await res.text()).slice(0, 300))
   }
 }
+
+/**
+ * Send a freeform WhatsApp message with an optional media attachment (image/PDF).
+ * Works ONLY inside the 24h customer-service window (since the customer last wrote).
+ * Outside that window use sendTwilioWhatsAppTemplate. Throws on non-2xx.
+ *
+ * Set TWILIO_TERMS_MEDIA_URL to a publicly accessible image/PDF URL of the terms.
+ * Twilio will forward it as a WhatsApp media attachment.
+ */
+export async function sendTwilioWhatsAppFreeform(
+  to: string, body: string, creds: TwilioCreds, fromWhatsApp: string, mediaUrl?: string,
+): Promise<void> {
+  const toWa   = to.startsWith('whatsapp:')           ? to           : 'whatsapp:' + to
+  const fromWa = fromWhatsApp.startsWith('whatsapp:') ? fromWhatsApp : 'whatsapp:' + fromWhatsApp
+  const params: Record<string, string> = { To: toWa, From: fromWa, Body: body }
+  if (mediaUrl) params.MediaUrl = mediaUrl
+  const res = await fetch(
+    'https://api.twilio.com/2010-04-01/Accounts/' + creds.accountSid + '/Messages.json',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + btoa(creds.accountSid + ':' + creds.authToken),
+        'Content-Type':  'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(params),
+    },
+  )
+  if (!res.ok) {
+    throw new Error('Twilio WA freeform ' + res.status + ': ' + (await res.text()).slice(0, 300))
+  }
+}

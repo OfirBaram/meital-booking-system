@@ -248,7 +248,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     // 5. Load conversation state (history + last processed SID + linked client).
     const { data: conv } = await supabase
       .from('whatsapp_conversations')
-      .select('history, last_msg_sid, client_id')
+      .select('history, last_msg_sid, client_id, state')
       .eq('phone', phone)
       .maybeSingle()
 
@@ -257,6 +257,47 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     if (messageSid && conv?.last_msg_sid === messageSid) {
       debugLog('wa-dedup', { messageSid })
       return twiml('')
+    }
+
+    // 6b. TERMS CONFIRMATION GATE — set by notify.ts when admin approves a WA booking.
+    //     Must be checked BEFORE the identity/name gate and the bot so a plain '1'
+    //     is always routed to confirmation rather than fed to the LLM.
+    if (conv?.state === 'awaiting_terms') {
+      const txt = bodyText.trim()
+      const confirmed = txt === '1' || /קראתי|אשרתי|אישור|אשר/i.test(txt)
+      if (confirmed) {
+        // Mark the latest active appointment for this client
+        const clientIdForTerms = conv.client_id
+        if (clientIdForTerms) {
+          ;(async () => {
+            try {
+              await supabase.from('appointments')
+                .update({ terms_confirmed_at: new Date().toISOString() })
+                .eq('client_id', clientIdForTerms)
+                .in('status', ['pending', 'approved'])
+                .is('terms_confirmed_at', null)
+            } catch (e) { console.error('[wa] terms-mark:', e instanceof Error ? e.message : String(e)) }
+          })()
+        }
+        // Clear state — return to normal conversation
+        ;(async () => {
+          try { await supabase.from('whatsapp_conversations').update({ state: null }).eq('phone', phone) }
+          catch (e) { console.error('[wa] terms-clear:', e instanceof Error ? e.message : String(e)) }
+        })()
+        const ack = 'תודה! ✅ אישרת את קריאת התקנון. נתראה בתור — מיטל מחכה לך! 💅'
+        const prevHist: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+        await persistConversation(supabase, phone, conv.client_id,
+          trimHistory([...prevHist, { role: 'user', content: bodyText }, { role: 'assistant', content: ack }]), messageSid)
+        return twiml(ack)
+      } else {
+        // Not confirmed yet — remind without entering the bot loop
+        const termsMediaUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
+        const reminder = termsMediaUrl
+          ? '📋 נא לקרוא את התקנון שלנו, ולאחר מכן לשלוח *1* לאישור:
+' + termsMediaUrl
+          : 'כדי לאשר קריאת התקנון שלנו, שלחי *1* 🙏'
+        return twiml(reminder)
+      }
     }
 
     // 7. Resolve the linked client up-front so the brain's tools (escalate_to_

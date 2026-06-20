@@ -197,6 +197,11 @@ export function buildCard(b) {
         ? '<div class="text-xs mb-2" data-qa="sms-status" data-sms-status="' + esc(b.smsStatus) + '">'
           + esc(SMS_STATUS_LABEL[b.smsStatus] || ('SMS: ' + b.smsStatus)) + '</div>'
         : '')
+    + (b.source === 'whatsapp'
+        ? (b.termsConfirmedAt
+            ? '<div class="text-xs text-emerald-600 mb-2" data-qa="terms-status">✅ תקנון אושר</div>'
+            : '<div class="text-xs text-amber-500 mb-2" data-qa="terms-status">⏳ ממתין לאישור תקנון</div>')
+        : '')
     + (btns ? '<div class="flex gap-2">' + btns + '</div>' : '')
     + '</div>';
 }
