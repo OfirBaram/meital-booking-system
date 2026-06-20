@@ -170,7 +170,11 @@ jobs:
           deno-version: v2.x
 
       - name: Run WhatsApp resilience suite
-        run: deno test --allow-env supabase/functions/_tests/
+        # The only npm imports in scope are TYPE-ONLY (erased at runtime), so:
+        #   --no-check          : skip type resolution of npm types
+        #   --node-modules-dir=none : ignore the repo package.json, use Deno's cache
+        # Together they let the suite run as pure Deno (no node_modules needed).
+        run: deno test --no-check --node-modules-dir=none --allow-env supabase/functions/_tests/
 
   # ─── Job 4: Deploy Drift Guard ─────────────────────────────────────────────
   # Catches the 2026-05-30 class of bug: an Edge Function whose code is committed
