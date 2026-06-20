@@ -176,7 +176,7 @@ Deno.test({
     // deno-lint-ignore no-explicit-any
     const res = await bookTool.execute(VALID_INPUT as any, ctx(supa)) as any
     assertEquals(res.success, true)
-    assertStringIncludes(res.confirmation, 'קבעתי לך תור')
+    assertStringIncludes(res.confirmation, 'מחכה לאישור מיטל')
     assert(supa._log.appointmentInserted)
     assert(!supa._log.slotReleased, 'a committed booking must NOT release its slot')
   },
