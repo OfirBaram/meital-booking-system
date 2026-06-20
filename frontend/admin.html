@@ -499,11 +499,16 @@
         <!-- 1:1 live preview — real booking page in an iframe, re-themed live -->
         <div id="js-theme-preview-wrap" class="hidden mt-4">
           <div class="flex items-center justify-between mb-1.5">
-            <span class="text-[11px] font-bold text-text-muted">תצוגה מקדימה חיה — עמוד ההזמנה (1:1)</span>
+            <span class="text-[11px] font-black text-text-main">👁️ תצוגה מקדימה חיה (1:1)</span>
             <button id="js-theme-preview-refresh" type="button" class="text-[11px] text-primary font-semibold hover:underline">רענן</button>
           </div>
-          <div class="rounded-2xl overflow-hidden border border-secondary/30 shadow-soft bg-white" style="height:440px;">
-            <iframe id="js-theme-preview" title="תצוגה מקדימה של עמוד ההזמנה" class="w-full h-full" style="border:0;"></iframe>
+          <div class="flex gap-1.5 mb-2">
+            <button type="button" data-pvpage="booking" class="js-pv-tab flex-1 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-primary text-white">📅 עמוד הזמנה</button>
+            <button type="button" data-pvpage="landing" class="js-pv-tab flex-1 text-[11px] font-bold px-3 py-1.5 rounded-lg bg-cream text-text-muted">🏠 דף נחיתה</button>
+          </div>
+          <div class="rounded-2xl overflow-hidden border border-secondary/30 shadow-soft bg-white relative" style="height:460px;">
+            <iframe id="js-theme-preview" title="תצוגה מקדימה" class="w-full h-full" style="border:0;"></iframe>
+            <div id="js-pv-loading" class="hidden absolute inset-0 flex items-center justify-center bg-white/70 text-xs text-text-muted">טוען תצוגה…</div>
           </div>
         </div>
         <button id="js-colors-reset" type="button" class="hidden mt-3 text-[11px] text-rejected font-semibold hover:underline">↩ איפוס לברירת המחדל (ורד אבק)</button>
@@ -1118,7 +1123,7 @@
     </div>
   </div>
 
-  <script type="module" src="./admin.js?v=2.4.0"></script>
+  <script type="module" src="./admin.js?v=2.5.0"></script>
   <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
 </body>
 </html>
