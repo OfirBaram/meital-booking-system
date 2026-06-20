@@ -220,7 +220,8 @@ async function handleWhatsApp(req: Request): Promise<Response> {
   const messageSid = params.get('MessageSid') ?? ''
   const phone      = normalizeIsraeliPhone(fromRaw.replace(/^whatsapp:/, ''))
 
-  debugLog('wa-inbound', { messageSid, phone: maskPhone(phone), len: bodyText.length })
+  // Always-on (masked) so inbound WhatsApp is visible in prod logs without CHAT_DEBUG.
+  console.log('[wa] inbound sid=' + messageSid + ' phone=' + maskPhone(phone) + ' bodyLen=' + bodyText.length)
 
   // Graceful guards — never 500 back to Twilio (it would retry endlessly).
   if (!phone) {
@@ -323,7 +324,16 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
   // Channel discriminator: Twilio always sends X-Twilio-Signature; Web UI never does.
-  if (req.headers.get('x-twilio-signature')) return await handleWhatsApp(req)
+  if (req.headers.get('x-twilio-signature')) {
+    // Top-level guard: NOTHING may bubble uncaught to Twilio (it would 500 + retry-
+    // storm). Covers the pre-try section of handleWhatsApp (signature/parse/client).
+    try {
+      return await handleWhatsApp(req)
+    } catch (e) {
+      console.error('[wa] uncaught in handleWhatsApp:', e instanceof Error ? (e.stack ?? e.message) : String(e))
+      return twiml('סליחה, קרתה תקלה קטנה אצלי 🙏 נסי שוב בעוד רגע.')
+    }
+  }
 
   // ── Web channel ──
   const ip = req.headers.get('x-real-ip')
