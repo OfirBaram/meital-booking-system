@@ -782,11 +782,7 @@ export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'what
   if (channel === 'whatsapp') {
     let waBlock = WHATSAPP_CHANNEL_BLOCK
     if (clientName) {
-      // Strip control chars and markup before injecting into the system prompt —
-      // a stored name with 
- would inject additional prompt lines.
-      const safeName = clientName.replace(/[
-	<>"]/g, '').trim().slice(0, 50)
+      const safeName = clientName.replace(/[\r\n\t<>"]/g, '').trim().slice(0, 50)
       waBlock += NL + NL + 'CLIENT_NAME: ' + safeName + ' — address her by this name naturally.'
     }
     prompt += NL + waBlock

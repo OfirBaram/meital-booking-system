@@ -40,7 +40,7 @@
 .service-card.selected {
   border-color: var(--color-primary);
   background: linear-gradient(135deg, var(--color-cream) 0%, #F5ECF0 100%);
-  box-shadow: 0 4px 18px rgba(var(--color-primary-rgb), .2);
+  box-shadow: 0 4px 18px rgb(var(--color-primary-rgb) / .2);
 }
 
 .cal-day {
@@ -55,20 +55,20 @@
               transform      var(--duration-fast);
   cursor: default;
   border: 1.5px solid transparent;
-  color: rgba(var(--color-text-rgb), .28);
+  color: rgb(var(--color-text-rgb) / .28);
 }
 .cal-day.avail {
-  background:   rgba(var(--color-primary-rgb), .11);
-  border-color: rgba(var(--color-primary-rgb), .32);
+  background:   rgb(var(--color-primary-rgb) / .11);
+  border-color: rgb(var(--color-primary-rgb) / .32);
   color: var(--color-text);
   font-weight: 600;
   cursor: pointer;
 }
 .cal-day.avail:hover {
-  background:   rgba(var(--color-primary-rgb), .20);
-  border-color: rgba(var(--color-primary-rgb), .55);
+  background:   rgb(var(--color-primary-rgb) / .20);
+  border-color: rgb(var(--color-primary-rgb) / .55);
   transform: scale(1.08);
-  box-shadow: 0 4px 14px rgba(var(--color-primary-rgb), .22);
+  box-shadow: 0 4px 14px rgb(var(--color-primary-rgb) / .22);
 }
 .cal-day.selected     { background: linear-gradient(135deg, var(--color-primary-lt), var(--color-primary)) !important; border-color: transparent !important; color: #fff !important; }
 .cal-day.today-ring   { outline: 2px solid var(--color-primary); outline-offset: 1px; font-weight: 700; }
@@ -104,7 +104,7 @@
               transform    var(--duration-fast);
   caret-color: var(--color-primary);
 }
-.otp-input:focus  { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), .18); transform: scale(1.04); }
+.otp-input:focus  { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgb(var(--color-primary-rgb) / .18); transform: scale(1.04); }
 .otp-input.filled { border-color: var(--color-primary); background: #FBF6F9; }
 .otp-input.error  { border-color: var(--color-rejected); box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
 
@@ -137,7 +137,7 @@
 #js-dash main > .space-y-3 > * + * { margin-top: 0.85rem; }
 
 #js-dash .spinner {
-  border: 2px solid rgba(var(--color-primary-rgb), 0.2);
+  border: 2px solid rgb(var(--color-primary-rgb) / 0.2);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
@@ -147,11 +147,11 @@
 .sheet-panel { will-change: transform; }
 .sheet-handle-pill {
   width: 2.5rem; height: 4px; border-radius: var(--radius-pill);
-  background: rgba(var(--color-primary-rgb), 0.35);
+  background: rgb(var(--color-primary-rgb) / 0.35);
   transition: width 0.2s var(--ease-bounce), background-color 0.12s ease;
 }
 #js-sheet-handle:active .sheet-handle-pill {
-  width: 4rem; background: rgba(var(--color-primary-rgb), 0.65);
+  width: 4rem; background: rgb(var(--color-primary-rgb) / 0.65);
 }
 
 .cal-cell {

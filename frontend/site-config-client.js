@@ -29,7 +29,7 @@ export function hexToRgbChannels(hex) {
   const m = hex.trim().match(/^#([0-9a-fA-F]{6})$/);
   if (!m) return null;
   const n = parseInt(m[1], 16);
-  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
 }
 
 /**

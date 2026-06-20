@@ -112,7 +112,7 @@ jobs:
 
       - name: Twilio auth token is never logged
         run: |
-          if grep -n 'console\.\(log\|warn\|error\).*authToken\|TWILIO_AUTH_TOKEN' \
+          if grep -n 'console\.\(log\|warn\|error\).*\(authToken\|TWILIO_AUTH_TOKEN\)' \
                supabase/functions/chat-handler/index.ts \
                supabase/functions/_shared/bot-config.ts; then
             echo "ERROR: Auth token in logs"; exit 1

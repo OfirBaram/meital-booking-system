@@ -360,8 +360,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       // User answered our name-ask — upsert client and link to conversation
       // Strip newlines so a multi-line reply can't inject extra lines into the
       // system prompt via CLIENT_NAME (defence-in-depth alongside buildSystemPrompt).
-      const candidateName = bodyText.replace(/[
-	]/g, ' ').replace(/\s+/g, ' ').trim()
+      const candidateName = bodyText.replace(/[\r\n\t]/g, ' ').replace(/[\s]+/g, ' ').trim()
       const { data: upserted } = await supabase
         .from('clients')
         .upsert({ phone, full_name: candidateName }, { onConflict: 'phone' })

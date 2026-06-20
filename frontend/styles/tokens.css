@@ -19,12 +19,12 @@
   /* RGB channels for rgba() opacity modifiers + Tailwind <alpha-value>.
      Mirrored by applyTheme() at runtime so admin colour edits apply to
      every utility class (bg-primary/30, text-text-muted/40, …). */
-  --color-primary-rgb:    166, 124, 142;
-  --color-text-rgb:       74,  46,  58;
-  --color-secondary-rgb:  221, 195, 165;
-  --color-cream-rgb:      250, 245, 240;
-  --color-text-muted-rgb: 155, 128, 144;
-  --color-primary-lt-rgb: 196, 160, 176;
+  --color-primary-rgb:    166 124 142;
+  --color-text-rgb:       74 46 58;
+  --color-secondary-rgb:  221 195 165;
+  --color-cream-rgb:      250 245 240;
+  --color-text-muted-rgb: 155 128 144;
+  --color-primary-lt-rgb: 196 160 176;
 
   /* ── Semantic status ────────────────────────────────── */
   --color-pending:      #E8972E;
