@@ -343,7 +343,7 @@ function setTab(tab) {
       active ? 'text-primary' : 'text-text-muted',
     ].join(' ');
   });
-  if (tab === 'pulse') { renderPulse(); loadFlags(); loadWaitlist(); initServiceSettings(); loadServicesAdmin(); loadDesignConfig(); }
+  if (tab === 'pulse') { renderPulse(); loadFlags(); loadSupport(); loadWaitlist(); initServiceSettings(); loadServicesAdmin(); loadDesignConfig(); }
   // Restart entrance animation on the newly visible tab
   const _tabEl = document.getElementById('tab-' + tab);
   if (_tabEl) {
@@ -1052,6 +1052,73 @@ async function toggleFlag(key, enabled, inputEl) {
     toast('שגיאה: ' + e.message, 'err');
   } finally {
     inputEl.disabled = false;
+  }
+}
+
+// ── Support queue (bot escalations) ───────────────────────────────────────────
+let _supportLoaded = false;
+
+async function loadSupport(force) {
+  if (_supportLoaded && !force) return;
+  const el = document.getElementById('js-support-list');
+  try {
+    const data = await sbCall('admin-support', { action: 'list' });
+    if (!data.success) throw new Error(data.error);
+    _supportLoaded = true;
+    renderSupport(data.requests || []);
+  } catch (e) {
+    if (el) el.innerHTML = '<div class="text-red-400 text-xs">שגיאה בטעינת פניות: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderSupport(rows) {
+  const el = document.getElementById('js-support-list');
+  if (!el) return;
+  const open = (rows || []).filter(function(r) { return r.status === 'open'; });
+  if (!open.length) {
+    el.innerHTML = '<div class="text-text-muted text-xs italic">אין פניות פתוחות 🎉</div>';
+    return;
+  }
+  el.innerHTML = open.map(function(r) {
+    let when = '';
+    try { when = r.created_at ? new Date(r.created_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { when = ''; }
+    const snap = Array.isArray(r.snapshot)
+      ? r.snapshot.slice(-2).map(function(t) {
+          return (t && t.role === 'user' ? '👤 ' : '🤖 ') + esc(String((t && t.content) || '').slice(0, 120));
+        }).join('<br>')
+      : '';
+    return (
+      '<div class="rounded-xl border border-secondary/20 p-3">' +
+        '<div class="flex items-start justify-between gap-2">' +
+          '<div class="min-w-0 flex-1">' +
+            '<div class="text-sm font-bold text-text-main leading-tight">' + esc(r.reason || 'פנייה') + '</div>' +
+            '<div class="text-[11px] text-text-muted mt-0.5">' + esc(r.phone || '—') + ' · ' + esc(when) + '</div>' +
+            (snap ? '<div class="text-[11px] text-text-muted mt-1 leading-snug bg-secondary/5 rounded-lg p-2">' + snap + '</div>' : '') +
+          '</div>' +
+          '<button data-resolve-id="' + esc(r.id) + '" ' +
+            'class="shrink-0 text-xs font-bold text-white bg-green-500 hover:bg-green-600 active:scale-95 rounded-lg px-3 py-1.5 transition-all">סגור טיפול</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('');
+
+  el.querySelectorAll('[data-resolve-id]').forEach(function(btn) {
+    btn.addEventListener('click', function() { resolveSupport(btn.dataset.resolveId, btn); });
+  });
+}
+
+async function resolveSupport(id, btn) {
+  btn.disabled = true;
+  btn.textContent = 'סוגר...';
+  try {
+    const data = await sbCall('admin-support', { action: 'resolve', id: id });
+    if (!data.success) throw new Error(data.error || 'שגיאה');
+    toast('הפנייה נסגרה' + (data.notified ? ' + הודעה ללקוחה ✅' : ' ✅'), 'ok');
+    loadSupport(true);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'סגור טיפול';
+    toast('שגיאה: ' + e.message, 'err');
   }
 }
 

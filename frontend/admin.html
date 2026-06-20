@@ -444,6 +444,18 @@
         </div>
       </div>
 
+      <!-- Support queue (bot escalations) -->
+      <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mt-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-bold text-text-muted uppercase tracking-widest">פניות לטיפול 🆘</div>
+          <button onclick="loadSupport(true)"
+            class="text-xs text-primary font-semibold hover:text-primary-dk active:scale-95 transition-all">רענן</button>
+        </div>
+        <div id="js-support-list" class="space-y-2">
+          <div class="text-text-muted text-xs animate-pulse">טוען...</div>
+        </div>
+      </div>
+
       <!-- Feature flags (system settings) -->
       <div class="bg-white rounded-2xl p-4 border border-secondary/30 shadow-soft mt-4">
         <div class="flex items-center justify-between mb-3">

@@ -245,6 +245,50 @@ test.describe('Admin dashboard — nav tabs', () => {
   })
 })
 
+// ─── 3b. Support queue card (bot escalations) ────────────────────────────────
+
+test.describe('Admin dashboard — support queue', () => {
+  test('pulse tab lists an open ticket (XSS-escaped) and resolves it', async ({ page }) => {
+    const jsErrors = []
+    page.on('pageerror', err => jsErrors.push(err.message))
+
+    let resolved = false
+    await setupAdminMocks(page, {}, {
+      'admin-support': (route, request) => {
+        let body = {}
+        try { body = JSON.parse(request.postData() || '{}') } catch { /* */ }
+        if (body.action === 'resolve') {
+          resolved = true
+          return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, notified: true }) })
+        }
+        return route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            requests: resolved ? [] : [{
+              id: 'tkt-1', phone: '+972501234567', reason: 'בדיקת תלונה',
+              snapshot: [{ role: 'user', content: 'לא מרוצה מהשירות' }],
+              status: 'open', created_at: new Date().toISOString(),
+            }],
+          }),
+        })
+      },
+    })
+    await page.goto('/admin.html')
+    await doLogin(page)
+
+    await page.locator('[data-qa="nav-tab-pulse"]').click()
+    const card = page.locator('#js-support-list')
+    await expect(card).toContainText('בדיקת תלונה', { timeout: 5_000 })
+    await expect(card.locator('[data-resolve-id="tkt-1"]')).toBeVisible()
+
+    await card.locator('[data-resolve-id="tkt-1"]').click()
+    await expect(card).toContainText('אין פניות פתוחות', { timeout: 5_000 })
+
+    expect(jsErrors, 'JS errors in support flow: ' + jsErrors.join(' | ')).toHaveLength(0)
+  })
+})
+
 // ─── 4. Graceful degradation — window.onerror banner ─────────────────────────
 
 test.describe('Admin dashboard — graceful degradation', () => {
