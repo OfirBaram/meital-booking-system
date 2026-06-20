@@ -382,12 +382,22 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
           is_verified:      true,
           status:           'pending',
           admin_token:      adminToken,
+          source:           'whatsapp',
         })
         if (apptErr) {
           console.error('[book_appointment] appt insert:', apptErr.message)
           return { success: false, error: 'booking_failed' }   // finally releases the slot
         }
         committed = true   // appointment exists → the lock is now a REAL booking
+
+        // 6b. Audit trail (fire-and-forget) — WhatsApp bookings show in the admin journal.
+        ;(async () => {
+          try {
+            await supabase.from('audit_log').insert({
+              action: 'whatsapp_book', booking_id: bookingId, slot_id: slotId, new_val: 'pending',
+            })
+          } catch (e) { console.error('[book_appointment] audit:', e instanceof Error ? e.message : String(e)) }
+        })()
 
         // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
         ;(async () => {
@@ -495,16 +505,58 @@ const cancelAppointmentTool: BotTool<Record<string, unknown>, CancelOutput> = {
   },
 }
 
+interface RescheduleOutput { success: boolean; rescheduled?: { new_date: string; new_time: string }; error?: string; hours_until?: number }
+const rescheduleAppointmentTool: BotTool<Record<string, unknown>, RescheduleOutput> = {
+  definition: {
+    name: 'reschedule_appointment',
+    description: "Move the customer's CURRENT (active) appointment to a NEW date+time she picked from check_availability. Call ONLY when she clearly wants to change her existing appointment (not book a new one). Allowed up to 48h before and ONCE per booking; the system enforces this, swaps the slot atomically, and notifies Meital. Identity is automatic.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        new_date: { type: 'string', description: 'New date YYYY-MM-DD (Jerusalem) — from check_availability.' },
+        new_time: { type: 'string', description: 'New time HH:MM (24h, Jerusalem) — from check_availability.' },
+      },
+      required: ['new_date', 'new_time'],
+    },
+  },
+  async execute(input, ctx) {
+    const phone = (ctx.phone ?? '').trim()
+    if (!phone) return { success: false, error: 'no_verified_phone' }
+    const newDate = String(input.new_date ?? '').trim()
+    const newTime = String(input.new_time ?? '').trim()
+    if (!DATE_RE.test(newDate) || !TIME_RE.test(newTime)) return { success: false, error: 'invalid_input' }
+    const base = Deno.env.get('SUPABASE_URL')
+    try {
+      const token  = await signClientSession(phone, (Deno.env.get('HMAC_SECRET') ?? '').trim())
+      const p      = await fetch(`${base}/functions/v1/client-portal`, { method: 'GET', headers: clientApiHeaders(token) })
+      const portal = await p.json()
+      const active = portal?.active
+      if (!active?.id) return { success: false, error: 'no_active_booking' }
+      const r   = await fetch(`${base}/functions/v1/client-reschedule`, {
+        method: 'POST', headers: clientApiHeaders(token),
+        body: JSON.stringify({ booking_id: active.id, new_date: newDate, new_time: newTime }),
+      })
+      const res = await r.json()
+      if (res?.success) return { success: true, rescheduled: { new_date: res.new_date, new_time: res.new_time } }
+      return { success: false, error: res?.error ?? 'reschedule_failed', hours_until: res?.hours_until }
+    } catch (e) {
+      console.error('[reschedule_appointment]', e instanceof Error ? e.message : String(e))
+      return { success: false, error: 'reschedule_failed' }
+    }
+  },
+}
+
 // ── Tool registry ────────────────────────────────────────────────────────────
 // Register new tools here. The agentic loop dispatches by name — no other
 // code needs to change when you add a tool.
 export const TOOL_REGISTRY = new Map<string, BotTool>([
-  ['check_availability',  checkAvailabilityTool],
-  ['join_waitlist',       joinWaitlistTool],
-  ['escalate_to_support', escalateToSupportTool],
-  ['book_appointment',    bookAppointmentTool],
-  ['my_appointments',     myAppointmentsTool],
-  ['cancel_appointment',  cancelAppointmentTool],
+  ['check_availability',    checkAvailabilityTool],
+  ['join_waitlist',         joinWaitlistTool],
+  ['escalate_to_support',   escalateToSupportTool],
+  ['book_appointment',      bookAppointmentTool],
+  ['my_appointments',       myAppointmentsTool],
+  ['cancel_appointment',    cancelAppointmentTool],
+  ['reschedule_appointment', rescheduleAppointmentTool],
 ])
 
 // Flat list of definitions for the Anthropic API call.
@@ -666,7 +718,8 @@ You are chatting on WhatsApp, NOT the website. Therefore:
 • If her name is missing, ask "ומה השם שלך?" before booking. If the date/time is vague, call check_availability first and let her pick a concrete slot.
 • After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.
 • If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.
-• MANAGING an existing appointment: if she asks what/when her appointment is, call my_appointments and tell her. If she clearly asks to cancel, call cancel_appointment (it cancels her active booking). On "no_active_booking" tell her she has no upcoming appointment. On "too_late_to_cancel" tell her gently that cancellation is only possible up to 48 hours before, so she should message Meital. On success, confirm warmly that the appointment was cancelled.`
+• MANAGING an existing appointment: if she asks what/when her appointment is, call my_appointments and tell her. If she clearly asks to cancel, call cancel_appointment (it cancels her active booking). On "no_active_booking" tell her she has no upcoming appointment. On "too_late_to_cancel" tell her gently that cancellation is only possible up to 48 hours before, so she should message Meital. On success, confirm warmly that the appointment was cancelled.
+• RESCHEDULING: if she wants to MOVE her appointment to another time, first call check_availability so she picks a concrete new date+time, then call reschedule_appointment(new_date, new_time). On "too_late_to_reschedule" or "reschedule_limit_reached" explain gently (allowed up to 48h before, once per booking) and offer [WA]; on "new_slot_not_available" offer fresh times; on success confirm the new date and time.`
 
 export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web'): string {
   const NL = String.fromCharCode(10)
