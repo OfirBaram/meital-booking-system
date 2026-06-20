@@ -213,7 +213,7 @@ Deno.test('renderForWhatsApp: strips raw tokens and tidies whitespace', () => {
   const out = renderForWhatsApp('בחרי שירות [SVC:gel_hands] או דברי איתי [WA]\n\n\n\nסיום   ')
   assert(!out.includes('[SVC:'), 'SVC chip stripped')
   assert(!out.includes('[WA]'), 'WA token translated')
-  assertStringIncludes(out, 'wa.me/972547686865')
+  assertStringIncludes(out, 'כתבי לי כאן')
   assert(!out.includes('\n\n\n'), 'blank-line runs collapsed')
 })
 
