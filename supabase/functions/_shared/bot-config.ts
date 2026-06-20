@@ -342,6 +342,18 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
         .from('clients').upsert({ phone, full_name: name }, { onConflict: 'phone' }).select('id').single()
       if (clientErr || !client) { console.error('[book_appointment] client:', clientErr?.message); return { success: false, error: 'client_failed' } }
 
+      // 4b. Anti-abuse: cap concurrent UN-approved bookings per client so a single
+      //     sender cannot mass-lock the calendar. Approved bookings don't count.
+      const { count: pendingCount } = await supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', client.id)
+        .eq('status', 'pending')
+      if ((pendingCount ?? 0) >= 3) {
+        console.warn('[book_appointment] active-cap hit client=' + client.id)
+        return { success: false, error: 'too_many_pending' }
+      }
+
       // 5. Lock the slot atomically → status 'locked', locked_at = now().
       const { data: locked } = await supabase.rpc('lock_slot_for_booking', { p_slot_id: String(slotId) })
       if (!locked) return { success: false, error: 'slot_not_available' }
@@ -387,6 +399,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
       })()
 
       // 8. Clear final confirmation — she never needs to check the website.
+      console.log('[book_appointment] booked id=' + bookingId + ' slot=' + slotId)
       const confirmation =
         'מושלם! 💅 קבעתי לך תור ל' + formatHebrewDate(date) + ' בשעה ' + time +
         ' (' + treatmentName + '). מחכה לך! אם תצטרכי לשנות משהו — פשוט כתבי לי כאן.'
@@ -560,7 +573,8 @@ You are chatting on WhatsApp, NOT the website. Therefore:
 • Do NOT emit [BOOK:...] or [SVC:...] tokens — they do not render on WhatsApp. Present services and available slots as plain text (a short numbered list) and ask her to reply with her choice.
 • TO BOOK: as soon as you know (1) the service, (2) a concrete date + time she chose from check_availability, and (3) her name — call book_appointment(service_id, date, time, customer_name). Her phone is taken automatically; NEVER ask for it.
 • If her name is missing, ask "ומה השם שלך?" before booking. If the date/time is vague, call check_availability first and let her pick a concrete slot.
-• After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.`
+• After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.
+• If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.`
 
 export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web'): string {
   const NL = String.fromCharCode(10)

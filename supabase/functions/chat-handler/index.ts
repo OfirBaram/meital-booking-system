@@ -74,6 +74,44 @@ const WA_MAX_LEN     = 1000  // cap a single inbound message (matches the web ga
 
 type ChatTurn = { role: 'user' | 'assistant'; content: string }
 
+/** Mask a phone for logs — PII must never hit the log stream in clear text. */
+function maskPhone(p: string | null): string {
+  return p ? '****' + p.slice(-4) : 'unknown'
+}
+
+// Per-phone rate limit. The web IP limiter does NOT apply to WhatsApp (all Twilio
+// traffic shares one IP), and the signature only proves the request is FROM
+// Twilio — not that a single sender isn't flooding. This caps Anthropic cost +
+// DB writes per sender. Token bucket, per worker instance (low-volume OK).
+const _waRl = new Map<string, { tokens: number; refillAt: number }>()
+const WA_RL_MAX = 8
+const WA_RL_WIN = 60_000
+function waAllowed(phone: string): boolean {
+  const now = Date.now()
+  if (_waRl.size > 2000) for (const [k, v] of _waRl) if (now >= v.refillAt) _waRl.delete(k)
+  const b = _waRl.get(phone)
+  if (!b || now >= b.refillAt) { _waRl.set(phone, { tokens: WA_RL_MAX - 1, refillAt: now + WA_RL_WIN }); return true }
+  if (b.tokens <= 0) return false
+  b.tokens--
+  return true
+}
+
+// Error-loop monitor: if the WhatsApp path throws repeatedly in a short window,
+// emit ONE distinctive CRITICAL line. Grep '[wa][CRITICAL]' in Supabase logs and
+// wire a log-based alert to it (see audit notes).
+let _waErrCount = 0
+let _waErrAt    = Date.now()
+const WA_ERR_THRESHOLD = 5
+const WA_ERR_WINDOW    = 300_000   // 5 min
+function recordWaError(): void {
+  const now = Date.now()
+  if (now - _waErrAt > WA_ERR_WINDOW) { _waErrCount = 0; _waErrAt = now }
+  if (++_waErrCount >= WA_ERR_THRESHOLD) {
+    console.error('[wa][CRITICAL] error-loop: ' + _waErrCount + ' failures in <5min — the WhatsApp bot may be failing for everyone. Check ANTHROPIC_API_KEY / Twilio / DB.')
+    _waErrCount = 0; _waErrAt = now
+  }
+}
+
 function xmlEscape(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -99,12 +137,17 @@ function twiml(message: string): Response {
 // until then this keeps raw tokens from ever reaching the customer.
 function renderForWhatsApp(text: string): string {
   return text
-    .replace(/\[WA\]/g, 'wa.me/972547686865')
-    .replace(/\[IG\]/g, 'instagram.com/meytal.sheva')
-    .replace(/\[SVC:[a-z0-9_]+\]/gi, '')
+    // UI tokens → WhatsApp-native links, each on its own tidy line with a soft icon.
+    .replace(/\s*\[WA\]\s*/g, '\n📱 wa.me/972547686865\n')
+    .replace(/\s*\[IG\]\s*/g, '\n📸 instagram.com/meytal.sheva\n')
+    .replace(/\[SVC:[a-z0-9_]+\]/gi, '')   // tap-chips have no WhatsApp equivalent
     .replace(/\[BOOK:[^\]]+\]/gi, '')
-    .replace(/[ \t]+\n/g, '\n')
+    // Mobile readability: dash/asterisk bullets → •, drop trailing spaces,
+    // collapse runs of blank lines, and cap to two consecutive newlines.
+    .replace(/^[ \t]*[-*]\s+/gm, '• ')
+    .replace(/[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim()
 }
 
@@ -132,7 +175,8 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     params,
   })
   if (!ok) {
-    console.warn('[wa] signature rejected')
+    // Fail-closed: also fires if TWILIO_AUTH_TOKEN is unset. sid is not PII.
+    console.warn('[wa] signature rejected sid=' + (params.get('MessageSid') ?? 'none'))
     return new Response('forbidden', { status: 403 })
   }
 
@@ -142,7 +186,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
   const messageSid = params.get('MessageSid') ?? ''
   const phone      = normalizeIsraeliPhone(fromRaw.replace(/^whatsapp:/, ''))
 
-  debugLog('wa-inbound', { messageSid, phone, len: bodyText.length })
+  debugLog('wa-inbound', { messageSid, phone: maskPhone(phone), len: bodyText.length })
 
   // Graceful guards — never 500 back to Twilio (it would retry endlessly).
   if (!phone) {
@@ -150,6 +194,12 @@ async function handleWhatsApp(req: Request): Promise<Response> {
   }
   if (!bodyText) {
     return twiml('קיבלתי 🙂 כתבי לי הודעת טקסט ואשמח לעזור לך לקבוע תור.')
+  }
+
+  // 3b. Per-phone rate limit (post-auth, post-identity) — caps cost/abuse.
+  if (!waAllowed(phone)) {
+    console.warn('[wa] rate-limited phone=' + maskPhone(phone))
+    return twiml('קיבלתי כמה הודעות ברצף 🙂 שנייה לנשום — כתבי לי שוב עוד רגע ואמשיך מאיפה שעצרנו.')
   }
 
   // 4. Service-role client — bypasses RLS so we can read/write the conversation
@@ -215,13 +265,15 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       }, { onConflict: 'phone' })
     if (upErr) console.error('[wa] persist failed:', upErr.message)
 
-    // 10. Wrap the clean text in TwiML for WhatsApp.
+    // 11. Wrap the clean text in TwiML for WhatsApp.
     return twiml(renderForWhatsApp(reply))
 
   } catch (err) {
-    // Never surface a 500 to Twilio. Friendly fallback; state is left untouched
-    // so a genuine retry can reprocess the message.
-    console.error('[wa] handler error:', err)
+    // Never surface a 500 to Twilio (it would retry endlessly). Friendly fallback;
+    // state is left untouched so a genuine retry can reprocess the message.
+    recordWaError()
+    console.error('[wa] handler error phone=' + maskPhone(phone) + ' sid=' + messageSid + ': ' +
+      (err instanceof Error ? err.message : String(err)))
     return twiml('סליחה, קרתה תקלה קטנה אצלי 🙏 אפשר לנסות שוב בעוד רגע, או לכתוב כאן: wa.me/972547686865')
   }
 }
