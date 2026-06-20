@@ -199,11 +199,9 @@ export async function sendClientStatusNotification(supabase: any, bookingId: str
         // For approved bookings — send terms acknowledgement request + set FSM state
         if (status === 'approved') {
           const termsMediaUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
-          const termsBody = termsMediaUrl
-            ? 'לפני שנתראה — נא לקרוא את התקנון שלנו 📋
-לאחר הקריאה, שלחי *1* לאישור ✅'
-            : 'לפני שנתראה — נא לקרוא את התקנון שלנו.
-לאחר הקריאה, שלחי *1* לאישור ✅'
+          const termsBody = 'לפני שנתראה - נא לקרוא את התקנון שלנו.'
+            + ' לאחר הקריאה, שלחי 1 לאישור'
+            + (termsMediaUrl ? ': ' + termsMediaUrl : '')
           try {
             await sendTwilioWhatsAppFreeform(bk.phone, termsBody, creds, waFrom, termsMediaUrl || undefined)
             console.log('[notify] terms-msg sent to=****' + String(bk.phone).slice(-4))

@@ -293,9 +293,8 @@ async function handleWhatsApp(req: Request): Promise<Response> {
         // Not confirmed yet — remind without entering the bot loop
         const termsMediaUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
         const reminder = termsMediaUrl
-          ? '📋 נא לקרוא את התקנון שלנו, ולאחר מכן לשלוח *1* לאישור:
-' + termsMediaUrl
-          : 'כדי לאשר קריאת התקנון שלנו, שלחי *1* 🙏'
+          ? 'נא לקרוא את התקנון. לאחר הקריאה, שלחי 1 לאישור: ' + termsMediaUrl
+          : 'כדי לאשר קריאת התקנון, שלחי 1'
         return twiml(reminder)
       }
     }
