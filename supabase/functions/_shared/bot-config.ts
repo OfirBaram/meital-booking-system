@@ -178,8 +178,11 @@ const joinWaitlistTool: BotTool<WaitlistInput, WaitlistOutput> = {
       required: ['name', 'phone'],
     },
   },
-  async execute(input) {
+  async execute(input, ctx) {
     try {
+      // On WhatsApp use the VERIFIED sender phone — never the model-provided value.
+      // On web the user types their own phone (intended).
+      const phone = (ctx.channel === 'whatsapp' && ctx.phone) ? ctx.phone : input.phone
       const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/waitlist-add`
       const resp = await fetch(url, {
         method: 'POST',
@@ -189,7 +192,7 @@ const joinWaitlistTool: BotTool<WaitlistInput, WaitlistOutput> = {
         },
         body: JSON.stringify({
           name:    input.name,
-          phone:   input.phone,
+          phone,
           service: input.service ?? null,
         }),
       })
@@ -779,7 +782,12 @@ export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'what
   if (channel === 'whatsapp') {
     let waBlock = WHATSAPP_CHANNEL_BLOCK
     if (clientName) {
-      waBlock += NL + NL + 'CLIENT_NAME: ' + clientName + ' — address her by this name naturally.'
+      // Strip control chars and markup before injecting into the system prompt —
+      // a stored name with 
+ would inject additional prompt lines.
+      const safeName = clientName.replace(/[
+	<>"]/g, '').trim().slice(0, 50)
+      waBlock += NL + NL + 'CLIENT_NAME: ' + safeName + ' — address her by this name naturally.'
     }
     prompt += NL + waBlock
   }
