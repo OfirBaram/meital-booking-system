@@ -22,7 +22,9 @@ export function scrubPhones(s: string): string {
 /** Translate web UI tokens to WhatsApp-native text + tidy whitespace for mobile. */
 export function renderForWhatsApp(text: string): string {
   return String(text ?? '')
-    .replace(/\s*\[WA\]\s*/g, '\n📱 wa.me/972547686865\n')
+    // She is ALREADY on WhatsApp — a wa.me link to ourselves is pointless, so [WA]
+    // becomes a gentle "just keep chatting here". [IG] stays an external link.
+    .replace(/\s*\[WA\]\s*/g, '\nכתבי לי כאן ואשמח לעזור 💬\n')
     .replace(/\s*\[IG\]\s*/g, '\n📸 instagram.com/meytal.sheva\n')
     .replace(/\[SVC:[a-z0-9_]+\]/gi, '')
     .replace(/\[BOOK:[^\]]+\]/gi, '')

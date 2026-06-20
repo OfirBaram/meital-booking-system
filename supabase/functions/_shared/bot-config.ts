@@ -562,6 +562,18 @@ export const TOOL_REGISTRY = new Map<string, BotTool>([
 // Flat list of definitions for the Anthropic API call.
 export const TOOLS: Anthropic.Tool[] = [...TOOL_REGISTRY.values()].map(t => t.definition)
 
+// Tools that REQUIRE the verified WhatsApp phone (real bookings, look-up, cancel,
+// reschedule, escalate). The web channel never receives them — it advises via
+// [BOOK]/[SVC] tokens + the website wizard — so the model can never call a tool
+// that would just fail with no_verified_phone. Keeps each channel's surface clean.
+export const WHATSAPP_ONLY_TOOLS = new Set<string>([
+  'book_appointment', 'cancel_appointment', 'reschedule_appointment', 'my_appointments', 'escalate_to_support',
+])
+
+export function toolsForChannel(channel: 'web' | 'whatsapp'): Anthropic.Tool[] {
+  return channel === 'whatsapp' ? TOOLS : TOOLS.filter(t => !WHATSAPP_ONLY_TOOLS.has(t.name))
+}
+
 // ── System Prompt ────────────────────────────────────────────────────────────
 // SECURITY LAYER COMES FIRST — models prioritise beginning-of-prompt context.
 // Update the STUDIO CONTEXT block when business info changes (see studio.json).

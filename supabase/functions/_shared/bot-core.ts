@@ -14,7 +14,7 @@ import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import {
   buildSystemPrompt,
   DEFAULT_SERVICES,
-  TOOLS,
+  toolsForChannel,
   TOOL_REGISTRY,
   debugLog,
   type ToolContext,
@@ -73,6 +73,7 @@ export async function runConversation(
   // (WhatsApp gets in-chat booking rules). Falls back to the default catalogue
   // if the read fails.
   const channel = ctx.channel ?? 'web'
+  const tools   = toolsForChannel(channel)   // web never gets phone-requiring tools
   let systemPrompt = buildSystemPrompt(DEFAULT_SERVICES, channel)
   try {
     const { data: svcRows } = await supabase
@@ -98,7 +99,7 @@ export async function runConversation(
       // the large static prompt is billed at ~10% on repeat calls within the
       // 5-min window — a big token saving for a chatty bot.
       system:     [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-      tools:      TOOLS,
+      tools,
       messages:   history,
     })
 
