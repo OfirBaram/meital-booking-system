@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { sendAndLogSms } from '../_shared/notify.ts'
-import { twilioCredsFromEnv } from '../_shared/sms.ts'
+import { twilioCredsFromEnv, sendTwilioWhatsAppFreeform } from '../_shared/sms.ts'
 import { toDialable } from '../_shared/phone.ts'
 import { fullDateLabel } from '../_shared/messages.ts'
 
@@ -83,6 +83,57 @@ Deno.serve(async (req) => {
     }
 
     console.log(`[send-reminders] date=${tomorrow} total=${bookings?.length ?? 0} sent=${sent}`)
+
+    // WhatsApp terms reminders — piggybacked on daily job, no extra cron
+    const waFrom   = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
+    const termsUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
+    if (waFrom && creds) {
+      const MAX_TERMS = 2
+      const MIN_H     = 20
+      const nowMs     = Date.now()
+      const { data: pending } = await supabase
+        .from('whatsapp_conversations')
+        .select('phone, terms_reminder_count, terms_reminder_sent_at')
+        .eq('state', 'awaiting_terms')
+        .lt('terms_reminder_count', MAX_TERMS)
+      let termsSent = 0, termsSkipped = 0
+      for (const row of pending ?? []) {
+        const lastMs = row.terms_reminder_sent_at ? new Date(row.terms_reminder_sent_at).getTime() : 0
+        if (lastMs > 0 && (nowMs - lastMs) / 3_600_000 < MIN_H) { termsSkipped++; continue }
+        const newCount = (row.terms_reminder_count ?? 0) + 1
+        const waBody = newCount === 1
+          ? 'שלום! רציתי להזכיר — כדי לאשר את תורך, נא לקרוא ולאשר את התקנון שלי. שלחי 1 לאישור'
+          : 'תזכורת אחרונה — נא לאשר את קריאת התקנון שלי על ידי שליחת 1. ללא אישור לא אוכל לאשר את התור'
+        try {
+          await sendTwilioWhatsAppFreeform(row.phone, waBody, creds, waFrom, termsUrl || undefined)
+          ;(async () => {
+            try {
+              await supabase.from('whatsapp_conversations')
+                .update({ terms_reminder_count: newCount, terms_reminder_sent_at: new Date().toISOString() })
+                .eq('phone', row.phone)
+            } catch (e) { console.warn('[send-reminders] terms-upd', e instanceof Error ? e.message : String(e)) }
+          })()
+          termsSent++
+        } catch (termsErr) {
+          console.warn('[send-reminders] terms WA ****' + String(row.phone).slice(-4) + ':',
+            termsErr instanceof Error ? termsErr.message : String(termsErr))
+        }
+      }
+      if (adminPhone) {
+        const { data: overdue } = await supabase.from('wa_terms_pending')
+          .select('client_name').gte('terms_reminder_count', MAX_TERMS)
+        if (overdue && overdue.length > 0) {
+          const names = overdue.map((r: { client_name: string }) => r.client_name || '(לא ידוע)').join(', ')
+          await sendAndLogSms(supabase, {
+            to: adminPhone,
+            body: 'התראה: ' + overdue.length + ' לקוחות לא אישרו תקנון לאחר 2 תזכורות: ' + names,
+            context: 'AdminNotify', creds, alertAdminPhone: null, clientLabel: 'admin',
+          })
+        }
+      }
+      console.log('[send-reminders] terms sent=' + termsSent + ' skipped=' + termsSkipped)
+    }
+
     return json({ success: true, sent, total: bookings?.length ?? 0, date: tomorrow, results })
   } catch (err) {
     console.error('[send-reminders]', err instanceof Error ? err.message : String(err))

@@ -175,6 +175,19 @@ function twiml(message: string): Response {
   })
 }
 
+/** TwiML with an image attachment. */
+function twimlMedia(message: string, mediaUrl: string): Response {
+  const xml = '<?xml version="1.0" encoding="UTF-8"?><Response><Message>'
+    + (message ? '<Body>' + xmlEscape(message) + '</Body>' : '')
+    + '<Media>' + xmlEscape(mediaUrl) + '</Media>'
+    + '</Message></Response>'
+  return new Response(xml, { status: 200, headers: { 'Content-Type': 'text/xml; charset=utf-8' } })
+}
+
+// Zero-LLM media shortcuts — answers price/terms questions with images.
+const PRICE_RE = /מחיר|עולה|עלות|תעריף|מחירון|כמה|כסף|price|how much/i
+const TERMS_RE = /תקנון|מדיניות|כלל|ביטול|איחור|regulations|terms|policy/i
+
 // Per-message latency metric → communication_logs (context 'BotLatency'). A slow
 // brain (>10s) also raises a CRITICAL line for a log-based admin alert. The phone
 // lives in the comms DATA table (like every SMS row), not the log stream.
@@ -248,7 +261,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     // 5. Load conversation state (history + last processed SID + linked client).
     const { data: conv } = await supabase
       .from('whatsapp_conversations')
-      .select('history, last_msg_sid, client_id')
+      .select('history, last_msg_sid, client_id, state')
       .eq('phone', phone)
       .maybeSingle()
 
@@ -259,19 +272,116 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       return twiml('')
     }
 
+    // 6b-pre. MEDIA SHORTCUTS (price list + terms) — zero LLM cost.
+    {
+      const _pricesUrl = (Deno.env.get("TWILIO_PRICES_MEDIA_URL") ?? "").trim()
+      const _termsUrl  = (Deno.env.get("TWILIO_TERMS_MEDIA_URL") ?? "").trim()
+      const _prevH: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+      if (_pricesUrl && PRICE_RE.test(bodyText)) {
+        const _msg = 'הנה מחירון הטיפולים שלנו 💅'
+        await persistConversation(supabase, phone, conv?.client_id ?? null,
+          trimHistory([..._prevH, { role: 'user', content: bodyText }, { role: 'assistant', content: _msg }]), messageSid)
+        return twimlMedia(_msg, _pricesUrl)
+      }
+      if (_termsUrl && TERMS_RE.test(bodyText) && conv?.state !== 'awaiting_terms') {
+        const _msg = 'הנה התקנון שלנו 📋'
+        await persistConversation(supabase, phone, conv?.client_id ?? null,
+          trimHistory([..._prevH, { role: 'user', content: bodyText }, { role: 'assistant', content: _msg }]), messageSid)
+        return twimlMedia(_msg, _termsUrl)
+      }
+    }
+
+    // 6b. TERMS CONFIRMATION GATE — set by notify.ts when admin approves a WA booking.
+    //     Must be checked BEFORE the identity/name gate and the bot so a plain '1'
+    //     is always routed to confirmation rather than fed to the LLM.
+    if (conv?.state === 'awaiting_terms') {
+      const txt = bodyText.trim()
+      const confirmed = txt === '1' || /קראתי|אשרתי|אישור|אשר/i.test(txt)
+      if (confirmed) {
+        // Mark the latest active appointment for this client
+        const clientIdForTerms = conv.client_id
+        if (clientIdForTerms) {
+          ;(async () => {
+            try {
+              await supabase.from('appointments')
+                .update({ terms_confirmed_at: new Date().toISOString() })
+                .eq('client_id', clientIdForTerms)
+                .in('status', ['pending', 'approved'])
+                .is('terms_confirmed_at', null)
+            } catch (e) { console.error('[wa] terms-mark:', e instanceof Error ? e.message : String(e)) }
+          })()
+        }
+        // Clear state — return to normal conversation
+        ;(async () => {
+          try { await supabase.from('whatsapp_conversations').update({ state: null }).eq('phone', phone) }
+          catch (e) { console.error('[wa] terms-clear:', e instanceof Error ? e.message : String(e)) }
+        })()
+        const ack = 'תודה! ✅ אישרת את קריאת התקנון. נתראה בתור — מיטל מחכה לך! 💅'
+        const prevHist: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+        await persistConversation(supabase, phone, conv.client_id,
+          trimHistory([...prevHist, { role: 'user', content: bodyText }, { role: 'assistant', content: ack }]), messageSid)
+        return twiml(ack)
+      } else {
+        // Not confirmed yet — remind without entering the bot loop
+        const termsMediaUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
+        const reminder = termsMediaUrl
+          ? 'נא לקרוא את התקנון. לאחר הקריאה, שלחי 1 לאישור: ' + termsMediaUrl
+          : 'כדי לאשר קריאת התקנון, שלחי 1'
+        // Update last_msg_sid so duplicate Twilio retries are deduplicated.
+        const _prevH2: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+        await persistConversation(supabase, phone, conv?.client_id ?? null, _prevH2, messageSid)
+        return twiml(reminder)
+      }
+    }
+
     // 7. Resolve the linked client up-front so the brain's tools (escalate_to_
     //    support) receive the VERIFIED identity in their context. Kept if already
     //    linked; otherwise best-effort lookup by phone.
     let clientId = conv?.client_id ?? null
+    let clientName: string | null = null
     if (!clientId) {
       const { data: clientRow } = await supabase
-        .from('clients').select('id').eq('phone', phone).maybeSingle()
-      if (clientRow) clientId = clientRow.id
+        .from('clients').select('id, full_name').eq('phone', phone).maybeSingle()
+      if (clientRow) { clientId = clientRow.id; clientName = clientRow.full_name }
+    } else {
+      const { data: cr } = await supabase.from('clients').select('full_name').eq('id', clientId).maybeSingle()
+      if (cr) clientName = cr.full_name
+    }
+
+    // 7b. IDENTITY GATE — WhatsApp phone is verified by Twilio HMAC-SHA1 (transport
+    //     auth). The only missing piece for a new user is her NAME so book_appointment
+    //     can address her. If we don't know who she is yet, ask once and persist.
+    //     This is NOT a security gate (phone IS authenticated); it's UX identity.
+    const history: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+    const isNewUser = !clientName && history.length === 0
+    const nameAsked = !clientName && history.some(
+      t => t.role === 'assistant' && t.content.includes('שמך')
+    )
+    // Extract name from reply if we just asked (previous assistant turn was the name-ask)
+    if (!clientName && nameAsked && bodyText.length >= 2 && bodyText.length <= 40 &&
+        !bodyText.includes('http') && /[֐-׿A-Za-z]/.test(bodyText)) {
+      // User answered our name-ask — upsert client and link to conversation
+      // Strip newlines so a multi-line reply can't inject extra lines into the
+      // system prompt via CLIENT_NAME (defence-in-depth alongside buildSystemPrompt).
+      const candidateName = bodyText.replace(/[\r\n\t]/g, ' ').replace(/[\s]+/g, ' ').trim()
+      const { data: upserted } = await supabase
+        .from('clients')
+        .upsert({ phone, full_name: candidateName }, { onConflict: 'phone' })
+        .select('id, full_name')
+        .maybeSingle()
+      if (upserted) { clientId = upserted.id; clientName = upserted.full_name }
     }
 
     // 8. Build the message list for the brain (stored history + new user turn).
-    const history: ChatTurn[]  = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
     const messages: ChatTurn[] = [...history, { role: 'user', content: bodyText }]
+
+    // If this is a brand-new user and we don't have her name yet — ask before LLM.
+    if (isNewUser && !clientName) {
+      const greeting = 'שלום! 💅 אני הבוט של מיטל שבע-ברעם. שמחה שכתבת! כדי שאוכל לעזור לך לקבוע תור — מה שמך?'
+      const greetHistory = trimHistory([...messages, { role: 'assistant', content: greeting }])
+      await persistConversation(supabase, phone, clientId, greetHistory, messageSid)
+      return twiml(greeting)
+    }
 
     // 8b. HANDOVER GATE — circuit breaker (3 consecutive failures) OR support
     //     backlog (degraded). Either way STOP auto-solving: route to a human,
@@ -289,10 +399,11 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     const t0 = Date.now()
     const reply = await runConversation(messages as Anthropic.MessageParam[], {
       supabase,
-      channel:  'whatsapp',
+      channel:    'whatsapp',
       phone,
       clientId,
-      history:  messages,
+      clientName,
+      history:    messages,
     })
     breaker.recordSuccess()
     recordLatency(supabase, phone, Date.now() - t0)

@@ -176,7 +176,7 @@ Deno.test({
     // deno-lint-ignore no-explicit-any
     const res = await bookTool.execute(VALID_INPUT as any, ctx(supa)) as any
     assertEquals(res.success, true)
-    assertStringIncludes(res.confirmation, 'קבעתי לך תור')
+    assertStringIncludes(res.confirmation, 'מחכה לאישור מיטל')
     assert(supa._log.appointmentInserted)
     assert(!supa._log.slotReleased, 'a committed booking must NOT release its slot')
   },
@@ -410,6 +410,7 @@ function makeNotifyMock(source: string): any {
     const b: any = {
       select: () => b, eq: () => b,
       insert: () => Promise.resolve({ error: null }),
+      upsert: () => Promise.resolve({ error: null }),
       maybeSingle: () => {
         if (table === 'bookings_view') return Promise.resolve({ data: { name: 'דנה כהן', phone: '+972501234567', serviceName: 'לק ג׳ל', date: '2026-06-23', time: '16:00' } })
         if (table === 'appointments')  return Promise.resolve({ data: { source } })
@@ -420,12 +421,12 @@ function makeNotifyMock(source: string): any {
   }
   return { from: (t: string) => builder(t) }
 }
-function captureFetch(): { body: () => string; restore: () => void } {
-  let captured = ''
+function captureFetch(): { bodies: () => string[]; body: () => string; restore: () => void } {
+  const allCaptured: string[] = []
   const orig = globalThis.fetch
   // deno-lint-ignore no-explicit-any
-  globalThis.fetch = ((_u: any, opts: any) => { captured = String(opts?.body ?? ''); return Promise.resolve(new Response('{"sid":"SM1"}', { status: 201 })) }) as typeof fetch
-  return { body: () => captured, restore: () => { globalThis.fetch = orig } }
+  globalThis.fetch = ((_u: any, opts: any) => { allCaptured.push(String(opts?.body ?? '')); return Promise.resolve(new Response('{"sid":"SM1"}', { status: 201 })) }) as typeof fetch
+  return { bodies: () => allCaptured, body: () => allCaptured[0] ?? '', restore: () => { globalThis.fetch = orig } }
 }
 
 Deno.test('sendClientStatusNotification: WhatsApp booking + template configured -> sends TEMPLATE', async () => {
@@ -434,8 +435,9 @@ Deno.test('sendClientStatusNotification: WhatsApp booking + template configured 
   const cap = captureFetch()
   try {
     await sendClientStatusNotification(makeNotifyMock('whatsapp'), 'b1', 'approved' as never)
-    assertStringIncludes(cap.body(), 'ContentSid=HXapproved')
-    assert(!cap.body().includes('Body='), 'must NOT send an SMS body when a template is used')
+    const all = cap.bodies()
+    assert(all.some(b => b.includes('ContentSid=HXapproved')), 'template ContentSid must appear in one of the Twilio calls')
+    assert(!all[0].includes('Body='), 'first Twilio call must be the template, not an SMS body')
   } finally { cap.restore(); Deno.env.delete('TWILIO_TEMPLATE_APPROVED') }
 })
 

@@ -188,7 +188,7 @@ export function buildCard(b) {
   return '<div class="bg-white rounded-2xl p-5 border border-secondary/30 shadow-sm card-in" data-booking="' + esc(b.id) + '">'
     + '<div class="flex items-start justify-between mb-2.5">'
     + '<div><div class="font-black text-[15px] text-text-main">' + esc(b.name) + '</div>'
-    + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(b.phone)) + '</div></div>'
+    + '<div class="text-xs text-text-muted mt-0.5">' + esc(fmtPhone(b.phone)) + '</div>' + (b.source === 'whatsapp' ? '<div class="text-xs text-emerald-600 font-medium mt-0.5">💬 וואטסאפ</div>' : '') + '</div>'
     + '<div class="flex items-center gap-0.5">' + badge + contact + '</div>'
     + '</div>'
     + '<div class="text-[13px] font-semibold text-text-main mb-1">' + esc(b.serviceName) + '</div>'
@@ -196,6 +196,11 @@ export function buildCard(b) {
     + (b.smsStatus
         ? '<div class="text-xs mb-2" data-qa="sms-status" data-sms-status="' + esc(b.smsStatus) + '">'
           + esc(SMS_STATUS_LABEL[b.smsStatus] || ('SMS: ' + b.smsStatus)) + '</div>'
+        : '')
+    + (b.source === 'whatsapp'
+        ? (b.termsConfirmedAt
+            ? '<div class="text-xs text-emerald-600 mb-2" data-qa="terms-status">✅ תקנון אושר</div>'
+            : '<div class="text-xs text-amber-500 mb-2" data-qa="terms-status">⏳ ממתין לאישור תקנון</div>')
         : '')
     + (btns ? '<div class="flex gap-2">' + btns + '</div>' : '')
     + '</div>';

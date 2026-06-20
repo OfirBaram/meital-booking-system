@@ -7,7 +7,7 @@
 // SMS but never recorded the result, so failures were invisible (the admin
 // SMS-log panel stayed empty and a Twilio rejection was swallowed silently).
 
-import { sendTwilioSms, sendTwilioWhatsAppTemplate, twilioCredsFromEnv, type TwilioCreds } from './sms.ts'
+import { sendTwilioSms, sendTwilioWhatsAppTemplate, sendTwilioWhatsAppFreeform, twilioCredsFromEnv, type TwilioCreds } from './sms.ts'
 import { buildAdminFailureAlertSms, buildClientStatusSms, fullDateLabel, type ClientStatus } from './messages.ts'
 import { toDialable } from './phone.ts'
 // 2026-05-31: ADMIN_PHONE E.164 normalization deploy (see _shared/phone.ts).
@@ -196,6 +196,27 @@ export async function sendClientStatusNotification(supabase: any, bookingId: str
           })
         } catch (logErr) { console.error('[notify] wa-template log-fail:', logErr instanceof Error ? logErr.message : String(logErr)) }
         console.log('[notify] client-wa-template status=' + status + ' to=****' + String(bk.phone).slice(-4))
+        // For approved bookings — send terms acknowledgement request + set FSM state
+        if (status === 'approved') {
+          const termsMediaUrl = (Deno.env.get('TWILIO_TERMS_MEDIA_URL') ?? '').trim()
+          const termsBody = 'לפני שנתראה - נא לקרוא את התקנון שלנו.'
+            + ' לאחר הקריאה, שלחי 1 לאישור'
+            + (termsMediaUrl ? ': ' + termsMediaUrl : '')
+          try {
+            await sendTwilioWhatsAppFreeform(bk.phone, termsBody, creds, waFrom, termsMediaUrl || undefined)
+            console.log('[notify] terms-msg sent to=****' + String(bk.phone).slice(-4))
+          } catch (termsErr) {
+            // Outside 24h window — state still set so client sees terms next message
+            console.warn('[notify] terms-freeform failed (24h window?):', termsErr instanceof Error ? termsErr.message : String(termsErr))
+          }
+          // Set awaiting_terms regardless of whether the message delivered
+          ;(async () => {
+            try {
+              await supabase.from('whatsapp_conversations')
+                .upsert({ phone: bk.phone, state: 'awaiting_terms' }, { onConflict: 'phone' })
+            } catch (e) { console.error('[notify] terms-state-fail:', e instanceof Error ? e.message : String(e)) }
+          })()
+        }
         return
       } catch (waErr) {
         console.error('[notify] wa-template failed → SMS fallback:', waErr instanceof Error ? waErr.message : String(waErr))
