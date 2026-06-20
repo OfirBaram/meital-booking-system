@@ -1,23 +1,16 @@
-import Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import type Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import { PUBLIC_CORS, SEC_HEADERS } from '../_shared/cors.ts'
-import {
-  SYSTEM_PROMPT,
-  buildSystemPrompt,
-  TOOLS,
-  TOOL_REGISTRY,
-  DEBUG_MODE,
-  debugLog,
-} from '../_shared/bot-config.ts'
+import { debugLog } from '../_shared/bot-config.ts'
+import { runConversation } from '../_shared/bot-core.ts'
+import { verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
+import { normalizeIsraeliPhone } from '../_shared/phone.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
 // persists within one worker but is NOT shared across a scaled fleet.
 // For <100 honest msg/day this is sufficient: a single instance serves all
 // traffic. For multi-region scale, replace with Supabase KV.
-//
-// Red Team: a bot hammering from one IP is blocked after 10 req/min.
-// Multi-IP DDoS is handled upstream by Supabase's network layer.
 const _rl = new Map<string, { tokens: number; refillAt: number }>()
 const RL_MAX = 10       // 10 requests per window per IP
 const RL_WIN = 60_000   // 1-minute window
@@ -34,7 +27,6 @@ function isAllowed(ip: string): boolean {
   return true
 }
 
-// Prevent unbounded memory growth on sustained attack traffic
 function maybeCleanup() {
   if (_rl.size < 500) return
   const now = Date.now()
@@ -51,10 +43,10 @@ function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
   })
 }
 
-// ── Input Validation ──────────────────────────────────────────────────────────
+// ── Input Validation (Web channel) ─────────────────────────────────────────────
 // TypeScript types are compile-time only. validateMessages() is the runtime
-// gate against: role injection, non-string content, message count abuse, and
-// token-stuffing attacks via oversized message content.
+// gate against role injection, non-string content, message-count abuse, and
+// token-stuffing via oversized content.
 function validateMessages(raw: unknown): Anthropic.MessageParam[] | null {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > 20) return null
   const out: Anthropic.MessageParam[] = []
@@ -62,11 +54,8 @@ function validateMessages(raw: unknown): Anthropic.MessageParam[] | null {
     const m = raw[i]
     if (typeof m !== 'object' || m === null) return null
     const { role, content } = m as Record<string, unknown>
-    // Only 'user' and 'assistant' roles accepted — blocks system role injection
     if (role !== 'user' && role !== 'assistant') return null
-    // String content only — rejects ContentBlock[] from client (tool_use injection)
     if (typeof content !== 'string' || content.length === 0 || content.length > 1000) return null
-    // Strict alternation: 0→user, 1→assistant, 2→user ...
     if (i % 2 === 0 && role !== 'user')      return null
     if (i % 2 === 1 && role !== 'assistant') return null
     out.push({ role, content })
@@ -74,16 +63,180 @@ function validateMessages(raw: unknown): Anthropic.MessageParam[] | null {
   return out
 }
 
+// ── WhatsApp transport (Twilio) ────────────────────────────────────────────────
+// Twilio posts application/x-www-form-urlencoded and authenticates with
+// X-Twilio-Signature (NOT a Supabase JWT — chat-handler is verify_jwt=false).
+// This adapter owns ONLY transport: auth, state I/O, token rendering, TwiML.
+// The brain (model + tools) lives in runConversation and returns clean text.
+
+const WA_MAX_HISTORY = 20    // keep last ~10 exchanges — bounds tokens + storage
+const WA_MAX_LEN     = 1000  // cap a single inbound message (matches the web gate)
+
+type ChatTurn = { role: 'user' | 'assistant'; content: string }
+
+function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/** TwiML reply Twilio renders back to the sender. Empty message => silent ack. */
+function twiml(message: string): Response {
+  const inner = message ? '<Message>' + xmlEscape(message) + '</Message>' : ''
+  const xml   = '<?xml version="1.0" encoding="UTF-8"?><Response>' + inner + '</Response>'
+  return new Response(xml, {
+    status: 200,
+    headers: { 'Content-Type': 'text/xml; charset=utf-8' },
+  })
+}
+
+// The brain emits UI tokens for the web chat (rendered as buttons). WhatsApp has
+// no such renderer yet, so translate links and strip chip tokens cleanly. Real
+// in-chat booking (a book_appointment tool + WhatsApp-tuned prompt) lands later;
+// until then this keeps raw tokens from ever reaching the customer.
+function renderForWhatsApp(text: string): string {
+  return text
+    .replace(/\[WA\]/g, 'wa.me/972547686865')
+    .replace(/\[IG\]/g, 'instagram.com/meytal.sheva')
+    .replace(/\[SVC:[a-z0-9_]+\]/gi, '')
+    .replace(/\[BOOK:[^\]]+\]/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Keep the tail of the history, preserving user->assistant alternation. */
+function trimHistory(turns: ChatTurn[]): ChatTurn[] {
+  if (turns.length <= WA_MAX_HISTORY) return turns
+  const tail = turns.slice(turns.length - WA_MAX_HISTORY)
+  return tail[0]?.role === 'user' ? tail : tail.slice(1)
+}
+
+async function handleWhatsApp(req: Request): Promise<Response> {
+  // 1. Read the raw form body ONCE — needed verbatim to recompute the signature.
+  const rawBody = await req.text()
+  const params  = new URLSearchParams(rawBody)
+
+  // 2. Authenticate. The signed URL must be byte-identical to what Twilio called;
+  //    behind the Supabase proxy req.url is unreliable, so prefer the explicit
+  //    TWILIO_WEBHOOK_URL secret (the exact URL pasted into the Twilio console).
+  const authToken = (Deno.env.get('TWILIO_AUTH_TOKEN') ?? '').trim()
+  const url       = (Deno.env.get('TWILIO_WEBHOOK_URL') ?? '').trim() || req.url
+  const ok = await verifyTwilioSignature({
+    authToken,
+    signatureHeader: req.headers.get('x-twilio-signature'),
+    url,
+    params,
+  })
+  if (!ok) {
+    console.warn('[wa] signature rejected')
+    return new Response('forbidden', { status: 403 })
+  }
+
+  // 3. Parse the inbound message.
+  const fromRaw    = params.get('From') ?? ''   // e.g. "whatsapp:+972501234567"
+  const bodyText   = (params.get('Body') ?? '').trim().slice(0, WA_MAX_LEN)
+  const messageSid = params.get('MessageSid') ?? ''
+  const phone      = normalizeIsraeliPhone(fromRaw.replace(/^whatsapp:/, ''))
+
+  debugLog('wa-inbound', { messageSid, phone, len: bodyText.length })
+
+  // Graceful guards — never 500 back to Twilio (it would retry endlessly).
+  if (!phone) {
+    return twiml('סליחה, לא הצלחתי לזהות את המספר שלך. אפשר לפנות אליי כאן: wa.me/972547686865')
+  }
+  if (!bodyText) {
+    return twiml('קיבלתי 🙂 כתבי לי הודעת טקסט ואשמח לעזור לך לקבוע תור.')
+  }
+
+  // 4. Service-role client — bypasses RLS so we can read/write the conversation
+  //    state table (PII; service_role only). Same client is passed to the brain.
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+
+  try {
+    // 5. Load conversation state (history + last processed SID + linked client).
+    const { data: conv } = await supabase
+      .from('whatsapp_conversations')
+      .select('history, last_msg_sid, client_id')
+      .eq('phone', phone)
+      .maybeSingle()
+
+    // 6. Deduplication — Twilio retries deliver the same MessageSid. An empty
+    //    <Response/> tells Twilio "received, send nothing" without re-running.
+    if (messageSid && conv?.last_msg_sid === messageSid) {
+      debugLog('wa-dedup', { messageSid })
+      return twiml('')
+    }
+
+    // 7. Resolve the linked client up-front so the brain's tools (escalate_to_
+    //    support) receive the VERIFIED identity in their context. Kept if already
+    //    linked; otherwise best-effort lookup by phone.
+    let clientId = conv?.client_id ?? null
+    if (!clientId) {
+      const { data: clientRow } = await supabase
+        .from('clients').select('id').eq('phone', phone).maybeSingle()
+      if (clientRow) clientId = clientRow.id
+    }
+
+    // 8. Build the message list for the brain (stored history + new user turn).
+    const history: ChatTurn[]  = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+    const messages: ChatTurn[] = [...history, { role: 'user', content: bodyText }]
+
+    // 9. Execute the SAME brain as the web channel. The enriched context carries
+    //    the VERIFIED phone + history snapshot, so escalate_to_support cannot be
+    //    spoofed by the model. Returns clean text (no transport concern).
+    const reply = await runConversation(messages as Anthropic.MessageParam[], {
+      supabase,
+      channel:  'whatsapp',
+      phone,
+      clientId,
+      history:  messages,
+    })
+
+    // 10. Persist clean user/assistant turns only (the loop's internal
+    //     tool_use/tool_result blocks are NOT stored). Upsert = initial INSERT on
+    //     first contact, UPDATE afterwards, atomic on the phone PK.
+    const newHistory = trimHistory([...messages, { role: 'assistant', content: reply }])
+
+    const { error: upErr } = await supabase
+      .from('whatsapp_conversations')
+      .upsert({
+        phone,
+        client_id:       clientId,
+        history:         newHistory,
+        last_msg_sid:    messageSid,
+        last_inbound_at: new Date().toISOString(),
+      }, { onConflict: 'phone' })
+    if (upErr) console.error('[wa] persist failed:', upErr.message)
+
+    // 10. Wrap the clean text in TwiML for WhatsApp.
+    return twiml(renderForWhatsApp(reply))
+
+  } catch (err) {
+    // Never surface a 500 to Twilio. Friendly fallback; state is left untouched
+    // so a genuine retry can reprocess the message.
+    console.error('[wa] handler error:', err)
+    return twiml('סליחה, קרתה תקלה קטנה אצלי 🙏 אפשר לנסות שוב בעוד רגע, או לכתוב כאן: wa.me/972547686865')
+  }
+}
+
 // ── Main Handler ──────────────────────────────────────────────────────────────
+// Routes by channel. The agentic loop lives in _shared/bot-core.ts so both the
+// Web UI and WhatsApp drive the exact same brain.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_AND_SEC })
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
 
-  // ── Rate limiting ──
-  // x-real-ip is set by Supabase/Deno infra and cannot be spoofed by the client.
-  // cf-connecting-ip is Cloudflare's guaranteed real IP.
-  // x-forwarded-for LAST value is CDN-appended; the FIRST value is client-controlled.
-  // Taking [0] from x-forwarded-for would allow trivial rate-limit bypass via header spoofing.
+  // Channel discriminator: Twilio always sends X-Twilio-Signature; Web UI never does.
+  if (req.headers.get('x-twilio-signature')) return await handleWhatsApp(req)
+
+  // ── Web channel ──
   const ip = req.headers.get('x-real-ip')
            ?? req.headers.get('cf-connecting-ip')
            ?? req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim()
@@ -97,7 +250,6 @@ Deno.serve(async (req) => {
     )
   }
 
-  // ── Parse & validate body ──
   let body: unknown
   try { body = await req.json() }
   catch { return json({ error: 'invalid_json' }, 400) }
@@ -108,86 +260,16 @@ Deno.serve(async (req) => {
   debugLog('incoming', { ip, messageCount: messages.length })
 
   try {
-    const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
-
-    // Anon key: read-only, RLS-enforced. Service role not required here.
-    // Requires RLS policy on `slots`: SELECT for anon WHERE status='available'.
+    // Anon key: read-only, RLS-enforced. The web channel needs no service role.
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_ANON_KEY')!,
     )
 
-    // Build the system prompt from the live, active service catalogue so the
-    // bot offers exactly the services that currently exist. Falls back to the
-    // static SYSTEM_PROMPT (default catalogue) if the read fails.
-    let systemPrompt = SYSTEM_PROMPT
-    try {
-      const { data: svcRows } = await supabase
-        .from('services')
-        .select('id, name_he, duration_min, active, sort_order')
-        .eq('active', true)
-        .order('sort_order', { ascending: true })
-      if (svcRows && svcRows.length) systemPrompt = buildSystemPrompt(svcRows as never)
-    } catch (e) { console.warn('[chat-handler] service-load failed, using default prompt', e) }
-
-    const history  = [...messages]
-    let finalText  = ''
-
-    // Agentic loop — resolves tool calls server-side (max 3 turns to contain cost).
-    // Tool dispatch is registry-driven: add new tools to TOOL_REGISTRY in bot-config.ts.
-    for (let turn = 0; turn < 3; turn++) {
-      const resp = await anthropic.messages.create({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        system:     systemPrompt,
-        tools:      TOOLS,
-        messages:   history,
-      })
-
-      debugLog(`turn-${turn}-stop`, resp.stop_reason)
-
-      if (resp.stop_reason === 'end_turn') {
-        finalText = (resp.content.find(b => b.type === 'text') as Anthropic.TextBlock | undefined)?.text ?? ''
-        break
-      }
-
-      if (resp.stop_reason === 'tool_use') {
-        const toolBlock = resp.content.find(b => b.type === 'tool_use') as Anthropic.ToolUseBlock
-        history.push({ role: 'assistant', content: resp.content })
-
-        debugLog('tool-call', { name: toolBlock.name, input: toolBlock.input })
-
-        const tool = TOOL_REGISTRY.get(toolBlock.name)
-        if (tool) {
-          const result = await tool.execute(
-            toolBlock.input as Record<string, unknown>,
-            { supabase },
-          )
-          debugLog('tool-result', result)
-          history.push({
-            role: 'user',
-            content: [{
-              type:        'tool_result',
-              tool_use_id: toolBlock.id,
-              content:     JSON.stringify(result),
-            }],
-          })
-        }
-      }
-    }
-
-    // If loop exhausted without end_turn (rare: model used all 3 turns on tool calls)
-    if (!finalText) {
-      finalText = 'מצטערת, לא הצלחתי לסיים את התשובה. אפשר לנסות שוב או לפנות בווטסאפ 📲'
-    }
-
-    // Strip markdown bold/italic that models occasionally emit despite instructions
-    finalText = finalText.replace(/\*{1,3}([^*\n]+)\*{1,3}/g, '$1')
-
-    return json({ reply: finalText })
+    const reply = await runConversation(messages, { supabase, channel: 'web' })
+    return json({ reply })
 
   } catch (err) {
-    // Stack trace logged server-side only — never leaks to client response
     console.error('[chat-handler]', err)
     return json({ error: 'internal_error' }, 500)
   }

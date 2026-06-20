@@ -26,6 +26,11 @@
 
 import type Anthropic from 'npm:@anthropic-ai/sdk@0.39'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
+import { hmacSha256Hex }            from './crypto.ts'
+import { twilioCredsFromEnv }       from './sms.ts'
+import { sendAndLogSms }            from './notify.ts'
+import { toDialable }               from './phone.ts'
+import { buildAdminNewBookingSms }  from './messages.ts'
 
 // ── Debug mode ──────────────────────────────────────────────────────────────
 export const DEBUG_MODE = Deno.env.get('CHAT_DEBUG') === 'true'
@@ -40,6 +45,14 @@ export function debugLog(label: string, data: unknown): void {
 
 export interface ToolContext {
   supabase: SupabaseClient
+  // Channel + VERIFIED identity — populated by the WhatsApp adapter, omitted on
+  // web. Tools that don't need them (check_availability, join_waitlist) ignore
+  // these fields. escalate_to_support relies on them so the model can never spoof
+  // the caller's phone or fabricate the conversation snapshot.
+  channel?:  'web' | 'whatsapp'
+  phone?:    string | null
+  clientId?: string | null
+  history?:  { role: string; content: string }[]
 }
 
 export interface BotTool<
@@ -186,12 +199,214 @@ const joinWaitlistTool: BotTool<WaitlistInput, WaitlistOutput> = {
   },
 }
 
+// ── escalate_to_support ─────────────────────────────────────────────────────
+// Opens a ticket for Meital to handle personally. Identity (phone, client_id,
+// snapshot) comes from the VERIFIED ToolContext — never from the model — so a
+// prompt-injected caller cannot file a ticket as someone else.
+interface EscalateInput extends Record<string, unknown> {
+  reason: string
+}
+interface EscalateOutput {
+  success: boolean
+  ticket_id?: string
+  error?: string
+}
+
+const escalateToSupportTool: BotTool<EscalateInput, EscalateOutput> = {
+  definition: {
+    name: 'escalate_to_support',
+    description: 'Open a support ticket for Meital to handle PERSONALLY. Use ONLY when you cannot resolve the request yourself: a complaint, a refund, a special/medical request, a change to an existing booking you have no tool for, or when the customer explicitly asks for a human. Do NOT use it for normal booking, availability, pricing, or service questions — handle those yourself. After it returns success, reassure the customer warmly that Meital will get back to her personally.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Short Hebrew summary of what the customer needs, written for Meital.',
+        },
+      },
+      required: ['reason'],
+    },
+  },
+  async execute(input, ctx) {
+    try {
+      const phone    = (ctx.phone ?? '').trim() || null
+      const snapshot = Array.isArray(ctx.history) ? ctx.history.slice(-12) : []
+
+      const { data, error } = await ctx.supabase
+        .from('support_requests')
+        .insert({
+          phone,
+          client_id: ctx.clientId ?? null,
+          reason:    String(input.reason ?? '').slice(0, 500),
+          snapshot,
+          status:    'open',
+        })
+        .select('id')
+        .single()
+
+      if (error) {
+        console.error('[escalate_to_support]', error.message)
+        return { success: false, error: 'insert_failed' }
+      }
+      return { success: true, ticket_id: data.id as string }
+    } catch (e) {
+      console.error('[escalate_to_support]', e)
+      return { success: false, error: 'exception' }
+    }
+  },
+}
+
+// ── book_appointment ──────────────────────────────────────────────────────────
+// Real, end-to-end booking for the WhatsApp channel — no website form. Produces
+// the SAME DB state as the web flow (verify-and-book): client upsert, slot locked
+// via lock_slot_for_booking (status 'locked' + locked_at), appointment row
+// (status 'pending', awaiting Meital's approval), and the admin heads-up SMS.
+// Identity (phone) comes from the VERIFIED ToolContext, never the model.
+const SVC_ID_RE = /^[a-z0-9_]{2,40}$/
+const DATE_RE   = /^\d{4}-\d{2}-\d{2}$/
+const TIME_RE   = /^\d{2}:\d{2}$/
+
+/** "יום ראשון, 22.06" — weekday + day.month in Jerusalem tz. */
+function formatHebrewDate(isoDate: string): string {
+  const d = new Date(isoDate + 'T12:00:00Z')   // noon UTC → same calendar day in Jerusalem
+  const weekday = new Intl.DateTimeFormat('he-IL', { weekday: 'long', timeZone: 'Asia/Jerusalem' }).format(d)
+  const dayMon  = new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' }).format(d)
+  return weekday + ', ' + dayMon
+}
+
+interface BookInput extends Record<string, unknown> {
+  service_id:    string
+  date:          string
+  time:          string
+  customer_name: string
+}
+interface BookOutput {
+  success: boolean
+  confirmation?: string
+  error?: string
+}
+
+const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
+  definition: {
+    name: 'book_appointment',
+    description: 'Book a real appointment directly on WhatsApp (no website). Call ONLY when you already have all four: service id, a date (YYYY-MM-DD) and time (HH:MM) the customer picked from check_availability, and her name. Her phone is taken automatically from WhatsApp — NEVER ask for it. On success you MUST relay the returned confirmation text to her.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        service_id:    { type: 'string', description: 'Service id from the live catalogue (e.g. gel_hands).' },
+        date:          { type: 'string', description: 'Date, YYYY-MM-DD (Jerusalem).' },
+        time:          { type: 'string', description: 'Start time HH:MM (24h, Jerusalem) — must be a slot from check_availability.' },
+        customer_name: { type: 'string', description: 'Customer name (ask for it in chat first if unknown).' },
+      },
+      required: ['service_id', 'date', 'time', 'customer_name'],
+    },
+  },
+  async execute(input, ctx) {
+    try {
+      const supabase = ctx.supabase
+      const phone = (ctx.phone ?? '').trim()
+      if (!phone) return { success: false, error: 'no_verified_phone' }
+
+      const serviceId = String(input.service_id ?? '').trim()
+      const date = String(input.date ?? '').trim()
+      const time = String(input.time ?? '').trim()
+      const name = String(input.customer_name ?? '').trim()
+      if (!SVC_ID_RE.test(serviceId) || !DATE_RE.test(date) || !TIME_RE.test(time) || name.length < 2) {
+        return { success: false, error: 'invalid_input' }
+      }
+
+      // 1. Resolve service (live catalogue → fallback to defaults).
+      const { data: svc } = await supabase
+        .from('services').select('name_he, duration_min').eq('id', serviceId).eq('active', true).maybeSingle()
+      const fallback      = DEFAULT_SERVICES.find(s => s.id === serviceId)
+      const treatmentName = (svc?.name_he as string | undefined)      ?? fallback?.name_he
+      const durationMin   = (svc?.duration_min as number | undefined) ?? fallback?.duration_min
+      if (!treatmentName || !durationMin) return { success: false, error: 'unknown_service' }
+
+      // 2. Resolve the slot (Jerusalem date+time → slot_id) via the same RPC the web uses.
+      const { data: slotData } = await supabase.rpc('lookup_slot_by_date_time', { p_date: date, p_time: time })
+      const slotId = Array.isArray(slotData) ? (slotData[0] ?? null) : slotData
+      if (!slotId) return { success: false, error: 'slot_not_available' }
+
+      // 3. Smart-scheduling gap guard (only when the flag is on) — identical to web.
+      const { data: smFlag } = await supabase
+        .from('feature_flags').select('enabled').eq('key', 'smart_scheduling').maybeSingle()
+      if (smFlag?.enabled === true) {
+        const { data: isSafe } = await supabase
+          .rpc('check_gap_safety', { p_slot_id: String(slotId), p_duration_min: durationMin })
+        if (!isSafe) return { success: false, error: 'slot_creates_gap' }
+      }
+
+      // 4. Upsert the client (phone = verified WhatsApp sender).
+      const { data: client, error: clientErr } = await supabase
+        .from('clients').upsert({ phone, full_name: name }, { onConflict: 'phone' }).select('id').single()
+      if (clientErr || !client) { console.error('[book_appointment] client:', clientErr?.message); return { success: false, error: 'client_failed' } }
+
+      // 5. Lock the slot atomically → status 'locked', locked_at = now().
+      const { data: locked } = await supabase.rpc('lock_slot_for_booking', { p_slot_id: String(slotId) })
+      if (!locked) return { success: false, error: 'slot_not_available' }
+
+      // 6. Create the appointment (same shape as web; status pending Meital's approval).
+      const bookingId  = crypto.randomUUID()
+      const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+      const adminToken = hmacSecret ? await hmacSha256Hex(hmacSecret, bookingId) : null
+
+      const { error: apptErr } = await supabase.from('appointments').insert({
+        id:               bookingId,
+        client_id:        client.id,
+        slot_id:          slotId,
+        treatment_type:   serviceId,
+        treatment_name:   treatmentName,
+        service_ids:      [serviceId],
+        services_summary: treatmentName,
+        duration_min:     durationMin,
+        is_verified:      true,
+        status:           'pending',
+        admin_token:      adminToken,
+      })
+      if (apptErr) {
+        // Compensate: release the slot (the reaper is the backstop if this also fails).
+        await supabase.from('slots')
+          .update({ status: 'available', locked_at: null, last_updated: new Date().toISOString() })
+          .eq('id', slotId)
+        console.error('[book_appointment] appt insert:', apptErr.message)
+        return { success: false, error: 'booking_failed' }
+      }
+
+      // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
+      ;(async () => {
+        try {
+          await sendAndLogSms(supabase, {
+            to:            toDialable(Deno.env.get('ADMIN_PHONE')),
+            body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
+            context:       'AdminNotify',
+            creds:         twilioCredsFromEnv(),
+            appointmentId: bookingId,
+          })
+        } catch (e) { console.error('[book_appointment] admin sms:', e) }
+      })()
+
+      // 8. Clear final confirmation — she never needs to check the website.
+      const confirmation =
+        'מושלם! 💅 קבעתי לך תור ל' + formatHebrewDate(date) + ' בשעה ' + time +
+        ' (' + treatmentName + '). מחכה לך! אם תצטרכי לשנות משהו — פשוט כתבי לי כאן.'
+      return { success: true, confirmation }
+
+    } catch (e) {
+      console.error('[book_appointment]', e)
+      return { success: false, error: 'exception' }
+    }
+  },
+}
+
 // ── Tool registry ────────────────────────────────────────────────────────────
 // Register new tools here. The agentic loop dispatches by name — no other
 // code needs to change when you add a tool.
 export const TOOL_REGISTRY = new Map<string, BotTool>([
-  ['check_availability', checkAvailabilityTool],
-  ['join_waitlist',      joinWaitlistTool],
+  ['check_availability',  checkAvailabilityTool],
+  ['join_waitlist',       joinWaitlistTool],
+  ['escalate_to_support', escalateToSupportTool],
+  ['book_appointment',    bookAppointmentTool],
 ])
 
 // Flat list of definitions for the Anthropic API call.
@@ -307,7 +522,16 @@ Never write raw URLs — always use the token. Do not invent other tokens.
     "את כבר ברשימה שלי [name] 💅 מיטל תחזור אלייך בהקדם!"
 
     IMPORTANT: Do NOT skip to [WA] before attempting the waitlist flow.
-    The waitlist is the primary fallback — WhatsApp is the backup if the bot fails.`
+    The waitlist is the primary fallback — WhatsApp is the backup if the bot fails.
+
+16. HUMAN ESCALATION (edge cases only) — if the customer needs something you genuinely
+    cannot handle yourself (a complaint, a refund, a special/medical request, a change to
+    an existing booking you have no tool for, or she explicitly asks for a human),
+    call escalate_to_support with a short Hebrew "reason". The moment it returns success,
+    reassure her warmly IN THE SAME REPLY so she never thinks the bot went silent, e.g.:
+    "העברתי את הבקשה ישירות למיטל 💛 היא תחזור אלייך אישית בהקדם. אני כאן אם בינתיים תרצי עוד משהו."
+    NEVER escalate for normal booking, availability, pricing, or service questions —
+    those you handle yourself.`
 
 
 // ── Dynamic service injection ────────────────────────────────────────────────
@@ -328,7 +552,17 @@ export const DEFAULT_SERVICES: ServiceRow[] = [
 // Build the system prompt from the live service catalogue. Fills the
 // {{SERVICE_LIST}}, {{SVC_TOKENS}} and {{SERVICE_IDS}} placeholders so the
 // bot only ever offers services that currently exist + are active.
-export function buildSystemPrompt(services: ServiceRow[]): string {
+// Appended to the system prompt ONLY for the WhatsApp channel. The web UI renders
+// [BOOK]/[SVC] chips; WhatsApp has no such renderer, and the bot books in-chat.
+const WHATSAPP_CHANNEL_BLOCK = `── WHATSAPP CHANNEL (this conversation is on WhatsApp) ──────────────────────
+You are chatting on WhatsApp, NOT the website. Therefore:
+• NEVER tell the customer to "go to the website", open a link, or "book online" — you book for her right here in the chat.
+• Do NOT emit [BOOK:...] or [SVC:...] tokens — they do not render on WhatsApp. Present services and available slots as plain text (a short numbered list) and ask her to reply with her choice.
+• TO BOOK: as soon as you know (1) the service, (2) a concrete date + time she chose from check_availability, and (3) her name — call book_appointment(service_id, date, time, customer_name). Her phone is taken automatically; NEVER ask for it.
+• If her name is missing, ask "ומה השם שלך?" before booking. If the date/time is vague, call check_availability first and let her pick a concrete slot.
+• After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.`
+
+export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web'): string {
   const NL = String.fromCharCode(10)
   const active = (services && services.length ? services : DEFAULT_SERVICES)
     .filter(s => s.active !== false)
@@ -338,10 +572,13 @@ export function buildSystemPrompt(services: ServiceRow[]): string {
   const tokens = active.map(s => `  [SVC:${s.id}] → tap-to-select chip: ${s.name_he} (${s.duration_min} דקות)`).join(NL)
   const ids    = active.map(s => `"${s.id}"`).join(' | ')
 
-  return SYSTEM_PROMPT_TEMPLATE
+  let prompt = SYSTEM_PROMPT_TEMPLATE
     .replace('{{SERVICE_LIST}}', list)
     .replace('{{SVC_TOKENS}}',   tokens)
     .replace('{{SERVICE_IDS}}',  ids)
+
+  if (channel === 'whatsapp') prompt += NL + WHATSAPP_CHANNEL_BLOCK
+  return prompt
 }
 
 // Backward-compatible static export (default catalogue). chat-handler builds a
