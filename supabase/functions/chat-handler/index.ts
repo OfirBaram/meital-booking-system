@@ -266,11 +266,11 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     let clientName: string | null = null
     if (!clientId) {
       const { data: clientRow } = await supabase
-        .from('clients').select('id, name').eq('phone', phone).maybeSingle()
-      if (clientRow) { clientId = clientRow.id; clientName = clientRow.name }
+        .from('clients').select('id, full_name').eq('phone', phone).maybeSingle()
+      if (clientRow) { clientId = clientRow.id; clientName = clientRow.full_name }
     } else {
-      const { data: cr } = await supabase.from('clients').select('name').eq('id', clientId).maybeSingle()
-      if (cr) clientName = cr.name
+      const { data: cr } = await supabase.from('clients').select('full_name').eq('id', clientId).maybeSingle()
+      if (cr) clientName = cr.full_name
     }
 
     // 7b. IDENTITY GATE — WhatsApp phone is verified by Twilio HMAC-SHA1 (transport
@@ -289,10 +289,10 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       const candidateName = bodyText.trim()
       const { data: upserted } = await supabase
         .from('clients')
-        .upsert({ phone, name: candidateName }, { onConflict: 'phone' })
-        .select('id, name')
+        .upsert({ phone, full_name: candidateName }, { onConflict: 'phone' })
+        .select('id, full_name')
         .maybeSingle()
-      if (upserted) { clientId = upserted.id; clientName = upserted.name }
+      if (upserted) { clientId = upserted.id; clientName = upserted.full_name }
     }
 
     // 8. Build the message list for the brain (stored history + new user turn).
