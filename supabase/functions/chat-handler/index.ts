@@ -280,7 +280,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     const history: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
     const isNewUser = !clientName && history.length === 0
     const nameAsked = !clientName && history.some(
-      t => t.role === 'assistant' && t.content.includes('מה שמך')
+      t => t.role === 'assistant' && t.content.includes('שמך')
     )
     // Extract name from reply if we just asked (previous assistant turn was the name-ask)
     if (!clientName && nameAsked && bodyText.length >= 2 && bodyText.length <= 40 &&
