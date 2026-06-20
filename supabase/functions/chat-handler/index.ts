@@ -6,6 +6,8 @@ import { runConversation } from '../_shared/bot-core.ts'
 import { verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
 import { normalizeIsraeliPhone } from '../_shared/phone.ts'
 import { getSystemHealth } from '../_shared/health.ts'
+import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
+import { type ChatTurn, maskPhone, renderForWhatsApp, trimHistory } from '../_shared/whatsapp.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -70,15 +72,11 @@ function validateMessages(raw: unknown): Anthropic.MessageParam[] | null {
 // This adapter owns ONLY transport: auth, state I/O, token rendering, TwiML.
 // The brain (model + tools) lives in runConversation and returns clean text.
 
-const WA_MAX_HISTORY = 20    // keep last ~10 exchanges — bounds tokens + storage
-const WA_MAX_LEN     = 1000  // cap a single inbound message (matches the web gate)
+const WA_MAX_LEN = 1000  // cap a single inbound message (matches the web gate)
 
-type ChatTurn = { role: 'user' | 'assistant'; content: string }
-
-/** Mask a phone for logs — PII must never hit the log stream in clear text. */
-function maskPhone(p: string | null): string {
-  return p ? '****' + p.slice(-4) : 'unknown'
-}
+// Circuit breaker: 3 consecutive brain/handler failures => auto human-handover,
+// so a broken bot stops replying (reputation guard) until a cooldown.
+const breaker = createCircuitBreaker(3)
 
 // Per-phone rate limit. The web IP limiter does NOT apply to WhatsApp (all Twilio
 // traffic shares one IP), and the signature only proves the request is FROM
@@ -171,31 +169,21 @@ function twiml(message: string): Response {
   })
 }
 
-// The brain emits UI tokens for the web chat (rendered as buttons). WhatsApp has
-// no such renderer yet, so translate links and strip chip tokens cleanly. Real
-// in-chat booking (a book_appointment tool + WhatsApp-tuned prompt) lands later;
-// until then this keeps raw tokens from ever reaching the customer.
-function renderForWhatsApp(text: string): string {
-  return text
-    // UI tokens → WhatsApp-native links, each on its own tidy line with a soft icon.
-    .replace(/\s*\[WA\]\s*/g, '\n📱 wa.me/972547686865\n')
-    .replace(/\s*\[IG\]\s*/g, '\n📸 instagram.com/meytal.sheva\n')
-    .replace(/\[SVC:[a-z0-9_]+\]/gi, '')   // tap-chips have no WhatsApp equivalent
-    .replace(/\[BOOK:[^\]]+\]/gi, '')
-    // Mobile readability: dash/asterisk bullets → •, drop trailing spaces,
-    // collapse runs of blank lines, and cap to two consecutive newlines.
-    .replace(/^[ \t]*[-*]\s+/gm, '• ')
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim()
-}
-
-/** Keep the tail of the history, preserving user->assistant alternation. */
-function trimHistory(turns: ChatTurn[]): ChatTurn[] {
-  if (turns.length <= WA_MAX_HISTORY) return turns
-  const tail = turns.slice(turns.length - WA_MAX_HISTORY)
-  return tail[0]?.role === 'user' ? tail : tail.slice(1)
+// Per-message latency metric → communication_logs (context 'BotLatency'). A slow
+// brain (>10s) also raises a CRITICAL line for a log-based admin alert. The phone
+// lives in the comms DATA table (like every SMS row), not the log stream.
+// deno-lint-ignore no-explicit-any
+function recordLatency(supabase: any, phone: string, ms: number): void {
+  const slow = ms > 10_000
+  ;(async () => {
+    try {
+      await supabase.from('communication_logs').insert({
+        channel: 'whatsapp', recipient_phone: phone, context: 'BotLatency',
+        status: 'SENT', message_body: slow ? 'SLOW_RESPONSE' : 'ok', detail: ms + 'ms',
+      })
+    } catch (e) { console.error('[wa] latency log failed:', e instanceof Error ? e.message : String(e)) }
+  })()
+  if (slow) console.error('[wa][CRITICAL] slow-brain ' + ms + 'ms phone=' + maskPhone(phone))
 }
 
 async function handleWhatsApp(req: Request): Promise<Response> {
@@ -278,19 +266,20 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     const history: ChatTurn[]  = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
     const messages: ChatTurn[] = [...history, { role: 'user', content: bodyText }]
 
-    // 8b. FAIL-SAFE: if the support backlog is high, STOP auto-solving — route
-    //     straight to a human, save context, and ensure a (deduped) ticket exists.
-    if (await isDegraded(supabase)) {
-      console.warn('[wa] degraded-mode handoff phone=' + maskPhone(phone))
+    // 8b. HANDOVER GATE — circuit breaker (3 consecutive failures) OR support
+    //     backlog (degraded). Either way STOP auto-solving: route to a human,
+    //     save context, and ensure a (deduped) ticket exists.
+    if (breaker.isOpen() || await isDegraded(supabase)) {
+      console.warn('[wa] handover breakerOpen=' + breaker.isOpen() + ' phone=' + maskPhone(phone))
       await ensureOpenTicket(supabase, phone, clientId, messages)
       await persistConversation(supabase, phone, clientId,
-        trimHistory([...messages, { role: 'assistant', content: '[fail-safe handoff to human]' }]), messageSid)
+        trimHistory([...messages, { role: 'assistant', content: '[handover to human]' }]), messageSid)
       return twiml('אני מעבירה אותך ישירות למיטל 💛 היא תחזור אלייך אישית בהקדם. תודה על הסבלנות!')
     }
 
-    // 9. Execute the SAME brain as the web channel. The enriched context carries
-    //    the VERIFIED phone + history snapshot, so escalate_to_support cannot be
-    //    spoofed by the model. Returns clean text (no transport concern).
+    // 9. Execute the SAME brain as the web channel (timed). Context carries the
+    //    VERIFIED phone + snapshot, so escalate_to_support can't be model-spoofed.
+    const t0 = Date.now()
     const reply = await runConversation(messages as Anthropic.MessageParam[], {
       supabase,
       channel:  'whatsapp',
@@ -298,10 +287,11 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       clientId,
       history:  messages,
     })
+    breaker.recordSuccess()
+    recordLatency(supabase, phone, Date.now() - t0)
 
-    // 10. Persist clean user/assistant turns only (the loop's internal
-    //     tool_use/tool_result blocks are NOT stored). Upsert = initial INSERT on
-    //     first contact, UPDATE afterwards, atomic on the phone PK.
+    // 10. Persist clean user/assistant turns only (tool_use/tool_result blocks
+    //     are NOT stored). Upsert = initial INSERT, then UPDATE; atomic on phone.
     const newHistory = trimHistory([...messages, { role: 'assistant', content: reply }])
     await persistConversation(supabase, phone, clientId, newHistory, messageSid)
 
@@ -312,6 +302,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     // Never surface a 500 to Twilio (it would retry endlessly). Friendly fallback;
     // state is left untouched so a genuine retry can reprocess the message.
     recordWaError()
+    breaker.recordFailure()
     console.error('[wa] handler error phone=' + maskPhone(phone) + ' sid=' + messageSid + ': ' +
       (err instanceof Error ? err.message : String(err)))
     return twiml('סליחה, קרתה תקלה קטנה אצלי 🙏 אפשר לנסות שוב בעוד רגע, או לכתוב כאן: wa.me/972547686865')
