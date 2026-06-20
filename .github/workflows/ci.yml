@@ -151,6 +151,31 @@ jobs:
       - name: Run backend tests
         run: npm run test:backend
 
+  # ─── Job 3b: Edge Tests (Deno) ─────────────────────────────────────────────
+  # Resilience / fault-injection suite for the WhatsApp channel. No network at
+  # runtime: Supabase + Anthropic are mocked inside the tests, so a test that
+  # tries to reach the network simply fails (proving isolation).
+  edge-tests:
+    name: Edge Tests (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run WhatsApp resilience suite
+        # The only npm imports in scope are TYPE-ONLY (erased at runtime), so:
+        #   --no-check          : skip type resolution of npm types
+        #   --node-modules-dir=none : ignore the repo package.json, use Deno's cache
+        # Together they let the suite run as pure Deno (no node_modules needed).
+        run: deno test --no-check --node-modules-dir=none --allow-env supabase/functions/_tests/
+
   # ─── Job 4: Deploy Drift Guard ─────────────────────────────────────────────
   # Catches the 2026-05-30 class of bug: an Edge Function whose code is committed
   # but never deployed (push != deploy). Compares each function's last git commit

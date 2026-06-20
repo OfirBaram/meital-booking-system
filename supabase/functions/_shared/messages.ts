@@ -75,6 +75,35 @@ export function buildAdminNewBookingSms(f: AdminMsgFields): string {
   return `הזמנה: ${n}, ${s}. ${formatDateDmy(f.date)} ${f.time}. טל: ${p}`
 }
 
+export interface AdminApprovalFields {
+  name: string; serviceName: string; date: string; time: string; phone: string
+  approveUrl: string; rejectUrl: string
+}
+
+/**
+ * WhatsApp message to MEITAL for a new PENDING booking — with tappable Approve /
+ * Reject links (links work on WhatsApp, unlike carrier-filtered SMS). The links
+ * point at the existing admin-action one-tap endpoint (HMAC-secured). This keeps
+ * Meital's final-approval control identical to the SMS/dashboard flow.
+ */
+export function buildAdminApprovalWhatsApp(f: AdminApprovalFields): string {
+  const n = (f.name ?? '').trim()
+  const s = (f.serviceName ?? '').trim()
+  const p = (f.phone ?? '').trim()
+  return [
+    'תור חדש לאישור 🔔',
+    n + ' · ' + s,
+    fullDateLabel(f.date) + ' בשעה ' + f.time,
+    'טלפון: ' + p,
+    '',
+    '✅ לאישור:',
+    f.approveUrl,
+    '',
+    '❌ לדחייה:',
+    f.rejectUrl,
+  ].join('\n')
+}
+
 // Hebrew label for the action whose client SMS failed (used in the admin alert).
 const FAILED_ACTION_HE: Record<string, string> = {
   ClientApproval:     'אישור התור',

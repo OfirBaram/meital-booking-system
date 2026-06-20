@@ -7,8 +7,9 @@
 // SMS but never recorded the result, so failures were invisible (the admin
 // SMS-log panel stayed empty and a Twilio rejection was swallowed silently).
 
-import { sendTwilioSms, type TwilioCreds } from './sms.ts'
-import { buildAdminFailureAlertSms } from './messages.ts'
+import { sendTwilioSms, sendTwilioWhatsAppTemplate, twilioCredsFromEnv, type TwilioCreds } from './sms.ts'
+import { buildAdminFailureAlertSms, buildClientStatusSms, fullDateLabel, type ClientStatus } from './messages.ts'
+import { toDialable } from './phone.ts'
 // 2026-05-31: ADMIN_PHONE E.164 normalization deploy (see _shared/phone.ts).
 
 // Client-facing contexts where a delivery failure means a real client expected a
@@ -142,4 +143,71 @@ export async function sendAndLogSms(supabase: any, p: SendAndLogParams): Promise
   }
 
   return status
+}
+
+// ── Channel-aware client status notification (approve / reject / cancel) ────────
+// Used by admin-action + change-status. For a WhatsApp-sourced booking it sends a
+// Meta-approved TEMPLATE (works OUTSIDE the 24h window — approval is usually later);
+// otherwise, or if the template / WhatsApp sender isn't configured, it falls back
+// to SMS — the existing, always-on behaviour. Never throws.
+
+function whatsappTemplateForStatus(status: string): string {
+  const key = ({ approved: 'TWILIO_TEMPLATE_APPROVED', rejected: 'TWILIO_TEMPLATE_REJECTED', cancelled: 'TWILIO_TEMPLATE_CANCELLED' } as Record<string, string>)[status]
+  return key ? (Deno.env.get(key) ?? '').trim() : ''
+}
+
+// Template placeholders (the Meta-approved body must use these): {{1}}=first name,
+// {{2}}=service, {{3}}=date + time. e.g. "היי {{1}} 💅 התור שלך ({{2}}) ל-{{3}} אושר!"
+// deno-lint-ignore no-explicit-any
+function clientTemplateVars(bk: any): Record<string, string> {
+  const first = String(bk?.name ?? '').trim().split(' ')[0] || 'לקוחה'
+  return { '1': first, '2': String(bk?.serviceName ?? '').trim(), '3': fullDateLabel(String(bk?.date ?? '')) + ' ' + String(bk?.time ?? '') }
+}
+
+// deno-lint-ignore no-explicit-any
+export async function sendClientStatusNotification(supabase: any, bookingId: string, status: ClientStatus): Promise<void> {
+  const { data: bk } = await supabase
+    .from('bookings_view').select('name, phone, serviceName, date, time').eq('id', bookingId).maybeSingle()
+  if (!bk) { console.warn('[notify] status-notify skip: booking not found ' + bookingId); return }
+
+  const context = statusToContext(status)
+  if (!context) { console.warn('[notify] status-notify skip: unmapped status ' + status); return }
+
+  const creds   = twilioCredsFromEnv()
+  const adminPh = toDialable(Deno.env.get('ADMIN_PHONE'))
+  const waFrom  = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
+  const tmpl    = whatsappTemplateForStatus(status)
+
+  // WhatsApp TEMPLATE — only for WhatsApp-sourced bookings, only when configured.
+  if (creds && waFrom && tmpl) {
+    let source = ''
+    try {
+      const { data: appt } = await supabase.from('appointments').select('source').eq('id', bookingId).maybeSingle()
+      source = (appt?.source ?? '') as string
+    } catch { /* source column absent in older DBs → treat as non-whatsapp → SMS */ }
+
+    if (source === 'whatsapp') {
+      try {
+        await sendTwilioWhatsAppTemplate(bk.phone, tmpl, clientTemplateVars(bk), creds, waFrom)
+        try {
+          await supabase.from('communication_logs').insert({
+            channel: 'whatsapp', recipient_phone: bk.phone, context, status: 'SENT',
+            message_body: 'template:' + tmpl, appointment_id: bookingId,
+          })
+        } catch (logErr) { console.error('[notify] wa-template log-fail:', logErr instanceof Error ? logErr.message : String(logErr)) }
+        console.log('[notify] client-wa-template status=' + status + ' to=****' + String(bk.phone).slice(-4))
+        return
+      } catch (waErr) {
+        console.error('[notify] wa-template failed → SMS fallback:', waErr instanceof Error ? waErr.message : String(waErr))
+        // fall through to SMS — never lose the notification
+      }
+    }
+  }
+
+  // SMS — default + fallback (existing behaviour, incl. admin-failure alert).
+  await sendAndLogSms(supabase, {
+    to: bk.phone,
+    body: buildClientStatusSms(status, { serviceName: bk.serviceName, date: bk.date, time: bk.time }),
+    context, creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: bk.name,
+  })
 }
