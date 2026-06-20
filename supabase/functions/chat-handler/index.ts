@@ -175,6 +175,19 @@ function twiml(message: string): Response {
   })
 }
 
+/** TwiML with an image attachment. */
+function twimlMedia(message: string, mediaUrl: string): Response {
+  const xml = '<?xml version="1.0" encoding="UTF-8"?><Response><Message>'
+    + (message ? '<Body>' + xmlEscape(message) + '</Body>' : '')
+    + '<Media>' + xmlEscape(mediaUrl) + '</Media>'
+    + '</Message></Response>'
+  return new Response(xml, { status: 200, headers: { 'Content-Type': 'text/xml; charset=utf-8' } })
+}
+
+// Zero-LLM media shortcuts — answers price/terms questions with images.
+const PRICE_RE = /מחיר|עולה|עלות|תעריף|מחירון|כמה|כסף|price|how much/i
+const TERMS_RE = /תקנון|מדיניות|כלל|ביטול|איחור|regulations|terms|policy/i
+
 // Per-message latency metric → communication_logs (context 'BotLatency'). A slow
 // brain (>10s) also raises a CRITICAL line for a log-based admin alert. The phone
 // lives in the comms DATA table (like every SMS row), not the log stream.
@@ -257,6 +270,25 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     if (messageSid && conv?.last_msg_sid === messageSid) {
       debugLog('wa-dedup', { messageSid })
       return twiml('')
+    }
+
+    // 6b-pre. MEDIA SHORTCUTS (price list + terms) — zero LLM cost.
+    {
+      const _pricesUrl = (Deno.env.get("TWILIO_PRICES_MEDIA_URL") ?? "").trim()
+      const _termsUrl  = (Deno.env.get("TWILIO_TERMS_MEDIA_URL") ?? "").trim()
+      const _prevH: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+      if (_pricesUrl && PRICE_RE.test(bodyText)) {
+        const _msg = 'הנה מחירון הטיפולים שלנו 💅'
+        await persistConversation(supabase, phone, conv?.client_id ?? null,
+          trimHistory([..._prevH, { role: 'user', content: bodyText }, { role: 'assistant', content: _msg }]), messageSid)
+        return twimlMedia(_msg, _pricesUrl)
+      }
+      if (_termsUrl && TERMS_RE.test(bodyText) && conv?.state !== 'awaiting_terms') {
+        const _msg = 'הנה התקנון שלנו 📋'
+        await persistConversation(supabase, phone, conv?.client_id ?? null,
+          trimHistory([..._prevH, { role: 'user', content: bodyText }, { role: 'assistant', content: _msg }]), messageSid)
+        return twimlMedia(_msg, _termsUrl)
+      }
     }
 
     // 6b. TERMS CONFIRMATION GATE — set by notify.ts when admin approves a WA booking.
