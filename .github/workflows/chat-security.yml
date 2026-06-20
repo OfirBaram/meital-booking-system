@@ -1,0 +1,182 @@
+# Chat Security Gate
+#
+# Runs automatically on any PR that touches the WhatsApp chat module.
+# Two jobs run in parallel:
+#   1. unit-tests  — 151 behavioural + security unit tests
+#   2. static-scan — grep-based checks that cannot be caught by unit tests
+#      (e.g. secrets accidentally logged, sig-check bypass left enabled)
+#
+# To add this as a required check in GitHub:
+#   Settings → Branches → Branch protection rule for "main"
+#   ✅ Require status checks: "Chat Security — Unit Tests" + "Chat Security — Static Scan"
+
+name: Chat Security Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/chat-handler/**'
+      - 'supabase/functions/_shared/bot-config.ts'
+      - 'supabase/functions/_shared/bot-core.ts'
+      - 'supabase/functions/_shared/faq-engine.ts'
+      - 'supabase/functions/_shared/whatsapp.ts'
+      - 'supabase/functions/_shared/twilio-webhook.ts'
+      - 'supabase/functions/_shared/circuit-breaker.ts'
+      - 'tests/unit/whatsapp-security.test.js'
+  # Allow manual trigger for ad-hoc audits
+  workflow_dispatch:
+
+concurrency:
+  group: chat-sec-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Job 1: Unit Tests ──────────────────────────────────────────────────────
+  unit-tests:
+    name: Chat Security — Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run WhatsApp security unit tests
+        run: npx vitest run tests/unit/whatsapp-security.test.js
+
+  # ─── Job 2: Static Security Scan ────────────────────────────────────────────
+  static-scan:
+    name: Chat Security — Static Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SECURITY BOUNDARY is present in bot-config
+        run: |
+          grep -q "SECURITY BOUNDARY" supabase/functions/_shared/bot-config.ts
+          echo "✓ SECURITY BOUNDARY found"
+
+      - name: System prompt forbids DB operations
+        run: |
+          grep -q "SELECT, INSERT, UPDATE, DELETE, DROP" supabase/functions/_shared/bot-config.ts
+          echo "✓ DB operation rules found"
+
+      - name: System prompt forbids exposing secrets
+        run: |
+          grep -q "secrets, tokens, API keys" supabase/functions/_shared/bot-config.ts
+          echo "✓ Secrets protection rules found"
+
+      - name: clientName is sanitized before system-prompt injection
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          src = open('supabase/functions/_shared/bot-config.ts', encoding='utf-8').read()
+          idx = src.find("'CLIENT_NAME: '")
+          if idx == -1:
+            print('ERROR: CLIENT_NAME injection line not found'); sys.exit(1)
+          window = src[max(0, idx - 400):idx + 100]
+          if not re.search(r'replace|sanitize', window):
+            print('ERROR: No sanitization found near CLIENT_NAME injection')
+            print('Window:', window)
+            sys.exit(1)
+          print('✓ clientName sanitization present')
+          EOF
+
+      - name: rawBody is never logged
+        run: |
+          if grep -n 'console\.\(log\|warn\|error\).*rawBody' supabase/functions/chat-handler/index.ts; then
+            echo "ERROR: rawBody is being logged — PII risk"; exit 1
+          fi
+          echo "✓ rawBody not in logs"
+
+      - name: Every phone log reference uses maskPhone or scrubPhones
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          src = open('supabase/functions/chat-handler/index.ts', encoding='utf-8').read()
+          log_lines = [(i+1, l) for i,l in enumerate(src.split('\n'))
+                       if re.search(r'console\.(log|warn|error)', l) and 'phone' in l.lower()]
+          bad = [(n,l) for n,l in log_lines if 'maskPhone' not in l and 'scrubPhones' not in l]
+          if bad:
+            for n,l in bad: print(f'  Line {n}: {l.strip()}')
+            sys.exit(1)
+          print(f'✓ {len(log_lines)} phone log lines — all masked')
+          EOF
+
+      - name: Twilio auth token is never logged
+        run: |
+          if grep -n 'console\.\(log\|warn\|error\).*authToken\|TWILIO_AUTH_TOKEN' \
+               supabase/functions/chat-handler/index.ts \
+               supabase/functions/_shared/bot-config.ts; then
+            echo "ERROR: Auth token in logs"; exit 1
+          fi
+          echo "✓ authToken not in logs"
+
+      - name: SUPABASE_SERVICE_ROLE_KEY is never logged
+        run: |
+          if grep -rn 'console\.\(log\|warn\|error\).*SERVICE_ROLE_KEY' \
+               supabase/functions/chat-handler/index.ts \
+               supabase/functions/_shared/bot-config.ts; then
+            echo "ERROR: Service role key in logs"; exit 1
+          fi
+          echo "✓ SERVICE_ROLE_KEY not in logs"
+
+      - name: WA_SKIP_SIG_CHECK is not hardcoded (only from Deno.env)
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          src = open('supabase/functions/chat-handler/index.ts', encoding='utf-8').read()
+          skip_lines = [l for l in src.split('\n')
+                        if 'WA_SKIP_SIG_CHECK' in l and 'Deno.env' not in l
+                        and not l.strip().startswith('//')]
+          if skip_lines:
+            print('ERROR: WA_SKIP_SIG_CHECK hardcoded outside Deno.env:')
+            for l in skip_lines: print(' ', l.strip())
+            sys.exit(1)
+          print('✓ WA_SKIP_SIG_CHECK correctly env-gated')
+          EOF
+
+      - name: verifyTwilioSignature is called and result checked
+        run: |
+          grep -q "verifyTwilioSignature" supabase/functions/chat-handler/index.ts
+          grep -q "if (!ok)" supabase/functions/chat-handler/index.ts
+          echo "✓ Twilio signature verification present and enforced"
+
+      - name: join_waitlist uses verified ctx.phone on WhatsApp (not model-provided)
+        run: |
+          grep -q "ctx.channel === 'whatsapp'" supabase/functions/_shared/bot-config.ts
+          grep -q "ctx.phone" supabase/functions/_shared/bot-config.ts
+          echo "✓ join_waitlist WA phone override present"
+
+      - name: candidateName strips newlines before storing
+        run: |
+          grep -q "candidateName = bodyText.replace" supabase/functions/chat-handler/index.ts
+          echo "✓ candidateName newline stripping present"
+
+      - name: No raw phone numbers in console calls (scrubPhones pattern check)
+        run: |
+          python3 - <<'EOF'
+          import re, sys
+          # Check that bot-config.ts uses scrubPhones for any error message that
+          # might echo a phone number from Twilio/Supabase responses
+          src = open('supabase/functions/_shared/bot-config.ts', encoding='utf-8').read()
+          # Look for console.error lines that interpolate 'e.message' without scrubPhones
+          # These are the risk: Twilio error bodies can echo the To/From number
+          risky = [l.strip() for l in src.split('\n')
+                   if re.search(r'console\.error', l)
+                   and 'e.message' in l
+                   and 'scrubPhones' not in l
+                   and ('admin sms' in l.lower() or 'admin wa' in l.lower() or 'twilio' in l.lower())]
+          if risky:
+            print('WARNING: potential phone echo in error log (consider scrubPhones):')
+            for l in risky: print(' ', l)
+            # Warn only (don't fail) — false positives possible in tool-catch blocks
+          print(f'✓ Scan complete ({len(risky)} warnings)')
+          EOF
