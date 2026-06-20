@@ -5,6 +5,7 @@ import { debugLog } from '../_shared/bot-config.ts'
 import { runConversation } from '../_shared/bot-core.ts'
 import { verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
 import { normalizeIsraeliPhone } from '../_shared/phone.ts'
+import { getSystemHealth } from '../_shared/health.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -110,6 +111,45 @@ function recordWaError(): void {
     console.error('[wa][CRITICAL] error-loop: ' + _waErrCount + ' failures in <5min — the WhatsApp bot may be failing for everyone. Check ANTHROPIC_API_KEY / Twilio / DB.')
     _waErrCount = 0; _waErrAt = now
   }
+}
+
+// Degraded-mode gate, cached per worker (~60s) so we don't run a health query on
+// every message. Fail-OPEN on a health-check error (keep the bot working).
+let _healthAt = 0
+let _degraded = false
+const HEALTH_TTL = 60_000
+// deno-lint-ignore no-explicit-any
+async function isDegraded(supabase: any): Promise<boolean> {
+  const now = Date.now()
+  if (now - _healthAt < HEALTH_TTL) return _degraded
+  try { _degraded = (await getSystemHealth(supabase)).degraded; _healthAt = now }
+  catch (e) { console.error('[wa] health check failed (fail-open):', e instanceof Error ? e.message : String(e)) }
+  return _degraded
+}
+
+// deno-lint-ignore no-explicit-any
+async function persistConversation(supabase: any, phone: string, clientId: string | null, history: ChatTurn[], messageSid: string): Promise<void> {
+  const { error } = await supabase.from('whatsapp_conversations').upsert({
+    phone, client_id: clientId, history, last_msg_sid: messageSid, last_inbound_at: new Date().toISOString(),
+  }, { onConflict: 'phone' })
+  if (error) console.error('[wa] persist failed:', error.message)
+}
+
+// Ensure exactly ONE open ticket per phone (deduped) — the fail-safe must not
+// turn a backlog of messages into a backlog of tickets.
+// deno-lint-ignore no-explicit-any
+async function ensureOpenTicket(supabase: any, phone: string, clientId: string | null, snapshot: ChatTurn[]): Promise<void> {
+  try {
+    const { count } = await supabase.from('support_requests')
+      .select('id', { count: 'exact', head: true }).eq('phone', phone).eq('status', 'open')
+    if ((count ?? 0) > 0) return
+    await supabase.from('support_requests').insert({
+      phone, client_id: clientId,
+      reason:   'auto: עומס פניות — הופנתה לטיפול אנושי (fail-safe)',
+      snapshot: snapshot.slice(-12),
+      status:   'open',
+    })
+  } catch (e) { console.error('[wa] ensureOpenTicket failed:', e instanceof Error ? e.message : String(e)) }
 }
 
 function xmlEscape(s: string): string {
@@ -238,6 +278,16 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     const history: ChatTurn[]  = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
     const messages: ChatTurn[] = [...history, { role: 'user', content: bodyText }]
 
+    // 8b. FAIL-SAFE: if the support backlog is high, STOP auto-solving — route
+    //     straight to a human, save context, and ensure a (deduped) ticket exists.
+    if (await isDegraded(supabase)) {
+      console.warn('[wa] degraded-mode handoff phone=' + maskPhone(phone))
+      await ensureOpenTicket(supabase, phone, clientId, messages)
+      await persistConversation(supabase, phone, clientId,
+        trimHistory([...messages, { role: 'assistant', content: '[fail-safe handoff to human]' }]), messageSid)
+      return twiml('אני מעבירה אותך ישירות למיטל 💛 היא תחזור אלייך אישית בהקדם. תודה על הסבלנות!')
+    }
+
     // 9. Execute the SAME brain as the web channel. The enriched context carries
     //    the VERIFIED phone + history snapshot, so escalate_to_support cannot be
     //    spoofed by the model. Returns clean text (no transport concern).
@@ -253,17 +303,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     //     tool_use/tool_result blocks are NOT stored). Upsert = initial INSERT on
     //     first contact, UPDATE afterwards, atomic on the phone PK.
     const newHistory = trimHistory([...messages, { role: 'assistant', content: reply }])
-
-    const { error: upErr } = await supabase
-      .from('whatsapp_conversations')
-      .upsert({
-        phone,
-        client_id:       clientId,
-        history:         newHistory,
-        last_msg_sid:    messageSid,
-        last_inbound_at: new Date().toISOString(),
-      }, { onConflict: 'phone' })
-    if (upErr) console.error('[wa] persist failed:', upErr.message)
+    await persistConversation(supabase, phone, clientId, newHistory, messageSid)
 
     // 11. Wrap the clean text in TwiML for WhatsApp.
     return twiml(renderForWhatsApp(reply))

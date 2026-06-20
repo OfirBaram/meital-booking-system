@@ -358,52 +358,65 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
       const { data: locked } = await supabase.rpc('lock_slot_for_booking', { p_slot_id: String(slotId) })
       if (!locked) return { success: false, error: 'slot_not_available' }
 
-      // 6. Create the appointment (same shape as web; status pending Meital's approval).
-      const bookingId  = crypto.randomUUID()
-      const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
-      const adminToken = hmacSecret ? await hmacSha256Hex(hmacSecret, bookingId) : null
+      // From here the slot is HELD. try/finally guarantees it is released on ANY
+      // non-committed exit — a handled error OR an unexpected throw — so a crash
+      // between lock and insert can never leave a ghost lock (reaper = last resort).
+      let committed = false
+      try {
+        // 6. Create the appointment (same shape as web; status pending approval).
+        const bookingId  = crypto.randomUUID()
+        const hmacSecret = (Deno.env.get('HMAC_SECRET') ?? '').trim()
+        const adminToken = hmacSecret ? await hmacSha256Hex(hmacSecret, bookingId) : null
 
-      const { error: apptErr } = await supabase.from('appointments').insert({
-        id:               bookingId,
-        client_id:        client.id,
-        slot_id:          slotId,
-        treatment_type:   serviceId,
-        treatment_name:   treatmentName,
-        service_ids:      [serviceId],
-        services_summary: treatmentName,
-        duration_min:     durationMin,
-        is_verified:      true,
-        status:           'pending',
-        admin_token:      adminToken,
-      })
-      if (apptErr) {
-        // Compensate: release the slot (the reaper is the backstop if this also fails).
-        await supabase.from('slots')
-          .update({ status: 'available', locked_at: null, last_updated: new Date().toISOString() })
-          .eq('id', slotId)
-        console.error('[book_appointment] appt insert:', apptErr.message)
-        return { success: false, error: 'booking_failed' }
+        const { error: apptErr } = await supabase.from('appointments').insert({
+          id:               bookingId,
+          client_id:        client.id,
+          slot_id:          slotId,
+          treatment_type:   serviceId,
+          treatment_name:   treatmentName,
+          service_ids:      [serviceId],
+          services_summary: treatmentName,
+          duration_min:     durationMin,
+          is_verified:      true,
+          status:           'pending',
+          admin_token:      adminToken,
+        })
+        if (apptErr) {
+          console.error('[book_appointment] appt insert:', apptErr.message)
+          return { success: false, error: 'booking_failed' }   // finally releases the slot
+        }
+        committed = true   // appointment exists → the lock is now a REAL booking
+
+        // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
+        ;(async () => {
+          try {
+            await sendAndLogSms(supabase, {
+              to:            toDialable(Deno.env.get('ADMIN_PHONE')),
+              body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
+              context:       'AdminNotify',
+              creds:         twilioCredsFromEnv(),
+              appointmentId: bookingId,
+            })
+          } catch (e) { console.error('[book_appointment] admin sms:', e) }
+        })()
+
+        // 8. Clear final confirmation — she never needs to check the website.
+        console.log('[book_appointment] booked id=' + bookingId + ' slot=' + slotId)
+        const confirmation =
+          'מושלם! 💅 קבעתי לך תור ל' + formatHebrewDate(date) + ' בשעה ' + time +
+          ' (' + treatmentName + '). מחכה לך! אם תצטרכי לשנות משהו — פשוט כתבי לי כאן.'
+        return { success: true, confirmation }
+      } finally {
+        if (!committed) {
+          try {
+            await supabase.from('slots')
+              .update({ status: 'available', locked_at: null, last_updated: new Date().toISOString() })
+              .eq('id', slotId)
+          } catch (e) {
+            console.error('[book_appointment] compensate failed:', e instanceof Error ? e.message : String(e))
+          }
+        }
       }
-
-      // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
-      ;(async () => {
-        try {
-          await sendAndLogSms(supabase, {
-            to:            toDialable(Deno.env.get('ADMIN_PHONE')),
-            body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
-            context:       'AdminNotify',
-            creds:         twilioCredsFromEnv(),
-            appointmentId: bookingId,
-          })
-        } catch (e) { console.error('[book_appointment] admin sms:', e) }
-      })()
-
-      // 8. Clear final confirmation — she never needs to check the website.
-      console.log('[book_appointment] booked id=' + bookingId + ' slot=' + slotId)
-      const confirmation =
-        'מושלם! 💅 קבעתי לך תור ל' + formatHebrewDate(date) + ' בשעה ' + time +
-        ' (' + treatmentName + '). מחכה לך! אם תצטרכי לשנות משהו — פשוט כתבי לי כאן.'
-      return { success: true, confirmation }
 
     } catch (e) {
       console.error('[book_appointment]', e)

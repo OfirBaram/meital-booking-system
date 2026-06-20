@@ -2,10 +2,12 @@ import { createClient }           from 'npm:@supabase/supabase-js@2'
 import { validateAdminSession }   from '../_shared/auth.ts'
 import { adminCors, SEC_HEADERS } from '../_shared/cors.ts'
 import { twilioCredsFromEnv, sendTwilioWhatsApp } from '../_shared/sms.ts'
+import { getSystemHealth }        from '../_shared/health.ts'
 
 // Admin triage of bot-escalated tickets (support_requests).
 //   action 'list'    -> open tickets first, newest within each group.
 //   action 'resolve' -> close a ticket AND notify the client on WhatsApp.
+//   action 'health'  -> queue depth, open-ticket count, newest inbound (monitoring).
 // Mirrors admin-flags: session-auth (HMAC), service-role client, audit log.
 
 Deno.serve(async (req) => {
@@ -32,6 +34,12 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
+
+    // ── health (monitoring) ────────────────────────────────────
+    if (action === 'health') {
+      const health = await getSystemHealth(supabase)
+      return json({ success: true, health })
+    }
 
     // ── list ───────────────────────────────────────────────────
     if (action === 'list') {
