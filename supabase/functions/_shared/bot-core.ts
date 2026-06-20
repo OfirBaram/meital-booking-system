@@ -72,16 +72,17 @@ export async function runConversation(
   // offers exactly the services that currently exist, tuned for the channel
   // (WhatsApp gets in-chat booking rules). Falls back to the default catalogue
   // if the read fails.
-  const channel = ctx.channel ?? 'web'
-  const tools   = toolsForChannel(channel)   // web never gets phone-requiring tools
-  let systemPrompt = buildSystemPrompt(DEFAULT_SERVICES, channel)
+  const channel    = ctx.channel ?? 'web'
+  const clientName = ctx.clientName ?? null
+  const tools      = toolsForChannel(channel)   // web never gets phone-requiring tools
+  let systemPrompt = buildSystemPrompt(DEFAULT_SERVICES, channel, clientName)
   try {
     const { data: svcRows } = await supabase
       .from('services')
       .select('id, name_he, duration_min, active, sort_order')
       .eq('active', true)
       .order('sort_order', { ascending: true })
-    if (svcRows && svcRows.length) systemPrompt = buildSystemPrompt(svcRows as never, channel)
+    if (svcRows && svcRows.length) systemPrompt = buildSystemPrompt(svcRows as never, channel, clientName)
   } catch (e) {
     console.warn('[bot-core] service-load failed, using default prompt', e)
   }

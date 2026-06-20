@@ -51,10 +51,11 @@ export interface ToolContext {
   // web. Tools that don't need them (check_availability, join_waitlist) ignore
   // these fields. escalate_to_support relies on them so the model can never spoof
   // the caller's phone or fabricate the conversation snapshot.
-  channel?:  'web' | 'whatsapp'
-  phone?:    string | null
-  clientId?: string | null
-  history?:  { role: string; content: string }[]
+  channel?:    'web' | 'whatsapp'
+  phone?:      string | null
+  clientId?:   string | null
+  clientName?: string | null   // resolved from clients table; injected into system prompt
+  history?:    { role: string; content: string }[]
 }
 
 export interface BotTool<
@@ -312,7 +313,9 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
       const serviceId = String(input.service_id ?? '').trim()
       const date = String(input.date ?? '').trim()
       const time = String(input.time ?? '').trim()
-      const name = String(input.customer_name ?? '').trim()
+      // Prefer the verified ctx.clientName (already stored in DB) over what the model passes.
+      // This prevents the model from overriding a known identity.
+      const name = (ctx.clientName ?? String(input.customer_name ?? '')).trim()
       if (!SVC_ID_RE.test(serviceId) || !DATE_RE.test(date) || !TIME_RE.test(time) || name.length < 2) {
         return { success: false, error: 'invalid_input' }
       }
@@ -433,11 +436,13 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
           } catch (e) { console.error('[book_appointment] admin wa:', scrubPhones(e instanceof Error ? e.message : String(e))) }
         })()
 
-        // 8. Clear final confirmation — she never needs to check the website.
+        // 8. Pending-approval confirmation — explicit that Meital must approve first.
+        //    This matches the web booking flow exactly: client gets "pending" SMS,
+        //    Meital approves via admin console, THEN client gets final approval SMS/WA.
         console.log('[book_appointment] booked id=' + bookingId + ' slot=' + slotId)
         const confirmation =
-          'מושלם! 💅 קבעתי לך תור ל' + formatHebrewDate(date) + ' בשעה ' + time +
-          ' (' + treatmentName + '). מחכה לך! אם תצטרכי לשנות משהו — פשוט כתבי לי כאן.'
+          'מעולה! 🙏 בקשת התור שלך ל' + formatHebrewDate(date) + ' בשעה ' + time +
+          ' (' + treatmentName + ') התקבלה ומחכה לאישור מיטל. תקבלי הודעה בוואטסאפ ברגע שהתור יאושר! 💅'
         return { success: true, confirmation }
       } finally {
         if (!committed) {
@@ -748,13 +753,15 @@ You are chatting on WhatsApp, NOT the website. Therefore:
 • NEVER tell the customer to "go to the website", open a link, or "book online" — you book for her right here in the chat.
 • Do NOT emit [BOOK:...] or [SVC:...] tokens — they do not render on WhatsApp. Present services and available slots as plain text (a short numbered list) and ask her to reply with her choice.
 • TO BOOK: as soon as you know (1) the service, (2) a concrete date + time she chose from check_availability, and (3) her name — call book_appointment(service_id, date, time, customer_name). Her phone is taken automatically; NEVER ask for it.
-• If her name is missing, ask "ומה השם שלך?" before booking. If the date/time is vague, call check_availability first and let her pick a concrete slot.
+• Her name IS ALREADY KNOWN (injected below as CLIENT_NAME). Use it — never ask for her name again.
+• If the date/time is vague, call check_availability first and let her pick a concrete slot.
 • After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.
+• IMPORTANT — PENDING APPROVAL: the booking is PENDING Meital's approval. Do NOT tell her it's confirmed. She will receive a WhatsApp message the moment Meital approves. If she asks about the status, tell her warmly it is waiting for Meital's approval and she will be notified directly.
 • If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.
 • MANAGING an existing appointment: if she asks what/when her appointment is, call my_appointments and tell her. If she clearly asks to cancel, call cancel_appointment (it cancels her active booking). On "no_active_booking" tell her she has no upcoming appointment. On "too_late_to_cancel" tell her gently that cancellation is only possible up to 48 hours before, so she should message Meital. On success, confirm warmly that the appointment was cancelled.
 • RESCHEDULING: if she wants to MOVE her appointment to another time, first call check_availability so she picks a concrete new date+time, then call reschedule_appointment(new_date, new_time). On "too_late_to_reschedule" or "reschedule_limit_reached" explain gently (allowed up to 48h before, once per booking) and offer [WA]; on "new_slot_not_available" offer fresh times; on success confirm the new date and time.`
 
-export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web'): string {
+export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'whatsapp' = 'web', clientName?: string | null): string {
   const NL = String.fromCharCode(10)
   const active = (services && services.length ? services : DEFAULT_SERVICES)
     .filter(s => s.active !== false)
@@ -769,7 +776,13 @@ export function buildSystemPrompt(services: ServiceRow[], channel: 'web' | 'what
     .replace('{{SVC_TOKENS}}',   tokens)
     .replace('{{SERVICE_IDS}}',  ids)
 
-  if (channel === 'whatsapp') prompt += NL + WHATSAPP_CHANNEL_BLOCK
+  if (channel === 'whatsapp') {
+    let waBlock = WHATSAPP_CHANNEL_BLOCK
+    if (clientName) {
+      waBlock += NL + NL + 'CLIENT_NAME: ' + clientName + ' — address her by this name naturally.'
+    }
+    prompt += NL + waBlock
+  }
   return prompt
 }
 

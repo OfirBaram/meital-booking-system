@@ -263,15 +263,48 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     //    support) receive the VERIFIED identity in their context. Kept if already
     //    linked; otherwise best-effort lookup by phone.
     let clientId = conv?.client_id ?? null
+    let clientName: string | null = null
     if (!clientId) {
       const { data: clientRow } = await supabase
-        .from('clients').select('id').eq('phone', phone).maybeSingle()
-      if (clientRow) clientId = clientRow.id
+        .from('clients').select('id, name').eq('phone', phone).maybeSingle()
+      if (clientRow) { clientId = clientRow.id; clientName = clientRow.name }
+    } else {
+      const { data: cr } = await supabase.from('clients').select('name').eq('id', clientId).maybeSingle()
+      if (cr) clientName = cr.name
+    }
+
+    // 7b. IDENTITY GATE — WhatsApp phone is verified by Twilio HMAC-SHA1 (transport
+    //     auth). The only missing piece for a new user is her NAME so book_appointment
+    //     can address her. If we don't know who she is yet, ask once and persist.
+    //     This is NOT a security gate (phone IS authenticated); it's UX identity.
+    const history: ChatTurn[] = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
+    const isNewUser = !clientName && history.length === 0
+    const nameAsked = !clientName && history.some(
+      t => t.role === 'assistant' && t.content.includes('מה שמך')
+    )
+    // Extract name from reply if we just asked (previous assistant turn was the name-ask)
+    if (!clientName && nameAsked && bodyText.length >= 2 && bodyText.length <= 40 &&
+        !bodyText.includes('http') && /[֐-׿A-Za-z]/.test(bodyText)) {
+      // User answered our name-ask — upsert client and link to conversation
+      const candidateName = bodyText.trim()
+      const { data: upserted } = await supabase
+        .from('clients')
+        .upsert({ phone, name: candidateName }, { onConflict: 'phone' })
+        .select('id, name')
+        .maybeSingle()
+      if (upserted) { clientId = upserted.id; clientName = upserted.name }
     }
 
     // 8. Build the message list for the brain (stored history + new user turn).
-    const history: ChatTurn[]  = Array.isArray(conv?.history) ? conv!.history as ChatTurn[] : []
     const messages: ChatTurn[] = [...history, { role: 'user', content: bodyText }]
+
+    // If this is a brand-new user and we don't have her name yet — ask before LLM.
+    if (isNewUser && !clientName) {
+      const greeting = 'שלום! 💅 אני הבוט של מיטל שבע-ברעם. שמחה שכתבת! כדי שאוכל לעזור לך לקבוע תור — מה שמך?'
+      const greetHistory = trimHistory([...messages, { role: 'assistant', content: greeting }])
+      await persistConversation(supabase, phone, clientId, greetHistory, messageSid)
+      return twiml(greeting)
+    }
 
     // 8b. HANDOVER GATE — circuit breaker (3 consecutive failures) OR support
     //     backlog (degraded). Either way STOP auto-solving: route to a human,
@@ -289,10 +322,11 @@ async function handleWhatsApp(req: Request): Promise<Response> {
     const t0 = Date.now()
     const reply = await runConversation(messages as Anthropic.MessageParam[], {
       supabase,
-      channel:  'whatsapp',
+      channel:    'whatsapp',
       phone,
       clientId,
-      history:  messages,
+      clientName,
+      history:    messages,
     })
     breaker.recordSuccess()
     recordLatency(supabase, phone, Date.now() - t0)
