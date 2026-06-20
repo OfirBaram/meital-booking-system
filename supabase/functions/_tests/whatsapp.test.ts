@@ -15,7 +15,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
 
-import { renderForWhatsApp, trimHistory, maskPhone, type ChatTurn } from '../_shared/whatsapp.ts'
+import { renderForWhatsApp, trimHistory, maskPhone, scrubPhones, type ChatTurn } from '../_shared/whatsapp.ts'
 import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
 import { buildTwilioSignatureBase, verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
 import { TOOL_REGISTRY } from '../_shared/bot-config.ts'
@@ -233,6 +233,14 @@ Deno.test('trimHistory: caps length and keeps user-first alternation', () => {
 Deno.test('maskPhone: never leaks more than the last 4 digits', () => {
   assertEquals(maskPhone('+972501234567'), '****4567')
   assertEquals(maskPhone(null), 'unknown')
+})
+
+Deno.test('scrubPhones: redacts phone numbers leaking via Twilio error bodies', () => {
+  const leak = "Twilio WA 400: The 'To' number whatsapp:+972501234567 is not valid"
+  const out  = scrubPhones(leak)
+  assert(!out.includes('972501234567'), 'E.164 redacted')
+  assert(!out.includes('501234567'), 'no digit tail left')
+  assertEquals(scrubPhones('0541234567 called'), '****redacted**** called')
 })
 
 // ── Twilio signature ─────────────────────────────────────────────────────────────

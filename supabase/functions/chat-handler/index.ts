@@ -127,10 +127,16 @@ async function isDegraded(supabase: any): Promise<boolean> {
 
 // deno-lint-ignore no-explicit-any
 async function persistConversation(supabase: any, phone: string, clientId: string | null, history: ChatTurn[], messageSid: string): Promise<void> {
-  const { error } = await supabase.from('whatsapp_conversations').upsert({
-    phone, client_id: clientId, history, last_msg_sid: messageSid, last_inbound_at: new Date().toISOString(),
-  }, { onConflict: 'phone' })
-  if (error) console.error('[wa] persist failed:', error.message)
+  // Must NEVER throw — a save failure must not cost the customer the reply the
+  // brain already produced (we still return it; only the memory write is lost).
+  try {
+    const { error } = await supabase.from('whatsapp_conversations').upsert({
+      phone, client_id: clientId, history, last_msg_sid: messageSid, last_inbound_at: new Date().toISOString(),
+    }, { onConflict: 'phone' })
+    if (error) console.error('[wa] persist failed:', error.message)
+  } catch (e) {
+    console.error('[wa] persist threw:', e instanceof Error ? e.message : String(e))
+  }
 }
 
 // Ensure exactly ONE open ticket per phone (deduped) — the fail-safe must not
@@ -273,7 +279,7 @@ async function handleWhatsApp(req: Request): Promise<Response> {
       console.warn('[wa] handover breakerOpen=' + breaker.isOpen() + ' phone=' + maskPhone(phone))
       await ensureOpenTicket(supabase, phone, clientId, messages)
       await persistConversation(supabase, phone, clientId,
-        trimHistory([...messages, { role: 'assistant', content: '[handover to human]' }]), messageSid)
+        trimHistory([...messages, { role: 'assistant', content: 'העברתי אותך לטיפול אישי של מיטל.' }]), messageSid)
       return twiml('אני מעבירה אותך ישירות למיטל 💛 היא תחזור אלייך אישית בהקדם. תודה על הסבלנות!')
     }
 

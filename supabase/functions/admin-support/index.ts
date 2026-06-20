@@ -3,6 +3,7 @@ import { validateAdminSession }   from '../_shared/auth.ts'
 import { adminCors, SEC_HEADERS } from '../_shared/cors.ts'
 import { twilioCredsFromEnv, sendTwilioWhatsApp } from '../_shared/sms.ts'
 import { getSystemHealth }        from '../_shared/health.ts'
+import { scrubPhones }            from '../_shared/whatsapp.ts'
 
 // Admin triage of bot-escalated tickets (support_requests).
 //   action 'list'    -> open tickets first, newest within each group.
@@ -99,7 +100,7 @@ Deno.serve(async (req) => {
               } catch (e) { console.error('[admin-support] log insert failed', e) }
             })()
           } catch (e) {
-            console.error('[admin-support] WhatsApp notify failed', e)
+            console.error('[admin-support] WhatsApp notify failed:', scrubPhones(e instanceof Error ? e.message : String(e)))
           }
         }
       }

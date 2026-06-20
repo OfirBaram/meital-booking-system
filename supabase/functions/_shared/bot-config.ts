@@ -31,6 +31,7 @@ import { twilioCredsFromEnv }       from './sms.ts'
 import { sendAndLogSms }            from './notify.ts'
 import { toDialable }               from './phone.ts'
 import { buildAdminNewBookingSms }  from './messages.ts'
+import { scrubPhones }              from './whatsapp.ts'
 
 // ── Debug mode ──────────────────────────────────────────────────────────────
 export const DEBUG_MODE = Deno.env.get('CHAT_DEBUG') === 'true'
@@ -397,7 +398,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
               creds:         twilioCredsFromEnv(),
               appointmentId: bookingId,
             })
-          } catch (e) { console.error('[book_appointment] admin sms:', e) }
+          } catch (e) { console.error('[book_appointment] admin sms:', scrubPhones(e instanceof Error ? e.message : String(e))) }
         })()
 
         // 8. Clear final confirmation — she never needs to check the website.
