@@ -490,9 +490,7 @@ function renderNailScreening() {
 
 // Event delegation — wire once; survives innerHTML re-renders of the panel.
 function setupNailScreening() {
-  const panel = document.getElementById('js-nail-screening');
-  if (!panel) return;
-  panel.addEventListener('click', e => {
+  document.addEventListener('click', e => {
     const btn = e.target.closest('[data-nail-key]');
     if (!btn) return;
     const key = btn.dataset.nailKey;
@@ -500,7 +498,7 @@ function setupNailScreening() {
     State.nailNotes[key] = raw === 'true' ? true : raw === 'false' ? false : raw;
     renderNailScreening();
     updateNav();
-  });
+  }, { once: false });
   renderNailScreening();
 }
 // ═══════════════════════════════════════════════════
