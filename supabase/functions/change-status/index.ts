@@ -1,6 +1,6 @@
 import { createClient }                                 from 'npm:@supabase/supabase-js@2'
 import { buildClientStatusSms, type ClientStatus }     from '../_shared/messages.ts'
-import { twilioCredsFromEnv }                           from '../_shared/sms.ts'
+import { twilioCredsFromEnv, sendTwilioWhatsAppFreeform } from '../_shared/sms.ts'
 import { sendAndLogSms, statusToContext, sendClientStatusNotification } from '../_shared/notify.ts'
 import { toDialable }                                   from '../_shared/phone.ts'
 import { validateAdminSession }                         from '../_shared/auth.ts'
@@ -16,10 +16,9 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
     await sendClientStatusNotification(supabase, bookingId, targetStatus.toLowerCase() as ClientStatus)
     return
   }
-  const needsSlotFields = !customBody
   const { data: bk, error } = await supabase
     .from('bookings_view')
-    .select(needsSlotFields ? 'name, phone, serviceName, date, time' : 'name, phone')
+    .select('name, phone, source')
     .eq('id', bookingId)
     .maybeSingle()
 
@@ -35,15 +34,33 @@ async function notifyClient(supabase: any, bookingId: string, targetStatus: stri
     return
   }
 
-  const body = customBody || buildClientStatusSms(status, {
-    serviceName: bk.serviceName,
-    date:        bk.date,
-    time:        bk.time,
-  })
-
   const creds  = twilioCredsFromEnv()
+  const waFrom = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
+
+  // WhatsApp-sourced bookings → send the admin's custom text via WhatsApp freeform.
+  // Freeform works within the 24-hour session window (typical for same-day reviews).
+  if (bk.source === 'whatsapp' && waFrom && creds) {
+    try {
+      await sendTwilioWhatsAppFreeform(bk.phone, customBody, creds, waFrom)
+      ;(async () => {
+        try {
+          await supabase.from('communication_logs').insert({
+            channel: 'whatsapp', recipient_phone: bk.phone, context, status: 'SENT',
+            message_body: customBody.slice(0, 1000), appointment_id: bookingId,
+          })
+        } catch (logErr) {
+          console.error('[change-status] wa-freeform log-fail:', logErr instanceof Error ? logErr.message : String(logErr))
+        }
+      })()
+      console.log('[change-status] client-wa-freeform SENT status=' + status + ' to=****' + String(bk.phone).slice(-4))
+      return
+    } catch (waErr) {
+      console.error('[change-status] wa-freeform failed → SMS fallback:', waErr instanceof Error ? waErr.message : String(waErr))
+    }
+  }
+
   const result = await sendAndLogSms(supabase, {
-    to: bk.phone, body, context, creds, appointmentId: bookingId,
+    to: bk.phone, body: customBody, context, creds, appointmentId: bookingId,
     alertAdminPhone: toDialable(Deno.env.get('ADMIN_PHONE')), clientLabel: bk.name,
   })
   console.log('[change-status] client-sms result=' + result + ' status=' + status + ' to=****' + String(bk.phone).slice(-4))
