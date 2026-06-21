@@ -21,13 +21,14 @@ const CLIENT_CONTEXTS = new Set<CommContext>([
   'ClientSelfCancel', 'ClientReschedule',
 ])
 
-// Mirrors the communication_logs CHECK constraints (initial_schema migration).
+// Mirrors the communication_logs CHECK constraints (updated by migration 20260620000004).
 export type LogStatus  = 'SENT' | 'MOCK' | 'ERROR'
 export type CommContext =
   | 'OTP' | 'AdminNotify'
   | 'ClientApproval' | 'ClientRejection' | 'ClientCancellation'
   | 'DailyReminder'
   | 'ClientSelfCancel' | 'ClientReschedule'
+  | 'SupportResolved' | 'BotLatency'
 
 const VALID_STATUSES: LogStatus[] = ['SENT', 'MOCK', 'ERROR']
 
@@ -182,7 +183,7 @@ export async function sendClientStatusNotification(supabase: any, bookingId: str
   if (creds && waFrom && tmpl) {
     let source = ''
     try {
-      const { data: appt } = await supabase.from('appointments').select('source').eq('id', bookingId).maybeSingle()
+      const { data: appt } = await supabase.from('appointments').select('source, client_id').eq('id', bookingId).maybeSingle()
       source = (appt?.source ?? '') as string
     } catch { /* source column absent in older DBs → treat as non-whatsapp → SMS */ }
 
@@ -213,7 +214,7 @@ export async function sendClientStatusNotification(supabase: any, bookingId: str
           ;(async () => {
             try {
               await supabase.from('whatsapp_conversations')
-                .upsert({ phone: bk.phone, state: 'awaiting_terms' }, { onConflict: 'phone' })
+                .upsert({ phone: bk.phone, state: 'awaiting_terms', ...(appt?.client_id ? { client_id: appt.client_id } : {}) }, { onConflict: 'phone' })
             } catch (e) { console.error('[notify] terms-state-fail:', e instanceof Error ? e.message : String(e)) }
           })()
         }
