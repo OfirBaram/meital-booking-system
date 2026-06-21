@@ -463,12 +463,6 @@ function isNailScreeningComplete() {
   return NAIL_QUESTIONS.every(q => State.nailNotes[q.key] !== undefined);
 }
 
-function setNailNote(key, value) {
-  State.nailNotes[key] = value;
-  renderNailScreening();
-  updateNav();
-}
-
 function renderNailScreening() {
   const panel = document.getElementById('js-nail-screening');
   if (!panel) return;
@@ -486,7 +480,7 @@ function renderNailScreening() {
             const cls = selected
               ? 'px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white cursor-pointer'
               : 'px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/8 text-text-main cursor-pointer hover:bg-primary/15';
-            return `<button type="button" class="${cls}" onclick="setNailNote('${sanitize(String(q.key))}',${typeof o.v === 'boolean' ? o.v : `'${o.v}'`})">${sanitize(String(o.t))}</button>`;
+            return `<button type="button" class="${cls}" data-nail-key="${sanitize(String(q.key))}" data-nail-val="${sanitize(String(o.v))}">${sanitize(String(o.t))}</button>`;
           }).join('')}
         </div>
       </div>`;
@@ -494,7 +488,19 @@ function renderNailScreening() {
     }).join('');
 }
 
+// Event delegation — wire once; survives innerHTML re-renders of the panel.
 function setupNailScreening() {
+  const panel = document.getElementById('js-nail-screening');
+  if (!panel) return;
+  panel.addEventListener('click', e => {
+    const btn = e.target.closest('[data-nail-key]');
+    if (!btn) return;
+    const key = btn.dataset.nailKey;
+    const raw = btn.dataset.nailVal;
+    State.nailNotes[key] = raw === 'true' ? true : raw === 'false' ? false : raw;
+    renderNailScreening();
+    updateNav();
+  });
   renderNailScreening();
 }
 // ═══════════════════════════════════════════════════

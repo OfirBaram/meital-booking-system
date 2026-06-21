@@ -174,10 +174,10 @@ export default APP_CONFIG;
 async function fillNailScreening(page) {
   const panel = page.locator('#js-nail-screening')
   await expect(panel).toBeVisible({ timeout: 3_000 })
-  await page.locator('[onclick*="nail_length"]').first().click()
-  await page.locator('[onclick*="existing_coating"]').first().click()
-  await page.locator('[onclick*="extras"]').first().click()
-  await page.locator('[onclick*="damaged_nails"]').first().click()
+  await panel.locator('[data-nail-key="nail_length"]').first().click()
+  await panel.locator('[data-nail-key="existing_coating"]').first().click()
+  await panel.locator('[data-nail-key="extras"]').first().click()
+  await panel.locator('[data-nail-key="damaged_nails"]').first().click()
 }
 
 async function goToOTPStep(page) {
