@@ -104,16 +104,14 @@ const checkAvailabilityTool: BotTool<AvailabilityInput, AvailabilityOutput> = {
   async execute(input, { supabase }) {
     // Clamp to [1, 60] — prevents NaN/Infinity timestamps and runaway query ranges
     const daysAhead = Math.min(Math.max(1, Number(input.days_ahead) || 30), 60)
-    const now     = new Date()
-    const fromUTC = new Date(now.getTime() - 3 * 3_600_000).toISOString()
-    const toUTC   = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
+    const now   = new Date()
+    const toUTC = new Date(now.getTime() + daysAhead * 86_400_000 + 3 * 3_600_000).toISOString()
 
     // ONLY SELECT — PostgREST parameterised queries make SQL injection impossible.
     const { data, error } = await supabase
       .from('slots')
       .select('start_time')
       .eq('status', 'available')
-      .gte('start_time', fromUTC)
       .lte('start_time', toUTC)
       .gt('start_time', now.toISOString())
       .order('start_time')
