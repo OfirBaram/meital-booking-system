@@ -139,11 +139,12 @@ export function buildAdminSelfCancelSms(name: string, f: BookingMsgFields): stri
 }
 
 export interface RescheduleMsgFields {
-  serviceName: string
-  oldDate:     string
-  oldTime:     string
-  newDate:     string
-  newTime:     string
+  serviceName:       string
+  oldDate:           string
+  oldTime:           string
+  newDate:           string
+  newTime:           string
+  appointmentStatus?: string
 }
 
 export function buildClientRescheduleSms(f: RescheduleMsgFields): string {
@@ -152,6 +153,7 @@ export function buildClientRescheduleSms(f: RescheduleMsgFields): string {
 }
 
 export function buildAdminRescheduleSms(name: string, f: RescheduleMsgFields): string {
-  const n = (name ?? '').trim()
-  return 'שינוי תאריך: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
+  const n      = (name ?? '').trim()
+  const suffix = f.appointmentStatus === 'pending' ? ' — ממתין לאישורך' : ''
+  return 'שינוי תאריך: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.' + suffix
 }

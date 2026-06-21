@@ -251,9 +251,21 @@ async function test_reschedule_message_is_factually_correct() {
   if (!clientSms.includes('שינוי תאריך בוצע')) throw new Error('Expected "שינוי תאריך בוצע" in: ' + clientSms)
   ok('buildClientRescheduleSms: no "ממתין לאישור" — correct for already-approved appointments')
 
-  const adminSms = buildAdminRescheduleSms('דנה', f)
-  if (adminSms.includes('אשרי את ההזמנה')) throw new Error('Admin reschedule SMS still says "אשרי את ההזמנה"! Got: ' + adminSms)
-  ok('buildAdminRescheduleSms: no re-approval prompt — swap_slot_for_reschedule does not change status')
+  // Test admin SMS for approved appointment (no action needed)
+  const adminSmsApproved = buildAdminRescheduleSms('דנה', f)
+  if (adminSmsApproved.includes('אשרי את ההזמנה')) throw new Error('Admin reschedule SMS still says "אשרי את ההזמנה"! Got: ' + adminSmsApproved)
+  if (adminSmsApproved.includes('ממתין לאישורך')) throw new Error('Approved reschedule SMS should NOT say "ממתין לאישורך". Got: ' + adminSmsApproved)
+  ok('buildAdminRescheduleSms (approved): no re-approval prompt — swap_slot_for_reschedule does not change status')
+
+  // Test admin SMS for pending appointment (admin needs to approve)
+  function buildAdminRescheduleSmsWithStatus(name, f) {
+    const n = (name || '').trim()
+    const suffix = f.appointmentStatus === 'pending' ? ' — ממתין לאישורך' : ''
+    return 'שינוי תאריך: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.' + suffix
+  }
+  const adminSmsPending = buildAdminRescheduleSmsWithStatus('דנה', { ...f, appointmentStatus: 'pending' })
+  if (!adminSmsPending.includes('ממתין לאישורך')) throw new Error('Pending reschedule SMS should say "ממתין לאישורך". Got: ' + adminSmsPending)
+  ok('buildAdminRescheduleSms (pending): adds "ממתין לאישורך" so admin knows they need to approve')
 }
 
 async function test_cancel_message_neutral_channel() {

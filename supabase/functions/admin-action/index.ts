@@ -166,8 +166,8 @@ Deno.serve(async (req) => {
     }
 
     return targetStatus === 'approved'
-      ? htmlPage('התור אושר', 'הלקוחה קיבלה הודעת SMS על אישור התור. ההזמנה מופיעה כעת כ"אושר" בלוח.', 'ok')
-      : htmlPage('התור נדחה', 'הלקוחה קיבלה הודעת SMS, והחריץ שוחרר לזמינות מחדש.', 'ok')
+      ? htmlPage('התור אושר', 'הלקוחה קיבלה הודעה על אישור התור. ההזמנה מופיעה כעת כ"אושר" בלוח.', 'ok')
+      : htmlPage('התור נדחה', 'הלקוחה קיבלה הודעה, והחריץ שוחרר לזמינות מחדש.', 'ok')
 
   } catch (err) {
     console.error('[admin-action] unhandled', err instanceof Error ? err.message : String(err))

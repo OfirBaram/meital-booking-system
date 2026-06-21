@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       await sendAndLogSms(supabase, { to: phone, body: buildClientRescheduleSms(fields), context: 'ClientReschedule', creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: cl.full_name })
     }
     if (adminPh) {
-      await sendAndLogSms(supabase, { to: adminPh, body: buildAdminRescheduleSms(cl.full_name, fields), context: 'AdminNotify', creds, appointmentId: bookingId })
+      await sendAndLogSms(supabase, { to: adminPh, body: buildAdminRescheduleSms(cl.full_name, { ...fields, appointmentStatus: appt.status }), context: 'AdminNotify', creds, appointmentId: bookingId })
     }
 
     console.log('[client-reschedule] success bookingId=' + bookingId + ' newSlot=' + newSlotId)
