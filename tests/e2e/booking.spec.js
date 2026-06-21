@@ -401,6 +401,7 @@ export default APP_CONFIG;
 
     // Navigate to step 2
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
 
@@ -478,6 +479,7 @@ test.describe('Performance — instant calendar render on cache hit', () => {
 
     // Navigate to step 2
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
 
