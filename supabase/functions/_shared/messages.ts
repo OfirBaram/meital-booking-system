@@ -56,6 +56,7 @@ export interface AdminMsgFields {
   serviceName: string
   date:        string  // YYYY-MM-DD
   time:        string  // HH:MM
+  nailNotes?:  Record<string, unknown> | null
 }
 
 /**
@@ -68,16 +69,31 @@ export interface AdminMsgFields {
  * no URL to filter on, so it gets through. The admin approves/rejects in the
  * dashboard (which already lists the booking) — no one-tap link needed.
  */
+function fmtNailNotes(n: Record<string, unknown> | null | undefined): string {
+  if (!n || typeof n !== 'object' || Object.keys(n).length === 0) return ''
+  const labels: Record<string, string> = {
+    existing_gel:   'ג׳ל קיים',
+    nail_condition: 'מצב ציפורן',
+    allergies:      'אלרגיות',
+    prev_treatment: 'טיפול קודם',
+  }
+  const lines = Object.entries(n)
+    .map(([k, v]) => (labels[k] ?? k) + ': ' + String(v).slice(0, 60))
+  return lines.length ? '
+📋 ' + lines.join(' | ') : ''
+}
+
 export function buildAdminNewBookingSms(f: AdminMsgFields): string {
   const n = (f.name ?? '').trim()
   const s = (f.serviceName ?? '').trim()
   const p = (f.phone ?? '').trim()
-  return `הזמנה: ${n}, ${s}. ${formatDateDmy(f.date)} ${f.time}. טל: ${p}`
+  return `הזמנה: ${n}, ${s}. ${formatDateDmy(f.date)} ${f.time}. טל: ${p}${fmtNailNotes(f.nailNotes)}`
 }
 
 export interface AdminApprovalFields {
   name: string; serviceName: string; date: string; time: string; phone: string
   approveUrl: string; rejectUrl: string
+  nailNotes?: Record<string, unknown> | null
 }
 
 /**
