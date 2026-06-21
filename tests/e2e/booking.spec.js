@@ -126,6 +126,7 @@ export default APP_CONFIG;
 
 async function goToStep2(page) {
   await page.locator('.service-card').first().click()
+  await fillNailScreening(page)
   await page.locator('#btn-next').click()
   await expect(page.locator('#step-2')).toBeVisible({ timeout: 8_000 })
 }
@@ -147,6 +148,16 @@ async function goToStep4(page) {
   await page.locator('#btn-next').click()
   await expect(page.locator('#step-4')).toBeVisible({ timeout: 8_000 })
   await expect(page.locator('.otp-input')).toHaveCount(6)
+}
+
+// Fills the mandatory nail pre-screening for gel_hands (first option per question).
+async function fillNailScreening(page) {
+  const panel = page.locator('#js-nail-screening')
+  await expect(panel).toBeVisible({ timeout: 3_000 })
+  await panel.locator('[data-nail-key="nail_length"]').first().click()
+  await panel.locator('[data-nail-key="existing_coating"]').first().click()
+  await panel.locator('[data-nail-key="extras"]').first().click()
+  await panel.locator('[data-nail-key="damaged_nails"]').first().click()
 }
 
 // ─── OTP helper: fill each box by DOM index (focus-independent) ───────────────
@@ -179,11 +190,13 @@ test.describe('Step 1 — Service selection', () => {
 
   test('selecting a service enables the Next button', async ({ page }) => {
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await expect(page.locator('#btn-next')).toBeEnabled()
   })
 
   test('multi-select: a second service can be added and removed (toggle)', async ({ page }) => {
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('.service-card').nth(1).click()
     // Both selected → summary bar reflects the combined choice.
     await expect(page.locator('[data-qa="service-summary"]')).toBeVisible()
@@ -203,6 +216,7 @@ test.describe('Step 1 — Service selection', () => {
 
   test('clicking Next after a selection advances to step 2', async ({ page }) => {
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
     await expect(page.locator('#step-1')).not.toBeVisible()
@@ -387,6 +401,7 @@ export default APP_CONFIG;
 
     // Navigate to step 2
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
 
@@ -464,6 +479,7 @@ test.describe('Performance — instant calendar render on cache hit', () => {
 
     // Navigate to step 2
     await page.locator('.service-card').first().click()
+    await fillNailScreening(page)
     await page.locator('#btn-next').click()
     await expect(page.locator('#step-2')).toBeVisible()
 

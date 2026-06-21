@@ -283,6 +283,7 @@ interface BookInput extends Record<string, unknown> {
   date:          string
   time:          string
   customer_name: string
+  nail_notes?:   Record<string, unknown> | null
 }
 interface BookOutput {
   success: boolean
@@ -293,7 +294,7 @@ interface BookOutput {
 const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
   definition: {
     name: 'book_appointment',
-    description: 'Book a real appointment directly on WhatsApp (no website). Call ONLY when you already have all four: service id, a date (YYYY-MM-DD) and time (HH:MM) the customer picked from check_availability, and her name. Her phone is taken automatically from WhatsApp — NEVER ask for it. On success you MUST relay the returned confirmation text to her.',
+    description: 'Book a real appointment directly on WhatsApp (no website). Call ONLY when you already have all four: service id, a date (YYYY-MM-DD) and time (HH:MM) the customer picked from check_availability, and her name. Her phone is taken automatically from WhatsApp — NEVER ask for it. For gel_hands, you MUST also pass nail_notes with the four screening answers (nail_length, existing_coating, extras, damaged_nails) — collect them before calling. On success you MUST relay the returned confirmation text to her.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -301,6 +302,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
         date:          { type: 'string', description: 'Date, YYYY-MM-DD (Jerusalem).' },
         time:          { type: 'string', description: 'Start time HH:MM (24h, Jerusalem) — must be a slot from check_availability.' },
         customer_name: { type: 'string', description: 'Customer name (ask for it in chat first if unknown).' },
+        nail_notes:    { type: 'object', description: 'Required for gel_hands only. Keys: nail_length (short|medium|long), existing_coating (none|gel|acrylic), extras (none|gems|art), damaged_nails (boolean).' },
       },
       required: ['service_id', 'date', 'time', 'customer_name'],
     },
@@ -387,6 +389,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
           status:           'pending',
           admin_token:      adminToken,
           source:           'whatsapp',
+          nail_notes:       (input.nail_notes && typeof input.nail_notes === 'object') ? input.nail_notes : null,
         })
         if (apptErr) {
           console.error('[book_appointment] appt insert:', apptErr.message)
@@ -414,7 +417,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
             }
             await sendAndLogSms(supabase, {
               to:            adminPhone,
-              body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
+              body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time, nailNotes: (input.nail_notes && typeof input.nail_notes === 'object') ? input.nail_notes : null }),
               context:       'AdminNotify',
               creds:         twilioCredsFromEnv(),
               appointmentId: bookingId,
@@ -456,6 +459,7 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
               base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
             await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
               name, serviceName: treatmentName, date, time, phone,
+              nailNotes: (input.nail_notes && typeof input.nail_notes === 'object') ? input.nail_notes : null,
               approveUrl: link('approve'), rejectUrl: link('reject'),
             }), waCreds, waFrom)
             console.log('[book_appointment] admin-wa sent bookingId=' + bookingId)
@@ -674,17 +678,16 @@ Never write raw URLs — always use the token. Do not invent other tokens.
 
 ── OPERATIONAL RULES ────────────────────────────────────────────────────────
 1. Use check_availability when the customer asks about free times or wants to book.
-   SERVICE SELECTION — if the customer wants to book but has not yet chosen a service, first present all three options on separate lines using the SVC tokens (they render as tap-to-select buttons):
+   SERVICE SELECTION — if the customer wants to book but has not yet chosen a service, first present both options on separate lines using the SVC tokens (they render as tap-to-select buttons):
    [SVC:gel_hands]
-   [SVC:regular_feet]
-   [SVC:gel_combo]
+   [SVC:brows_wax]
    Once the customer selects one, call check_availability and return [BOOK:...] links using the correct service_id.
 2. Present up to 3 slots with booking links: [BOOK:YYYY-MM-DD:HH:MM:service_id]
    Valid service_id values: {{SERVICE_IDS}}
    Example: [BOOK:2026-06-20:10:00:gel_hands]
 3. PRICING — never quote prices. Reply: "לבירור מחיר ישירות 📲" then on a new line: [WA]
 4. WHATSAPP THRESHOLD (anti-hallucination gate) — if the question is anything beyond
-   studio hours, location, booking slots, or the three listed services, output a short
+   studio hours, location, booking slots, or the two listed services, output a short
    warm sentence then [WA]. Do NOT guess, speculate, or answer outside your knowledge.
 5. INSTAGRAM — whenever discussing style, past work, or quality, add [IG] so the user
    can browse the visual portfolio. Instagram is the studio's showcase.
@@ -725,10 +728,9 @@ Never write raw URLs — always use the token. Do not invent other tokens.
     Ask for the three pieces of information ONE AT A TIME (do NOT ask for all at once):
     Step A: "מה שמך?"
     Step B (after name): "ומה מספר הטלפון שלך?"  (any Israeli format is fine)
-    Step C (after phone): present the three SVC chips:
+    Step C (after phone): present the two SVC chips:
     [SVC:gel_hands]
-    [SVC:regular_feet]
-    [SVC:gel_combo]
+    [SVC:brows_wax]
     Once you have all three, call join_waitlist(name, phone, service).
 
     PART 3 — Confirm + Instagram bridge:
@@ -765,9 +767,8 @@ export interface ServiceRow {
 
 // Fallback used if the services table can't be read (mirrors the seed).
 export const DEFAULT_SERVICES: ServiceRow[] = [
-  { id: 'gel_hands',    name_he: "לק ג׳ל לציפורניים",           duration_min: 60, sort_order: 0 },
-  { id: 'regular_feet', name_he: "לק רגיל לציפורניים ברגליים", duration_min: 30, sort_order: 1 },
-  { id: 'gel_combo',    name_he: "לק ג'ל ידיים + לק רגליים",   duration_min: 90, sort_order: 2 },
+  { id: 'gel_hands', name_he: "לק ג׳ל לציפורניים",  duration_min: 60, sort_order: 0 },
+  { id: 'brows_wax', name_he: 'עיצוב גבות ושפם',    duration_min: 15, sort_order: 1 },
 ]
 
 // Build the system prompt from the live service catalogue. Fills the
@@ -780,10 +781,13 @@ You are chatting on WhatsApp, NOT the website. Therefore:
 • NEVER tell the customer to "go to the website", open a link, or "book online" — you book for her right here in the chat.
 • Do NOT emit [BOOK:...] or [SVC:...] tokens — they do not render on WhatsApp. Present services and available slots as plain text (a short numbered list) and ask her to reply with her choice.
 • TO BOOK: as soon as you know (1) the service, (2) a concrete date + time she chose from check_availability, and (3) her name — call book_appointment(service_id, date, time, customer_name). Her phone is taken automatically; NEVER ask for it.
+• NAIL PRE-SCREENING (gel_hands ONLY — MANDATORY): Before calling book_appointment for gel_hands, you MUST collect four answers and pass them as nail_notes: (1) "מה אורך הציפורניים שלך?" → nail_length: short/medium/long; (2) "יש לך כרגע ג'ל או אקריל על הציפורניים?" → existing_coating: none/gel/acrylic; (3) "מעוניינת בתוספות — אבנים או ציור?" → extras: none/gems/art; (4) "יש לך ציפורן שבורה או פגועה?" → damaged_nails: true/false. Ask all four before booking. Do NOT skip or guess.
 • Her name IS ALREADY KNOWN (injected below as CLIENT_NAME). Use it — never ask for her name again.
+• ANTI-HALLUCINATION — BOOKING TOOL IS MANDATORY: You are INCAPABLE of creating a booking yourself. ONLY the book_appointment tool creates a real booking in the system. NEVER write ANY phrase like "קבעתי לך תור", "תורך נקבע", "ביצעתי הזמנה", "בקשת התור שלך התקבלה", or any booking confirmation unless book_appointment just returned {success: true} in this exact response. Writing such phrases without calling the tool = deceiving the customer. The appointment literally does not exist.
+• NUMBERED SLOT → IMMEDIATE TOOL CALL: When you presented a numbered slot list and the customer replies with a number (e.g. "1", "2", "שלישי"), you already know the service_id, date, time, and her name (CLIENT_NAME). Call book_appointment IMMEDIATELY — no text before the tool call, no extra confirmation, no "בטח!" first. Just call the tool. The confirmation comes AFTER book_appointment returns success.
 • If the date/time is vague, call check_availability first and let her pick a concrete slot.
 • After book_appointment returns success, send her the confirmation text it returned, warmly — she should never need to check anywhere else.
-• IMPORTANT — PENDING APPROVAL: the booking is PENDING Meital's approval. Do NOT tell her it's confirmed. She will receive a WhatsApp message the moment Meital approves. If she asks about the status, tell her warmly it is waiting for Meital's approval and she will be notified directly.
+• IMPORTANT — AWAITING APPROVAL: the booking is awaiting Meital's approval. NEVER use the English word "PENDING". Say in Hebrew e.g. "התור שלך ממתין לאישור מיטל — תקבלי הודעה בוואטסאפ ברגע שיאושר 💅". She will receive a WhatsApp message the moment Meital approves. If she asks about the status, say warmly in Hebrew that it is waiting for approval and she will be notified directly.
 • If book_appointment fails: on "slot_not_available" tell her warmly the time was just taken and call check_availability for fresh options; on "too_many_pending" tell her she already has open requests waiting and to follow up with Meital; on any other error apologize briefly and offer [WA]. NEVER invent a confirmation for a booking that did not succeed.
 • MANAGING an existing appointment: if she asks what/when her appointment is, call my_appointments and tell her. If she clearly asks to cancel, call cancel_appointment (it cancels her active booking). On "no_active_booking" tell her she has no upcoming appointment. On "too_late_to_cancel" tell her gently that cancellation is only possible up to 48 hours before, so she should message Meital. On success, confirm warmly that the appointment was cancelled.
 • RESCHEDULING: if she wants to MOVE her appointment to another time, first call check_availability so she picks a concrete new date+time, then call reschedule_appointment(new_date, new_time). On "too_late_to_reschedule" or "reschedule_limit_reached" explain gently (allowed up to 48h before, once per booking) and offer [WA]; on "new_slot_not_available" offer fresh times; on success confirm the new date and time.`

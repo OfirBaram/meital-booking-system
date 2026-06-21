@@ -90,8 +90,19 @@ async function setupMocks(page, overrides = {}) {
 
 // ─── Step helpers (data-qa selectors throughout) ─────────────────────────────
 
+// Fill mandatory nail pre-screening (gel_hands).
+async function fillNailScreening(page) {
+  const panel = page.locator('#js-nail-screening')
+  await expect(panel).toBeVisible({ timeout: 3_000 })
+  await panel.locator('[data-nail-key="nail_length"]').first().click()
+  await panel.locator('[data-nail-key="existing_coating"]').first().click()
+  await panel.locator('[data-nail-key="extras"]').first().click()
+  await panel.locator('[data-nail-key="damaged_nails"]').first().click()
+}
+
 async function goToStep2(page) {
   await page.locator('[data-qa^="card-service"]').first().click()
+  await fillNailScreening(page)
   await page.locator('[data-qa="btn-next"]').click()
   await expect(page.locator('#step-2')).toBeVisible({ timeout: 8_000 })
 }

@@ -59,15 +59,16 @@ async function sendAdminSms(supabase: any, params: {
   date:          string
   time:          string
   bookingId:     string
+  nailNotes?:    Record<string, unknown> | null
 }): Promise<void> {
   const {
     adminPhone, accountSid, authToken, fromNumber,
-    name, phone, serviceName, date, time, bookingId,
+    name, phone, serviceName, date, time, bookingId, nailNotes,
   } = params
 
   // LINK-FREE on purpose: carriers content-filter link-heavy admin SMS (see
   // buildAdminNewBookingSms). The admin approves/rejects from the dashboard.
-  const body = buildAdminNewBookingSms({ name, phone, serviceName, date, time })
+  const body = buildAdminNewBookingSms({ name, phone, serviceName, date, time, nailNotes: nailNotes ?? null })
 
   const creds = accountSid && authToken && fromNumber ? { accountSid, authToken, fromNumber } : null
   await sendAndLogSms(supabase, {
@@ -342,6 +343,7 @@ Deno.serve(async (req) => {
         is_verified:      true,
         status:           'pending',
         admin_token:      adminToken,
+        nail_notes:       (booking.nail_notes && typeof booking.nail_notes === 'object') ? booking.nail_notes : null,
       })
 
     if (apptError) {
@@ -372,6 +374,7 @@ Deno.serve(async (req) => {
       date:        booking.date,
       time:        booking.time,
       bookingId:   booking.id,
+      nailNotes:   booking.nail_notes ?? null,
     }).catch(e => console.warn('[verify-and-book] admin-sms-fail:', e.message))
 
     console.log('[verify-and-book] step:complete booking_id=' + booking.id)
