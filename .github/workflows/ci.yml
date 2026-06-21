@@ -13,7 +13,8 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: ['main', 'feat-*']  
+    branches: ['main', 'feat-*']
+  workflow_dispatch:  # allow manual trigger from GitHub UI  
 
 # Cancel any in-progress run for the same PR or branch when a new push arrives.
 # Prevents stacking of parallel CI runs on a single feature branch.
