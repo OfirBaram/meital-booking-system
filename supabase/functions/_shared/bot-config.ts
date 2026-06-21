@@ -408,8 +408,14 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
         // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
         ;(async () => {
           try {
+            const adminPhone = toDialable(Deno.env.get('ADMIN_PHONE'))
+            // Only send if ADMIN_PHONE is actually configured
+            if (!adminPhone) {
+              console.warn('[book_appointment] admin-sms-skip: ADMIN_PHONE not configured')
+              return
+            }
             await sendAndLogSms(supabase, {
-              to:            toDialable(Deno.env.get('ADMIN_PHONE')),
+              to:            adminPhone,
               body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
               context:       'AdminNotify',
               creds:         twilioCredsFromEnv(),
@@ -428,14 +434,33 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
             const waFrom  = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
             const adminWa = toDialable(Deno.env.get('ADMIN_PHONE'))
             const base    = (Deno.env.get('SUPABASE_URL') ?? '').trim()
-            if (waCreds && waFrom && adminWa && adminToken && base) {
-              const link = (a: string) =>
-                base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
-              await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
-                name, serviceName: treatmentName, date, time, phone,
-                approveUrl: link('approve'), rejectUrl: link('reject'),
-              }), waCreds, waFrom)
+            if (!waCreds) {
+              console.warn('[book_appointment] admin-wa-skip: twilio creds missing')
+              return
             }
+            if (!waFrom) {
+              console.warn('[book_appointment] admin-wa-skip: TWILIO_WHATSAPP_FROM not configured')
+              return
+            }
+            if (!adminWa) {
+              console.warn('[book_appointment] admin-wa-skip: ADMIN_PHONE not configured')
+              return
+            }
+            if (!base) {
+              console.warn('[book_appointment] admin-wa-skip: SUPABASE_URL not configured')
+              return
+            }
+            if (!adminToken) {
+              console.warn('[book_appointment] admin-wa-skip: no admin token generated')
+              return
+            }
+            const link = (a: string) =>
+              base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
+            await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
+              name, serviceName: treatmentName, date, time, phone,
+              approveUrl: link('approve'), rejectUrl: link('reject'),
+            }), waCreds, waFrom)
+            console.log('[book_appointment] admin-wa sent bookingId=' + bookingId)
           } catch (e) { console.error('[book_appointment] admin wa:', scrubPhones(e instanceof Error ? e.message : String(e))) }
         })()
 
