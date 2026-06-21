@@ -2,6 +2,13 @@
 /**
  * Manual integration test for WhatsApp booking flow
  * Tests: booking creation → admin notification → approval → client response
+ *
+ * Run locally:
+ *   npx supabase start
+ *   SUPABASE_URL=http://localhost:54321 SUPABASE_ANON_KEY=<your-key> node test-whatsapp-booking.js
+ *
+ * Run against remote:
+ *   SUPABASE_URL=https://... SUPABASE_ANON_KEY=... node test-whatsapp-booking.js
  */
 
 const http = require('http');
