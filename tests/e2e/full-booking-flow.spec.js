@@ -170,9 +170,20 @@ export default APP_CONFIG;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Fill mandatory nail pre-screening (gel_hands).
+async function fillNailScreening(page) {
+  const panel = page.locator('#js-nail-screening')
+  await expect(panel).toBeVisible({ timeout: 3_000 })
+  await page.locator('[onclick*="nail_length"]').first().click()
+  await page.locator('[onclick*="existing_coating"]').first().click()
+  await page.locator('[onclick*="extras"]').first().click()
+  await page.locator('[onclick*="damaged_nails"]').first().click()
+}
+
 async function goToOTPStep(page) {
   await expect(page.locator('#step-1')).toBeVisible()
   await page.locator('.service-card').first().click()
+  await fillNailScreening(page)
   await page.locator('#btn-next').click()
 
   await expect(page.locator('#step-2')).toBeVisible({ timeout: 8_000 })
