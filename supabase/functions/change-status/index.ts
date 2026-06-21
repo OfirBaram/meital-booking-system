@@ -85,12 +85,16 @@ Deno.serve(async (req) => {
       .eq('id', bookingId)
       .maybeSingle()
 
+    console.log('[change-status] executing status change bookingId=' + bookingId + ' targetStatus=' + targetStatus)
     const { data, error } = await supabase.rpc('change_appointment_status', {
       p_booking_id: bookingId,
       p_new_status: targetStatus.toLowerCase(),
     })
 
-    if (error) throw error
+    if (error) {
+      console.error('[change-status] rpc-error bookingId=' + bookingId + ' error=' + error.message)
+      throw error
+    }
 
     // Append-only audit record (fire-and-forget — never fails the primary action).
     supabase.from('audit_log').insert({

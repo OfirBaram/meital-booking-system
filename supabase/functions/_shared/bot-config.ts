@@ -408,8 +408,14 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
         // 7. Notify Meital (fire-and-forget) so the approval pipeline works as on web.
         ;(async () => {
           try {
+            const adminPhone = toDialable(Deno.env.get('ADMIN_PHONE'))
+            // Only send if ADMIN_PHONE is actually configured
+            if (!adminPhone) {
+              console.warn('[book_appointment] admin-sms-skip: ADMIN_PHONE not configured')
+              return
+            }
             await sendAndLogSms(supabase, {
-              to:            toDialable(Deno.env.get('ADMIN_PHONE')),
+              to:            adminPhone,
               body:          buildAdminNewBookingSms({ name, phone, serviceName: treatmentName, date, time }),
               context:       'AdminNotify',
               creds:         twilioCredsFromEnv(),
@@ -428,14 +434,33 @@ const bookAppointmentTool: BotTool<BookInput, BookOutput> = {
             const waFrom  = (Deno.env.get('TWILIO_WHATSAPP_FROM') ?? '').trim()
             const adminWa = toDialable(Deno.env.get('ADMIN_PHONE'))
             const base    = (Deno.env.get('SUPABASE_URL') ?? '').trim()
-            if (waCreds && waFrom && adminWa && adminToken && base) {
-              const link = (a: string) =>
-                base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
-              await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
-                name, serviceName: treatmentName, date, time, phone,
-                approveUrl: link('approve'), rejectUrl: link('reject'),
-              }), waCreds, waFrom)
+            if (!waCreds) {
+              console.warn('[book_appointment] admin-wa-skip: twilio creds missing')
+              return
             }
+            if (!waFrom) {
+              console.warn('[book_appointment] admin-wa-skip: TWILIO_WHATSAPP_FROM not configured')
+              return
+            }
+            if (!adminWa) {
+              console.warn('[book_appointment] admin-wa-skip: ADMIN_PHONE not configured')
+              return
+            }
+            if (!base) {
+              console.warn('[book_appointment] admin-wa-skip: SUPABASE_URL not configured')
+              return
+            }
+            if (!adminToken) {
+              console.warn('[book_appointment] admin-wa-skip: no admin token generated')
+              return
+            }
+            const link = (a: string) =>
+              base + '/functions/v1/admin-action?action=' + a + '&bookingId=' + bookingId + '&token=' + adminToken
+            await sendTwilioWhatsApp(adminWa, buildAdminApprovalWhatsApp({
+              name, serviceName: treatmentName, date, time, phone,
+              approveUrl: link('approve'), rejectUrl: link('reject'),
+            }), waCreds, waFrom)
+            console.log('[book_appointment] admin-wa sent bookingId=' + bookingId)
           } catch (e) { console.error('[book_appointment] admin wa:', scrubPhones(e instanceof Error ? e.message : String(e))) }
         })()
 
@@ -522,7 +547,7 @@ const cancelAppointmentTool: BotTool<Record<string, unknown>, CancelOutput> = {
       if (!active?.id) return { success: false, error: 'no_active_booking' }
       // 2. cancel via the same path the website portal uses (48h policy enforced there)
       const c   = await fetch(`${base}/functions/v1/client-cancel`, {
-        method: 'POST', headers: clientApiHeaders(token), body: JSON.stringify({ booking_id: active.id }),
+        method: 'POST', headers: clientApiHeaders(token), body: JSON.stringify({ booking_id: active.id, suppress_client_sms: true }),
       })
       const res = await c.json()
       if (res?.success) return { success: true, cancelled: { date: active.date, time: active.time, serviceName: active.serviceName } }
@@ -563,7 +588,7 @@ const rescheduleAppointmentTool: BotTool<Record<string, unknown>, RescheduleOutp
       if (!active?.id) return { success: false, error: 'no_active_booking' }
       const r   = await fetch(`${base}/functions/v1/client-reschedule`, {
         method: 'POST', headers: clientApiHeaders(token),
-        body: JSON.stringify({ booking_id: active.id, new_date: newDate, new_time: newTime }),
+        body: JSON.stringify({ booking_id: active.id, new_date: newDate, new_time: newTime, suppress_client_sms: true }),
       })
       const res = await r.json()
       if (res?.success) return { success: true, rescheduled: { new_date: res.new_date, new_time: res.new_time } }

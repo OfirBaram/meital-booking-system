@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     const phone = await verifyClientSession(rawToken, hmacSecret)
     if (!phone) return json({ success: false, error: 'invalid_or_expired_token' }, 401)
 
-    const { booking_id: bookingId, new_date: newDate, new_time: newTime } = await req.json()
+    const { booking_id: bookingId, new_date: newDate, new_time: newTime, suppress_client_sms: suppressClientSms } = await req.json()
     if (!bookingId || !DATE_RE.test(newDate ?? '') || !TIME_RE.test(newTime ?? '')) {
       return json({ success: false, error: 'missing_or_invalid_fields' }, 400)
     }
@@ -103,9 +103,11 @@ Deno.serve(async (req) => {
     const creds   = twilioCredsFromEnv()
     const adminPh = toDialable(Deno.env.get('ADMIN_PHONE'))
 
-    await sendAndLogSms(supabase, { to: phone, body: buildClientRescheduleSms(fields), context: 'ClientReschedule', creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: cl.full_name })
+    if (!suppressClientSms) {
+      await sendAndLogSms(supabase, { to: phone, body: buildClientRescheduleSms(fields), context: 'ClientReschedule', creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: cl.full_name })
+    }
     if (adminPh) {
-      await sendAndLogSms(supabase, { to: adminPh, body: buildAdminRescheduleSms(cl.full_name, fields), context: 'AdminNotify', creds, appointmentId: bookingId })
+      await sendAndLogSms(supabase, { to: adminPh, body: buildAdminRescheduleSms(cl.full_name, { ...fields, appointmentStatus: appt.status }), context: 'AdminNotify', creds, appointmentId: bookingId })
     }
 
     console.log('[client-reschedule] success bookingId=' + bookingId + ' newSlot=' + newSlotId)

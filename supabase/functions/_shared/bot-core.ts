@@ -111,35 +111,35 @@ export async function runConversation(
       break
     }
 
+
     if (resp.stop_reason === 'tool_use') {
-      const toolBlock = resp.content.find(b => b.type === 'tool_use') as Anthropic.ToolUseBlock
       history.push({ role: 'assistant', content: resp.content })
 
-      debugLog('tool-call', { name: toolBlock.name, input: toolBlock.input })
+      // Collect ALL tool_use blocks — Claude may return multiple in one response.
+      // Every tool_use_id must have a matching tool_result in the next user message
+      // or the Anthropic API rejects the call.
+      const toolBlocks = resp.content.filter(b => b.type === 'tool_use') as Anthropic.ToolUseBlock[]
+      const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string }> = []
 
-      const tool = TOOL_REGISTRY.get(toolBlock.name)
-      if (tool) {
-        // ctx is forwarded as-is — when it later carries identity (verified
-        // WhatsApp phone), booking tools receive it without any change here.
-        const result = await tool.execute(toolBlock.input as Record<string, unknown>, ctx)
-        debugLog('tool-result', result)
-        history.push({
-          role: 'user',
-          content: [{
-            type:        'tool_result',
-            tool_use_id: toolBlock.id,
-            content:     JSON.stringify(result),
-          }],
-        })
-      } else {
-        // Unknown tool name — push an error tool_result so the next API call
-        // isn’t missing the required tool_result for this tool_use block.
-        console.error('[bot-core] unknown tool: ' + toolBlock.name)
-        history.push({
-          role: 'user',
-          content: [{ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify({ error: 'tool_not_found' }) }],
-        })
+      for (const toolBlock of toolBlocks) {
+        debugLog('tool-call', { name: toolBlock.name, input: toolBlock.input })
+        const tool = TOOL_REGISTRY.get(toolBlock.name)
+        let result: unknown
+        if (tool) {
+          // ctx is forwarded as-is — when it later carries identity (verified
+          // WhatsApp phone), booking tools receive it without any change here.
+          result = await tool.execute(toolBlock.input as Record<string, unknown>, ctx)
+          debugLog('tool-result', result)
+        } else {
+          console.error('[bot-core] unknown tool: ' + toolBlock.name)
+          result = { error: 'tool_not_found' }
+        }
+        toolResults.push({ type: 'tool_result', tool_use_id: toolBlock.id, content: JSON.stringify(result) })
       }
+
+      // All results in a single user turn (Anthropic contract: one user message
+      // per assistant turn, even when multiple tools were called in parallel).
+      history.push({ role: 'user', content: toolResults })
     }
   }
 
