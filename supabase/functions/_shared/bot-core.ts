@@ -90,9 +90,27 @@ export async function runConversation(
   const history  = [...messages]
   let   finalText = ''
 
+  // Detect: user replied with a single digit to a slot-list the bot just showed.
+  // Pattern: previous assistant turn contains Israeli slot format (DD.MM … שעה HH:MM)
+  // AND current user turn is exactly one digit (1-9).
+  // When detected on WhatsApp we force tool_choice:'book_appointment' so Haiku
+  // cannot hallucinate a fake confirmation — the API enforces the tool call.
+  function detectSlotPick(msgs: Anthropic.MessageParam[]): boolean {
+    if (msgs.length < 2) return false
+    const last = msgs[msgs.length - 1]
+    const prev = msgs[msgs.length - 2]
+    if (!last || last.role !== 'user' || !prev || prev.role !== 'assistant') return false
+    const userText = typeof last.content === 'string' ? last.content.trim() : ''
+    const prevText = typeof prev.content === 'string' ? prev.content : ''
+    return /^[1-9]$/.test(userText) && /\d{1,2}\.\d{1,2}.*שעה\s*\d{2}:\d{2}/.test(prevText)
+  }
+
   // Agentic loop — resolves tool calls server-side (max MAX_TURNS to contain cost).
   // Tool dispatch is registry-driven: add new tools to TOOL_REGISTRY in bot-config.ts.
   for (let turn = 0; turn < MAX_TURNS; turn++) {
+    const forceBook = ctx.channel === 'whatsapp' && turn === 0 && detectSlotPick(history)
+    // deno-lint-ignore no-explicit-any
+    const toolChoice: any = forceBook ? { type: 'tool', name: 'book_appointment' } : undefined
     const resp = await anthropic.messages.create({
       model:      MODEL,
       max_tokens: MAX_TOKENS,
@@ -101,6 +119,7 @@ export async function runConversation(
       // 5-min window — a big token saving for a chatty bot.
       system:     [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
       tools,
+      ...(toolChoice ? { tool_choice: toolChoice } : {}),
       messages:   history,
     })
 

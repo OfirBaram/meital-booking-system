@@ -21,8 +21,8 @@ const CONFIG = {
 // Shape is normalised to the DB row shape (name_he / duration_min) via
 // normalizeService() so render code has one contract.
 const FALLBACK_SERVICES = [
-  { id: 'gel_hands',    name_he: "לק ג'ל לציפורניים",            desc_he: "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות.", duration_min: 60, icon: '💅', sort_order: 0 },
-  { id: 'regular_feet', name_he: "לק רגיל לציפורניים ברגליים",  desc_he: "לק רגיל מקצועי לציפורניים ברגליים — מגוון צבעים רחב, תוצאה נקייה ומטופחת.", duration_min: 30, icon: '🦶', sort_order: 1 },
+  { id: 'gel_hands',  name_he: "לק ג'ל לציפורניים",          desc_he: "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות.", duration_min: 60, icon: '💅', sort_order: 0 },
+  { id: 'brows_wax', name_he: 'עיצוב גבות ושפם',               desc_he: 'עיצוב גבות ועיצוב שפם בשיטת ווקס — תוצאה נקייה, מסוגננת ומדויקת.',                 duration_min: 15, icon: '✨', sort_order: 1 },
 ];
 
 // Runtime catalog of selectable services (populated from get-site-config).
@@ -93,6 +93,7 @@ const State = {
   loading: false,
   prefetchedMonths: new Set(),
   otpCooldownUntil: 0,
+  nailNotes: {},
   _stepEntryTime: 0,
 };
 
@@ -284,6 +285,7 @@ async function apiVerifyAndBook(otp) {
             date:         State.date,
             time:         State.time,
             duration:     selectedDuration(),          // combined duration
+            nail_notes:   primaryServiceId() === 'gel_hands' ? State.nailNotes : null,
           },
         }),
       }
@@ -418,6 +420,7 @@ function toggleService(id) {
   });
 
   renderServices();
+  renderNailScreening();
   updateNav();
   const fresh = document.querySelector(`[data-id="${id}"]`);
   if (fresh) animate(fresh, { scale: [0.97, 1.03, 1] }, { type: spring, stiffness: 500, damping: 18 });
@@ -444,6 +447,56 @@ function renderServiceSummary() {
     </div>`;
 }
 
+// ═══════════════════════════════════════════════════
+// NAIL SCREENING (gel_hands only)
+// ═══════════════════════════════════════════════════
+
+const NAIL_QUESTIONS = [
+  { key: 'nail_length',       label: 'אורך ציפורניים',        options: [{ v: 'short', t: 'קצרות' }, { v: 'medium', t: 'בינוניות' }, { v: 'long', t: 'ארוכות' }] },
+  { key: 'existing_coating',  label: 'ציפוי קיים',            options: [{ v: 'none', t: 'ללא' }, { v: 'gel', t: "ג'ל" }, { v: 'acrylic', t: 'אקריל' }] },
+  { key: 'extras',            label: 'תוספות',                options: [{ v: 'none', t: 'ללא' }, { v: 'gems', t: 'אבנים ✨' }, { v: 'art', t: 'ציור 🎨' }] },
+  { key: 'damaged_nails',     label: 'ציפורן שבורה / פגועה',  options: [{ v: false, t: 'לא' }, { v: true, t: 'כן' }] },
+];
+
+function isNailScreeningComplete() {
+  if (primaryServiceId() !== 'gel_hands') return true;
+  return NAIL_QUESTIONS.every(q => State.nailNotes[q.key] !== undefined);
+}
+
+function setNailNote(key, value) {
+  State.nailNotes[key] = value;
+  renderNailScreening();
+  updateNav();
+}
+
+function renderNailScreening() {
+  const panel = document.getElementById('js-nail-screening');
+  if (!panel) return;
+  const isGel = primaryServiceId() === 'gel_hands';
+  panel.classList.toggle('hidden', !isGel);
+  if (!isGel) return;
+
+  panel.innerHTML = '<p class="text-xs font-semibold text-primary mb-3 text-right">💅 פרטים לתיאום הטיפול (חובה)</p>'
+    + NAIL_QUESTIONS.map(q => {
+      const row = `<div class="mb-3">
+        <p class="text-xs text-text-muted mb-1.5 text-right">${sanitize(q.label)}</p>
+        <div class="flex flex-wrap gap-2 justify-end">
+          ${q.options.map(o => {
+            const selected = String(State.nailNotes[q.key]) === String(o.v);
+            const cls = selected
+              ? 'px-3 py-1.5 rounded-full text-xs font-semibold bg-primary text-white cursor-pointer'
+              : 'px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/8 text-text-main cursor-pointer hover:bg-primary/15';
+            return `<button type="button" class="${cls}" onclick="setNailNote('${sanitize(String(q.key))}',${typeof o.v === 'boolean' ? o.v : `'${o.v}'`})">${sanitize(String(o.t))}</button>`;
+          }).join('')}
+        </div>
+      </div>`;
+      return row;
+    }).join('');
+}
+
+function setupNailScreening() {
+  renderNailScreening();
+}
 // ═══════════════════════════════════════════════════
 // RENDER — CALENDAR
 // ═══════════════════════════════════════════════════
@@ -824,7 +877,7 @@ function updateNav() {
 
   let ok = false;
   switch (step) {
-    case 1: ok = State.services.length >= 1;             btnNext.textContent = State.config.booking_continue_btn || 'המשך'; break;
+    case 1: ok = State.services.length >= 1 && isNailScreeningComplete(); btnNext.textContent = State.config.booking_continue_btn || 'המשך'; break;
     case 2: ok = !!date && !!time;                       btnNext.textContent = 'המשך';          break;
     case 3: ok = isValidName(name) && isValidPhone(phone); btnNext.textContent = "שלחי קוד SMS"; break;
     case 4: ok = getOTP().length === CONFIG.OTP_LENGTH;  btnNext.textContent = 'אמתי';          break;
@@ -1321,6 +1374,7 @@ function resetApp() {
   State.phone     = '';
   State.bookingId        = null;
   State.otpCooldownUntil = 0;
+  State.nailNotes        = {};
 
   document.getElementById('js-nav').classList.remove('hidden');
   document.querySelectorAll('.service-card').forEach(c => c.classList.remove('selected'));
@@ -1365,6 +1419,7 @@ function init() {
   setupFormListeners();
   wireEvents();
   setupModalListeners();
+  setupNailScreening();
   prefetchSlots();
   applyURLPreset();
   loadSiteConfig();   // fire-and-forget — re-renders services + applies theme when it lands

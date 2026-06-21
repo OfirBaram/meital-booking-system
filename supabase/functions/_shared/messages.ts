@@ -79,8 +79,7 @@ function fmtNailNotes(n: Record<string, unknown> | null | undefined): string {
   }
   const lines = Object.entries(n)
     .map(([k, v]) => (labels[k] ?? k) + ': ' + String(v).slice(0, 60))
-  return lines.length ? '
-📋 ' + lines.join(' | ') : ''
+  return lines.length ? '\n📋 ' + lines.join(' | ') : ''
 }
 
 export function buildAdminNewBookingSms(f: AdminMsgFields): string {

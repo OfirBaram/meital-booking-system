@@ -192,6 +192,14 @@ export function buildCard(b) {
     + '<div class="flex items-center gap-0.5">' + badge + contact + '</div>'
     + '</div>'
     + '<div class="text-[13px] font-semibold text-text-main mb-1">' + esc(b.serviceName) + '</div>'
+    + (b.nail_notes && typeof b.nail_notes === 'object' && Object.keys(b.nail_notes).length
+        ? '<div class="text-xs text-text-muted mb-1.5" data-qa="nail-notes">💅 '
+          + ({short:'קצרות',medium:'בינוניות',long:'ארוכות'}[b.nail_notes.nail_length] || '')
+          + (b.nail_notes.existing_coating && b.nail_notes.existing_coating !== 'none' ? ' · ' + ({gel:"הסרת ג'ל",acrylic:'הסרת אקריל'}[b.nail_notes.existing_coating] || '') : '')
+          + (b.nail_notes.extras && b.nail_notes.extras !== 'none' ? ' · ' + ({gems:'אבנים ✨',art:'ציור 🎨'}[b.nail_notes.extras] || '') : '')
+          + (b.nail_notes.damaged_nails ? ' · ציפורן פגועה ⚠️' : '')
+          + '</div>'
+        : '')
     + '<div class="text-xs text-text-muted mb-3.5">📅 ' + date + ' &nbsp;·&nbsp; 🕐 ' + esc(b.time) + '</div>'
     + (b.smsStatus
         ? '<div class="text-xs mb-2" data-qa="sms-status" data-sms-status="' + esc(b.smsStatus) + '">'

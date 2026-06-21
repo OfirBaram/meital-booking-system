@@ -1,15 +1,14 @@
+-- ================================================================
 -- Migration: 20260621000000_service_update_and_nail_notes
--- Changes:
---   1. Remove regular_feet and gel_combo from services
---   2. Add brows_wax (עיצוב גבות ושפם, 15 min)
---   3. Update sort_order for gel_hands
---   4. Add nail_notes JSONB column to appointments
---   5. Recreate bookings_view to expose nail_notes
+-- * Remove regular_feet + gel_combo (no more feet services)
+-- * Add brows_wax (eyebrows + upper lip wax, 15 min)
+-- * Add nail_notes JSONB to appointments (gel pre-screening)
+-- * Update bookings_view to surface nail_notes + source
+-- ================================================================
 
--- 1. Remove discontinued services
+-- Services catalog -----------------------------------------------
 DELETE FROM services WHERE id IN ('regular_feet', 'gel_combo');
 
--- 2. Add brows_wax service
 INSERT INTO services (id, name_he, desc_he, duration_min, icon, sort_order, active)
 VALUES (
   'brows_wax',
@@ -26,16 +25,19 @@ ON CONFLICT (id) DO UPDATE SET
   duration_min = EXCLUDED.duration_min,
   icon         = EXCLUDED.icon,
   sort_order   = EXCLUDED.sort_order,
-  active       = EXCLUDED.active;
+  active       = EXCLUDED.active,
+  updated_at   = now();
 
--- 3. Ensure gel_hands is sort_order 0
 UPDATE services SET sort_order = 0 WHERE id = 'gel_hands';
 
--- 4. Add nail_notes JSONB column to appointments (idempotent)
+-- Nail pre-screening ---------------------------------------------
+-- Structured answers for gel manicure bookings. Null for brows_wax.
 ALTER TABLE appointments ADD COLUMN IF NOT EXISTS nail_notes JSONB;
 
--- 5. Recreate bookings_view to include nail_notes and source
-CREATE OR REPLACE VIEW bookings_view AS
+-- bookings_view: drop + recreate with nail_notes + source --------
+DROP VIEW IF EXISTS bookings_view;
+
+CREATE VIEW bookings_view AS
 SELECT
   a.id,
   c.full_name                                                        AS name,
@@ -51,8 +53,8 @@ SELECT
   a.calendar_event_id,
   a.services_summary,
   a.service_ids,
-  a.source,
-  a.nail_notes
+  a.nail_notes,
+  a.source
 FROM       appointments  a
 JOIN clients      c ON c.id  = a.client_id
 JOIN slots        s ON s.id  = a.slot_id;
