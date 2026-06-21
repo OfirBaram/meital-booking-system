@@ -136,12 +136,13 @@ Deno.serve(async (req) => {
     }
 
     // POST = the admin tapped the confirm button → perform the action.
+    console.log('[admin-action] executing status change bookingId=' + bookingId + ' targetStatus=' + targetStatus)
     const { data, error } = await supabase.rpc('change_appointment_status', {
       p_booking_id: bookingId,
       p_new_status: targetStatus,
     })
     if (error) {
-      console.error('[admin-action] rpc-error', error.message)
+      console.error('[admin-action] rpc-error bookingId=' + bookingId + ' error=' + error.message)
       return htmlPage('שגיאה', 'אירעה תקלה בעדכון ההזמנה. נסי שוב מלוח הניהול.', 'err')
     }
 
@@ -157,9 +158,11 @@ Deno.serve(async (req) => {
     }
 
     try {
+      console.log('[admin-action] sending client notification bookingId=' + bookingId + ' status=' + targetStatus)
       await sendClientStatusNotification(supabase, bookingId, targetStatus)
+      console.log('[admin-action] client notification sent')
     } catch (smsErr) {
-      console.error('[admin-action] client-notify-fail:', smsErr instanceof Error ? smsErr.message : String(smsErr))
+      console.error('[admin-action] client-notify-fail bookingId=' + bookingId + ' error:', smsErr instanceof Error ? smsErr.message : String(smsErr))
     }
 
     return targetStatus === 'approved'
