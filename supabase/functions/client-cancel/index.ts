@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     const phone = await verifyClientSession(rawToken, hmacSecret)
     if (!phone) return json({ success: false, error: 'invalid_or_expired_token' }, 401)
 
-    const { booking_id: bookingId } = await req.json()
+    const { booking_id: bookingId, suppress_client_sms: suppressClientSms } = await req.json()
     if (!bookingId) return json({ success: false, error: 'missing_booking_id' }, 400)
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
@@ -81,7 +81,9 @@ Deno.serve(async (req) => {
     const creds   = twilioCredsFromEnv()
     const adminPh = toDialable(Deno.env.get('ADMIN_PHONE'))
 
-    await sendAndLogSms(supabase, { to: phone, body: buildClientSelfCancelSms(fields), context: 'ClientSelfCancel', creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: cl.full_name })
+    if (!suppressClientSms) {
+      await sendAndLogSms(supabase, { to: phone, body: buildClientSelfCancelSms(fields), context: 'ClientSelfCancel', creds, appointmentId: bookingId, alertAdminPhone: adminPh, clientLabel: cl.full_name })
+    }
     if (adminPh) {
       await sendAndLogSms(supabase, { to: adminPh, body: buildAdminSelfCancelSms(cl.full_name, fields), context: 'AdminNotify', creds, appointmentId: bookingId })
     }

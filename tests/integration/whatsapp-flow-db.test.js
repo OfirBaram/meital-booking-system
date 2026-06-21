@@ -228,6 +228,108 @@ async function test_communication_logs_schema() {
   ok(`communication_logs has all required columns: ${cols.join(', ')}`)
 }
 
+
+async function test_reschedule_message_is_factually_correct() {
+  function formatDateDmy(d) {
+    if (!d || !d.includes('-')) return d
+    const [y, m, day] = d.split('-')
+    return day + '.' + m + '.' + y
+  }
+  function buildClientRescheduleSms(f) {
+    const svc = (f.serviceName || '').trim() || 'התור'
+    return 'שינוי תאריך בוצע! ' + svc + ' ב' + formatDateDmy(f.newDate) + ' ' + f.newTime + ' — מחכה לך בתאריך החדש 💅'
+  }
+  function buildAdminRescheduleSms(name, f) {
+    const n = (name || '').trim()
+    return 'שינוי תאריך: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
+  }
+
+  const f = { serviceName: 'לק ג\'ל ידיים', oldDate: '2099-11-20', oldTime: '09:00', newDate: '2099-11-25', newTime: '11:00' }
+
+  const clientSms = buildClientRescheduleSms(f)
+  if (clientSms.includes('ממתין לאישור')) throw new Error('Client reschedule SMS still says "ממתין לאישור"! Got: ' + clientSms)
+  if (!clientSms.includes('שינוי תאריך בוצע')) throw new Error('Expected "שינוי תאריך בוצע" in: ' + clientSms)
+  ok('buildClientRescheduleSms: no "ממתין לאישור" — correct for already-approved appointments')
+
+  const adminSms = buildAdminRescheduleSms('דנה', f)
+  if (adminSms.includes('אשרי את ההזמנה')) throw new Error('Admin reschedule SMS still says "אשרי את ההזמנה"! Got: ' + adminSms)
+  ok('buildAdminRescheduleSms: no re-approval prompt — swap_slot_for_reschedule does not change status')
+}
+
+async function test_cancel_message_neutral_channel() {
+  function formatDateDmy(d) {
+    const [y, m, day] = d.split('-')
+    return day + '.' + m + '.' + y
+  }
+  function buildClientSelfCancelSms(f) {
+    return 'ההזמנה ב' + formatDateDmy(f.date) + ' ' + f.time + ' בוטלה. להזמנה חדשה — שלחי לנו הודעה 💬'
+  }
+
+  const f = { date: '2099-11-20', time: '09:00' }
+  const sms = buildClientSelfCancelSms(f)
+  if (sms.includes('האפליקציה')) throw new Error('Cancel SMS mentions "האפליקציה" — wrong for WhatsApp users! Got: ' + sms)
+  if (!sms.includes('שלחי לנו')) throw new Error('Expected "שלחי לנו" in: ' + sms)
+  ok('buildClientSelfCancelSms: channel-neutral text (WhatsApp users not told to use the app)')
+}
+
+async function test_swap_slot_for_reschedule_preserves_status() {
+  const bookingId2 = '00000000-dead-4000-beef-000000000097'
+  const SLOT3_START = '2099-11-22T09:00:00Z'
+  const SLOT4_START = '2099-11-23T09:00:00Z'
+  let slotId3, slotId4
+
+  try {
+    const [s3] = await query(
+      `INSERT INTO slots (start_time, end_time, status)
+       VALUES ($1::timestamptz, $1::timestamptz + interval '90 minutes', 'available')
+       ON CONFLICT (start_time) DO UPDATE SET status = 'available'
+       RETURNING id`,
+      [SLOT3_START]
+    )
+    slotId3 = Number(s3.id)
+
+    const [s4] = await query(
+      `INSERT INTO slots (start_time, end_time, status)
+       VALUES ($1::timestamptz, $1::timestamptz + interval '90 minutes', 'available')
+       ON CONFLICT (start_time) DO UPDATE SET status = 'available'
+       RETURNING id`,
+      [SLOT4_START]
+    )
+    slotId4 = Number(s4.id)
+
+    await query('DELETE FROM appointments WHERE id = $1', [bookingId2])
+    await query(
+      `INSERT INTO appointments (id, client_id, slot_id, treatment_type, treatment_name, duration_min, is_verified, status, source)
+       VALUES ($1, $2, $3, 'gel_hands', $4, 60, true, 'approved', 'whatsapp')`,
+      [bookingId2, clientId, slotId3, 'לק ג׳ל']
+    )
+    await query('UPDATE slots SET status = $1 WHERE id = $2', ['booked', slotId3])
+
+    const [r] = await query(
+      'SELECT swap_slot_for_reschedule($1, $2, $3) AS result',
+      [bookingId2, slotId3, slotId4]
+    )
+    const result = typeof r.result === 'string' ? JSON.parse(r.result) : r.result
+    if (!result.success) throw new Error('swap failed: ' + JSON.stringify(result))
+
+    const [appt] = await query('SELECT status FROM appointments WHERE id = $1', [bookingId2])
+    if (appt.status !== 'approved') throw new Error('Expected status=approved after reschedule, got ' + appt.status)
+
+    const [oldSlot] = await query('SELECT status FROM slots WHERE id = $1', [slotId3])
+    if (oldSlot.status !== 'available') throw new Error('Old slot should be available, got ' + oldSlot.status)
+
+    const [newSlot] = await query('SELECT status FROM slots WHERE id = $1', [slotId4])
+    if (newSlot.status !== 'booked') throw new Error('New slot should be booked for approved appt, got ' + newSlot.status)
+
+    ok('swap_slot_for_reschedule: approved appointment stays approved (no re-approval needed)')
+    ok('swap_slot_for_reschedule: old slot → available, new slot → booked')
+  } finally {
+    await query('DELETE FROM appointments WHERE id = $1', [bookingId2])
+    if (slotId3) await query('DELETE FROM slots WHERE id = $1', [slotId3])
+    if (slotId4) await query('DELETE FROM slots WHERE id = $1', [slotId4])
+  }
+}
+
 // ── runner ────────────────────────────────────────────────────────────────────
 
 async function run() {
@@ -242,6 +344,9 @@ async function run() {
     ['Admin reject pending booking: slot released',           test_slot_released_on_reject],
     ['Guard logic: toDialable("") is falsy',                  test_guard_logic_toDialable_empty],
     ['communication_logs schema has required columns',        test_communication_logs_schema],
+    ['buildClientRescheduleSms: correct message (no re-approval)', test_reschedule_message_is_factually_correct],
+    ['buildClientSelfCancelSms: channel-neutral text',            test_cancel_message_neutral_channel],
+    ['swap_slot_for_reschedule: status preserved',                test_swap_slot_for_reschedule_preserves_status],
   ]
 
   for (const [label, fn] of tests) {

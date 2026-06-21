@@ -44,10 +44,10 @@ export function buildClientStatusSms(status: ClientStatus, f: BookingMsgFields):
     return `אושר התור! ${svc}, ${formatDateDmy(f.date)} ${f.time}.`
   }
   if (status === 'rejected') {
-    return `הבקשה לתור ב${formatDateDmy(f.date)} ${f.time} נדחתה. לתיאום - דרך האפליקציה.`
+    return `הבקשה לתור ב${formatDateDmy(f.date)} ${f.time} נדחתה. לתיאום — שלחי לנו הודעה 💬`
   }
   // cancelled
-  return `התור ב${formatDateDmy(f.date)} ${f.time} בוטל. לתיאום תור חדש - דרך האפליקציה.`
+  return `התור ב${formatDateDmy(f.date)} ${f.time} בוטל. לתיאום תור חדש — שלחי לנו הודעה 💬`
 }
 
 export interface AdminMsgFields {
@@ -130,7 +130,7 @@ export function buildAdminFailureAlertSms(
 // ── Client portal SMS builders ────────────────────────────────────────────────
 
 export function buildClientSelfCancelSms(f: BookingMsgFields): string {
-  return 'ההזמנה ב' + formatDateDmy(f.date) + ' ' + f.time + ' בוטלה. להזמנה חדשה — דרך האפליקציה.'
+  return 'ההזמנה ב' + formatDateDmy(f.date) + ' ' + f.time + ' בוטלה. להזמנה חדשה — שלחי לנו הודעה 💬'
 }
 
 export function buildAdminSelfCancelSms(name: string, f: BookingMsgFields): string {
@@ -148,10 +148,10 @@ export interface RescheduleMsgFields {
 
 export function buildClientRescheduleSms(f: RescheduleMsgFields): string {
   const svc = (f.serviceName ?? '').trim() || 'התור'
-  return 'בקשת שינוי תאריך התקבלה! ' + svc + ' ב' + formatDateDmy(f.newDate) + ' ' + f.newTime + ' — ממתין לאישור מיטל.'
+  return 'שינוי תאריך בוצע! ' + svc + ' ב' + formatDateDmy(f.newDate) + ' ' + f.newTime + ' — מחכה לך בתאריך החדש 💅'
 }
 
 export function buildAdminRescheduleSms(name: string, f: RescheduleMsgFields): string {
   const n = (name ?? '').trim()
-  return 'שינוי עצמאי: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '. אשרי את ההזמנה.'
+  return 'שינוי תאריך: ' + n + ', מ' + formatDateDmy(f.oldDate) + ' ' + f.oldTime + ' ל' + formatDateDmy(f.newDate) + ' ' + f.newTime + '.'
 }
