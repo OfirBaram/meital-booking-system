@@ -31,7 +31,7 @@ async function assertExternalAttrs(link) {
 
 // 1. DESKTOP — header social strip
 test.describe('Desktop header social strip (#header-social-strip)', () => {
-  test.beforeEach(async ({ page }) => { await page.goto('/landing.html') })
+  test.beforeEach(async ({ page }) => { await page.goto('/') })
 
   for (const { label, hrefMatch } of SOCIAL) {
     test(`${label} — correct href, target=_blank, rel=noopener`, async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('Mobile menu social strip (#mobile-social-strip)', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/landing.html')
+    await page.goto('/')
     await page.locator('#menu-btn').click()
     await expect(page.locator('#mobile-nav')).not.toHaveAttribute('aria-hidden', 'true')
   })
@@ -63,43 +63,27 @@ test.describe('Mobile menu social strip (#mobile-social-strip)', () => {
   }
 })
 
-// 3. HERO Booking CTA (primary) + WhatsApp CTA (secondary)
+// 3. HERO Booking CTA — WhatsApp only (PR#109: booking wizard removed from landing)
 test.describe('Hero Booking CTA (#hero-cta .btn-primary)', () => {
-  test.beforeEach(async ({ page }) => { await page.goto('/landing.html') })
+  test.beforeEach(async ({ page }) => { await page.goto('/') })
 
-  test('primary CTA links to booking wizard (index.html)', async ({ page }) => {
+  test('primary CTA is visible and does NOT link to booking wizard', async ({ page }) => {
     const btn = page.locator('#hero-cta a.btn-primary')
     await expect(btn).toBeVisible()
     const href = await btn.getAttribute('href')
-    expect(href).toMatch(/index\.html/)
-  })
-
-  test('primary CTA does NOT open in new tab (same-site navigation)', async ({ page }) => {
-    const btn = page.locator('#hero-cta a.btn-primary')
-    const target = await btn.getAttribute('target')
-    expect(target ?? '').not.toBe('_blank')
+    expect(href ?? '').not.toMatch(/index\.html|booking\.html/)
   })
 
   test('primary CTA has accessible aria-label for booking', async ({ page }) => {
     const label = await page.locator('#hero-cta a.btn-primary').getAttribute('aria-label')
     expect(label?.length).toBeGreaterThan(0)
   })
-
-  test('secondary CTA (btn-outline) links to WhatsApp', async ({ page }) => {
-    const wa = page.locator('#hero-cta a.btn-outline')
-    await expect(wa).toBeVisible()
-    await expect(wa).toHaveAttribute('href', WA_HREF)
-  })
-
-  test('secondary CTA (btn-outline) opens in new tab with rel=noopener', async ({ page }) => {
-    await assertExternalAttrs(page.locator('#hero-cta a.btn-outline'))
-  })
 })
 
 // 4. CONTACT SECTION WhatsApp CTA
 test.describe('Contact WhatsApp CTA (#contact-wa-btn .btn-wa)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/landing.html')
+    await page.goto('/')
     await page.locator('#contact-wa-btn').scrollIntoViewIfNeeded()
   })
 
@@ -126,7 +110,7 @@ test.describe('Contact WhatsApp CTA (#contact-wa-btn .btn-wa)', () => {
 // 5. CONTACT LINKS (phone + email — replaced social strip in d22a9c2)
 test.describe('Contact links (#contact-links)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/landing.html')
+    await page.goto('/')
     await page.locator('#contact-links').scrollIntoViewIfNeeded()
   })
 
@@ -146,7 +130,7 @@ test.describe('Contact links (#contact-links)', () => {
 // 6. FOOTER SOCIAL STRIP
 test.describe('Footer social strip (#footer-social)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/landing.html')
+    await page.goto('/')
     await page.locator('#footer-social').scrollIntoViewIfNeeded()
   })
 
@@ -164,7 +148,7 @@ test.describe('Footer social strip (#footer-social)', () => {
 test.describe('Mobile viewport — strip visibility', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test.beforeEach(async ({ page }) => { await page.goto('/landing.html') })
+  test.beforeEach(async ({ page }) => { await page.goto('/') })
 
   test('header social strip is hidden on mobile (CSS display:none)', async ({ page }) => {
     await expect(page.locator('#header-social-strip')).not.toBeVisible()
@@ -193,7 +177,7 @@ test.describe('Mobile viewport — strip visibility', () => {
 
 // 8. REGRESSION GUARDS
 test.describe('Regression guards', () => {
-  test.beforeEach(async ({ page }) => { await page.goto('/landing.html') })
+  test.beforeEach(async ({ page }) => { await page.goto('/') })
 
   test('no link has href="#" (broken placeholder guard)', async ({ page }) => {
     const broken = page.locator('.social-icon[href="#"]')
