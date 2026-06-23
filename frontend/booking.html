@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- QW-5: Content-Security-Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co https://script.google.com https://esm.sh https://api-eu.mixpanel.com;">
+  <meta name="theme-color" content="#FAF5F0">
+  <meta name="description" content="הזמנת תורים אונליין לסטודיו של מיטל שבע ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם — שירות אישי ומקצועי.">
+  <!-- Open Graph / WhatsApp / Facebook sharing -->
+  <meta property="og:type"        content="website">
+  <meta property="og:title"       content="מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור">
+  <meta property="og:description" content="הזמנת תורים אונליין לסטודיו של מיטל שבע ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם — שירות אישי ומקצועי.">
+  <meta property="og:image"       content="./meital_profile_header.webp">
+  <meta property="og:locale"      content="he_IL">
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="alternate icon" href="./favicon.ico">
+  <link rel="manifest" href="./manifest.json">
+  <title>מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור</title>
+
+  <link rel="stylesheet" href="./styles/tailwind.css">
+  <link rel="stylesheet" href="./styles/tokens.css">
+  <link rel="stylesheet" href="./styles/animations.css">
+  <link rel="stylesheet" href="./styles/components.css">
+  <link rel="stylesheet" href="./styles/theme-effects.css">
+
+  <!-- Heebo Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+  <!-- JSON-LD: Local Business (Google Search rich results) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "NailSalon",
+    "name": "מיטל שבע ברעם — לק ג'ל בוטיק",
+    "description": "סטודיו לציפורניים בוטיק ברמת גן. לק ג'ל קלאסי ולרגליים.",
+    "telephone": "+972547686865",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "רמת גן",
+      "addressCountry": "IL"
+    },
+    "priceRange": "₪₪",
+    "hasMap": "https://maps.google.com/?q=מיטל+שבע+ברעם+רמת+גן"
+  }
+  </script>
+
+  <style>
+    body { font-family: 'Heebo', sans-serif; background-color: #FAF5F0; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-cream font-heebo">
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-secondary/30 shadow-sm shadow-secondary/10">
+    <div class="max-w-md mx-auto px-4">
+      <div class="flex items-center justify-between pt-1.5 pb-0.5">
+        <a href="./index.html"
+          class="text-[#A67C8E] text-xs font-medium flex items-center gap-0.5 opacity-70 hover:opacity-100 transition-opacity"
+          aria-label="חזרה לאתר הבוטיק">
+          ← לאתר הבוטיק
+        </a>
+        <span class="text-[10px] text-text-muted tracking-widest uppercase opacity-40">הזמנת תור</span>
+      </div>
+      <div class="pb-2.5 flex flex-col items-center">
+        <div class="w-16 h-16 rounded-full shadow-sm mb-1 select-none relative overflow-hidden" aria-label="תמונת פרופיל מיטל שבע ברעם">
+          <div class="absolute inset-0 bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center" aria-hidden="true">
+            <span class="text-white font-bold text-xl leading-none">מ</span>
+          </div>
+          <picture>
+            <source srcset="meital_profile_header.webp" type="image/webp">
+            <img src="meital_profile_header.png"
+                 alt="מיטל שבע ברעם"
+                 width="64" height="64"
+                 class="absolute inset-0 w-full h-full object-cover rounded-full"
+                 onerror="this.closest('picture').style.display='none'">
+          </picture>
+        </div>
+        <h1 class="text-sm font-semibold text-text-main tracking-wide leading-tight">מיטל שבע ברעם</h1>
+        <p class="text-[10px] text-text-muted font-light tracking-[.22em] uppercase">לק ג'ל בוטיק</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ MAIN ═══════════════════ -->
+  <main class="max-w-md mx-auto px-4 pb-28">
+
+    <!-- Progress bar -->
+    <div id="js-progress" class="py-5">
+      <div id="js-progress-steps" class="flex items-start"></div>
+    </div>
+
+    <!-- ══ STEP 1: Service selection ══ -->
+    <section id="step-1" class="step-section">
+      <h2 class="text-2xl font-bold text-text-main mb-1">בחרי שירות</h2>
+      <p class="text-text-muted text-sm mb-5 font-light">כל השירותים כוללים ייעוץ ועיצוב לפי בחירה</p>
+      <div id="js-services" class="grid grid-cols-1 gap-3"></div>
+      <div id="js-nail-screening" class="mt-4 bg-white rounded-2xl border border-primary/15 p-4 hidden"></div>
+    </section>
+
+    <!-- ══ STEP 2: Date & Time ══ -->
+    <section id="step-2" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">תאריך ושעה</h2>
+      <p id="js-step2-service-label" class="text-primary text-sm mb-5 font-semibold"></p>
+
+      <!-- Calendar card -->
+      <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-4 mb-4">
+        <!-- Month nav -->
+        <div class="flex items-center justify-between mb-3">
+          <button id="js-prev-month" data-qa="btn-prev-month" aria-label="חודש קודם"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+          <h3 id="js-month-label" class="text-sm font-semibold text-text-main"></h3>
+          <button id="js-next-month" data-qa="btn-next-month" aria-label="חודש הבא"
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Day headers (Sun–Sat in Hebrew) -->
+        <div id="js-day-headers" class="grid grid-cols-7 mb-1"></div>
+
+        <!-- Calendar grid -->
+        <div id="js-calendar" class="grid grid-cols-7 gap-1"></div>
+
+        <!-- Slot-fetch loading hint (shown only during uncached network fetch) -->
+        <div id="js-cal-loading" class="hidden mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
+          <svg class="spinner w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/>
+            <path fill="currentColor" opacity=".75" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+          </svg>
+          <span>טוענת זמינות… (עד 30 שניות)</span>
+        </div>
+      </div>
+
+      <!-- Time slots -->
+      <div id="js-slots-wrap" class="hidden">
+        <h3 class="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">שעות פנויות</h3>
+        <div id="js-slots" class="grid grid-cols-3 gap-2"></div>
+      </div>
+      <p id="js-no-slots" class="hidden text-center py-6 text-text-muted text-sm leading-relaxed">
+        אין שעות פנויות בתאריך זה.<br>בחרי תאריך אחר 🗓
+      </p>
+    </section>
+
+    <!-- ══ STEP 3: Personal details ══ -->
+    <section id="step-3" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">פרטים אישיים</h2>
+      <p id="js-step3-summary" class="text-primary text-sm mb-5 font-semibold"></p>
+
+      <!-- Returning client banner -->
+      <div id="js-returning-banner" data-qa="banner-returning"
+        class="hidden mb-4 bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
+        <span class="text-xl select-none">👋</span>
+        <div class="flex-1">
+          <p class="text-sm font-bold text-text-main">ברוכה השבה!</p>
+          <p id="js-returning-name" class="text-xs text-primary font-medium"></p>
+        </div>
+        <button id="js-not-me" data-qa="btn-not-me" class="text-xs text-text-muted underline shrink-0">לא אני</button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label for="inp-name" class="block text-sm font-medium text-text-main mb-1.5">שם מלא</label>
+          <input id="inp-name" data-qa="inp-name" type="text" autocomplete="name" inputmode="text"
+            placeholder="למשל: נועה כהן"
+            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
+                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
+                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base">
+        </div>
+        <div>
+          <label for="inp-phone" class="block text-sm font-medium text-text-main mb-1.5">מספר טלפון</label>
+          <input id="inp-phone" data-qa="inp-phone" type="tel" autocomplete="tel" inputmode="tel"
+            dir="ltr" maxlength="10" placeholder="05X-XXXXXXX"
+            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
+                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
+                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base tracking-wider">
+        </div>
+        <p class="text-xs text-text-muted font-light leading-relaxed">
+          לאחר המשך ישלח אליך קוד אימות ב-SMS לאישור ההזמנה.
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ STEP 4: OTP Verification ══ -->
+    <section id="step-4" class="step-section hidden">
+      <h2 class="text-2xl font-bold text-text-main mb-1">אימות מספר</h2>
+      <p id="js-otp-phone" class="text-primary text-sm mb-8 font-semibold"></p>
+
+      <!-- 6-digit OTP input (LTR direction for numbers) -->
+      <div dir="ltr" id="js-otp-inputs" data-qa="otp-inputs-wrap" class="flex justify-center gap-2 mb-6"></div>
+
+      <div id="js-otp-error" data-qa="status-otp-error"
+        class="hidden mb-4 text-center text-red-500 text-sm font-medium bg-red-50 rounded-xl py-2.5 px-4 border border-red-100">
+      </div>
+
+      <div class="text-center space-y-1">
+        <p class="text-text-muted text-sm">לא קיבלת SMS?</p>
+        <div class="flex items-center justify-center gap-2">
+          <button id="js-resend" data-qa="btn-otp-resend" disabled
+            class="text-primary font-semibold text-sm underline underline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
+            שלחי שוב
+          </button>
+          <span id="js-resend-timer" class="text-text-muted text-xs tabular-nums"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ STEP 5: Confirmation ══ -->
+    <section id="step-5" class="step-section hidden">
+      <div class="text-center py-6">
+        <!-- Pending clock: signals "received, awaiting Meital's approval". A checkmark here
+             would wrongly read as "confirmed" — the booking is not confirmed until the SMS arrives. -->
+        <div class="w-24 h-24 mx-auto mb-5">
+          <svg viewBox="0 0 100 100" fill="none" class="w-full h-full" aria-hidden="true">
+            <circle cx="50" cy="50" r="47" fill="#F5ECF0" stroke="#DDC3A5" stroke-width="1.5"/>
+            <circle cx="50" cy="50" r="27" fill="none" stroke="#A67C8E" stroke-width="4"/>
+            <path class="clock-hand" d="M50 50 L50 34" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
+            <path class="clock-hand" d="M50 50 L64 50" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
+          </svg>
+        </div>
+
+        <h2 id="js-confirm-heading" tabindex="-1" class="text-2xl font-bold text-text-main mb-2 focus:outline-none">הבקשה נשלחה!</h2>
+
+        <!-- Honest status chip — this is a request, not yet a confirmed appointment -->
+        <div class="inline-flex items-center gap-2 bg-[#FDF3E7] text-amber-700 text-xs font-bold px-3.5 py-1.5 rounded-full mb-4">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+          ממתינה לאישור מיטל
+        </div>
+
+        <p id="js-confirm-note" class="text-text-muted text-sm font-light leading-relaxed mb-6 max-w-xs mx-auto">
+          תקבלי הודעת SMS ברגע שמיטל תאשר את התור — בדרך כלל תוך זמן קצר.
+        </p>
+
+        <!-- Summary card -->
+        <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-5 text-right mb-5">
+          <p class="text-[10px] font-semibold text-text-muted uppercase tracking-[.18em] mb-4">פרטי ההזמנה</p>
+          <div id="js-confirm-details" data-qa="confirm-details" class="space-y-3"></div>
+          <div id="js-confirm-id" data-qa="confirm-id" class="mt-4 pt-3 border-t border-secondary/20"></div>
+        </div>
+
+        <!-- Primary follow-up CTA: any question goes straight to Meital on WhatsApp. -->
+        <a id="js-whatsapp" data-qa="btn-whatsapp"
+          href="https://api.whatsapp.com/send/?phone=972547686865" target="_blank" rel="noopener noreferrer"
+          class="inline-flex items-center justify-center gap-2 w-full max-w-xs mx-auto bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-sm px-5 py-3 rounded-2xl shadow-sm transition-colors">
+          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          יש שאלה? כתבי למיטל בוואטסאפ
+        </a>
+
+        <!-- Portal link — available after booking is created -->
+        <a href="./my-booking.html"
+          class="mt-3 inline-flex items-center justify-center gap-1.5 text-sm text-primary font-medium underline underline-offset-2 hover:opacity-70 transition-opacity">
+          📋 לצפייה ושינוי ההזמנה שלי
+        </a>
+      </div>
+    </section>
+
+  </main>
+  <footer class="max-w-md mx-auto px-4 pt-5 pb-32 text-center border-t border-secondary/20">
+    <nav aria-label="קישורי מידע משפטי" class="flex justify-center gap-6">
+      <button id="js-open-privacy" data-qa="btn-open-privacy" type="button"
+        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
+        מדיניות פרטיות
+      </button>
+      <button id="js-open-accessibility" data-qa="btn-open-accessibility" type="button"
+        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
+        הצהרת נגישות
+      </button>
+    </nav>
+    <p class="text-[10px] text-text-muted/40 mt-2 font-light">© 2025 מיטל שבע ברעם</p>
+  </footer>
+  <!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
+  <div id="js-nav"
+    class="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur-sm border-t border-secondary/30 p-4 z-40">
+    <div class="max-w-md mx-auto flex gap-3">
+      <button id="btn-back" data-qa="btn-back"
+        class="hidden flex-1 py-3.5 rounded-xl border-2 border-secondary text-text-main font-semibold text-sm
+               transition-all hover:border-primary hover:text-primary active:scale-95">
+        חזרה
+      </button>
+      <button id="btn-next" data-qa="btn-next" disabled
+        class="flex-1 btn-primary py-3.5 rounded-xl text-white font-semibold text-sm shadow-md">
+        המשך
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="js-toast" data-qa="status-toast" class="fixed top-20 inset-x-4 max-w-sm mx-auto z-[60] pointer-events-none"></div>
+
+  <!-- ═══════════════════ LEGAL MODAL ═══════════════════ -->
+  <div id="js-modal" role="dialog" aria-modal="true" aria-labelledby="js-modal-title"
+    aria-hidden="true"
+    class="fixed inset-0 z-[70] items-end sm:items-center justify-center hidden">
+    <!-- Backdrop -->
+    <div id="js-modal-backdrop" class="absolute inset-0 bg-[#4A2E3A]/40 backdrop-blur-[2px]"></div>
+    <!-- Panel -->
+    <div id="js-modal-panel" tabindex="-1"
+      class="relative z-10 bg-white w-full max-w-[380px] mx-0 sm:mx-4 sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[70vh] flex flex-col">
+      <div class="flex items-center justify-between px-5 py-4 border-b border-secondary/20 shrink-0">
+        <h2 id="js-modal-title" class="text-[15px] font-bold text-text-main"></h2>
+        <button id="js-modal-close" data-qa="btn-modal-close" type="button" aria-label="סגירה"
+          class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-cream transition-colors">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div id="js-modal-body"
+        class="overflow-y-auto px-4 py-4 text-sm text-text-main leading-relaxed space-y-3 overscroll-contain">
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ MAINTENANCE MODE ═══════════════════ -->
+  <div id="js-maintenance" class="hidden fixed inset-0 z-[80] bg-cream flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+
+    <!-- Top accent bar -->
+    <div class="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
+
+    <!-- Logo circle -->
+    <div class="relative mb-10">
+      <div class="w-28 h-28 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-xl shadow-[#A67C8E]/25 maint-float">
+        <span class="text-white font-black text-5xl leading-none select-none">מ</span>
+      </div>
+      <span class="absolute -top-2 -right-2 text-2xl maint-sparkle select-none" aria-hidden="true">✨</span>
+    </div>
+
+    <!-- Heading -->
+    <h1 class="text-4xl font-black text-[#4A2E3A] mb-6 leading-tight tracking-tight">
+      הסטודיו מתחדש! ✨
+    </h1>
+
+    <!-- Decorative divider -->
+    <div class="w-16 h-[2px] rounded-full mb-6" style="background:linear-gradient(90deg,transparent,#DDC3A5,transparent)"></div>
+
+    <!-- Body text -->
+    <p class="text-[#9B8090] text-[1.05rem] leading-relaxed max-w-[19rem] mb-3">
+      אני עובדת ברגעים אלו על שדרוג המערכת כדי להבטיח לך את חוויית קביעת התורים הנוחה והמהירה ביותר.
+    </p>
+    <p class="text-[#4A2E3A] font-semibold text-base mb-8">
+      נחזור לפעילות מלאה ממש בקרוב 🌸
+    </p>
+
+    <!-- CTA label -->
+    <p class="text-[#9B8090] text-sm mb-5">
+      בינתיים, אשמח לעזור לך בקביעת תור בשיחה אישית:
+    </p>
+
+    <!-- WhatsApp button -->
+    <a href="https://api.whatsapp.com/send/?phone=972547686865"
+       target="_blank" rel="noopener noreferrer"
+       class="maint-wa-btn inline-flex items-center gap-3 bg-[#25D366] text-white font-bold text-[1.05rem] px-8 py-[1.1rem] rounded-2xl shadow-lg shadow-[#25D366]/30 select-none">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 shrink-0" aria-hidden="true">
+        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+      </svg>
+      קביעת תור בוואטסאפ
+    </a>
+
+    <!-- Brand signature -->
+    <p class="absolute bottom-7 text-xs text-[#9B8090]/60 font-light select-none">
+      מיטל שבע ברעם — לק ג'ל בוטיק
+    </p>
+
+    <!-- Bottom accent bar -->
+    <div class="absolute bottom-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
+  </div>
+
+  <script type="importmap">{ "imports": { "motion": "https://esm.sh/motion@12", "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
+  <script type="module" src="./booking.js?v=2.4.0"></script>
+  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
+<script type="module" src="./chatbot.js"></script>
+</body>
+</html>

@@ -3144,7 +3144,7 @@ function initThemeStateFromRows() {
 
 // ── 1:1 live preview iframe (real booking page) ──
 function _previewSrc(page) {
-  return (page === 'landing' ? './landing.html' : './index.html') + '?preview=1';
+  return (page === 'landing' ? './index.html' : './booking.html') + '?preview=1';
 }
 
 function ensurePreview() {
