@@ -85,7 +85,7 @@ async function fillStep3(page) {
 test.describe('Duplicate booking — active booking blocks OTP send', () => {
   test('shows Hebrew toast and stays on step 3 when phone has a Pending booking', async ({ page }) => {
     await setupMocks(page, { active: true, date: '2099-12-15', time: '10:00' })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -101,7 +101,7 @@ test.describe('Duplicate booking — active booking blocks OTP send', () => {
 
   test('shows toast for an Approved booking as well', async ({ page }) => {
     await setupMocks(page, { active: true, date: '2099-11-21', time: '12:00' })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -133,7 +133,7 @@ test.describe('Duplicate booking — active booking blocks OTP send', () => {
       }
       return route.fulfill({ status: 400, body: '{}' })
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -148,7 +148,7 @@ test.describe('Duplicate booking — active booking blocks OTP send', () => {
 test.describe('Duplicate booking — no active booking allows OTP send', () => {
   test('proceeds to step 4 when check returns active:false', async ({ page }) => {
     await setupMocks(page, { active: false })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -163,7 +163,7 @@ test.describe('Duplicate booking — no active booking allows OTP send', () => {
 test.describe('Duplicate booking — fail-open on check errors', () => {
   test('proceeds to step 4 when check-active-booking network fails', async ({ page }) => {
     await setupMocks(page, 'network-error')
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -172,7 +172,7 @@ test.describe('Duplicate booking — fail-open on check errors', () => {
 
   test('proceeds to step 4 when check-active-booking returns HTTP 500', async ({ page }) => {
     await setupMocks(page, 'http-500')
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -194,7 +194,7 @@ test.describe('Duplicate booking — IS_MOCK_MODE skips check', () => {
       if (path === 'check-active-booking') { checkCalled = true; return route.abort('failed') }
       return route.continue()
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -215,7 +215,7 @@ test.describe('Duplicate booking — cancelled booking allows re-booking', () =>
     // check-active-booking returns active:false (cancelled rows are excluded
     // by the .in("status", ["Pending", "Approved"]) filter)
     await setupMocks(page, { active: false })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -227,7 +227,7 @@ test.describe('Duplicate booking — cancelled booking allows re-booking', () =>
 
   test('proceeds to OTP step when prior booking was Rejected', async ({ page }) => {
     await setupMocks(page, { active: false })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()
@@ -259,7 +259,7 @@ export default APP_CONFIG;
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) })
       return route.fulfill({ status: 400, body: '{}'})
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await fillStep3(page)
     await page.locator('#btn-next').click()

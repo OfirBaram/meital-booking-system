@@ -39,7 +39,7 @@ function makeMockSlots(year, month) {
 }
 
 /**
- * Install route interception on the page BEFORE goto('/').
+ * Install route interception on the page BEFORE goto('/booking.html').
  * Intercepts config.js to inject IS_MOCK_MODE:false + TEST_GAS_URL so HTTP
  * calls flow through GAS_GLOB; also mocks all GAS actions.
  */
@@ -178,7 +178,7 @@ async function typeOTP(page, code) {
 test.describe('Step 1 — Service selection', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('page loads with the active service cards and a disabled Next button', async ({ page }) => {
@@ -226,7 +226,7 @@ test.describe('Step 1 — Service selection', () => {
 test.describe('Step 2 — Date & Time', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
   })
 
@@ -258,7 +258,7 @@ test.describe('Step 2 — Date & Time', () => {
 test.describe('Step 3 — Personal details', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
   })
 
@@ -288,7 +288,7 @@ test.describe('Step 3 — Personal details', () => {
 test.describe('Step 4 — OTP verification', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
   })
 
@@ -316,7 +316,7 @@ test.describe('Step 4 — OTP verification', () => {
 test.describe('Step 5 — Confirmation', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
     await typeOTP(page, '246810')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
@@ -392,7 +392,7 @@ export default APP_CONFIG;
       res => res.url().includes('get-slots') && res.status() === 200,
       { timeout: 5_000 }
     )
-    await page.goto('/')
+    await page.goto('/booking.html')
     // Wait for the ES module to initialize (service cards rendered = init() ran).
     await page.waitForSelector('.service-card')
     await prefetchDone
@@ -419,7 +419,7 @@ export default APP_CONFIG;
 test.describe('Security — OTP send rate limiting', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('OTP send is blocked for 30 s after first successful send', async ({ page }) => {
@@ -472,7 +472,7 @@ test.describe('Security — OTP send rate limiting', () => {
 test.describe('Performance — instant calendar render on cache hit', () => {
   test('calendar has no skeleton cells when data is pre-fetched before step 2', async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
 
     // Wait for pre-fetch to complete (mocked getSlots is instant)
     await page.waitForTimeout(500)
@@ -492,7 +492,7 @@ test.describe('Performance — instant calendar render on cache hit', () => {
 
   test('clicking a date does not rebuild the calendar DOM (selection patch only)', async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
 
     // Get the count of cal-day elements before the click
@@ -583,7 +583,7 @@ test.describe('API error hardening — sendOTP', () => {
     await setupMocksWithOverrides(page, {
       sendOTP: route => route.fulfill({ status: 500, body: 'Internal Server Error' }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
 
     await page.locator('#inp-name').fill('נועה כהן')
@@ -610,7 +610,7 @@ test.describe('API error hardening — sendOTP', () => {
         body:        JSON.stringify({ success: false, error: 'rate_limited', retryAfter: 28 }),
       }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
 
     await page.locator('#inp-name').fill('נועה כהן')
@@ -628,7 +628,7 @@ test.describe('API error hardening — verifyAndBook', () => {
     await setupMocksWithOverrides(page, {
       verifyAndBook: route => route.fulfill({ status: 500, body: 'Internal Server Error' }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
 
     await typeOTP(page, '123456')
@@ -652,7 +652,7 @@ test.describe('API error hardening — verifyAndBook', () => {
         body:        JSON.stringify({ success: false, error: 'slot_not_available' }),
       }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
 
     await typeOTP(page, '123456')
@@ -674,7 +674,7 @@ test.describe('API error hardening — verifyAndBook', () => {
         body:        JSON.stringify({ success: false, error: 'invalid_otp' }),
       }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
 
     await typeOTP(page, '000000')

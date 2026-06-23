@@ -146,7 +146,7 @@ async function fillOTP(page, code) {
 test.describe('Input sanitization — XSS protection', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('onerror-based XSS payload in name does not execute in confirmation', async ({ page }) => {
@@ -203,7 +203,7 @@ test.describe('Error boundaries — server offline (503)', () => {
     await setupMocks(page, {
       sendOTP: route => route.fulfill({ status: 503, body: 'Service Unavailable' }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await page.locator('[data-qa="inp-name"]').fill('נועה כהן')
     await page.locator('[data-qa="inp-phone"]').fill('0501234567')
@@ -224,7 +224,7 @@ test.describe('Error boundaries — server offline (503)', () => {
     await setupMocks(page, {
       verifyAndBook: route => route.fulfill({ status: 503, body: 'Service Unavailable' }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
     await fillOTP(page, '123456')
 
@@ -245,7 +245,7 @@ test.describe('Error boundaries — rate limit (429)', () => {
     await setupMocks(page, {
       sendOTP: route => route.fulfill({ status: 429, body: 'Too Many Requests' }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await page.locator('[data-qa="inp-name"]').fill('נועה כהן')
     await page.locator('[data-qa="inp-phone"]').fill('0501234567')
@@ -267,7 +267,7 @@ test.describe('Error boundaries — rate limit (429)', () => {
         body:        JSON.stringify({ success: false, error: 'rate_limited', retryAfter: 28 }),
       }),
     })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep3(page)
     await page.locator('[data-qa="inp-name"]').fill('נועה כהן')
     await page.locator('[data-qa="inp-phone"]').fill('0501234567')
@@ -286,7 +286,7 @@ test.describe('Error boundaries — rate limit (429)', () => {
 test.describe('State preservation — localStorage returning-client', () => {
   test('phone and name are written to localStorage after a completed booking', async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
     await fillOTP(page, '246810')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
@@ -300,7 +300,7 @@ test.describe('State preservation — localStorage returning-client', () => {
 
   test.skip('after reload, step 3 pre-fills phone from localStorage (returning-client UX)', async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     // Seed a previous booking (simulates a returning client)
     await page.evaluate(() => {
       localStorage.setItem('meital_client', JSON.stringify({
@@ -319,7 +319,7 @@ test.describe('State preservation — localStorage returning-client', () => {
 
   test('reload during OTP entry resets to step 1, not a broken step 4', async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep4(page)
     // Simulate a mid-OTP page refresh
     await page.reload()
@@ -339,7 +339,7 @@ test.describe('State preservation — localStorage returning-client', () => {
 test.describe('data-qa structural smoke — every functional element is reachable', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('step 1: service cards and navigation', async ({ page }) => {
