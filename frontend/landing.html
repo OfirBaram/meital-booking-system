@@ -710,7 +710,6 @@
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
-        <li><a href="./my-booking.html" style="color:var(--primary);font-weight:600;">ניהול הזמנה</a></li>
       </ul>
     </nav>
 
@@ -736,7 +735,6 @@
         <li><a href="#services">שירותים</a></li>
         <li><a href="#gallery">גלריה</a></li>
         <li><a href="#contact">צרי קשר</a></li>
-        <li><a href="./my-booking.html">ניהול הזמנה</a></li>
       </ul>
       <div class="social-strip" id="mobile-social-strip" aria-label="קישורים חברתיים"></div>
     </div>
@@ -1079,7 +1077,7 @@ var SOCIAL_LABELS = {
   easy:      'Easy',
 };
 
-var WA_PREFILL = 'היי מיטל! 😊 אשמח לתאם תור לטיפול. אפשר לדעת מה הזמנים הפנויים?';
+var WA_PREFILL = 'היי מיטל! 😊 אשמח לקבוע תור לטיפול. מתי יש לך זמן פנוי?';
 function openWA(e) {
   if (e) e.preventDefault();
   window.open('https://wa.me/972547686865?text=' + encodeURIComponent(WA_PREFILL), '_blank', 'noopener,noreferrer');
@@ -1117,23 +1115,12 @@ function renderSocialStrip(containerId) {
 function renderHeroCta() {
   var el = document.getElementById('hero-cta');
   if (!el) return;
-  // Primary CTA → Booking Wizard
-  var book = document.createElement('a');
-  book.className = 'btn-primary';
-  book.href = './index.html';
-  book.setAttribute('aria-label', 'מעבר לקביעת תור אונליין');
-  book.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span>לתיאום תור</span>';
-  el.appendChild(book);
-  // Secondary CTA → WhatsApp
-  var waHref = SiteConfig.social.whatsapp || 'https://wa.me/972547686865';
   var wa = document.createElement('a');
-  wa.className = 'btn-outline';
-  wa.href = waHref;
-  wa.target = '_blank';
-  wa.rel = 'noopener noreferrer';
-  wa.setAttribute('aria-label', 'שלחי הודעת ווטסאפ');
+  wa.className = 'btn-primary';
+  wa.href = '#';
+  wa.setAttribute('aria-label', 'קביעת תור בווטסאפ');
   wa.addEventListener('click', openWA);
-  wa.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.098.543 4.067 1.49 5.785L0 24l6.386-1.675A11.955 11.955 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22.001c-1.895 0-3.66-.51-5.17-1.396l-.371-.22-3.793.994.994-3.707-.239-.381A10 10 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10.001-10 10.001z"/></svg><span>ווטסאפ</span>';
+  wa.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><span>קביעי תור בווטסאפ</span>';
   el.appendChild(wa);
 }
 
@@ -1881,9 +1868,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ── STICKY BOOK BUTTON ── -->
 <div id="sticky-book">
-  <a href="./index.html">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    קביעת תור
+  <a href="#" onclick="openWA(event)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    ווטסאפ
   </a>
 </div>
 
@@ -2170,11 +2157,11 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <script>
 (function () {
-  var EP  = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
-  var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
-  var LSK = 'meital_chat_h';
-  var WELCOME = 'שלום! 💅\nאני הסוכנת האישית של מיטל שבע ברעם — לק ג\'\u05dc בוטיק.\nאשמח לעזור לך עם הזמנת תור, שאלות על שירותים ועוד!\nבמה אוכל לעזור?';
-  var WELCOME_QR = ['קביעת תור', 'שירותים ומחירים', 'זמינות קרובה', 'מיקום הסטודיו'];
+  var WELCOME = 'שלום! 💅
+אני הסוכנת האישית של מיטל שבע ברעם — לק ג'ל בוטיק.
+קביעת תורים מתבצעת כעת בווטסאפ בלבד — מהיר, נוח ואישי 🌟
+במה אוכל לעזור?';
+  var WELCOME_QR = ['קביעי תור בווטסאפ 💬', 'שירותים ומחירים', 'מיקום הסטודיו', 'שאלה כללית'];
 
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
 
@@ -2197,11 +2184,13 @@ document.addEventListener('DOMContentLoaded', function() {
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
-        var url = './index.html?date=' + encodeURIComponent(m[1]) + '&time=' + encodeURIComponent(m[2]) + '&service=' + encodeURIComponent(m[3]);
+        // Booking via WhatsApp only — redirect to WA with context
         bubble.appendChild(document.createElement('br'));
         var a = document.createElement('a');
-        a.href = url; a.className = 'cbook'; a.dir = 'rtl';
-        a.textContent = '📅 ' + m[1] + ' · ' + m[2] + ' — הזמיני עכשיו';
+        var waText = 'היי מיטל! 😊 אשמח לקבוע תור לטיפול. מתי יש לך זמן פנוי?';
+        a.href = 'https://wa.me/972547686865?text=' + encodeURIComponent(waText);
+        a.className = 'clink wa-link'; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.dir = 'rtl';
+        a.textContent = '📲 קביעי תור בווטסאפ';
         bubble.appendChild(a);
       } else if (p.match(/^\[SVC:[a-z0-9_]+\]$/)) {
         var svcId = p.slice(5, -1);
@@ -2352,6 +2341,159 @@ document.addEventListener('DOMContentLoaded', function() {
     return out;
   }
 
+  /* ── LOCAL INTENTS (no backend) ── */
+  var LOCAL_INTENTS = [
+    { kw: ['להזמין','לזמן','קביעה','לקבוע','תור','הזמנה','קביעי תור'], id: 'booking' },
+    { kw: ['פנוי','זמין','יש מקום','זמינות','מתי אפשר'], id: 'avail' },
+    { kw: ['שירות','טיפול','מה יש','מציעה',"ג'ל",'לק','ציפורן','מה את עושה'], id: 'services' },
+    { kw: ['מחיר','עלות','עולה','כמה זה','כסף','כמה עולה'], id: 'prices' },
+    { kw: ['כמה זמן','משך','ארוך','לוקח'], id: 'duration' },
+    { kw: ['שעות','פתוח','סגור','עובדת','מתי את','מתי פ'], id: 'hours' },
+    { kw: ['כתובת','איפה','מיקום','מגיעים','ניווט','לאן'], id: 'location' },
+    { kw: ['ביטול','לבטל','לשנות','שינוי','להזיז'], id: 'cancel' },
+    { kw: ['ואטסאפ','whatsapp','טלפון','קשר','להתקשר','לכתוב'], id: 'contact' },
+    { kw: ['תשלום','אשראי','מזומן','ביט','פייבוקס','כרטיס'], id: 'payment' },
+    { kw: ['מחזיק','לכמה זמן','אחרי הטיפול','תחזוקה','ימים','שבועות'], id: 'care' },
+    { kw: ['להתכונן','מה צריך','מה להביא','ביקור ראשון','פעם ראשונה'], id: 'prepare' },
+    { kw: ['עיצוב','צבע','גוון','רעיון','מה לבחור','השראה','נייל ארט','פרנץ','אומברה'], id: 'design' },
+    { kw: ['תודה','תנקיו','יופי','סבבה','מעולה','ברור'], id: 'thanks' },
+    { kw: ['שלום','היי','הי ','בוקר','ערב','צהריים','אהלן','שירותים ומחירים','מיקום הסטודיו','שאלה כללית'], id: 'greeting' },
+  ];
+  var LOCAL_RESPONSES = {
+    booking: {
+      text: 'קביעת תורים מתבצעת אצלי בווטסאפ 😊
+פשוט שלחי לי הודעה ואחזור אלייך מהר!
+[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    avail: {
+      text: 'לבדיקת זמינות וקביעת תור — כתבי לי בווטסאפ ואעדכן אותך ישירות 🌟
+[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    services: {
+      text: 'אני מציעה שלושה שירותים עיקריים:
+
+💅 ג'ל ידיים — 60 דקות
+🌸 לק רגיל ברגליים — 30 דקות
+✨ ג'ל ידיים + לק רגליים — 90 דקות
+
+לקביעת תור:
+[WA]',
+      qr: ['מחירים?', 'קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prices: {
+      text: 'לגבי מחירים — הכי טוב לשאול אותי ישירות כדי שאוכל לתת לך מחירים עדכניים 😊
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    duration: {
+      text: 'משכי הטיפולים:
+
+💅 ג'ל ידיים — 60 דקות
+🌸 לק רגיל ברגליים — 30 דקות
+✨ ג'ל + לק — 90 דקות
+
+לקביעת תור:
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    hours: {
+      text: 'שעות הפעילות משתנות — כתבי לי ואעדכן אותך ישירות 😊
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    location: {
+      text: 'לפרטי המיקום — שלחי לי הודעה ואשלח לך את הכתובת המדויקת 📍
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    cancel: {
+      text: 'לביטול או שינוי תור — שלחי לי הודעה בווטסאפ ואסדר את זה מיד 😊
+[WA]',
+      qr: ['שאלה כללית']
+    },
+    contact: {
+      text: 'את מוזמנת לכתוב לי ישירות בווטסאפ — אחזור אלייך בהקדם! 💌
+[WA]',
+      qr: ['שאלה כללית']
+    },
+    payment: {
+      text: 'מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס 💳
+לכל שאלה נוספת:
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    care: {
+      text: "ג'ל איכותי מחזיק בדרך כלל 3–4 שבועות 💅
+לשמירה על התוצאה:
+• לחות ידיים + קרם קוטיקולות מדי יום
+• להימנע ממגע ממושך עם מים
+• לא להשתמש בציפורניים ככלי עבודה
+
+לקביעת תור הבא:
+[WA]",
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prepare: {
+      text: 'אין צורך בהכנה מיוחדת! 😊
+מגיעים כרגיל — לקינה ישנה מורידים בסטודיו.
+מומלץ להגיע עם ציפורניים נקיות ויבשות.
+
+לקביעת תור:
+[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    design: {
+      text: "יש אינסוף אפשרויות! 🎨
+פרנץ', ניוד, אומברה, גלייטר, נייל-ארט ועוד.
+מומלץ לשלוח לי תמונות השראה לפני הביקור — ניצור ביחד משהו שמדויק לך.
+[WA]
+[IG]",
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    thanks: {
+      text: 'בשמחה! מחכה לראות אותך בקרוב 💅
+[WA]',
+      qr: ['שאלה כללית']
+    },
+    greeting: {
+      text: 'היי! 😊 שמחה שפנית.
+אני כאן לעזור עם שאלות על שירותים, מחירים, ועוד!
+קביעת תורים מתבצעת דרך ווטסאפ — מהיר ונוח 🌟
+[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬', 'מיקום הסטודיו']
+    },
+    fallback: {
+      text: 'לא הצלחתי להבין לגמרי... 😊
+הכי נוח לשלוח לי הודעה ואעזור לך ישירות!
+[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬']
+    }
+  };
+
+  function matchLocalIntent(text) {
+    var t = text.toLowerCase().replace(/[?!.,;]/g, '');
+    for (var i = 0; i < LOCAL_INTENTS.length; i++) {
+      var kws = LOCAL_INTENTS[i].kw;
+      for (var j = 0; j < kws.length; j++) {
+        if (t.indexOf(kws[j].toLowerCase()) !== -1) return LOCAL_INTENTS[i].id;
+      }
+    }
+    return 'fallback';
+  }
+
+  function sendLocal(userText) {
+    var id = matchLocalIntent(userText);
+    var r = LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+    var typingRow = showTyping();
+    setTimeout(function() {
+      if (typingRow) typingRow.remove();
+      lastRole = null;
+      addRow('bot', r.text, r.qr);
+    }, 650);
+  }
+
   function send() {
     if (sending) return;
     var inp = document.getElementById('chat-input');
@@ -2364,41 +2506,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     addRow('user', txt);
     document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
-    hist = sanitizeHist(hist);
-    hist.push({ role: 'user', content: txt }); save();
-    setSending(true);
-    var typingRow = showTyping();
+    sendLocal(txt);
 
-    fetch(EP, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + KEY },
-      body: JSON.stringify({ messages: hist })
-    })
-    .then(function(r) {
-      if (r.status === 429) throw { is429: true };
-      return r.json();
-    })
-    .then(function(d) {
-      if (typingRow) typingRow.remove();
-      lastRole = null;
-      var rep = (d && d.reply) || 'מצטערת, נתקלתי בתקלה. ניתן לפנות אלי בווטסאפ 📲';
-      addRow('bot', rep);
-      hist.push({ role: 'assistant', content: rep }); save();
-    })
-    .catch(function(e) {
-      if (typingRow) typingRow.remove();
-      lastRole = null;
-      var msg = (e && e.is429)
-        ? 'נשלחו יותר מדי הודעות. נסי שוב בעוד דקה 🙏'
-        : 'מצטערת, לא הצלחתי להתחבר. ווטסאפ: +972547686865 📲';
-      addRow('bot', msg);
-      if (hist.length > 0 && hist[hist.length - 1].role === 'user') { hist.pop(); save(); }
-    })
-    .finally(function() {
-      setSending(false);
-      var i = document.getElementById('chat-input');
-      if (i) i.focus();
-    });
+    /* placeholder so the .finally block still has the element reference */
+    var i = document.getElementById('chat-input'); void(i);
+    if (false) {
+    } /* end if(false) */
   }
 
   function openPanel() {
