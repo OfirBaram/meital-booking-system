@@ -1,385 +1,2553 @@
 ﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- QW-5: Content-Security-Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co https://script.google.com https://esm.sh https://api-eu.mixpanel.com;">
-  <meta name="theme-color" content="#FAF5F0">
-  <meta name="description" content="הזמנת תורים אונליין לסטודיו של מיטל שבע ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם — שירות אישי ומקצועי.">
-  <!-- Open Graph / WhatsApp / Facebook sharing -->
-  <meta property="og:type"        content="website">
-  <meta property="og:title"       content="מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור">
-  <meta property="og:description" content="הזמנת תורים אונליין לסטודיו של מיטל שבע ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם — שירות אישי ומקצועי.">
-  <meta property="og:image"       content="./meital_profile_header.webp">
-  <meta property="og:locale"      content="he_IL">
-  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="alternate icon" href="./favicon.ico">
-  <link rel="manifest" href="./manifest.json">
-  <title>מיטל שבע ברעם — סטודיו לציפורניים | הזמנת תור</title>
+  <!--
+  ╔══════════════════════════════════════════════════════════════╗
+  ║   LANDING PAGE — מיטל שבע ברעם | עדכון תוכן: ראה SiteConfig ║
+  ╚══════════════════════════════════════════════════════════════╝
+  כדי לעדכן תוכן ללא גישה לקוד:
+    1. פתח index.html בכל עורך טקסט
+    2. חפש "const SiteConfig" — זה הקובץ שלך לשינויים
+    3. שנה שמות, טקסטים, לינקים — העמוד מרנדר אוטומטית מה-config
+    4. להחלפת תמונות: החלף קבצים ב- frontend/public/gallery/
+       ועדכן את gallery[] ב-SiteConfig
+    5. לצבעים: שנה את colors{} — CSS Variables מוזרקות לדף
+  -->
 
-  <link rel="stylesheet" href="./styles/tailwind.css">
-  <link rel="stylesheet" href="./styles/tokens.css">
-  <link rel="stylesheet" href="./styles/animations.css">
-  <link rel="stylesheet" href="./styles/components.css">
-  <link rel="stylesheet" href="./styles/theme-effects.css">
+  <!-- ── META ── -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+  <!--
+    SECURITY NOTE: the headers below work only as meta tags in-page.
+    For full effect, add these as HTTP response headers in your server / CDN:
+      Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self' 'unsafe-inline';
+      Strict-Transport-Security: max-age=31536000; includeSubDomains
+      Referrer-Policy: strict-origin-when-cross-origin
+  -->
 
-  <!-- Heebo Font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+  <title>מיטל שבע ברעם — עיצוב ציפורניים בוטיק | רמת גן</title>
+  <meta name="description" content="מיטל שבע ברעם — סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם. חוויה אישית, איכות פרימיום." />
+  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, עיצוב גבות, גבות, שפם, ג'ל ידיים, בוטיק, מיטל שבע ברעם" />
+  <meta name="author" content="מיטל שבע ברעם" />
+  <link rel="canonical" href="https://ofirbaram.github.io/meital-booking-system/" />
 
-  <!-- JSON-LD: Local Business (Google Search rich results) -->
+  <!-- Open Graph -->
+  <meta property="og:type"        content="website" />
+  <meta property="og:locale"      content="he_IL" />
+  <meta property="og:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
+  <meta property="og:description" content="סטודיו עיצוב ציפורניים ועיצוב גבות בוטיק ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם." />
+  <meta property="og:image"       content="./gallery/nail-01.jpg" />
+  <meta property="og:url"         content="https://ofirbaram.github.io/meital-booking-system/" />
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card"        content="summary_large_image" />
+  <meta name="twitter:title"       content="מיטל שבע ברעם — עיצוב ציפורניים בוטיק" />
+  <meta name="twitter:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן." />
+  <meta name="twitter:image"       content="./gallery/nail-01.jpg" />
+
+  <!-- Structured Data — Local Business -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "NailSalon",
-    "name": "מיטל שבע ברעם — לק ג'ל בוטיק",
-    "description": "סטודיו לציפורניים בוטיק ברמת גן. לק ג'ל קלאסי ולרגליים.",
-    "telephone": "+972547686865",
+    "@type": "BeautySalon",
+    "name": "מיטל שבע ברעם — עיצוב ציפורניים",
+    "description": "סטודיו עיצוב ציפורניים בוטיק ברמת גן",
     "address": {
       "@type": "PostalAddress",
+      "streetAddress": "רש\"י 11",
       "addressLocality": "רמת גן",
       "addressCountry": "IL"
     },
-    "priceRange": "₪₪",
-    "hasMap": "https://maps.google.com/?q=מיטל+שבע+ברעם+רמת+גן"
+    "telephone": "+972547686865",
+    "email": "meital_sheva7@hotmail.com",
+    "url": "https://ofirbaram.github.io/meital-booking-system/",
+    "openingHoursSpecification": [{
+      "@type": "OpeningHoursSpecification",
+      "dayOfWeek": ["Sunday","Monday","Tuesday","Wednesday","Thursday"],
+      "opens": "08:00",
+      "closes": "19:00"
+    }],
+    "sameAs": [
+      "https://www.instagram.com/meytal.sheva",
+      "https://www.tiktok.com/@meytal.sheva"
+    ]
   }
   </script>
 
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet" />
+
+  <!-- Design tokens & compiled Tailwind -->
+  <link rel="stylesheet" href="./styles/tokens.css" />
+  <link rel="stylesheet" href="./styles/tailwind.css" />
+
   <style>
-    body { font-family: 'Heebo', sans-serif; background-color: #FAF5F0; color: #4A2E3A; -webkit-font-smoothing: antialiased; }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+    /* ── DESIGN TOKENS ────────────────────────────────────────────────────────
+       Layer 1 (build-time): tokens.css defines --color-* and --surface-* vars.
+       The aliases below forward them to the short names used throughout this file.
+       Layer 2 (runtime): SiteConfig.colors overrides these at page-load via
+       document.documentElement.style.setProperty(). To update branding, edit
+       SiteConfig.colors AND frontend/styles/tokens.css for consistency.
+       ──────────────────────────────────────────────────────────────────────── */
+    :root {
+      /* All landing colours follow the active palette (applyLiveSiteConfig
+         injects --color-* at runtime). Fallbacks = the Dust-Rose brand. */
+      --bg:        var(--color-cream,        #FAF5F0);
+      --card:      var(--color-card-bg,      #FFFFFF);
+      --primary:   var(--color-primary,      #A67C8E);
+      --champagne: var(--color-secondary,    #DDC3A5);
+      --charcoal:  var(--color-text-main,    #2d2b3d);
+      --muted:     var(--color-text-muted,   #8a7f8e);
+      --border:    var(--color-secondary,    #e8d5c4);
+      --ink:       #2d2b3d;  /* fixed dark surface — contact/footer/overlays, palette-agnostic */
     }
+
+    /* ── BASE ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html   { scroll-behavior: smooth; font-size: 16px; }
+    body   { background: var(--bg); color: var(--charcoal); font-family: 'Heebo', 'Assistant', sans-serif; margin: 0; }
+
+    /* ── FOCUS VISIBLE (WCAG 2.4.7) ── */
+    :focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: 2px; }
+
+    /* ── SKIP LINK (WCAG 2.4.1) ── */
+    .skip-link {
+      position: absolute; top: -100%; right: 1rem;
+      background: var(--ink); color: #fff;
+      padding: .5rem 1rem; border-radius: 0 0 4px 4px;
+      font-size: .875rem; text-decoration: none; z-index: 9999;
+      transition: top .2s;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* ── UTILITY ── */
+    .font-serif      { font-family: 'Assistant', 'Heebo', serif; }
+    .bg-champagne    { background-color: var(--champagne); }
+    .bg-charcoal     { background-color: var(--ink); }
+    .bg-lp           { background-color: var(--bg); }
+    .bg-lp-card      { background-color: var(--card); }
+    .text-champagne  { color: var(--champagne); }
+    .text-charcoal   { color: var(--charcoal); }
+    .text-muted-lp   { color: var(--muted); }
+    .border-lp       { border-color: var(--border); }
+    .tracking-heb    { letter-spacing: 0.04em; }
+
+    /* ── HEADER ── */
+    #site-header {
+      position: fixed; top: 0; inset-inline: 0; z-index: 50;
+      background: rgba(250,245,240,.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .header-inner {
+      max-width: 1200px; margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 4.5rem;
+    }
+    .logo {
+      font-family: 'Assistant', sans-serif;
+      font-size: 1.25rem; font-weight: 600;
+      color: var(--charcoal); text-decoration: none;
+      letter-spacing: .02em;
+    }
+    .nav-links { display: flex; align-items: center; gap: 2rem; list-style: none; margin: 0; padding: 0; }
+    .nav-links a {
+      font-size: .8125rem; font-weight: 500; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted);
+      text-decoration: none; transition: color .25s;
+    }
+    .nav-links a:hover { color: var(--charcoal); }
+
+    /* social icon strip */
+    .social-strip { display: flex; align-items: center; gap: .75rem; }
+    .social-icon  {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 50%;
+      color: var(--muted); text-decoration: none;
+      transition: color .25s, background .25s;
+    }
+    .social-icon:hover { color: var(--charcoal); background: rgba(166,124,142,.12); }
+    .social-icon svg   { width: 1.125rem; height: 1.125rem; fill: currentColor; }
+
+    /* mobile menu */
+    .menu-btn { display: none; background: none; border: none; cursor: pointer; padding: .5rem; color: var(--charcoal); }
+    #mobile-nav { display: none; }
+    #mobile-nav.open { display: block; }
+    .mobile-nav-inner {
+      background: var(--bg); border-top: 1px solid var(--border);
+      padding: 1rem 1.5rem 1.5rem;
+    }
+    .mobile-nav-inner ul { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: .25rem; }
+    .mobile-nav-inner a { display: block; padding: .625rem 0; font-size: .875rem; color: var(--muted); text-decoration: none; letter-spacing: .05em; }
+    .mobile-nav-inner .social-strip { justify-content: flex-end; padding-top: .75rem; border-top: 1px solid var(--border); }
+
+    @media (max-width: 767px) {
+      .nav-links, .header-social { display: none !important; }
+      .menu-btn { display: inline-flex; }
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; min-height: 100svh;
+      display: flex; align-items: center; justify-content: center;
+      padding-top: 4.5rem; overflow: hidden;
+    }
+    .hero-bg  { position: absolute; inset: 0; background: rgba(221,195,165,.25); }
+    .hero-inner { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 0 1.5rem; text-align: center; }
+    .hero-eyebrow {
+      font-size: .75rem; font-weight: 500; letter-spacing: .25em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1.25rem;
+    }
+    .hero-title {
+      font-family: 'Assistant', sans-serif;
+      font-size: clamp(2.5rem, 7vw, 5rem);
+      font-weight: 300; line-height: 1.2;
+      color: var(--charcoal); margin: 0 0 1.5rem;
+    }
+    .hero-title em { font-style: italic; }
+    .hero-subtitle {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted); line-height: 1.8;
+      max-width: 540px; margin: 0 auto 2.5rem;
+      text-wrap: balance;
+    }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: center; }
+
+    /* Buttons — WCAG AA contrast */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .875rem 2.25rem;
+      background: var(--primary); color: #FAF5F0;
+      font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--primary);
+      transition: background .25s, color .25s; cursor: pointer;
+    }
+    .btn-primary:hover { background: transparent; color: var(--primary); }
+
+    /* Hero Booking CTA — primary conversion, pill shape, brand dusty rose */
+    #hero-cta a.btn-primary {
+      background: var(--primary);
+      color: #FAF5F0;
+      border: none;
+      font-size: 1.0625rem; font-weight: 700; letter-spacing: .03em;
+      padding: 1.125rem 2.75rem;
+      border-radius: 50px;
+      box-shadow: 0 4px 20px rgba(166,124,142,.30), 0 1px 4px rgba(0,0,0,.08);
+      gap: .65rem;
+      transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease, background .22s ease;
+      white-space: nowrap;
+      text-transform: none;
+    }
+    #hero-cta a.btn-primary svg {
+      width: 1.5rem; height: 1.5rem;
+      flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2;
+    }
+    #hero-cta a.btn-primary:hover {
+      background: #956e7e;
+      color: #FAF5F0;
+      box-shadow: 0 8px 32px rgba(166,124,142,.46), 0 2px 8px rgba(0,0,0,.10);
+      transform: translateY(-3px) scale(1.03);
+    }
+    #hero-cta a.btn-primary:active {
+      transform: translateY(0) scale(.97);
+      box-shadow: 0 2px 10px rgba(166,124,142,.22), 0 1px 3px rgba(0,0,0,.06);
+      transition-duration: .1s;
+    }
+    /* Hero WhatsApp secondary — pill shape, brand-toned ghost */
+    #hero-cta a.btn-outline {
+      border-radius: 50px;
+      padding: 1.0625rem 2rem;
+      border-color: rgba(166,124,142,.45);
+      color: var(--primary);
+      font-size: .9375rem; letter-spacing: .04em;
+      text-transform: none;
+    }
+    #hero-cta a.btn-outline:hover {
+      background: var(--primary);
+      color: #FAF5F0;
+      border-color: var(--primary);
+    }
+
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .875rem 2.25rem;
+      background: transparent; color: var(--charcoal);
+      font-size: .8125rem; font-weight: 500; letter-spacing: .12em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--primary);
+      transition: background .25s, color .25s; cursor: pointer;
+    }
+    .btn-outline:hover { background: var(--primary); color: #FAF5F0; }
+
+    .btn-wa {
+      display: inline-flex; align-items: center; gap: .75rem;
+      padding: 1rem 2.5rem;
+      background: var(--champagne); color: var(--charcoal);
+      font-size: .875rem; font-weight: 500; letter-spacing: .1em;
+      text-transform: uppercase; text-decoration: none;
+      border: 2px solid var(--champagne);
+      transition: opacity .25s;
+    }
+    .btn-wa:hover { opacity: .88; }
+
+    /* Contact section WhatsApp CTA — ghost/outlined, fills on hover */
+    #contact-wa-btn a.btn-wa {
+      background: transparent;
+      color: #25D366;
+      border: 2px solid #25D366;
+      font-size: .9375rem; font-weight: 700; letter-spacing: .06em;
+      padding: 1.1rem 2.75rem;
+      border-radius: 4px;
+      gap: .65rem;
+      white-space: nowrap;
+      transition: background .22s ease, color .22s ease, box-shadow .22s ease, transform .2s ease;
+    }
+    #contact-wa-btn a.btn-wa svg {
+      width: 1.5rem; height: 1.5rem;
+      flex-shrink: 0; fill: currentColor;
+    }
+    #contact-wa-btn a.btn-wa:hover {
+      background: #25D366;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(37, 211, 102, .38);
+      transform: translateY(-2px);
+      opacity: 1;
+    }
+
+    /* scroll indicator */
+    .scroll-hint {
+      position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: .375rem;
+      color: var(--muted); font-size: .6875rem; letter-spacing: .2em; text-transform: uppercase;
+    }
+    .scroll-hint svg { width: 1rem; height: 1.75rem; animation: bounce 2s infinite; }
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(6px); }
+    }
+
+    /* ── SECTIONS ── */
+    .section { padding: 6rem 1.5rem; }
+    .section-inner { max-width: 1200px; margin: 0 auto; }
+    .section-label {
+      font-size: .6875rem; font-weight: 500; letter-spacing: .3em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 1rem;
+    }
+    .section-title {
+      font-family: 'Assistant', sans-serif;
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 300; color: var(--charcoal);
+      line-height: 1.25; margin: 0 0 1.5rem;
+    }
+
+    /* ── ABOUT ── */
+    .about-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+    @media (max-width: 767px) { .about-grid { grid-template-columns: 1fr; gap: 2.5rem; } }
+    .about-text p { color: var(--muted); line-height: 1.9; margin: 0 0 1.25rem; font-size: 1.0625rem; }
+    .about-image-wrap {
+      position: relative; aspect-ratio: 4/5; overflow: hidden;
+      background: var(--champagne);
+    }
+    .about-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .about-image-accent {
+      position: absolute; inset-inline-end: -1.5rem; bottom: -1.5rem;
+      width: 60%; height: 60%;
+      border: 2px solid var(--champagne); z-index: -1;
+      pointer-events: none;
+    }
+
+    /* ── SERVICES ── */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-top: 3rem;
+    }
+    .service-card {
+      padding: 2rem 1.75rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      transition: border-color .3s, box-shadow .3s;
+    }
+    .service-card:hover {
+      border-color: var(--champagne);
+      box-shadow: 0 8px 32px -12px rgba(166,124,142,.18);
+    }
+    .service-number {
+      font-family: 'Assistant', sans-serif;
+      font-size: 2rem; font-weight: 300;
+      color: var(--champagne); display: block; margin-bottom: .75rem;
+    }
+    .service-title { font-size: 1.125rem; font-weight: 600; color: var(--charcoal); margin: 0 0 .375rem; }
+    .service-meta  { font-size: .8125rem; color: var(--muted); margin: 0 0 .875rem; }
+    .service-desc  { font-size: .9375rem; color: var(--muted); line-height: 1.75; margin: 0; }
+
+    /* ── GALLERY ── */
+    /* ── GALLERY STRIP ─────────────────────────────────────── */
+    .gallery-strip-outer { position: relative; margin-top: 2.5rem; }
+    .gallery-strip {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+      gap: 10px;
+      cursor: grab;
+      user-select: none;
+    }
+    .gallery-strip:active { cursor: grabbing; }
+    .gallery-strip::-webkit-scrollbar { display: none; }
+    .gallery-item {
+      flex: 0 0 calc(33.333% - 7px);
+      scroll-snap-align: start;
+      aspect-ratio: 2 / 3;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      cursor: zoom-in;
+      background: linear-gradient(135deg, #f5eee8 0%, #e8d8cc 100%);
+    }
+    @media (max-width: 767px) {
+      .gallery-item { flex: 0 0 calc(50% - 5px); }
+    }
+    @media (max-width: 430px) {
+      .gallery-item { flex: 0 0 calc(72% - 5px); }
+    }
+    .gallery-item img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      opacity: 0; transition: opacity .55s ease, transform .55s ease;
+    }
+    .gallery-item img.img-loaded { opacity: 1; }
+    .gallery-item:hover img { transform: scale(1.05); }
+    .gallery-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(20,16,32,.75) 0%, rgba(20,16,32,0) 52%);
+      opacity: 0; transition: opacity .35s;
+      display: flex; align-items: flex-end; padding: 1rem;
+      pointer-events: none;
+    }
+    .gallery-item:hover .gallery-overlay,
+    .gallery-item:focus-visible .gallery-overlay { opacity: 1; }
+    .gallery-caption {
+      color: #FAF5F0; font-size: .8rem; font-weight: 500;
+      letter-spacing: .04em; line-height: 1.4;
+      text-shadow: 0 1px 6px rgba(0,0,0,.7);
+    }
+    .gallery-nav-btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 42px; height: 42px;
+      background: rgba(250,245,240,.93);
+      border: none; border-radius: 50%; font-size: 1.25rem; line-height: 1;
+      cursor: pointer; z-index: 3;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 14px rgba(0,0,0,.18);
+      transition: background .2s, transform .2s;
+      color: var(--charcoal);
+    }
+    .gallery-nav-btn:hover { background: #fff; transform: translateY(-50%) scale(1.08); }
+    .gallery-nav-btn.gallery-prev { right: 6px; }
+    .gallery-nav-btn.gallery-next { left:  6px; }
+    @media (max-width: 640px) { .gallery-nav-btn { display: none; } }
+    .gallery-dots {
+      display: flex; justify-content: center; gap: 7px; margin-top: 1.125rem;
+    }
+    .gallery-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary); opacity: .22;
+      cursor: pointer; border: none; padding: 0;
+      transition: opacity .3s, transform .3s;
+    }
+    .gallery-dot.active { opacity: 1; transform: scale(1.35); }
+
+    /* ── CONTACT ── */
+
+    /* ── FAQ ── */
+    .faq-list { max-width: 720px; margin: 2.5rem auto 0; display: flex; flex-direction: column; gap: .75rem; }
+    .faq-item { border: 1px solid var(--border); border-radius: 1rem; background: var(--card); overflow: hidden; transition: border-color .2s; }
+    .faq-item[open] { border-color: var(--primary); }
+    .faq-item summary {
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      padding: 1.25rem 1.5rem; cursor: pointer; list-style: none;
+      font-size: .9375rem; font-weight: 600; color: var(--charcoal);
+      user-select: none;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary:hover { color: var(--primary); }
+    .faq-chevron { flex-shrink: 0; width: 1.25rem; height: 1.25rem; color: var(--primary); transition: transform .3s; }
+    .faq-item[open] .faq-chevron { transform: rotate(180deg); }
+    .faq-answer { padding: 0 1.5rem 1.25rem; font-size: .9375rem; line-height: 1.85; color: var(--muted); }
+
+    .contact-section {
+      background: var(--ink); color: #FAF5F0;
+      text-align: center; padding: 6rem 1.5rem;
+    }
+    .contact-inner { max-width: 640px; margin: 0 auto; }
+    .contact-meta {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 2rem; margin-top: 4rem; padding-top: 3rem;
+      border-top: 1px solid rgba(250,245,240,.1);
+      text-align: center;
+    }
+    @media (max-width: 580px) { .contact-meta { grid-template-columns: 1fr; } }
+    .contact-meta-label {
+      font-size: .6875rem; letter-spacing: .2em; text-transform: uppercase;
+      color: var(--champagne); margin-bottom: .625rem; display: block;
+    }
+    .contact-meta p { color: rgba(250,245,240,.7); font-size: .9375rem; line-height: 1.7; margin: 0; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--ink);
+      border-top: 1px solid rgba(250,245,240,.08);
+      padding: 1.75rem 1.5rem;
+    }
+    .footer-inner {
+      max-width: 1200px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .footer-logo { font-family: 'Assistant', sans-serif; font-size: 1.0625rem; font-weight: 600; color: #FAF5F0; text-decoration: none; }
+    .footer-copy  { font-size: .75rem; color: rgba(250,245,240,.45); letter-spacing: .04em; }
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-links a { font-size: .75rem; color: rgba(250,245,240,.45); text-decoration: none; transition: color .25s; }
+    .footer-links a:hover { color: var(--champagne); }
+    .footer-social .social-icon { color: rgba(250,245,240,.45); }
+    .footer-social .social-icon:hover { color: var(--champagne); background: rgba(221,195,165,.12); }
+
+    /* ── DIVIDER ── */
+    .divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+
+    /* ── STICKY BOOK BUTTON ── */
+    #sticky-book {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      z-index: 100; transition: opacity .3s, transform .3s, bottom .2s ease;
+      opacity: 0; pointer-events: none;
+    }
+    #sticky-book.visible { opacity: 1; pointer-events: auto; }
+    #sticky-book a {
+      display: inline-flex; align-items: center; gap: .6rem;
+      padding: .875rem 2rem;
+      background: var(--primary); color: #FAF5F0;
+      font-size: .875rem; font-weight: 600; letter-spacing: .08em;
+      text-decoration: none; border-radius: 100px;
+      box-shadow: 0 4px 20px rgba(166,124,142,.45);
+      transition: transform .2s, box-shadow .2s; white-space: nowrap;
+    }
+    #sticky-book a:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(166,124,142,.55); }
+
+    /* ── GALLERY LIGHTBOX ── */
+    #lightbox {
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,.92);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #lightbox[hidden] { display: none; }
+    #lb-body { max-width: 90vw; max-height: 90vh; text-align: center; }
+    #lb-img { max-width: 100%; max-height: 80vh; object-fit: contain; display: block; }
+    #lb-caption { color: rgba(255,255,255,.65); margin-top: .75rem; font-size: .875rem; }
+    #lb-close {
+      position: fixed; top: 1.25rem; left: 1.25rem;
+      background: none; border: none; color: #fff; font-size: 2rem;
+      cursor: pointer; z-index: 9001; line-height: 1; padding: .25rem .5rem;
+      opacity: .8; transition: opacity .2s;
+    }
+    #lb-close:hover { opacity: 1; }
+    #lb-prev, #lb-next {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #fff; font-size: 3rem;
+      cursor: pointer; z-index: 9001; padding: 0 1.25rem;
+      opacity: .6; transition: opacity .2s; line-height: 1;
+    }
+    #lb-prev:hover, #lb-next:hover { opacity: 1; }
+    #lb-prev { right: .5rem; }
+    #lb-next { left: .5rem; }
+
+    /* ── HERO NEXT-SLOT TEASER ── */
+    #hero-next-slot {
+      display: inline-flex; align-items: center; gap: .5rem;
+      margin-bottom: 2rem;
+      background: rgba(166,124,142,.12); border: 1px solid rgba(166,124,142,.25);
+      padding: .5rem 1.25rem; border-radius: 100px;
+      font-size: .875rem; color: var(--muted);
+    }
+    #hero-next-slot[hidden] { display: none; }
+    #hero-next-slot .slot-dot {
+      width: .5rem; height: .5rem; border-radius: 50%;
+      background: #25D366; flex-shrink: 0;
+    }
+
+    /* ── CONTACT LINKS ── */
+    .contact-link {
+      display: block; color: rgba(250,245,240,.7); text-decoration: none;
+      font-size: .9375rem; line-height: 1.7; transition: color .22s;
+    }
+    .contact-link:hover { color: var(--champagne); }
+
+    /* ── SCROLL REVEAL ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity .6s cubic-bezier(.25,.46,.45,.94), transform .6s cubic-bezier(.25,.46,.45,.94);
+    }
+    .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    }
+
+    /* ── CINEMATIC HERO REEL ──────────────────────────────────────── */
+    .reel {
+      position: absolute; inset: 0; overflow: hidden;
+      background: var(--ink); z-index: 0;
+    }
+    .reel-slide {
+      position: absolute; inset: 0;
+      opacity: 0;
+      transition: opacity 1.8s ease-in-out;
+      will-change: opacity;
+    }
+    .reel-slide.reel-active { opacity: 1; }
+    .reel-slide img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      will-change: transform; transform-origin: center center;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .reel-slide.kb-0 img { animation: kb0 8s ease-in-out forwards; }
+      .reel-slide.kb-1 img { animation: kb1 8s ease-in-out forwards; }
+      .reel-slide.kb-2 img { animation: kb2 8s ease-in-out forwards; }
+      .reel-slide.kb-3 img { animation: kb3 8s ease-in-out forwards; }
+      .reel-slide.kb-4 img { animation: kb4 8s ease-in-out forwards; }
+      .reel-slide.kb-5 img { animation: kb5 8s ease-in-out forwards; }
+    }
+    @keyframes kb0 { from { transform: scale(1)    translate(0,0);     } to { transform: scale(1.13) translate(-2%,-1%);  } }
+    @keyframes kb1 { from { transform: scale(1.11) translate(2%,1%);   } to { transform: scale(1)    translate(0,0);       } }
+    @keyframes kb2 { from { transform: scale(1)    translate(-2%,1%);  } to { transform: scale(1.12) translate(2%,-1%);   } }
+    @keyframes kb3 { from { transform: scale(1.09) translate(-1%,-2%); } to { transform: scale(1)    translate(1%,2%);    } }
+    @keyframes kb4 { from { transform: scale(1)    translate(1%,-1%);  } to { transform: scale(1.11) translate(-1%,1%);   } }
+    @keyframes kb5 { from { transform: scale(1.07) translate(0,2%);    } to { transform: scale(1)    translate(0,-2%);    } }
+    .reel-overlay {
+      position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom,
+        rgba(30,28,48,.58) 0%, rgba(30,28,48,.22) 38%,
+        rgba(30,28,48,.28) 62%, rgba(30,28,48,.65) 100%);
+    }
+    .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.92); text-shadow: 0 1px 10px rgba(0,0,0,.65); }
+    .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 6px rgba(0,0,0,.75), 0 4px 36px rgba(0,0,0,.55), 0 0 80px rgba(0,0,0,.30); }
+    .hero.has-reel .hero-subtitle { color: rgba(250,245,240,.95); text-shadow: 0 1px 10px rgba(0,0,0,.70), 0 2px 28px rgba(0,0,0,.45); }
+    .hero.has-reel .hero-inner::before {
+      content: ""; position: absolute; inset: -3.5rem -5rem;
+      background: radial-gradient(ellipse at center, rgba(20,18,38,.52) 0%, transparent 68%);
+      filter: blur(28px); border-radius: 50%; z-index: -1; pointer-events: none;
+    }
+    .hero.has-reel .scroll-hint   { color: rgba(250,245,240,.52); }
+    .hero.has-reel #hero-next-slot { color: rgba(250,245,240,.78); }
+    .hero.has-reel #hero-next-slot .slot-dot { background: rgba(250,245,240,.78); }
+    .reel-progress {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      height: 2px; z-index: 2;
+      background: rgba(250,245,240,.10);
+    }
+    .reel-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, rgba(250,245,240,.55) 0%, var(--champagne) 100%);
+      width: 0%;
+    }
+    .reel-mute-btn {
+      position: fixed; bottom: 1.5rem; left: 1.5rem;
+      z-index: 50;
+      width: 2.625rem; height: 2.625rem;
+      border-radius: 50%;
+      border: 1px solid rgba(250,245,240,.30);
+      background: rgba(30,28,48,.35);
+      color: rgba(250,245,240,.82);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      transition: background .22s, border-color .22s, transform .22s;
+    }
+    .reel-mute-btn:hover, .reel-mute-btn:focus-visible {
+      background: rgba(166,124,142,.50);
+      border-color: rgba(250,245,240,.55);
+      transform: scale(1.08); outline: none;
+    }
+    .reel-mute-btn svg { width: 1.0625rem; height: 1.0625rem; }
+
   </style>
 </head>
 
-<body class="min-h-screen bg-cream font-heebo">
+<body>
 
-  <!-- ═══════════════════ HEADER ═══════════════════ -->
-  <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50 border-b border-secondary/30 shadow-sm shadow-secondary/10">
-    <div class="max-w-md mx-auto px-4">
-      <div class="flex items-center justify-between pt-1.5 pb-0.5">
-        <a href="./landing.html"
-          class="text-[#A67C8E] text-xs font-medium flex items-center gap-0.5 opacity-70 hover:opacity-100 transition-opacity"
-          aria-label="חזרה לאתר הבוטיק">
-          ← לאתר הבוטיק
-        </a>
-        <span class="text-[10px] text-text-muted tracking-widest uppercase opacity-40">הזמנת תור</span>
-      </div>
-      <div class="pb-2.5 flex flex-col items-center">
-        <div class="w-16 h-16 rounded-full shadow-sm mb-1 select-none relative overflow-hidden" aria-label="תמונת פרופיל מיטל שבע ברעם">
-          <div class="absolute inset-0 bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center" aria-hidden="true">
-            <span class="text-white font-bold text-xl leading-none">מ</span>
-          </div>
-          <picture>
-            <source srcset="meital_profile_header.webp" type="image/webp">
-            <img src="meital_profile_header.png"
-                 alt="מיטל שבע ברעם"
-                 width="64" height="64"
-                 class="absolute inset-0 w-full h-full object-cover rounded-full"
-                 onerror="this.closest('picture').style.display='none'">
-          </picture>
-        </div>
-        <h1 class="text-sm font-semibold text-text-main tracking-wide leading-tight">מיטל שבע ברעם</h1>
-        <p class="text-[10px] text-text-muted font-light tracking-[.22em] uppercase">לק ג'ל בוטיק</p>
-      </div>
-    </div>
-  </header>
+<!-- SKIP LINK — WCAG 2.4.1 -->
+<a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
 
-  <!-- ═══════════════════ MAIN ═══════════════════ -->
-  <main class="max-w-md mx-auto px-4 pb-28">
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header id="site-header" role="banner">
+  <div class="header-inner">
 
-    <!-- Progress bar -->
-    <div id="js-progress" class="py-5">
-      <div id="js-progress-steps" class="flex items-start"></div>
-    </div>
+    <!-- Logo -->
+    <a href="#" class="logo" aria-label="מיטל שבע ברעם — דף הבית">מיטל שבע ברעם — לק ג'ל</a>
 
-    <!-- ══ STEP 1: Service selection ══ -->
-    <section id="step-1" class="step-section">
-      <h2 class="text-2xl font-bold text-text-main mb-1">בחרי שירות</h2>
-      <p class="text-text-muted text-sm mb-5 font-light">כל השירותים כוללים ייעוץ ועיצוב לפי בחירה</p>
-      <div id="js-services" class="grid grid-cols-1 gap-3"></div>
-      <div id="js-nail-screening" class="mt-4 bg-white rounded-2xl border border-primary/15 p-4 hidden"></div>
-    </section>
-
-    <!-- ══ STEP 2: Date & Time ══ -->
-    <section id="step-2" class="step-section hidden">
-      <h2 class="text-2xl font-bold text-text-main mb-1">תאריך ושעה</h2>
-      <p id="js-step2-service-label" class="text-primary text-sm mb-5 font-semibold"></p>
-
-      <!-- Calendar card -->
-      <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-4 mb-4">
-        <!-- Month nav -->
-        <div class="flex items-center justify-between mb-3">
-          <button id="js-prev-month" data-qa="btn-prev-month" aria-label="חודש קודם"
-            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
-          </button>
-          <h3 id="js-month-label" class="text-sm font-semibold text-text-main"></h3>
-          <button id="js-next-month" data-qa="btn-next-month" aria-label="חודש הבא"
-            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-cream transition-colors text-text-muted hover:text-primary">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
-            </svg>
-          </button>
-        </div>
-
-        <!-- Day headers (Sun–Sat in Hebrew) -->
-        <div id="js-day-headers" class="grid grid-cols-7 mb-1"></div>
-
-        <!-- Calendar grid -->
-        <div id="js-calendar" class="grid grid-cols-7 gap-1"></div>
-
-        <!-- Slot-fetch loading hint (shown only during uncached network fetch) -->
-        <div id="js-cal-loading" class="hidden mt-3 flex items-center justify-center gap-2 text-xs text-text-muted">
-          <svg class="spinner w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" opacity=".25"/>
-            <path fill="currentColor" opacity=".75" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
-          </svg>
-          <span>טוענת זמינות… (עד 30 שניות)</span>
-        </div>
-      </div>
-
-      <!-- Time slots -->
-      <div id="js-slots-wrap" class="hidden">
-        <h3 class="text-xs font-semibold text-text-muted uppercase tracking-widest mb-3">שעות פנויות</h3>
-        <div id="js-slots" class="grid grid-cols-3 gap-2"></div>
-      </div>
-      <p id="js-no-slots" class="hidden text-center py-6 text-text-muted text-sm leading-relaxed">
-        אין שעות פנויות בתאריך זה.<br>בחרי תאריך אחר 🗓
-      </p>
-    </section>
-
-    <!-- ══ STEP 3: Personal details ══ -->
-    <section id="step-3" class="step-section hidden">
-      <h2 class="text-2xl font-bold text-text-main mb-1">פרטים אישיים</h2>
-      <p id="js-step3-summary" class="text-primary text-sm mb-5 font-semibold"></p>
-
-      <!-- Returning client banner -->
-      <div id="js-returning-banner" data-qa="banner-returning"
-        class="hidden mb-4 bg-primary/10 border border-primary/20 rounded-xl p-3 flex items-center gap-3">
-        <span class="text-xl select-none">👋</span>
-        <div class="flex-1">
-          <p class="text-sm font-bold text-text-main">ברוכה השבה!</p>
-          <p id="js-returning-name" class="text-xs text-primary font-medium"></p>
-        </div>
-        <button id="js-not-me" data-qa="btn-not-me" class="text-xs text-text-muted underline shrink-0">לא אני</button>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label for="inp-name" class="block text-sm font-medium text-text-main mb-1.5">שם מלא</label>
-          <input id="inp-name" data-qa="inp-name" type="text" autocomplete="name" inputmode="text"
-            placeholder="למשל: נועה כהן"
-            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
-                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
-                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base">
-        </div>
-        <div>
-          <label for="inp-phone" class="block text-sm font-medium text-text-main mb-1.5">מספר טלפון</label>
-          <input id="inp-phone" data-qa="inp-phone" type="tel" autocomplete="tel" inputmode="tel"
-            dir="ltr" maxlength="10" placeholder="05X-XXXXXXX"
-            class="w-full px-4 py-3.5 rounded-xl border-2 border-secondary/50 bg-white text-text-main font-medium
-                   focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20
-                   placeholder:text-text-muted/40 placeholder:font-light transition-all text-base tracking-wider">
-        </div>
-        <p class="text-xs text-text-muted font-light leading-relaxed">
-          לאחר המשך ישלח אליך קוד אימות ב-SMS לאישור ההזמנה.
-        </p>
-      </div>
-    </section>
-
-    <!-- ══ STEP 4: OTP Verification ══ -->
-    <section id="step-4" class="step-section hidden">
-      <h2 class="text-2xl font-bold text-text-main mb-1">אימות מספר</h2>
-      <p id="js-otp-phone" class="text-primary text-sm mb-8 font-semibold"></p>
-
-      <!-- 6-digit OTP input (LTR direction for numbers) -->
-      <div dir="ltr" id="js-otp-inputs" data-qa="otp-inputs-wrap" class="flex justify-center gap-2 mb-6"></div>
-
-      <div id="js-otp-error" data-qa="status-otp-error"
-        class="hidden mb-4 text-center text-red-500 text-sm font-medium bg-red-50 rounded-xl py-2.5 px-4 border border-red-100">
-      </div>
-
-      <div class="text-center space-y-1">
-        <p class="text-text-muted text-sm">לא קיבלת SMS?</p>
-        <div class="flex items-center justify-center gap-2">
-          <button id="js-resend" data-qa="btn-otp-resend" disabled
-            class="text-primary font-semibold text-sm underline underline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity">
-            שלחי שוב
-          </button>
-          <span id="js-resend-timer" class="text-text-muted text-xs tabular-nums"></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══ STEP 5: Confirmation ══ -->
-    <section id="step-5" class="step-section hidden">
-      <div class="text-center py-6">
-        <!-- Pending clock: signals "received, awaiting Meital's approval". A checkmark here
-             would wrongly read as "confirmed" — the booking is not confirmed until the SMS arrives. -->
-        <div class="w-24 h-24 mx-auto mb-5">
-          <svg viewBox="0 0 100 100" fill="none" class="w-full h-full" aria-hidden="true">
-            <circle cx="50" cy="50" r="47" fill="#F5ECF0" stroke="#DDC3A5" stroke-width="1.5"/>
-            <circle cx="50" cy="50" r="27" fill="none" stroke="#A67C8E" stroke-width="4"/>
-            <path class="clock-hand" d="M50 50 L50 34" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
-            <path class="clock-hand" d="M50 50 L64 50" stroke="#A67C8E" stroke-width="4" stroke-linecap="round"/>
-          </svg>
-        </div>
-
-        <h2 id="js-confirm-heading" tabindex="-1" class="text-2xl font-bold text-text-main mb-2 focus:outline-none">הבקשה נשלחה!</h2>
-
-        <!-- Honest status chip — this is a request, not yet a confirmed appointment -->
-        <div class="inline-flex items-center gap-2 bg-[#FDF3E7] text-amber-700 text-xs font-bold px-3.5 py-1.5 rounded-full mb-4">
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-          ממתינה לאישור מיטל
-        </div>
-
-        <p id="js-confirm-note" class="text-text-muted text-sm font-light leading-relaxed mb-6 max-w-xs mx-auto">
-          תקבלי הודעת SMS ברגע שמיטל תאשר את התור — בדרך כלל תוך זמן קצר.
-        </p>
-
-        <!-- Summary card -->
-        <div class="bg-white rounded-2xl shadow-sm border border-secondary/20 p-5 text-right mb-5">
-          <p class="text-[10px] font-semibold text-text-muted uppercase tracking-[.18em] mb-4">פרטי ההזמנה</p>
-          <div id="js-confirm-details" data-qa="confirm-details" class="space-y-3"></div>
-          <div id="js-confirm-id" data-qa="confirm-id" class="mt-4 pt-3 border-t border-secondary/20"></div>
-        </div>
-
-        <!-- Primary follow-up CTA: any question goes straight to Meital on WhatsApp. -->
-        <a id="js-whatsapp" data-qa="btn-whatsapp"
-          href="https://api.whatsapp.com/send/?phone=972547686865" target="_blank" rel="noopener noreferrer"
-          class="inline-flex items-center justify-center gap-2 w-full max-w-xs mx-auto bg-[#25D366] hover:bg-[#1EBE5D] text-white font-semibold text-sm px-5 py-3 rounded-2xl shadow-sm transition-colors">
-          <svg viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-          יש שאלה? כתבי למיטל בוואטסאפ
-        </a>
-
-        <!-- Portal link — available after booking is created -->
-        <a href="./my-booking.html"
-          class="mt-3 inline-flex items-center justify-center gap-1.5 text-sm text-primary font-medium underline underline-offset-2 hover:opacity-70 transition-opacity">
-          📋 לצפייה ושינוי ההזמנה שלי
-        </a>
-      </div>
-    </section>
-
-  </main>
-  <footer class="max-w-md mx-auto px-4 pt-5 pb-32 text-center border-t border-secondary/20">
-    <nav aria-label="קישורי מידע משפטי" class="flex justify-center gap-6">
-      <button id="js-open-privacy" data-qa="btn-open-privacy" type="button"
-        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
-        מדיניות פרטיות
-      </button>
-      <button id="js-open-accessibility" data-qa="btn-open-accessibility" type="button"
-        class="text-xs text-text-muted hover:text-primary underline underline-offset-2 transition-colors">
-        הצהרת נגישות
-      </button>
+    <!-- Desktop Nav -->
+    <nav aria-label="ניווט ראשי">
+      <ul class="nav-links" role="list">
+        <li><a href="#about">אודות</a></li>
+        <li><a href="#services">שירותים</a></li>
+        <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#faq">שאלות נפוצות</a></li>
+        <li><a href="#contact">צרי קשר</a></li>
+      </ul>
     </nav>
-    <p class="text-[10px] text-text-muted/40 mt-2 font-light">© 2025 מיטל שבע ברעם</p>
-  </footer>
-  <!-- ═══════════════════ BOTTOM NAV ═══════════════════ -->
-  <div id="js-nav"
-    class="fixed bottom-0 inset-x-0 bg-cream/95 backdrop-blur-sm border-t border-secondary/30 p-4 z-40">
-    <div class="max-w-md mx-auto flex gap-3">
-      <button id="btn-back" data-qa="btn-back"
-        class="hidden flex-1 py-3.5 rounded-xl border-2 border-secondary text-text-main font-semibold text-sm
-               transition-all hover:border-primary hover:text-primary active:scale-95">
-        חזרה
-      </button>
-      <button id="btn-next" data-qa="btn-next" disabled
-        class="flex-1 btn-primary py-3.5 rounded-xl text-white font-semibold text-sm shadow-md">
-        המשך
-      </button>
-    </div>
-  </div>
 
-  <!-- Toast container -->
-  <div id="js-toast" data-qa="status-toast" class="fixed top-20 inset-x-4 max-w-sm mx-auto z-[60] pointer-events-none"></div>
-
-  <!-- ═══════════════════ LEGAL MODAL ═══════════════════ -->
-  <div id="js-modal" role="dialog" aria-modal="true" aria-labelledby="js-modal-title"
-    aria-hidden="true"
-    class="fixed inset-0 z-[70] items-end sm:items-center justify-center hidden">
-    <!-- Backdrop -->
-    <div id="js-modal-backdrop" class="absolute inset-0 bg-[#4A2E3A]/40 backdrop-blur-[2px]"></div>
-    <!-- Panel -->
-    <div id="js-modal-panel" tabindex="-1"
-      class="relative z-10 bg-white w-full max-w-[380px] mx-0 sm:mx-4 sm:my-8 rounded-t-3xl sm:rounded-3xl shadow-2xl max-h-[70vh] flex flex-col">
-      <div class="flex items-center justify-between px-5 py-4 border-b border-secondary/20 shrink-0">
-        <h2 id="js-modal-title" class="text-[15px] font-bold text-text-main"></h2>
-        <button id="js-modal-close" data-qa="btn-modal-close" type="button" aria-label="סגירה"
-          class="w-8 h-8 flex items-center justify-center rounded-full text-text-muted hover:text-primary hover:bg-cream transition-colors">
-          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-      <div id="js-modal-body"
-        class="overflow-y-auto px-4 py-4 text-sm text-text-main leading-relaxed space-y-3 overscroll-contain">
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════ MAINTENANCE MODE ═══════════════════ -->
-  <div id="js-maintenance" class="hidden fixed inset-0 z-[80] bg-cream flex flex-col items-center justify-center px-6 text-center overflow-hidden">
-
-    <!-- Top accent bar -->
-    <div class="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
-
-    <!-- Logo circle -->
-    <div class="relative mb-10">
-      <div class="w-28 h-28 rounded-full bg-gradient-to-br from-[#C4A0B0] to-[#A67C8E] flex items-center justify-center shadow-xl shadow-[#A67C8E]/25 maint-float">
-        <span class="text-white font-black text-5xl leading-none select-none">מ</span>
-      </div>
-      <span class="absolute -top-2 -right-2 text-2xl maint-sparkle select-none" aria-hidden="true">✨</span>
+    <!-- Desktop Social -->
+    <div class="social-strip header-social" aria-label="קישורים חברתיים" id="header-social-strip">
+      <!-- populated by JS from SiteConfig -->
     </div>
 
-    <!-- Heading -->
-    <h1 class="text-4xl font-black text-[#4A2E3A] mb-6 leading-tight tracking-tight">
-      הסטודיו מתחדש! ✨
-    </h1>
-
-    <!-- Decorative divider -->
-    <div class="w-16 h-[2px] rounded-full mb-6" style="background:linear-gradient(90deg,transparent,#DDC3A5,transparent)"></div>
-
-    <!-- Body text -->
-    <p class="text-[#9B8090] text-[1.05rem] leading-relaxed max-w-[19rem] mb-3">
-      אני עובדת ברגעים אלו על שדרוג המערכת כדי להבטיח לך את חוויית קביעת התורים הנוחה והמהירה ביותר.
-    </p>
-    <p class="text-[#4A2E3A] font-semibold text-base mb-8">
-      נחזור לפעילות מלאה ממש בקרוב 🌸
-    </p>
-
-    <!-- CTA label -->
-    <p class="text-[#9B8090] text-sm mb-5">
-      בינתיים, אשמח לעזור לך בקביעת תור בשיחה אישית:
-    </p>
-
-    <!-- WhatsApp button -->
-    <a href="https://api.whatsapp.com/send/?phone=972547686865"
-       target="_blank" rel="noopener noreferrer"
-       class="maint-wa-btn inline-flex items-center gap-3 bg-[#25D366] text-white font-bold text-[1.05rem] px-8 py-[1.1rem] rounded-2xl shadow-lg shadow-[#25D366]/30 select-none">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 shrink-0" aria-hidden="true">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+    <!-- Mobile Menu Button -->
+    <button class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="mobile-nav" aria-label="פתח תפריט">
+      <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
       </svg>
-      קביעת תור בוואטסאפ
-    </a>
+    </button>
 
-    <!-- Brand signature -->
-    <p class="absolute bottom-7 text-xs text-[#9B8090]/60 font-light select-none">
-      מיטל שבע ברעם — לק ג'ל בוטיק
-    </p>
+  </div><!-- /header-inner -->
 
-    <!-- Bottom accent bar -->
-    <div class="absolute bottom-0 inset-x-0 h-[3px] bg-gradient-to-r from-[#DDC3A5] via-[#A67C8E] to-[#DDC3A5]"></div>
+  <!-- Mobile Nav -->
+  <nav id="mobile-nav" aria-label="תפריט נייד" aria-hidden="true">
+    <div class="mobile-nav-inner">
+      <ul role="list">
+        <li><a href="#about">אודות</a></li>
+        <li><a href="#services">שירותים</a></li>
+        <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#contact">צרי קשר</a></li>
+      </ul>
+      <div class="social-strip" id="mobile-social-strip" aria-label="קישורים חברתיים"></div>
+    </div>
+  </nav>
+
+</header>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════ -->
+<main id="main-content" tabindex="-1">
+
+  <!-- ── HERO ── -->
+  <section class="hero has-reel" aria-labelledby="hero-heading">
+    <div class="reel" id="hero-reel" aria-hidden="true"><div class="reel-overlay"></div></div>
+    <div class="reel-progress" aria-hidden="true"><div class="reel-progress-bar" id="reel-progress-bar"></div></div>
+    <button class="reel-mute-btn" id="reel-mute-btn" aria-label="הפעל מוזיקת רקע" aria-pressed="false">
+      <svg id="reel-icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      <svg id="reel-icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    </button>
+    <div class="hero-inner">
+      <p class="hero-eyebrow tracking-heb">עיצוב ציפורניים בוטיק | רמת גן</p>
+      <h1 class="hero-title" id="hero-heading">
+        <span id="hero-title-main">אמנות ציפורניים</span><br /><em id="hero-title-em">מרגע ראשון</em>
+      </h1>
+      <p class="hero-subtitle" id="hero-subtitle">לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם.</p>
+      <div id="hero-next-slot" hidden><span class="slot-dot" aria-hidden="true"></span><span id="hero-next-slot-text"></span></div>
+      <div class="btn-group" id="hero-cta">
+        <!-- populated by JS -->
+      </div>
+    </div>
+    <div class="scroll-hint" aria-hidden="true">
+      <span>גלול</span>
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ── ABOUT ── -->
+  <section id="about" class="section bg-lp-card" aria-labelledby="about-heading">
+    <div class="section-inner">
+      <div class="about-grid">
+
+        <!-- Text -->
+        <div>
+          <p class="section-label reveal" aria-hidden="true">אודות הסטודיו</p>
+          <h2 class="section-title reveal" id="about-heading">
+            מקצועיות, דיוק<br />ואהבה לפרטים
+          </h2>
+          <div class="about-text reveal">
+            <p>
+              מיטל שבע ברעם היא אמנית ציפורניים בוטיק עם ניסיון עשיר בעיצוב לק ג'ל
+              ופדיקור מקצועי. הסטודיו הממוקם ברמת גן מציע אווירה אינטימית ומטפחת,
+              שבה כל לקוחה מקבלת טיפול אישי ומלא תשומת לב.
+            </p>
+            <p>
+              אני עובדת אך ורק עם חומרים מהמותגים המובילים בעולם, ומקפידה
+              על תהליכי עבודה שמשמרים את בריאות הציפורן הטבעית לצד מראה
+              מושלם ועמיד לאורך זמן.
+            </p>
+            <p>
+              כי ציפורניים יפות הן לא עניין של מזל — הן תוצאה של מיומנות, חומרים
+              נכונים ואהבה אמיתית למה שאני עושה.
+            </p>
+          </div>
+        </div>
+
+        <!-- Image -->
+        <div class="about-image-wrap reveal" style="position:relative;">
+          <img src="./gallery/nail-05.jpg"
+               alt="עיצוב ג'ל ניוד עם ציור פרח עדין — בוטי ורומנטי"
+               width="600" height="750" loading="lazy" />
+          <span class="about-image-accent" aria-hidden="true"></span>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── SERVICES ── -->
+  <section id="services" class="section bg-lp" aria-labelledby="services-heading">
+    <div class="section-inner">
+      <p class="section-label reveal" aria-hidden="true">שירותים</p>
+      <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
+      <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
+        שני שירותים מדויקים ברמה הגבוהה ביותר — לק ג'ל לידיים ועיצוב גבות ושפם.
+        כל טיפול מותאם אישית לכל לקוחה עם תוצאה מושלמת.
+      </p>
+
+      <div class="services-grid" id="services-grid" role="list">
+        <!-- populated by JS from SiteConfig.services -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── GALLERY ── -->
+  <section id="gallery" class="section bg-lp-card" aria-labelledby="gallery-heading">
+    <div class="section-inner">
+      <p class="section-label reveal" aria-hidden="true">גלריה</p>
+      <h2 class="section-title reveal" id="gallery-heading">עבודות נבחרות</h2>
+      <div class="gallery-strip-outer" id="gallery-grid">
+        <div class="gallery-strip" id="gallery-strip" role="list"></div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ── FAQ ── -->
+  <section id="faq" class="section bg-lp" aria-labelledby="faq-heading">
+    <div class="section-inner" style="text-align:center;">
+      <p class="section-label reveal" aria-hidden="true">שאלות נפוצות</p>
+      <h2 class="section-title reveal" id="faq-heading">מה שרצית לדעת</h2>
+      <div class="faq-list" id="faq-list" role="list"></div>
+    </div>
+  </section>
+
+  <!-- ── CONTACT ── -->
+  <section id="contact" class="contact-section" aria-labelledby="contact-heading">
+    <div class="contact-inner">
+      <p class="section-label text-champagne reveal" style="letter-spacing:.3em;" aria-hidden="true">יצירת קשר</p>
+      <h2 class="section-title reveal" id="contact-heading" style="color:#FAF5F0; margin-bottom:1.25rem;">
+        בואי ניצור משהו יפה יחד
+      </h2>
+      <p class="reveal" style="color:rgba(250,245,240,.70); font-size:1.0625rem; line-height:1.85; margin-bottom:2.5rem; max-width:480px; margin-inline:auto;">
+        לתיאום תור, שאלות או ייעוץ מקצועי — כתבי לי בווטסאפ
+        ואשמח לעזור.
+      </p>
+      <div id="contact-wa-btn"><!-- populated by JS --></div>
+
+      <div class="contact-meta" id="contact-meta">
+        <div>
+          <span class="contact-meta-label">כתובת</span>
+          <p id="meta-address"></p><!-- populated by JS -->
+        </div>
+        <div>
+          <span class="contact-meta-label">שעות פעילות</span>
+          <p>ראשון — חמישי<br />08:00 — 19:00</p>
+        </div>
+        <div>
+          <span class="contact-meta-label">צרי קשר</span>
+          <div id="contact-links"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main><!-- /main -->
+
+<!-- ═══════════════════════════════════════════════════
+     FOOTER
+═══════════════════════════════════════════════════ -->
+<footer role="contentinfo">
+  <div class="footer-inner">
+    <a href="#" class="footer-logo" aria-label="מיטל שבע ברעם — חזרה לראש הדף">מיטל שבע ברעם</a>
+    <p class="footer-copy" id="footer-copy"></p><!-- year injected by JS -->
+    <nav aria-label="קישורי מדיניות">
+      <div class="footer-links">
+        <a href="./takanon.html">תקנון ותנאי שימוש</a>
+        <a href="./privacy.html">מדיניות פרטיות</a>
+        <a href="./accessibility.html">הצהרת נגישות</a>
+      </div>
+    </nav>
+    <div class="social-strip footer-social" id="footer-social" aria-label="רשתות חברתיות"></div>
   </div>
+</footer>
 
-  <script type="importmap">{ "imports": { "motion": "https://esm.sh/motion@12", "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
-  <script type="module" src="./booking.js?v=2.4.0"></script>
-  <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
-<script type="module" src="./chatbot.js"></script>
+<!-- ═══════════════════════════════════════════════════
+     SCRIPT — SiteConfig + render
+     ► עדכן SiteConfig בלבד לשינוי תוכן ◄
+═══════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SITE CONFIG — ערוך כאן בלבד
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   HOW TO UPDATE:
+   • לינקים סושיאל  → social{}
+   • שירותים         → services[]
+   • גלריה           → gallery[] (src = נתיב יחסי מ-frontend/)
+   • צבעים           → colors{} (מוזרקים ל-CSS Variables)
+   • כתובת/שם        → identity{}
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SiteConfig = {
+
+  // ── IDENTITY ──────────────────────────────────────────────────
+  identity: {
+    name:      'מיטל שבע ברעם',
+    studio:    'סטודיו מיטל',
+    tagline:   'אמנות ציפורניים בוטיק',
+    address:   'רש"י 11, רמת גן',
+    city:      'רמת גן',
+    phone:     '054-768-6865',
+    whatsapp:  '972547686865',
+    email:     'meital_sheva7@hotmail.com',
+    apiBase:   '',   // GAS web app URL — if set, shows next available slot in hero
+  },
+
+  // ── SOCIAL LINKS ──────────────────────────────────────────────
+  // החלף '#' ב-URL האמיתי. הסר רשת שאינך רוצה — כתוב null.
+  social: {
+    whatsapp:  'https://wa.me/972547686865',
+    instagram: 'https://www.instagram.com/meytal.sheva',
+    tiktok:    'https://www.tiktok.com/@meytal.sheva',
+    waze:      'https://waze.com/ul?q=רש%22י%2011%20רמת%20גן',
+    easy:      'https://easy.co.il/page/10159641',
+  },
+
+  // ── SERVICES ──────────────────────────────────────────────────
+  services: [
+    {
+      num:   '01',
+      title: "ג'ל ידיים",
+      meta:  '60 דקות',
+      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
+    },
+    {
+      num:   '02',
+      title: 'עיצוב גבות ושפם',
+      meta:  '15 דקות',
+      desc:  'עיצוב גבות ועיצוב שפם בשיטת ווקס — תוצאה נקייה, מסוגננת ומדויקת.',
+    },
+  ],
+
+  // ── GALLERY ───────────────────────────────────────────────────
+  // src: נתיב יחסי מ-frontend/
+  // alt: תיאור נגיש בעברית (חשוב ל-SEO ונגישות)
+  // span2: true → משתרע שתי שורות בגריד
+  gallery: [
+    { src: './gallery/nail-15.jpg', alt: "פרנץ' שחור בצורת עיט — דרמטי, מינימלי ועוצמתי",    span2: true  },
+    { src: './gallery/nail-09.jpg', alt: "פרנץ' קרם עם פרחי פוקסיה ונקודות — קיצי ושובב",     span2: false },
+    { src: './gallery/nail-10.jpg', alt: "ג'ל לילך עדין עם קשת לבנה — מינימלי ורומנטי",       span2: false },
+    { src: './gallery/nail-12.jpg', alt: "ג'ל פוקסיה עם שפתיים אדומות — שובבי ואיקוני",       span2: false },
+    { src: './gallery/nail-11.jpg', alt: "ג'ל ורוד בייבי — חלקלק, מבריק וחמוד",               span2: false },
+    { src: './gallery/nail-01.jpg', alt: "לק ג'ל שחור קלאסי — מראה דרמטי ויוקרתי",            span2: false },
+    { src: './gallery/nail-13.jpg', alt: "גלשה סגולה-פוקסיה עם ניצוצות — נוצצת ומרהיבה",      span2: true  },
+    { src: './gallery/nail-14.jpg', alt: "ג'ל הולוגרפי סגול — מנצנץ ומשנה צבע בכל זווית",     span2: false },
+    { src: './gallery/nail-02.jpg', alt: "לק ג'ל טורקיז עם אקסנט שחור — עיצוב מקורי ועז",     span2: false },
+    { src: './gallery/nail-03.jpg', alt: "עיצוב אמנותי — ורוד עם ציור זברה ייחודי",            span2: false },
+    { src: './gallery/nail-16.jpg', alt: "ג'ל לבן-שמנת עם לבבות אדומים — עדין ומלא אהבה",     span2: false },
+    { src: './gallery/nail-04.jpg', alt: "לק ג'ל ניוד מנצנץ — אלגנטיות טבעית עדינה",          span2: false },
+    { src: './gallery/nail-05.jpg', alt: "ג'ל ניוד עם ציור פרח עדין — רומנטי ובוטי",           span2: false, hidden: true },
+    { src: './gallery/nail-06.jpg', alt: "פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד",   span2: false, hidden: true },
+    { src: './gallery/nail-07.jpg', alt: "לק ג'ל מט ורדרד — מראה עשיר ומודרני",               span2: false, hidden: true },
+    { src: './gallery/nail-08.jpg', alt: "לק ג'ל סגול עמוק — אלגנטיות בולדה ועוצמתית",        span2: false, hidden: true },
+    { src: './gallery/nail-17.jpg', alt: "פרנץ' לבן קלאסי — נצחי, עדין ונשי",                  span2: false, hidden: true },
+    { src: './gallery/nail-18.jpg', alt: "ג'ל ורוד-תות מבריק — עגלגל, חלקלק ונשי",              span2: false, hidden: true  },
+    { src: './gallery/nail-19.jpg', alt: "ג'ל אדום עם נייל-ארט כוכבים — קלאסי ומיוחד בו-זמנית", span2: false               },
+    { src: './gallery/nail-20.jpg', alt: "פרנץ' לבן עם קשת לבנה עדינה — נשי, עדין ומרגש",       span2: false               },
+    { src: './gallery/nail-21.jpg', alt: "ג'ל מט לילך-אפור — סגנוני, מודרני ויוקרתי",            span2: false, hidden: true  },
+    { src: './gallery/nail-22.jpg', alt: "ג'ל אומברה מנטה-תכלת — קיצי, מרענן ומלא חיים",        span2: false               },
+    { src: './gallery/nail-23.jpg', alt: "ג'ל שקוף ניוד ארוך — טבעי, נשי ואלגנטי",              span2: false, hidden: true  },
+    { src: './gallery/nail-24.jpg', alt: "ג'ל שמנת עם אקסנט שיש סגול — מינימלי ויוצא דופן",    span2: false, hidden: true  },
+    { src: './gallery/nail-25.jpg', alt: "ג'ל טורטואיז ענברי — אקזוטי, חם ועוצמתי",             span2: true                },
+    { src: './gallery/nail-26.jpg', alt: "ג'ל מט בז' עדין — רך, טבעי ומינימלי",                 span2: false, hidden: true  },
+    { src: './gallery/nail-27.jpg', alt: "לק ג'ל קשת פסטל — כל אצבע בצבע אחר, שמחה טהורה",     span2: false               },
+    { src: './gallery/nail-28.jpg', alt: "ג'ל שקוף-אפרסק ארוך — זוהר פנימי ויוקרתי",           span2: false, hidden: true  },
+    { src: './gallery/nail-29.jpg', alt: "ג'ל ורוד-לבן מרובע קצר — נקי, צנוע ועדין",            span2: false, hidden: true  },
+    { src: './gallery/nail-30.jpg', alt: "ג'ל אדום-דובדבן מבריק — תשוקה, יוקרה ואלגנטיות",      span2: false, hidden: true  },
+    { src: './gallery/nail-31.jpg', alt: "עיצוב זברה שחור-לבן — אמנות נועזת ואיקונית",           span2: true                },
+    { src: './gallery/nail-32.jpg', alt: "ג'ל ירוק-כהה ים — עמוק, יערי ועצמאי",                 span2: false, hidden: true  },
+    { src: './gallery/nail-33.jpg', alt: "ג'ל ורוד חמים ועגלגל — שלווה, נשי ומחמם לב",          span2: false, hidden: true  },
+    { src: './gallery/nail-34.jpg', alt: "ג'ל בורדו-וינה עמוק — יוקרה, רומנטיקה ועוז",          span2: false, hidden: true  },
+    { src: './gallery/nail-35.jpg', alt: "פרנץ' שחור על בסיס ניוד — דרמטי, חדשני ואיקוני",      span2: false               },
+    { src: './gallery/nail-36.jpg', alt: "ג'ל ניוד-עור קצר ומרובע — פשוט, נקי ויפה",            span2: false, hidden: true  },
+    { src: './gallery/nail-37.jpg', alt: "ג'ל כתום ניאון מבריק — אנרגטי, קיצי ובוהק",           span2: false, hidden: true  },
+  ],
+
+
+  // ── FAQ ─────────────────────────────────────────────────────
+  faq: [
+    {
+      q: "כמה זמן מחזיק לק ג'ל?",
+      a: "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אני עובדת עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר.",
+    },
+    {
+      q: "האם ההסרה פוגעת בציפורן?",
+      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
+    },
+    {
+      q: "האם צריך לקבוע תור מראש?",
+      a: "כן, אני עובדת בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לכתוב לי בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים.",
+    },
+    {
+      q: "איפה הסטודיו ממוקם?",
+      a: "הסטודיו שלי ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze.",
+    },
+  ],
+
+  // ── COLORS ────────────────────────────────────────────────────
+  // משתנה ל-CSS Custom Properties אוטומטית
+  colors: {
+    bg:        '#FAF5F0',
+    card:      '#FFFFFF',
+    charcoal:  '#2d2b3d',
+    champagne: '#DDC3A5',
+    muted:     '#8a7f8e',
+    border:    '#e8d5c4',
+    primary:   '#A67C8E',
+  },
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   RENDER ENGINE — אל תשנה אלא אם יש סיבה
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+// ── Inject CSS Variables from SiteConfig.colors
+(function injectColors() {
+  var r = document.documentElement.style;
+  var c = SiteConfig.colors;
+  Object.keys(c).forEach(function(k) { r.setProperty('--' + k, c[k]); });
+})();
+
+// ── Sanitize — strip HTML tags from any user-supplied string
+// Used before innerHTML to prevent XSS if config data ever comes from user input
+function sanitize(str) {
+  return String(str)
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#x27;');
+}
+
+// ── Social icon SVGs
+var SOCIAL_ICONS = {
+  whatsapp: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>',
+  instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>',
+  tiktok:    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.22 8.22 0 004.84 1.55V6.79a4.85 4.85 0 01-1.07-.1z"/></svg>',
+  waze:      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.54 6.63C19.18 3.16 15.74.7 11.77.7 6.26.7 1.84 5.13 1.84 10.63c0 2.46.9 4.72 2.38 6.46-.03.17-.05.35-.05.53 0 1.58 1.29 2.87 2.87 2.87.3 0 .58-.05.85-.13C9.05 21.17 10.37 22 11.77 22c1.39 0 2.71-.82 3.87-2.63.27.08.56.13.85.13 1.58 0 2.87-1.29 2.87-2.87 0-.18-.02-.36-.05-.52 1.37-1.6 2.22-3.69 2.22-5.98 0-1.22-.26-2.38-.99-3.5zm-8.77 13.57c-.75 0-1.49-.46-2.06-1.28l-.24-.35-.41.1c-.19.05-.38.07-.57.07-.91 0-1.65-.74-1.65-1.65 0-.22.04-.43.13-.63l.18-.41-.32-.3C5.5 14.52 4.06 12.68 4.06 10.63c0-4.25 3.46-7.71 7.71-7.71 3.32 0 6.27 2.12 7.35 5.27.64.97.88 1.96.88 2.94 0 2.04-1.44 3.88-2.77 5.12l-.32.3.18.41c.09.2.13.41.13.63 0 .91-.74 1.65-1.65 1.65-.19 0-.38-.02-.57-.07l-.41-.1-.24.35c-.57.82-1.31 1.28-2.06 1.28zM8.45 10.09c.66 0 1.19.53 1.19 1.19s-.53 1.19-1.19 1.19-1.19-.53-1.19-1.19.53-1.19 1.19-1.19zm6.64 0c.66 0 1.19.53 1.19 1.19s-.53 1.19-1.19 1.19-1.19-.53-1.19-1.19.53-1.19 1.19-1.19zm-6.04 4.49s1.11 1.49 2.72 1.49 2.72-1.49 2.72-1.49"/></svg>',
+  easy:      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>',
+};
+
+var SOCIAL_LABELS = {
+  whatsapp:  'וואטסאפ',
+  instagram: 'אינסטגרם',
+  tiktok:    'טיקטוק',
+  waze:      'ווייז',
+  easy:      'Easy',
+};
+
+var WA_PREFILL = 'היי מיטל! 😊 אשמח לקבוע תור לטיפול. מתי יש לך זמן פנוי?';
+function openWA(e) {
+  if (e) e.preventDefault();
+  window.open('https://wa.me/972547686865?text=' + encodeURIComponent(WA_PREFILL), '_blank', 'noopener,noreferrer');
+}
+
+function buildSocialIcon(name, href) {
+  if (!href || !SOCIAL_ICONS[name]) return '';
+  var a = document.createElement('a');
+  a.className = 'social-icon';
+  if (name === 'waze' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    a.href = href.replace('https://waze.com/ul', 'waze://ul');
+  } else {
+    a.href = sanitize(href);
+  }
+  a.setAttribute('aria-label', SOCIAL_LABELS[name] || name);
+  a.setAttribute('rel', 'noopener noreferrer');
+  a.setAttribute('target', '_blank');
+  a.innerHTML = SOCIAL_ICONS[name];
+  return a;
+}
+
+function renderSocialStrip(containerId) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  Object.keys(SiteConfig.social).forEach(function(name) {
+    var href = SiteConfig.social[name];
+    if (href) {
+      var icon = buildSocialIcon(name, href);
+      if (icon) el.appendChild(icon);
+    }
+  });
+}
+
+// Hero CTA
+function renderHeroCta() {
+  var el = document.getElementById('hero-cta');
+  if (!el) return;
+  var wa = document.createElement('a');
+  wa.className = 'btn-primary';
+  wa.href = '#';
+  wa.setAttribute('aria-label', 'קביעת תור בווטסאפ');
+  wa.addEventListener('click', openWA);
+  wa.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><span>קביעי תור בווטסאפ</span>';
+  el.appendChild(wa);
+}
+
+// Services grid
+// ── Live site-config (services + texts) from get-site-config ──────
+// Static SiteConfig renders first (no flash); this overrides it async so
+// admin add/remove/edit of services reflects on the landing page.
+var SUPA_URL  = 'https://callmnxlcganwugxwiym.supabase.co';
+var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
+
+function applyLiveSiteConfig() {
+  fetch(SUPA_URL + '/functions/v1/get-site-config', {
+    headers: { 'Authorization': 'Bearer ' + SUPA_ANON }
+  }).then(function(r){ return r.ok ? r.json() : null; }).then(function(data){
+    if (!data || data.success !== true) return;
+    // Services → SiteConfig shape, re-render the grid.
+    if (Array.isArray(data.services) && data.services.length) {
+      SiteConfig.services = data.services.map(function(svc, i){
+        return {
+          num:   String(i + 1).padStart(2, '0'),
+          title: svc.name_he,
+          meta:  svc.duration_min + ' דקות',
+          desc:  svc.desc_he || ''
+        };
+      });
+      var grid = document.getElementById('services-grid');
+      if (grid) { grid.innerHTML = ''; renderServices(); initReveal(); }
+      window._SVC_MAP = {};
+      data.services.forEach(function(svc){
+        window._SVC_MAP[svc.id] = {
+          label: (svc.icon || '💅') + ' ' + svc.name_he + ' — ' + svc.duration_min + ' דק׳',
+          msg:   svc.name_he
+        };
+      });
+    }
+    // Editable texts.
+    var c = data.config || {};
+    var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
+    setText('#services-heading', c.landing_services_title);
+    // Apply the active palette + effects to the whole landing page.
+    // In admin preview mode (?preview=1) the parent injects the unsaved
+    // palette directly, so don't clobber it with the saved one.
+    if (new URLSearchParams(location.search).get('preview') !== '1') applyLandingTheme(c);
+  }).catch(function(){ /* keep static defaults */ });
+}
+
+// Inject palette colours (+ rgb channels) and fx-* effects on :root so the
+// landing fully follows the admin-selected theme. Mirrors site-config-client.
+function applyLandingTheme(config) {
+  if (!config) return;
+  var root = document.documentElement;
+  var MAP = {
+    color_primary: 'color-primary', color_secondary: 'color-secondary',
+    color_background: 'color-cream', color_card_bg: 'color-card-bg',
+    color_text_main: 'color-text', color_text_muted: 'color-text-muted',
+    color_progress_bar: 'color-primary-lt'
+  };
+  var hexToRgb = function(hex){
+    var m = String(hex||'').trim().match(/^#([0-9a-fA-F]{6})$/); if(!m) return null;
+    var n = parseInt(m[1],16); return ((n>>16)&255)+', '+((n>>8)&255)+', '+(n&255);
+  };
+  Object.keys(MAP).forEach(function(k){
+    var hex = config[k]; if(!hex) return;
+    root.style.setProperty('--'+MAP[k], hex);
+    var rgb = hexToRgb(hex); if(rgb) root.style.setProperty('--'+MAP[k]+'-rgb', rgb);
+  });
+  if (config.color_card_bg) {
+    root.style.setProperty('--color-card-bg', config.color_card_bg);
+    var cb = hexToRgb(config.color_card_bg); if(cb) root.style.setProperty('--color-card-bg-rgb', cb);
+  }
+  // Effects (fx-* classes) — landing reuses the booking effect rules where applicable.
+  var want = String(config.theme_effects||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+  Array.prototype.slice.call(root.classList).forEach(function(cl){ if(cl.indexOf('fx-')===0) root.classList.remove(cl); });
+  want.forEach(function(id){ root.classList.add('fx-'+id); });
+}
+
+function renderServices() {
+  var grid = document.getElementById('services-grid');
+  if (!grid) return;
+  SiteConfig.services.forEach(function(s, i) {
+    var card = document.createElement('article');
+    card.className = 'service-card reveal';
+    card.style.transitionDelay = (i * 90) + 'ms';
+    card.setAttribute('role', 'listitem');
+    card.innerHTML =
+      '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
+      '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
+      '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
+      '<p class="service-desc">' + sanitize(s.desc) + '</p>';
+    grid.appendChild(card);
+  });
+}
+
+// Gallery grid
+function renderGallery() {
+  var outer = document.getElementById('gallery-grid');
+  if (!outer) return;
+  var strip = document.getElementById('gallery-strip');
+  if (!strip) return;
+
+  // Build slides — keep .gallery-item so initLightbox() still attaches
+  SiteConfig.gallery.forEach(function(img, idx) {
+    var item = document.createElement('figure');
+    item.className = 'gallery-item reveal';
+    item.style.transitionDelay = (Math.min(idx, 6) * 40) + 'ms';
+    item.setAttribute('tabindex', '0');
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', 'הגדל תמונה: ' + sanitize(img.alt));
+
+    // Image with blur-up skeleton (background stays until loaded)
+    var el = document.createElement('img');
+    el.alt  = sanitize(img.alt);
+    el.decoding = 'async';
+    if (idx < 3) {
+      el.loading = 'eager';
+      el.setAttribute('fetchpriority', 'high');
+    } else {
+      el.loading = 'lazy';
+    }
+    el.addEventListener('load',  function() { el.classList.add('img-loaded'); });
+    el.addEventListener('error', function() { el.classList.add('img-loaded'); }); // hide broken too
+    el.src = sanitize(img.src); // set src AFTER event listener
+    if (el.complete && el.naturalWidth) el.classList.add('img-loaded');
+
+    var overlay = document.createElement('figcaption');
+    overlay.className = 'gallery-overlay';
+    overlay.innerHTML = '<span class="gallery-caption">' + sanitize(img.alt) + '</span>';
+
+    item.appendChild(el);
+    item.appendChild(overlay);
+    strip.appendChild(item);
+  });
+
+  // Prev / Next buttons
+  var btnPrev = document.createElement('button');
+  btnPrev.type = 'button';
+  btnPrev.className = 'gallery-nav-btn gallery-prev';
+  btnPrev.setAttribute('aria-label', 'תמונה הבאה');
+  btnPrev.innerHTML = '&#8250;';
+  var btnNext = document.createElement('button');
+  btnNext.type = 'button';
+  btnNext.className = 'gallery-nav-btn gallery-next';
+  btnNext.setAttribute('aria-label', 'תמונה קודמת');
+  btnNext.innerHTML = '&#8249;';
+  outer.appendChild(btnPrev);
+  outer.appendChild(btnNext);
+
+  // Dots
+  var dotsWrap = document.createElement('div');
+  dotsWrap.className = 'gallery-dots';
+  var perPage  = window.innerWidth > 767 ? 3 : (window.innerWidth > 430 ? 2 : 1);
+  var pageCount = Math.ceil(SiteConfig.gallery.length / perPage);
+  var dots = [];
+  for (var p = 0; p < pageCount; p++) {
+    var d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'gallery-dot' + (p === 0 ? ' active' : '');
+    d.setAttribute('aria-label', 'עמוד ' + (p + 1));
+    d.dataset.page = p;
+    dots.push(d);
+    dotsWrap.appendChild(d);
+  }
+  outer.parentNode.insertBefore(dotsWrap, outer.nextSibling);
+
+  // Helpers
+  function slideW() {
+    var el = strip.querySelector('.gallery-item');
+    return el ? el.offsetWidth + 10 : 1;
+  }
+  function currentPage() {
+    return Math.round(strip.scrollLeft / (slideW() * perPage));
+  }
+  function updateDots() {
+    var pg = currentPage();
+    dots.forEach(function(d, i) { d.classList.toggle('active', i === pg); });
+  }
+  function scrollToPage(pg) {
+    strip.scrollTo({ left: pg * slideW() * perPage, behavior: 'smooth' });
+  }
+
+  // Auto-scroll (advances 1 full slide, loops)
+  var autoTimer;
+  function startAuto() {
+    clearInterval(autoTimer);
+    autoTimer = setInterval(function() {
+      var atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 8;
+      if (atEnd) { strip.scrollTo({ left: 0, behavior: 'smooth' }); }
+      else        { strip.scrollBy({ left: slideW(), behavior: 'smooth' }); }
+      setTimeout(updateDots, 650);
+    }, 3800);
+  }
+  function stopAuto() { clearInterval(autoTimer); }
+
+  strip.addEventListener('scroll',     updateDots,  { passive: true });
+  strip.addEventListener('mouseenter', stopAuto);
+  strip.addEventListener('mouseleave', startAuto);
+
+  btnPrev.addEventListener('click', function() {
+    strip.scrollBy({ left:  slideW(), behavior: 'smooth' }); startAuto();
+  });
+  btnNext.addEventListener('click', function() {
+    strip.scrollBy({ left: -slideW(), behavior: 'smooth' }); startAuto();
+  });
+  dots.forEach(function(d) {
+    d.addEventListener('click', function() { scrollToPage(+d.dataset.page); startAuto(); });
+  });
+
+  // Pointer drag (desktop)
+  var dragX, dragScroll;
+  strip.addEventListener('pointerdown', function(e) {
+    if (e.button !== 0) return;
+    dragX      = e.clientX;
+    dragScroll = strip.scrollLeft;
+    strip.setPointerCapture(e.pointerId);
+    stopAuto();
+  });
+  strip.addEventListener('pointermove', function(e) {
+    if (dragX === undefined) return;
+    strip.scrollLeft = dragScroll - (e.clientX - dragX);
+  });
+  strip.addEventListener('pointerup',     function() { dragX = undefined; startAuto(); });
+  strip.addEventListener('pointercancel', function() { dragX = undefined; startAuto(); });
+
+  // Kick off auto-scroll after a short delay
+  setTimeout(startAuto, 1800);
+}
+
+// Contact section
+function renderContact() {
+  // WhatsApp CTA button
+  var waBtn = document.getElementById('contact-wa-btn');
+  if (waBtn) {
+    var waHref = SiteConfig.social.whatsapp || '#';
+    var waFull = waHref !== '#' ? waHref + '?text=' + encodeURIComponent(WA_PREFILL) : '#';
+    waBtn.innerHTML =
+      '<a class="btn-wa"' +
+         ' href="' + sanitize(waFull) + '"' +
+         ' rel="noopener noreferrer"' +
+         (waHref !== '#' ? ' target="_blank"' : '') +
+         ' aria-label="צרי קשר בווטסאפ">' +
+        SOCIAL_ICONS.whatsapp +
+        '<span>שלחי הודעה בווטסאפ</span>' +
+      '</a>';
+    var waLink = waBtn.querySelector('a');
+    if (waLink) waLink.addEventListener('click', openWA);
+  }
+  // Phone + Email
+  var contactLinks = document.getElementById('contact-links');
+  if (contactLinks) {
+    var ph = SiteConfig.identity.phone;
+    var em = SiteConfig.identity.email;
+    var html = '';
+    if (ph) html += '<a href="tel:+972' + ph.replace(/^0/, '').replace(/-/g, '') + '" class="contact-link">' + ph + '</a>';
+    if (em) html += '<a href="mailto:' + em + '" class="contact-link">' + em + '</a>';
+    contactLinks.innerHTML = html;
+  }
+  // Address
+  var addrEl = document.getElementById('meta-address');
+  if (addrEl) addrEl.textContent = SiteConfig.identity.address;
+}
+
+// Footer year
+function renderFooter() {
+  var c = document.getElementById('footer-copy');
+  if (c) c.textContent = '© ' + new Date().getFullYear() + ' ' + SiteConfig.identity.name + '. כל הזכויות שמורות.';
+}
+
+// Mobile menu toggle
+function initMobileMenu() {
+  var btn  = document.getElementById('menu-btn');
+  var nav  = document.getElementById('mobile-nav');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', function() {
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+    nav.setAttribute('aria-hidden', String(!open));
+    btn.setAttribute('aria-label', open ? 'סגור תפריט' : 'פתח תפריט');
+  });
+  // Close on nav link click
+  nav.querySelectorAll('a').forEach(function(a) {
+    a.addEventListener('click', function() {
+      nav.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('aria-hidden', 'true');
+      btn.setAttribute('aria-label', 'פתח תפריט');
+    });
+  });
+}
+
+// ── Lightbox
+function initLightbox() {
+  var lb = document.getElementById('lightbox');
+  if (!lb) return;
+  var lbImg = document.getElementById('lb-img');
+  var lbCap = document.getElementById('lb-caption');
+  var current = 0;
+  var items = [];
+  var itemIdx = 0;
+
+  document.querySelectorAll('.gallery-item').forEach(function(el) {
+    var img = el.querySelector('img');
+    if (!img) return;
+    var n = itemIdx++;
+    items.push({ src: img.src, alt: img.alt });
+    el.addEventListener('click', function() { openImg(n); });
+    el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImg(n); }
+    });
+  });
+
+  function showImg(idx) {
+    current = (idx + items.length) % items.length;
+    lbImg.src = items[current].src;
+    lbImg.alt = items[current].alt;
+    lbCap.textContent = items[current].alt;
+  }
+  function openImg(idx) {
+    showImg(idx);
+    lb.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('lb-close').focus();
+  }
+  function closeImg() {
+    lb.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
+
+  document.getElementById('lb-close').addEventListener('click', closeImg);
+  lb.addEventListener('click', function(e) { if (e.target === lb) closeImg(); });
+  document.getElementById('lb-prev').addEventListener('click', function() { showImg(current - 1); });
+  document.getElementById('lb-next').addEventListener('click', function() { showImg(current + 1); });
+  document.addEventListener('keydown', function(e) {
+    if (lb.hasAttribute('hidden')) return;
+    if (e.key === 'Escape') closeImg();
+    if (e.key === 'ArrowRight') showImg(current - 1);
+    if (e.key === 'ArrowLeft') showImg(current + 1);
+  });
+  var tX = 0;
+  lb.addEventListener('touchstart', function(e) { tX = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - tX;
+    if (Math.abs(dx) > 50) { if (dx > 0) showImg(current - 1); else showImg(current + 1); }
+  });
+}
+
+// ── Sticky book button
+function initStickyBook() {
+  var hero = document.querySelector('.hero');
+  var btn  = document.getElementById('sticky-book');
+  if (!hero || !btn || !window.IntersectionObserver) return;
+  new IntersectionObserver(function(entries) {
+    btn.classList.toggle('visible', !entries[0].isIntersecting);
+  }, { threshold: 0 }).observe(hero);
+
+  var footer = document.querySelector('footer');
+  if (footer) {
+    function adjustStickyBookBottom() {
+      var footerTop = footer.getBoundingClientRect().top;
+      var vh = window.innerHeight;
+      var gap = 24; // matches default bottom: 1.5rem
+      if (footerTop < vh) {
+        btn.style.bottom = (vh - footerTop + gap) + 'px';
+      } else {
+        btn.style.bottom = '';
+      }
+    }
+    window.addEventListener('scroll', adjustStickyBookBottom, { passive: true });
+    window.addEventListener('resize', adjustStickyBookBottom, { passive: true });
+  }
+}
+
+// ── Next available slot teaser
+function initNextSlot() {
+  var apiBase = SiteConfig.identity && SiteConfig.identity.apiBase;
+  if (!apiBase) return;
+  var now = new Date();
+  var url = apiBase + '?action=getSlots&month=' + now.getFullYear() + '-' + (now.getMonth() + 1);
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    var slots = data && data.slots;
+    if (!slots) return;
+    var today = now.toISOString().slice(0, 10);
+    var days = Object.keys(slots).sort().filter(function(d) { return d >= today; });
+    for (var i = 0; i < days.length; i++) {
+      var times = slots[days[i]];
+      if (!times || !times.length) continue;
+      var date = new Date(days[i] + 'T12:00:00');
+      var label = date.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'numeric' });
+      var el = document.getElementById('hero-next-slot');
+      var txt = document.getElementById('hero-next-slot-text');
+      if (el && txt) {
+        txt.textContent = 'הזמן הפנוי הקרוב: ' + label + ' ב-' + times[0];
+        el.removeAttribute('hidden');
+      }
+      break;
+    }
+  }).catch(function() {});
+}
+
+// ── Render FAQ
+function renderFAQ() {
+  var list = document.getElementById('faq-list');
+  if (!list) return;
+  var chevron = '<svg class="faq-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>';
+  list.innerHTML = SiteConfig.faq.map(function(item) {
+    return '<details class="faq-item reveal" role="listitem">' +
+      '<summary>' + item.q + chevron + '</summary>' +
+      '<p class="faq-answer">' + item.a + '</p>' +
+      '</details>';
+  }).join('');
+}
+
+// ── Scroll Reveal
+function initReveal() {
+  if (!window.IntersectionObserver) {
+    document.querySelectorAll('.reveal').forEach(function(el) { el.classList.add('in'); });
+    return;
+  }
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) { e.target.classList.add('in'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+}
+
+// ── CINEMATIC HERO REEL ─────────────────────────────────────────────────────
+var REEL_DURATION = 6000;
+var REEL_FADE     = 1800;
+
+function initReel() {
+  var container = document.getElementById('hero-reel');
+  if (!container) return;
+
+  var images  = SiteConfig.gallery.map(function(g) { return g.src; });
+  var total   = images.length;
+  var current = 0;
+  var slides  = [];
+  var timer   = null;
+
+  images.forEach(function(src, i) {
+    var div = document.createElement('div');
+    div.className = 'reel-slide';
+    var img = document.createElement('img');
+    img.src = src;
+    img.alt = '';
+    img.setAttribute('draggable', 'false');
+    if (i > 0) img.loading = 'lazy';
+    div.appendChild(img);
+    container.insertBefore(div, container.querySelector('.reel-overlay'));
+    slides.push(div);
+  });
+
+  function restartKB(slide, idx) {
+    var img = slide.querySelector('img');
+    img.style.animation = 'none';
+    img.getBoundingClientRect();          // sync reflow — restarts CSS animation
+    img.style.animation = '';
+    for (var k = 0; k < 6; k++) slide.classList.remove('kb-' + k);
+    slide.classList.add('kb-' + (idx % 6));
+  }
+
+  function animateProgress() {
+    var bar = document.getElementById('reel-progress-bar');
+    if (!bar) return;
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        bar.style.transition = 'width ' + REEL_DURATION + 'ms linear';
+        bar.style.width = '100%';
+      });
+    });
+  }
+
+  function showSlide(idx) {
+    var prev     = current;
+    current      = (idx + total) % total;
+    var slide    = slides[current];
+    var prevSlide = slides[prev];
+
+    // Restart KB in-place — no DOM replacement, no flash frame
+    restartKB(slide, current);
+    slide.classList.add('reel-active');
+
+    // Keep old slide visible through the full crossfade, then remove
+    setTimeout(function() {
+      prevSlide.classList.remove('reel-active');
+    }, REEL_FADE + 200);
+
+    animateProgress();
+    clearTimeout(timer);
+    timer = setTimeout(function() { showSlide(current + 1); }, REEL_DURATION);
+  }
+
+  var startIdx = Math.floor(Math.random() * total);
+  restartKB(slides[startIdx], startIdx);
+  slides[startIdx].classList.add('reel-active');
+  animateProgress();
+  timer = setTimeout(function() { showSlide(startIdx + 1); }, REEL_DURATION);
+
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      clearTimeout(timer);
+    } else {
+      clearTimeout(timer);
+      timer = setTimeout(function() { showSlide(current + 1); }, Math.round(REEL_DURATION * 0.4));
+    }
+  });
+}
+
+// ── AMBIENT AUDIO: Venus-inspired E-Dorian groove (120 BPM) ────────────────
+var _audioCtx   = null;
+var _masterGain = null;
+var _audioMuted = true;
+var _arpTimer   = null;
+var _bassTimer  = null;
+var _hatTimer   = null;
+
+function buildAmbientAudio() {
+  if (_audioCtx) return;
+  var BPM    = 120;
+  var beat   = 60 / BPM;     // 0.5s per quarter note
+  var eighth = beat / 2;     // 0.25s per 8th note
+  var bar    = beat * 4;     // 2.0s per bar
+
+  _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+  _masterGain = _audioCtx.createGain();
+  _masterGain.gain.value = 0;
+  _masterGain.connect(_audioCtx.destination);
+
+  // Short plate reverb
+  var rvbDly = _audioCtx.createDelay(0.5);
+  rvbDly.delayTime.value = 0.14;
+  var rvbFb  = _audioCtx.createGain(); rvbFb.gain.value  = 0.18;
+  var rvbMix = _audioCtx.createGain(); rvbMix.gain.value = 0.11;
+  rvbDly.connect(rvbFb); rvbFb.connect(rvbDly); rvbDly.connect(rvbMix);
+  rvbMix.connect(_masterGain);
+
+  // Hook melody: E4-G4-A4-B4-D5-B4-A4-G4 (E Dorian ascending/descending, sawtooth)
+  var MELODY = [329.63, 392.0, 440.0, 493.88, 587.33, 493.88, 440.0, 392.0];
+
+  function scheduleMelody() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    MELODY.forEach(function(freq, i) {
+      var t   = now + i * eighth;
+      var osc = _audioCtx.createOscillator();
+      var env = _audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+      osc.detune.value = -6;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.028, t + 0.018);
+      env.gain.exponentialRampToValueAtTime(0.001, t + eighth * 0.70);
+      osc.connect(env); env.connect(_masterGain); env.connect(rvbDly);
+      osc.start(t); osc.stop(t + eighth);
+    });
+    _arpTimer = setTimeout(scheduleMelody, MELODY.length * eighth * 1000);
+  }
+
+  // Walking bass: E2-A2-B2-G2 (quarter notes, triangle)
+  var BASS = [82.41, 110.0, 123.47, 98.0];
+
+  function scheduleBass() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    BASS.forEach(function(freq, i) {
+      var t   = now + i * beat;
+      var osc = _audioCtx.createOscillator();
+      var env = _audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, t);
+      env.gain.linearRampToValueAtTime(0.095, t + 0.022);
+      env.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.58);
+      osc.connect(env); env.connect(_masterGain);
+      osc.start(t); osc.stop(t + beat);
+    });
+    _bassTimer = setTimeout(scheduleBass, BASS.length * beat * 1000);
+  }
+
+  // Drum machine: kick(beats 1+3) snare(beats 2+4) hat(8th notes)
+  function scheduleDrums() {
+    if (!_audioCtx) return;
+    var now = _audioCtx.currentTime;
+    for (var i = 0; i < 8; i++) {
+      var t = now + i * eighth;
+
+      // Kick: 8th-note slots 0 and 4 (beats 1 and 3)
+      if (i === 0 || i === 4) {
+        var ko = _audioCtx.createOscillator();
+        var ke = _audioCtx.createGain();
+        ko.type = 'sine';
+        ko.frequency.setValueAtTime(120, t);
+        ko.frequency.exponentialRampToValueAtTime(38, t + 0.09);
+        ke.gain.setValueAtTime(0.24, t);
+        ke.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+        ko.connect(ke); ke.connect(_masterGain);
+        ko.start(t); ko.stop(t + 0.24);
+      }
+
+      // Snare: 8th-note slots 2 and 6 (beats 2 and 4)
+      if (i === 2 || i === 6) {
+        (function(st) {
+          var buf  = _audioCtx.createBuffer(1, Math.ceil(_audioCtx.sampleRate * 0.06), _audioCtx.sampleRate);
+          var data = buf.getChannelData(0);
+          for (var j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+          var src  = _audioCtx.createBufferSource();
+          src.buffer = buf;
+          var bpf  = _audioCtx.createBiquadFilter();
+          bpf.type = 'bandpass'; bpf.frequency.value = 1800; bpf.Q.value = 0.7;
+          var env  = _audioCtx.createGain();
+          env.gain.setValueAtTime(0.082, st);
+          env.gain.exponentialRampToValueAtTime(0.001, st + 0.055);
+          src.connect(bpf); bpf.connect(env); env.connect(_masterGain);
+          src.start(st);
+        })(t);
+      }
+
+      // Hi-hat: every 8th note, beat subdivisions accented
+      (function(st, idx) {
+        var buf  = _audioCtx.createBuffer(1, Math.ceil(_audioCtx.sampleRate * 0.028), _audioCtx.sampleRate);
+        var data = buf.getChannelData(0);
+        for (var j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
+        var src  = _audioCtx.createBufferSource();
+        src.buffer = buf;
+        var hpf  = _audioCtx.createBiquadFilter();
+        hpf.type = 'highpass'; hpf.frequency.value = 9500;
+        var env  = _audioCtx.createGain();
+        var vol  = (idx % 2 === 0) ? 0.010 : 0.006;
+        env.gain.setValueAtTime(vol, st);
+        env.gain.exponentialRampToValueAtTime(0.001, st + 0.020);
+        src.connect(hpf); hpf.connect(env); env.connect(_masterGain);
+        src.start(st);
+      })(t, i);
+    }
+    _hatTimer = setTimeout(scheduleDrums, bar * 1000);
+  }
+
+  setTimeout(scheduleMelody, 100);
+  setTimeout(scheduleBass,   100);
+  setTimeout(scheduleDrums,  100);
+}
+
+function initAmbientAudio() {
+  var btn     = document.getElementById('reel-mute-btn');
+  var iconOff = document.getElementById('reel-icon-muted');
+  var iconOn  = document.getElementById('reel-icon-sound');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    _audioMuted = !_audioMuted;
+    if (!_audioMuted) {
+      buildAmbientAudio();
+      _audioCtx.resume();
+      _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
+      _masterGain.gain.linearRampToValueAtTime(1, _audioCtx.currentTime + 2.0);
+      btn.setAttribute('aria-label', 'השתק מוזיקה');
+      btn.setAttribute('aria-pressed', 'true');
+      if (iconOff) iconOff.style.display = 'none';
+      if (iconOn)  iconOn.style.display  = '';
+    } else {
+      clearTimeout(_arpTimer); clearTimeout(_bassTimer); clearTimeout(_hatTimer);
+      if (_masterGain) {
+        _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
+        _masterGain.gain.linearRampToValueAtTime(0, _audioCtx.currentTime + 1.2);
+      }
+      btn.setAttribute('aria-label', 'הפעל מוזיקת רקע');
+      btn.setAttribute('aria-pressed', 'false');
+      if (iconOff) iconOff.style.display = '';
+      if (iconOn)  iconOn.style.display  = 'none';
+    }
+  });
+
+  document.addEventListener('visibilitychange', function() {
+    if (!_audioCtx) return;
+    if (document.hidden) { _audioCtx.suspend(); }
+    else if (!_audioMuted) { _audioCtx.resume(); }
+  });
+}
+
+
+// ── HERO TAGLINES: rotate every 8s with fade ─────────────────────────────────
+var HERO_TAGLINES = [
+  { main: 'אמנות ציפורניים', em: 'מרגע ראשון',     sub: "לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם." },
+  { main: 'יוקרה',           em: 'בכל פרט',          sub: 'כי הציפורניים שלך מגיעות לטיפול שמרשים ומחזיק שבועות. עיצוב מדויק, יחס אישי ופינוק שמרגישים — בסטודיו הבוטיק של מיטל שבע ברעם.' },
+  { main: 'הסטודיו',         em: 'שמחכה לך',         sub: 'ציפורניים יפות הן לא רק פינוק — הן הצהרה. אווירה אינטימית, מקצועיות ותשומת לב שתרגישי — אצל מיטל שבע ברעם.' },
+  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פרטים קטנים עושים את כל ההבדל — בגוון, בצורה, בדיוק. ג\'ל לידיים, לק לרגליים, או הסט המושלם — הכל אצל מיטל שבע ברעם.' },
+];
+var _taglineIdx = 0;
+
+function initHeroTaglines() {
+  var mainEl = document.getElementById('hero-title-main');
+  var emEl   = document.getElementById('hero-title-em');
+  var subEl  = document.getElementById('hero-subtitle');
+  if (!mainEl || !emEl) return;
+  setInterval(function() {
+    _taglineIdx = (_taglineIdx + 1) % HERO_TAGLINES.length;
+    var tl = HERO_TAGLINES[_taglineIdx];
+    mainEl.style.transition = emEl.style.transition = 'opacity 0.55s ease';
+    mainEl.style.opacity    = emEl.style.opacity    = '0';
+    if (subEl) { subEl.style.transition = 'opacity 0.45s ease'; subEl.style.opacity = '0'; }
+    setTimeout(function() {
+      mainEl.textContent = tl.main;
+      emEl.textContent   = tl.em;
+      if (subEl && tl.sub) subEl.textContent = tl.sub;
+      mainEl.style.opacity = emEl.style.opacity = '1';
+      if (subEl) subEl.style.opacity = '1';
+    }, 580);
+  }, 8000);
+}
+// ── Init
+document.addEventListener('DOMContentLoaded', function() {
+  renderSocialStrip('header-social-strip');
+  renderSocialStrip('mobile-social-strip');
+  renderSocialStrip('footer-social');
+  renderHeroCta();
+  renderServices();
+  applyLiveSiteConfig();
+  renderGallery();
+  renderFAQ();
+  renderContact();
+  renderFooter();
+  initMobileMenu();
+  initLightbox();
+  initStickyBook();
+  initNextSlot();
+  initReveal();
+  initReel();
+  initHeroTaglines();
+  initAmbientAudio();
+});
+</script>
+
+<!-- ── LIGHTBOX ── -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="תמונה מוגדלת" hidden>
+  <button id="lb-close" aria-label="סגור">&#x2715;</button>
+  <button id="lb-prev" aria-label="תמונה קודמת">&#8250;</button>
+  <button id="lb-next" aria-label="תמונה הבאה">&#8249;</button>
+  <div id="lb-body">
+    <img id="lb-img" src="" alt="" />
+    <p id="lb-caption"></p>
+  </div>
+</div>
+
+<!-- ── STICKY BOOK BUTTON ── -->
+<div id="sticky-book">
+  <a href="#" onclick="openWA(event)">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    ווטסאפ
+  </a>
+</div>
+
+
+
+
+<!-- ── AI CHATBOT WIDGET — Full UX Rebuild v3 ──────────────────────────────────────────── -->
+<style>
+
+/* === FLOATING BUBBLE === */
+#chat-bubble {
+  position: fixed; bottom: 22px; right: 22px;
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, #A67C8E 0%, #8d677a 100%);
+  color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(166,124,142,.55), 0 2px 8px rgba(0,0,0,.12);
+  z-index: 1001; border: none;
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+}
+#chat-bubble:hover, #chat-bubble:focus-visible {
+  transform: scale(1.1);
+  box-shadow: 0 8px 32px rgba(166,124,142,.7), 0 2px 8px rgba(0,0,0,.12);
+  outline: 2px solid #FAF5F0; outline-offset: 3px;
+}
+#chat-bubble:active { transform: scale(.94); }
+
+/* Unread badge */
+#chat-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  background: #e0405a; border-radius: 9px;
+  border: 2px solid #FAF5F0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .62rem; color: #fff; font-weight: 700;
+  font-family: Heebo, sans-serif; letter-spacing: 0;
+  animation: badgePop .35s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+}
+#chat-badge[hidden] { display: none !important; }
+@keyframes badgePop { from { transform: scale(0); } to { transform: scale(1); } }
+
+/* === PANEL === */
+#chat-panel {
+  position: fixed; bottom: 92px; right: 20px;
+  width: 370px; max-width: calc(100vw - 32px);
+  height: 520px; max-height: calc(100dvh - 112px);
+  background: #F5EEE9; border-radius: 20px;
+  box-shadow: 0 12px 48px rgba(45,43,61,.22), 0 2px 12px rgba(0,0,0,.08);
+  z-index: 1002; display: flex; flex-direction: column;
+  overflow: hidden; font-family: Heebo, sans-serif; direction: rtl;
+  transform-origin: bottom right;
+  transition: bottom .12s ease, height .12s ease;
+  will-change: bottom;
+}
+#chat-panel[hidden] { display: none !important; }
+#chat-panel.chat-in { animation: chatIn .28s cubic-bezier(.34,1.56,.64,1) forwards; }
+@keyframes chatIn {
+  from { opacity: 0; transform: scale(.82) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* === HEADER === */
+#chat-header {
+  background: linear-gradient(135deg, #A67C8E 0%, #7d5c6e 100%);
+  color: #fff; padding: 12px 14px 12px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; direction: rtl;
+}
+#chat-title { display: flex; align-items: center; gap: 10px; }
+#chat-avatar {
+  width: 40px; height: 40px;
+  border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,.4);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+#chat-name { font-weight: 700; font-size: .9rem; white-space: nowrap; }
+#chat-status { font-size: .7rem; opacity: .9; margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+#chat-status-dot { font-size: .55rem; color: #7fff9a; }
+#chat-close {
+  background: rgba(255,255,255,.15); border: none; color: #fff;
+  width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+  font-size: 1.1rem; display: flex; align-items: center; justify-content: center;
+  transition: background .15s; flex-shrink: 0;
+}
+#chat-close:hover { background: rgba(255,255,255,.32); }
+
+/* === MESSAGES AREA === */
+#chat-messages {
+  flex: 1 1 0; overflow-y: auto; overflow-x: hidden;
+  padding: 14px 12px 10px; display: flex; flex-direction: column; gap: 2px;
+  scroll-behavior: smooth;
+  scrollbar-width: thin; scrollbar-color: rgba(166,124,142,.3) transparent;
+  background: #F5EEE9;
+}
+#chat-messages::-webkit-scrollbar { width: 4px; }
+#chat-messages::-webkit-scrollbar-track { background: transparent; }
+#chat-messages::-webkit-scrollbar-thumb { background: rgba(166,124,142,.35); border-radius: 2px; }
+
+/* === MESSAGE ROWS (avatar layout) === */
+.cmsg-row { display: flex; align-items: flex-end; gap: 7px; margin-bottom: 3px; }
+.cmsg-row.user-row { flex-direction: row-reverse; }
+.cmsg-row.bot-row { flex-direction: row; }
+
+.cmsg-av {
+  width: 28px; height: 28px; border-radius: 50%; overflow: hidden;
+  flex-shrink: 0; border: 1.5px solid rgba(166,124,142,.25); background: #e8d5c4;
+}
+.cmsg-av img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.cmsg-av-spacer { width: 28px; flex-shrink: 0; }
+
+.cmsg-wrap { display: flex; flex-direction: column; max-width: 75%; }
+.bot-row .cmsg-wrap { align-items: flex-start; }
+.user-row .cmsg-wrap { align-items: flex-end; }
+
+/* Bubbles */
+.cmsg {
+  padding: 9px 13px; border-radius: 18px;
+  font-size: .875rem; line-height: 1.58; word-break: break-word;
+  white-space: pre-wrap; text-align: right; direction: rtl;
+  animation: msgIn .2s ease-out forwards;
+}
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(7px) scale(.96); }
+  to   { opacity: 1; transform: none; }
+}
+.cmsg.bot {
+  background: #fff; color: #2d2b3d;
+  border-radius: 18px 18px 18px 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07), 0 3px 10px rgba(0,0,0,.04);
+}
+.cmsg.user {
+  background: linear-gradient(135deg, #A67C8E 0%, #9a6f82 100%);
+  color: #fff; border-radius: 18px 18px 4px 18px;
+  box-shadow: 0 2px 8px rgba(166,124,142,.35);
+}
+.cmsg.typing {
+  background: #fff; color: #8a7f8e;
+  border-radius: 18px 18px 18px 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  display: flex; align-items: center; gap: 5px;
+  padding: 12px 16px; min-height: 44px;
+}
+
+.cmsg-time { font-size: .65rem; color: #b8a8b0; margin-top: 3px; padding: 0 3px; direction: ltr; }
+
+.cmsg-qr { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.bot-row .cmsg-qr { justify-content: flex-start; }
+.cqr-chip {
+  background: #fff; border: 1.5px solid #ddc3c0; color: #9a6f82;
+  border-radius: 20px; padding: 5px 12px; font-size: .76rem;
+  font-family: Heebo, sans-serif; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .12s;
+  white-space: nowrap; direction: rtl;
+}
+.cqr-chip:hover { background: #FAF5F0; border-color: #A67C8E; transform: translateY(-1px); }
+.cqr-chip:active { transform: scale(.96); }
+.cqr-chip:disabled { opacity: .4; cursor: default; pointer-events: none; transform: none; }
+
+.tdot {
+  display: inline-block; width: 7px; height: 7px;
+  background: #A67C8E; border-radius: 50%;
+  animation: tdot 1.3s ease-in-out infinite; opacity: .4;
+}
+.tdot:nth-child(2) { animation-delay: .2s; }
+.tdot:nth-child(3) { animation-delay: .4s; }
+@keyframes tdot {
+  0%,60%,100% { transform: translateY(0); opacity: .4; }
+  28% { transform: translateY(-6px); opacity: 1; }
+}
+
+.cbook {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+  background: #A67C8E; color: #fff !important; text-decoration: none;
+  padding: 8px 16px; border-radius: 20px; font-size: .8rem; font-weight: 600;
+  font-family: Heebo, sans-serif; transition: background .15s, transform .15s; direction: rtl;
+}
+.cbook:hover { background: #8d677a; transform: translateY(-1px); }
+.csvc-btn {
+  display: inline-block; margin: 4px 0; padding: 8px 16px;
+  background: #FAF5F0; border: 1.5px solid #A67C8E; border-radius: 20px;
+  color: #A67C8E; font-family: inherit; font-size: .82rem; font-weight: 600;
+  cursor: pointer; direction: rtl; transition: background .18s, transform .12s;
+}
+.csvc-btn:hover { background: #DDC3A5; transform: scale(1.03); }
+.csvc-btn:active { transform: scale(.97); }
+.clink {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 5px;
+  padding: 7px 14px; border-radius: 20px; font-size: .8rem; font-weight: 600;
+  text-decoration: none; font-family: Heebo, sans-serif;
+  transition: filter .15s, transform .15s;
+}
+.clink:hover { filter: brightness(.92); transform: translateY(-1px); }
+.wa-link { background: #25D366; color: #fff; }
+.ig-link { background: linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888); color: #fff; }
+
+/* === INPUT BAR === */
+#chat-footer {
+  display: flex; align-items: flex-end; gap: 8px; padding: 10px 12px;
+  border-top: 1px solid rgba(220,196,180,.7);
+  background: #fff; flex-shrink: 0; direction: ltr;
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+#chat-input {
+  flex: 1; border: 1.5px solid #e0ccc4; border-radius: 20px;
+  padding: 9px 14px; font-size: .9rem; font-family: Heebo, sans-serif;
+  background: #FAF5F0; color: #2d2b3d; outline: none;
+  resize: none; overflow: hidden;
+  min-height: 40px; max-height: 100px; line-height: 1.45;
+  transition: border-color .2s, box-shadow .2s;
+  direction: rtl; text-align: right;
+}
+#chat-input:focus { border-color: #A67C8E; box-shadow: 0 0 0 3px rgba(166,124,142,.13); }
+#chat-input::placeholder { color: #b8a8b2; }
+#chat-send {
+  width: 40px; height: 40px; min-width: 40px;
+  background: linear-gradient(135deg, #A67C8E 0%, #9a6f82 100%);
+  color: #fff; border: none; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: transform .15s, box-shadow .15s, background .2s;
+  box-shadow: 0 2px 8px rgba(166,124,142,.4);
+}
+#chat-send:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(166,124,142,.55); }
+#chat-send:active { transform: scale(.92); }
+#chat-send.sending { background: #c9b0ba; cursor: default; transform: none !important; box-shadow: none; pointer-events: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.send-spinner {
+  width: 16px; height: 16px;
+  border: 2.5px solid rgba(255,255,255,.35);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+#chat-handle {
+  display: none; width: 36px; height: 4px;
+  background: rgba(166,124,142,.28); border-radius: 2px;
+  margin: 10px auto 4px; flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  #chat-bubble { bottom: 18px; right: 18px; }
+  #chat-panel {
+    right: 0; left: 0; bottom: 0;
+    width: 100%; max-width: 100%;
+    border-radius: 22px 22px 0 0;
+    height: 75dvh; max-height: 75dvh;
+    box-shadow: 0 -8px 40px rgba(45,43,61,.22), 0 -2px 8px rgba(0,0,0,.08);
+    transition: none;
+  }
+  #chat-header { border-radius: 22px 22px 0 0; }
+  #chat-handle { display: block; }
+  #chat-footer { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+
+</style>
+<div id="chat-bubble" role="button" tabindex="0" aria-label="פתחי שיחה עם הסטודיו" title="שאלי אותי 💅">
+  <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <span id="chat-badge" hidden aria-hidden="true">1</span>
+</div>
+
+<div id="chat-panel" role="dialog" aria-modal="true" aria-label="שיחה עם מיטל שבע ברעם" hidden>
+  <div id="chat-handle" aria-hidden="true"></div>
+  <div id="chat-header">
+    <div id="chat-title">
+      <div id="chat-avatar"><picture>
+        <source srcset="meital_profile_header.webp" type="image/webp">
+        <img src="meital_profile_header.png" alt="מיטל" style="width:100%;height:100%;object-fit:cover;object-position:center top;">
+      </picture></div>
+      <div>
+        <div id="chat-name">מיטל שבע ברעם — לק ג'ל</div>
+        <div id="chat-status"><span id="chat-status-dot">●</span> מענה מהיר</div>
+      </div>
+    </div>
+    <button id="chat-close" aria-label="סגור שיחה">×</button>
+  </div>
+  <div id="chat-messages" aria-live="polite" aria-atomic="false"></div>
+  <div id="chat-footer">
+    <textarea id="chat-input" placeholder="כתבי הודעה..." autocomplete="off" maxlength="500" dir="auto" rows="1" aria-label="הודעה לצ'אט"></textarea>
+    <button id="chat-send" aria-label="שלחי הודעה">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
+  </div>
+</div>
+<script>
+(function () {
+  var WELCOME = 'שלום! 💅\nאני הסוכנת האישית של מיטל שבע ברעם — לק ג\'ל בוטיק.\nקביעת תורים מתבצעת כעת בווטסאפ בלבד — מהיר, נוח ואישי 🌟\nבמה אוכל לעזור?';
+  var WELCOME_QR = ['קביעי תור בווטסאפ 💬', 'שירותים ומחירים', 'מיקום הסטודיו', 'שאלה כללית'];
+
+  var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
+
+  function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || '[]'); } catch(e) { hist = []; } }
+  function save() { try { localStorage.setItem(LSK, JSON.stringify(hist.slice(-20))); } catch(e) {} }
+  function haptic() { try { if (navigator.vibrate) navigator.vibrate(8); } catch(e) {} }
+
+  function fmtTime() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+  }
+
+  function parseBotContent(text, bubble) {
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\])/g);
+    parts.forEach(function(p) {
+      var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
+      if (m) {
+        // Booking via WhatsApp only — redirect to WA with context
+        bubble.appendChild(document.createElement('br'));
+        var a = document.createElement('a');
+        var waText = 'היי מיטל! 😊 אשמח לקבוע תור לטיפול. מתי יש לך זמן פנוי?';
+        a.href = 'https://wa.me/972547686865?text=' + encodeURIComponent(waText);
+        a.className = 'clink wa-link'; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.dir = 'rtl';
+        a.textContent = '📲 קביעי תור בווטסאפ';
+        bubble.appendChild(a);
+      } else if (p.match(/^\[SVC:[a-z0-9_]+\]$/)) {
+        var svcId = p.slice(5, -1);
+        var _map = (window._SVC_MAP && window._SVC_MAP[svcId]) || null;
+        var svcLabel = _map ? _map.label : svcId;
+        var svcMsg   = _map ? _map.msg   : svcId;
+        bubble.appendChild(document.createElement('br'));
+        var sbtn = document.createElement('button');
+        sbtn.className = 'csvc-btn'; sbtn.textContent = svcLabel; sbtn.type = 'button';
+        (function(msg) {
+          sbtn.addEventListener('click', function() {
+            bubble.querySelectorAll('.csvc-btn').forEach(function(b) {
+              b.disabled = true; b.style.opacity = '0.4';
+            });
+            sbtn.style.opacity = '1'; sbtn.style.background = '#A67C8E';
+            sbtn.style.color = '#fff'; sbtn.style.borderColor = '#A67C8E';
+            var inp = document.getElementById('chat-input');
+            if (inp) { inp.value = msg; autoResize(inp); }
+            send();
+          });
+        })(svcMsg);
+        bubble.appendChild(sbtn);
+      } else if (p === '[WA]') {
+        bubble.appendChild(document.createElement('br'));
+        var aw = document.createElement('a');
+        aw.href = 'https://wa.me/972547686865'; aw.className = 'clink wa-link';
+        aw.target = '_blank'; aw.rel = 'noopener noreferrer'; aw.dir = 'rtl';
+        aw.textContent = '📲 שלחי לי בווטסאפ';
+        bubble.appendChild(aw);
+      } else if (p === '[IG]') {
+        bubble.appendChild(document.createElement('br'));
+        var ai = document.createElement('a');
+        ai.href = 'https://www.instagram.com/meytal.sheva'; ai.className = 'clink ig-link';
+        ai.target = '_blank'; ai.rel = 'noopener noreferrer'; ai.dir = 'rtl';
+        ai.textContent = '📸 ראי את הגלריה שלי';
+        bubble.appendChild(ai);
+      } else {
+        bubble.appendChild(document.createTextNode(p));
+      }
+    });
+  }
+
+  function addRow(role, text, qrChips, skipAnim) {
+    var wrap = document.getElementById('chat-messages');
+    if (!wrap) return null;
+    var isBot = role === 'bot';
+
+    var row = document.createElement('div');
+    row.className = 'cmsg-row ' + (isBot ? 'bot-row' : 'user-row');
+
+    if (isBot) {
+      var avEl = document.createElement('div');
+      if (lastRole !== 'bot') {
+        avEl.className = 'cmsg-av';
+        avEl.innerHTML = '<picture><source srcset="meital_profile_header.webp" type="image/webp"><img src="meital_profile_header.png" alt="מיטל" loading="lazy"></picture>';
+      } else {
+        avEl.className = 'cmsg-av-spacer';
+      }
+      row.appendChild(avEl);
+    }
+
+    var msgWrap = document.createElement('div');
+    msgWrap.className = 'cmsg-wrap';
+
+    var bubble = document.createElement('div');
+    bubble.className = 'cmsg ' + (isBot ? 'bot' : 'user');
+    bubble.dir = 'auto';
+    if (skipAnim) bubble.style.animation = 'none';
+    if (isBot) { parseBotContent(text, bubble); }
+    else { bubble.textContent = text; }
+    msgWrap.appendChild(bubble);
+
+    var timeEl = document.createElement('div');
+    timeEl.className = 'cmsg-time'; timeEl.textContent = fmtTime();
+    msgWrap.appendChild(timeEl);
+
+    if (isBot && qrChips && qrChips.length) {
+      var qrDiv = document.createElement('div');
+      qrDiv.className = 'cmsg-qr';
+      qrChips.forEach(function(label) {
+        var btn = document.createElement('button');
+        btn.className = 'cqr-chip'; btn.type = 'button'; btn.textContent = label;
+        btn.addEventListener('click', function() {
+          qrDiv.querySelectorAll('.cqr-chip').forEach(function(c) { c.disabled = true; });
+          var inp = document.getElementById('chat-input');
+          if (inp) { inp.value = label; autoResize(inp); }
+          send();
+        });
+        qrDiv.appendChild(btn);
+      });
+      msgWrap.appendChild(qrDiv);
+    }
+
+    row.appendChild(msgWrap);
+    wrap.appendChild(row);
+    lastRole = role;
+
+    requestAnimationFrame(function() {
+      wrap.scrollTo({ top: wrap.scrollHeight, behavior: skipAnim ? 'instant' : 'smooth' });
+    });
+
+    if (!isOpen && isBot) {
+      unread++;
+      var badge = document.getElementById('chat-badge');
+      if (badge) { badge.textContent = unread > 9 ? '9+' : String(unread); badge.hidden = false; }
+    }
+    return bubble;
+  }
+
+  function showTyping() {
+    var wrap = document.getElementById('chat-messages');
+    if (!wrap) return null;
+    var row = document.createElement('div');
+    row.className = 'cmsg-row bot-row'; row.id = 'chat-typing-row';
+    var avEl = document.createElement('div');
+    avEl.className = lastRole !== 'bot' ? 'cmsg-av' : 'cmsg-av-spacer';
+    if (lastRole !== 'bot') avEl.innerHTML = '<picture><source srcset="meital_profile_header.webp" type="image/webp"><img src="meital_profile_header.png" alt="מיטל" loading="lazy"></picture>';
+    row.appendChild(avEl);
+    var d = document.createElement('div');
+    d.className = 'cmsg typing';
+    for (var i = 0; i < 3; i++) { var s = document.createElement('span'); s.className = 'tdot'; d.appendChild(s); }
+    row.appendChild(d);
+    wrap.appendChild(row);
+    requestAnimationFrame(function() { wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' }); });
+    return row;
+  }
+
+  function setSending(busy) {
+    sending = busy;
+    var btn = document.getElementById('chat-send');
+    if (!btn) return;
+    if (busy) {
+      btn.classList.add('sending');
+      btn.innerHTML = '<span class="send-spinner"></span>';
+    } else {
+      btn.classList.remove('sending');
+      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+    }
+  }
+
+  function sanitizeHist(h) {
+    var out = [];
+    for (var i = 0; i < h.length; i++) {
+      var expected = out.length % 2 === 0 ? 'user' : 'assistant';
+      if (h[i].role === expected && typeof h[i].content === 'string' && h[i].content.length > 0) out.push(h[i]);
+    }
+    if (out.length > 0 && out[out.length - 1].role === 'user') out.pop();
+    return out;
+  }
+
+  /* ── LOCAL INTENTS (no backend) ── */
+
+  /* ── LOCAL INTENTS (no backend) ── */
+  var LOCAL_INTENTS = [
+    { kw: ['להזמין','לזמן','קביעה','לקבוע','תור','הזמנה','קביעי תור'], id: 'booking' },
+    { kw: ['פנוי','זמין','יש מקום','זמינות','מתי אפשר'], id: 'avail' },
+    { kw: ['שירות','טיפול','מה יש','מציעה',"ג'ל",'לק','ציפורן','מה את עושה'], id: 'services' },
+    { kw: ['מחיר','עלות','עולה','כמה זה','כסף','כמה עולה'], id: 'prices' },
+    { kw: ['כמה זמן','משך','ארוך','לוקח'], id: 'duration' },
+    { kw: ['שעות','פתוח','סגור','עובדת','מתי את','מתי פ'], id: 'hours' },
+    { kw: ['כתובת','איפה','מיקום','מגיעים','ניווט','לאן'], id: 'location' },
+    { kw: ['ביטול','לבטל','לשנות','שינוי','להזיז'], id: 'cancel' },
+    { kw: ['ואטסאפ','whatsapp','טלפון','קשר','להתקשר','לכתוב'], id: 'contact' },
+    { kw: ['תשלום','אשראי','מזומן','ביט','פייבוקס','כרטיס'], id: 'payment' },
+    { kw: ['מחזיק','לכמה זמן','אחרי הטיפול','תחזוקה','ימים','שבועות'], id: 'care' },
+    { kw: ['להתכונן','מה צריך','מה להביא','ביקור ראשון','פעם ראשונה'], id: 'prepare' },
+    { kw: ['עיצוב','צבע','גוון','רעיון','מה לבחור','השראה','נייל ארט'], id: 'design' },
+    { kw: ['תודה','תנקיו','יופי','סבבה','מעולה','ברור'], id: 'thanks' },
+    { kw: ['שלום','היי','הי ','בוקר','ערב','צהריים','אהלן','שירותים ומחירים','מיקום הסטודיו','שאלה כללית'], id: 'greeting' },
+  ];
+  var LOCAL_RESPONSES = {
+    booking: {
+      text: 'קביעת תורים מתבצעת אצלי בווטסאפ 😊\nפשוט שלחי לי הודעה ואחזור אלייך מהר!\n[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    avail: {
+      text: 'לבדיקת זמינות וקביעת תור — כתבי לי בווטסאפ ואעדכן אותך ישירות 🌟\n[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    services: {
+      text: 'אני מציעה שלושה שירותים עיקריים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ ג\'ל ידיים + לק רגליים — 90 דקות\n\nלקביעת תור:\n[WA]',
+      qr: ['מחירים?', 'קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prices: {
+      text: 'לגבי מחירים — הכי טוב לשאול אותי ישירות 😊\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    duration: {
+      text: 'משכי הטיפולים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ ג\'ל + לק — 90 דקות\n\nלקביעת תור:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    hours: {
+      text: 'שעות הפעילות משתנות — כתבי לי ואעדכן אותך 😊\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    location: {
+      text: 'לפרטי המיקום — שלחי לי הודעה ואשלח לך את הכתובת המדויקת 📍\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    cancel: {
+      text: 'לביטול או שינוי תור — שלחי לי הודעה בווטסאפ ואסדר את זה מיד 😊\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    contact: {
+      text: 'את מוזמנת לכתוב לי ישירות בווטסאפ — אחזור אלייך בהקדם! 💌\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    payment: {
+      text: 'מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס 💳\nלכל שאלה נוספת:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    care: {
+      text: 'ג\'ל איכותי מחזיק בדרך כלל 3–4 שבועות 💅\nלשמירה על התוצאה:\n• לחות ידיים + קרם קוטיקולות מדי יום\n• להימנע ממגע ממושך עם מים\n• לא להשתמש בציפורניים ככלי עבודה\n\nלקביעת תור הבא:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prepare: {
+      text: 'אין צורך בהכנה מיוחדת! 😊\nמגיעים כרגיל — לקינה ישנה מורידים בסטודיו.\nמומלץ להגיע עם ציפורניים נקיות ויבשות.\n\nלקביעת תור:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    design: {
+      text: 'יש אינסוף אפשרויות! 🎨\nפרנץ\', ניוד, אומברה, גלייטר, נייל-ארט ועוד.\nמומלץ לשלוח תמונות השראה לפני הביקור.\n[WA]\n[IG]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    thanks: {
+      text: 'בשמחה! מחכה לראות אותך בקרוב 💅\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    greeting: {
+      text: 'היי! 😊 שמחה שפנית.\nאני כאן לעזור עם שאלות על שירותים, מחירים, ועוד!\nקביעת תורים מתבצעת דרך ווטסאפ — מהיר ונוח 🌟\n[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬', 'מיקום הסטודיו']
+    },
+    fallback: {
+      text: 'לא הצלחתי להבין לגמרי... 😊\nהכי נוח לשלוח לי הודעה ואעזור לך ישירות!\n[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬']
+    },
+  };
+
+  function matchLocalIntent(text) {
+    var t = text.toLowerCase().replace(/[?!.,;]/g, '');
+    for (var i = 0; i < LOCAL_INTENTS.length; i++) {
+      var kws = LOCAL_INTENTS[i].kw;
+      for (var j = 0; j < kws.length; j++) {
+        if (t.indexOf(kws[j].toLowerCase()) !== -1) return LOCAL_INTENTS[i].id;
+      }
+    }
+    return 'fallback';
+  }
+
+  function sendLocal(userText) {
+    var id = matchLocalIntent(userText);
+    var r = LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+    var typingRow = showTyping();
+    setTimeout(function() {
+      if (typingRow) typingRow.remove();
+      lastRole = null;
+      addRow('bot', r.text, r.qr);
+    }, 650);
+  }
+
+  function send() {
+    if (sending) return;
+    var inp = document.getElementById('chat-input');
+    var txt = inp ? inp.value.trim() : '';
+    if (!txt) return;
+
+    haptic();
+    inp.value = ''; autoResize(inp);
+    inp.focus();
+
+    addRow('user', txt);
+    document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
+    sendLocal(txt);
+  }
+
+  function openPanel() {
+    if (isOpen) return; isOpen = true;
+    unread = 0;
+    var badge = document.getElementById('chat-badge');
+    if (badge) badge.hidden = true;
+
+    var panel = document.getElementById('chat-panel');
+    var wrap  = document.getElementById('chat-messages');
+    panel.hidden = false;
+    panel.classList.add('chat-in');
+    setTimeout(function() { panel.classList.remove('chat-in'); }, 350);
+
+    if (wrap && wrap.children.length === 0) {
+      lastRole = null;
+      if (hist.length > 0) {
+        hist.forEach(function(m) {
+          if (m.role === 'user') { lastRole = null; addRow('user', m.content, null, true); }
+          else { addRow('bot', m.content, null, true); }
+        });
+      } else {
+        addRow('bot', WELCOME, WELCOME_QR);
+      }
+    }
+
+    var inp = document.getElementById('chat-input');
+    if (inp) inp.focus();
+  }
+
+  function closePanel() {
+    if (!isOpen) return; isOpen = false;
+    var p = document.getElementById('chat-panel');
+    if (p) { p.hidden = true; p.style.bottom = ''; p.style.height = ''; p.style.maxHeight = ''; }
+    var b = document.getElementById('chat-bubble'); if (b) b.focus();
+  }
+
+  function bindVisualViewport() {
+    var vv = window.visualViewport;
+    if (!vv || window.innerWidth > 480) return;
+    var panel = document.getElementById('chat-panel');
+    if (!panel) return;
+    function onVVChange() {
+      if (!isOpen || panel.hidden) return;
+      requestAnimationFrame(function() {
+        var kbH = window.innerHeight - vv.offsetTop - vv.height;
+        panel.style.bottom = (kbH > 0 ? kbH : 0) + 'px';
+        var maxH = vv.height - 16;
+        panel.style.height = maxH + 'px';
+        panel.style.maxHeight = maxH + 'px';
+        var msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'instant' });
+      });
+    }
+    vv.addEventListener('resize',  onVVChange, { passive: true });
+    vv.addEventListener('scroll',  onVVChange, { passive: true });
+  }
+
+  function init() {
+    addRow('bot', WELCOME, WELCOME_QR);
+    var bubble = document.getElementById('chat-bubble');
+    bubble.addEventListener('click', openPanel);
+    bubble.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
+    });
+    document.getElementById('chat-close').addEventListener('click', closePanel);
+    document.getElementById('chat-send').addEventListener('click', send);
+
+    var inp = document.getElementById('chat-input');
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    inp.addEventListener('input', function() { autoResize(this); });
+
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closePanel(); });
+    bindVisualViewport();
+  }
+
+  function lazyInit() {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(init, { timeout: 2000 });
+    } else { setTimeout(init, 0); }
+  }
+  if (document.readyState === 'complete') { lazyInit(); }
+  else { window.addEventListener('load', lazyInit, { once: true }); }
+}());
+</script>
+<script type="importmap">{ "imports": { "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
+<script type="module" src="./landing-analytics.js"></script>
 </body>
 </html>

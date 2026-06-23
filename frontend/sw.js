@@ -10,7 +10,7 @@ const _base = new URL('./', self.location.href).href;
 const PRECACHE = [
   _base,
   _base + 'index.html',
-  _base + 'landing.html',
+  _base + 'booking.html',
   _base + 'admin.html',
   _base + 'manifest.json',
   _base + 'styles/tailwind.css',

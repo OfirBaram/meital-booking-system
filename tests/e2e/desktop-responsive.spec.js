@@ -66,14 +66,14 @@ test.describe('Booking page - desktop 1280x800', () => {
     const errs = []
     page.on('pageerror', e => errs.push(e.message))
     await mockBookingRoutes(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await page.waitForLoadState('domcontentloaded')
     expect(errs, 'JS errors: ' + errs.join(' | ')).toHaveLength(0)
   })
 
   test('no horizontal overflow', async ({ page }) => {
     await mockBookingRoutes(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await page.waitForLoadState('domcontentloaded')
     const sw = await page.evaluate(() => document.documentElement.scrollWidth)
     const cw = await page.evaluate(() => document.documentElement.clientWidth)
@@ -82,7 +82,7 @@ test.describe('Booking page - desktop 1280x800', () => {
 
   test('service cards render in 2-column grid', async ({ page }) => {
     await mockBookingRoutes(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     const cards = page.locator('#js-services > *')
     await expect(cards).toHaveCount(2, { timeout: 5_000 })
     const [b0, b1] = await Promise.all([cards.nth(0).boundingBox(), cards.nth(1).boundingBox()])
@@ -96,7 +96,7 @@ test.describe('Booking page - desktop 1280x800', () => {
 
   test('main content wider than mobile 448px', async ({ page }) => {
     await mockBookingRoutes(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
     await page.waitForLoadState('domcontentloaded')
     const box = await page.locator('main').first().boundingBox()
     expect(box.width).toBeGreaterThan(500)

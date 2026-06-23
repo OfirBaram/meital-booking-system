@@ -225,7 +225,7 @@ test.describe('Full Booking Flow Integration', () => {
   })
 
   test('Customer books → Admin approves → SMS sent → DB valid', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToOTPStep(page)
     await typeOTP(page, '123456')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
@@ -258,7 +258,7 @@ test.describe('Full Booking Flow Integration', () => {
   })
 
   test('Admin rejects booking → SMS to customer', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToOTPStep(page)
     await typeOTP(page, '654321')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })
@@ -285,7 +285,7 @@ test.describe('Full Booking Flow Integration', () => {
   })
 
   test('Approve then cancel → state transitions', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToOTPStep(page)
     await typeOTP(page, '555555')
     await expect(page.locator('#step-5')).toBeVisible({ timeout: 8_000 })

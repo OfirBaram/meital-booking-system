@@ -13,7 +13,7 @@ const PRECACHE = [
   _base,
   _base + 'index.html',
   _base + 'admin.html',
-  _base + 'landing.html',
+  _base + 'booking.html',
   _base + 'takanon.html',
   _base + 'privacy.html',
   _base + 'manifest.json',

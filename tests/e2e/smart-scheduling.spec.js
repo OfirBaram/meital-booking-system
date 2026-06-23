@@ -337,7 +337,7 @@ test.describe('Smart scheduling -- get-slots flag paths', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupBookingMocks(page, { slotsResponse: SLOTS_LEGACY })
-    await page.goto('/')
+    await page.goto('/booking.html')
 
     // Step 1: service selector must be visible (calendar appears only after service is chosen)
     await expect(page.locator('.service-card').first()).toBeVisible({ timeout: 8_000 })
@@ -349,7 +349,7 @@ test.describe('Smart scheduling -- get-slots flag paths', () => {
     page.on('pageerror', err => jsErrors.push(err.message))
 
     await setupBookingMocks(page, { slotsResponse: SLOTS_SMART })
-    await page.goto('/')
+    await page.goto('/booking.html')
 
     await expect(page.locator('.service-card').first()).toBeVisible({ timeout: 8_000 })
     expect(jsErrors, 'JS errors: ' + jsErrors.join(' | ')).toHaveLength(0)
@@ -368,7 +368,7 @@ test.describe('Smart scheduling -- verify-and-book responses', () => {
       verifyResponse: { success: false, error: 'slot_creates_gap' },
     })
 
-    await page.goto('/')
+    await page.goto('/booking.html')
     // Calendar is on step 2; step 1 (service selector) must be visible and crash-free
     await expect(page.locator('.service-card').first()).toBeVisible({ timeout: 8_000 })
 
@@ -385,7 +385,7 @@ test.describe('Smart scheduling -- verify-and-book responses', () => {
       verifyResponse: { success: true, bookingId: 'b-legacy-ok', status: 'Pending' },
     })
 
-    await page.goto('/')
+    await page.goto('/booking.html')
     await expect(page.locator('.service-card').first()).toBeVisible({ timeout: 8_000 })
 
     await expect(page.locator('#js-crash-banner')).toBeHidden()

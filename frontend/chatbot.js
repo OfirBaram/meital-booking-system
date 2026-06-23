@@ -4,7 +4,6 @@
 
   var PHONE      = '972547686865';
   var WA_URL     = 'https://wa.me/' + PHONE;
-  var IS_LANDING = window.location.pathname.indexOf('landing') !== -1;
 
   /* --- CSS --- */
   var CSS = `
@@ -138,11 +137,11 @@
   var RESPONSES = {
     greeting: {
       text: 'היי! 😊 ברוכה הבאה לסטודיו שלי.\nאיך אוכל לעזור לך היום?',
-      qr: ['אילו שירותים קיימים?', 'מחירים ותשלום 💳', 'איך מזמינים תור?', 'יצירת קשר']
+      qr: ['אילו שירותים קיימים?', 'מחירים ותשלום 💳', 'WhatsApp 💬', 'יצירת קשר']
     },
     services: {
       text: 'אני מציעה שלושה שירותים עיקריים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ ג\'ל ידיים + לק רגליים — 90 דקות',
-      qr: ['איך מזמינים?', 'מחירים?', 'חזרה ⬅']
+      qr: ['WhatsApp 💬', 'מחירים?', 'חזרה ⬅']
     },
     prices: {
       text: 'לגבי מחירים — הכי טוב ליצור איתי קשר ישירות כדי שאוכל לעדכן אותך 😊',
@@ -150,11 +149,11 @@
     },
     duration: {
       text: 'משכי הטיפולים:\n\n💅 ג\'ל ידיים — 60 דקות\n🌸 לק רגיל ברגליים — 30 דקות\n✨ ג\'ל + לק — 90 דקות',
-      qr: ['לקביעת תור', 'חזרה ⬅']
+      qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     booking: {
-      text: 'לקביעת תור לחצי על הכפתור — ממלאים פרטים תוך כ-2 דקות ומקבלים אישור ב-SMS 😊',
-      qr: ['לקביעת תור ←', 'חזרה ⬅']
+      text: 'קביעת תורים מתבצעת כעת דרך ווטסאפ 😊\nשלחי לי הודעה ואתאם לך תור במהירות!',
+      qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     hours: {
       text: 'לגבי שעות — הכי נוח לשלוח לי הודעה ואתן לך פרטים עדכניים 😊',
@@ -173,32 +172,32 @@
       qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     avail: {
-      text: 'ניתן לראות את כל החריצים הפנויים ישירות בדף ההזמנה 😊',
-      qr: ['לקביעת תור ←', 'חזרה ⬅']
+      text: 'לבדיקת זמינות וקביעת תור — שלחי לי הודעה בווטסאפ ואעדכן אותך ישירות 🌟',
+      qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     thanks: {
       text: 'בשמחה! מחכה לראות אותך בקרוב 💅',
-      qr: ['לקביעת תור', 'שאלה נוספת ⬅']
+      qr: ['WhatsApp 💬', 'שאלה נוספת ⬅']
     },
     care: {
       text: "ג'ל איכותי מחזיק בדרך כלל 3–4 שבועות 💅\nלשמירה על התוצאה:\n• לחות ידיים + קרם קוטיקולות מדי יום\n• להימנע ממגע ממושך עם מיים\n• לא להשתמש בציפורניים ככלי עבודה 😊",
-      qr: ['לקביעת תור ←', 'שאלה נוספת ⬅']
+      qr: ['WhatsApp 💬', 'שאלה נוספת ⬅']
     },
     prepare: {
       text: 'אין צורך בהכנה מיוחדת! 😊\nאפשר להגיע כרגיל — לקינה ישנה מורידים בסטודיו.\nמומלץ להגיע עם ציפורניים נקיות ויבשות.',
-      qr: ['אילו שירותים קיימים?', 'לקביעת תור ←', 'חזרה ⬅']
+      qr: ['אילו שירותים קיימים?', 'WhatsApp 💬', 'חזרה ⬅']
     },
     payment: {
       text: 'מקבלים מזומן, כרטיס אשראי, ביט ופייבוקס 💳\nלכל שאלה — שלחי הודעה 😊',
-      qr: ['לקביעת תור ←', 'חזרה ⬅']
+      qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     design: {
       text: "יש אינסוף אפשרויות! 🎨\nפרנץ', ניוד, אומברה, גלייטר, נייל-ארט ועוד.\nמומלץ לשלוח לי תמונות השראה לפני הביקור — ניצור ביחד משהו שמדויק לך.",
-      qr: ['WhatsApp 💬', 'לקביעת תור ←', 'חזרה ⬅']
+      qr: ['WhatsApp 💬', 'חזרה ⬅']
     },
     fallback: {
       text: 'לא הצלחתי להבין לגמרי... 😊\nהכי נוח לשלוח לי הודעה ואעזור לך ישירות!',
-      qr: ['WhatsApp 💬', 'לקביעת תור ←']
+      qr: ['WhatsApp 💬']
     }
   };
 
@@ -350,8 +349,6 @@
   /* --- ACTIONS --- */
   function handleQuickReply(label) {
     if (label === 'WhatsApp 💬') { window.open(WA_URL, '_blank'); return; }
-    if (label === 'לקביעת תור ←' ||
-        label === 'לקביעת תור') { goToBooking(); return; }
     if (label === 'חזרה ⬅' ||
         label === 'שאלה נוספת ⬅') { showResponse('greeting'); return; }
     if (label === 'מחירים ותשלום 💳') { addMessage(label, 'user'); setQuickReplies([]); showResponse('payment'); return; }
@@ -361,10 +358,7 @@
     var inp = document.getElementById('cb-input'); var text = inp.value.trim(); if (!text) return;
     inp.value = ''; addMessage(text, 'user'); setQuickReplies([]); showResponse(matchIntent(text));
   }
-  function goToBooking() {
-    if (IS_LANDING) { window.location.href = 'index.html'; }
-    else { closeWindow(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-  }
+
 
   /* --- INTENT MATCHING --- */
   function matchIntent(text) {

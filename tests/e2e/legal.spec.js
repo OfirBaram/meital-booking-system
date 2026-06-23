@@ -38,7 +38,7 @@ async function setupMocks(page) {
 test.describe('Privacy modal', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('opens with correct Hebrew title and SMS mention', async ({ page }) => {
@@ -88,7 +88,7 @@ test.describe('Privacy modal', () => {
 test.describe('Accessibility modal', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('opens with correct Hebrew title and WCAG mention', async ({ page }) => {
@@ -115,7 +115,7 @@ test.describe('Accessibility modal', () => {
 test.describe('Regression — booking wizard', () => {
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('step 1 is visible with the active service cards', async ({ page }) => {
@@ -150,7 +150,7 @@ test.describe('Regression — mobile viewport (390×844)', () => {
 
   test.beforeEach(async ({ page }) => {
     await setupMocks(page)
-    await page.goto('/')
+    await page.goto('/booking.html')
   })
 
   test('step 1 and footer links are visible on mobile', async ({ page }) => {

@@ -162,7 +162,7 @@ async function switchToSlotsTab(page) {
 test.describe('Client calendar — past slot filtering', () => {
   test('1. today cell is DISABLED when get-slots returns only past times', async ({ page }) => {
     await setupBookingMocks(page, { todaySlots: PAST_TIMES, tomorrowSlots: [] })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
     const cell = page.locator('[data-date="' + TODAY + '"]')
     await expect(cell).toBeVisible({ timeout: 5000 })
@@ -174,7 +174,7 @@ test.describe('Client calendar — past slot filtering', () => {
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
     if (tomorrow.getDay() === 5 || tomorrow.getDay() === 6) { test.skip(); return }
     await setupBookingMocks(page, { todaySlots: PAST_TIMES, tomorrowSlots: FUTURE_TIMES })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
     const cell = page.locator('[data-date="' + TOMORROW + '"]')
     await expect(cell).toBeVisible({ timeout: 5000 })
@@ -185,7 +185,7 @@ test.describe('Client calendar — past slot filtering', () => {
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await setupBookingMocks(page, { todaySlots: PAST_TIMES, tomorrowSlots: [] })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
     expect(errors).toHaveLength(0)
   })
@@ -199,7 +199,7 @@ test.describe('Client slot list — past time filtering', () => {
   test('4. past time 00:01 is absent from slot grid for today', async ({ page }) => {
     // Give today one guaranteed-past and one possibly-future time
     await setupBookingMocks(page, { todaySlots: ['00:01', '23:58'], tomorrowSlots: [] })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
     const cell = page.locator('[data-date="' + TODAY + '"]')
     await expect(cell).toBeVisible({ timeout: 5000 })
@@ -335,7 +335,7 @@ test.describe('Zero-error gates', () => {
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await setupBookingMocks(page, { todaySlots: PAST_TIMES, tomorrowSlots: [] })
-    await page.goto('/')
+    await page.goto('/booking.html')
     await goToStep2(page)
     expect(errors).toHaveLength(0)
   })
