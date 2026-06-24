@@ -1,217 +1,206 @@
 # meital-booking-system
-A high-end, serverless booking system for Meital Sheva Baram Boutique Gel Studio. Built with Vanilla JS, Tailwind CSS, and Google Apps Script, featuring SMS OTP verification and automated Google Calendar synchronization.
+
+Production booking system for **Meital Sheva Baram Boutique Gel Studio**
+([meytalnails.co.il](https://meytalnails.co.il)).
+Serverless, mobile-first, Hebrew RTL — built on Vanilla JS, Supabase, and
+Google Apps Script.
 
 ---
 
-## Running the Internal Test Suite
+## Tech Stack
 
-The backend ships with a self-contained test function, `runInternalTests()`, that validates phone normalisation and OTP generation **without** calling Twilio, touching the Sheet, or requiring a deployed web app.
-
-### Steps
-
-1. Open [script.google.com](https://script.google.com) and select the **Meital Booking** project.
-2. In the editor toolbar, open the function picker (the dropdown that shows the function name) and choose **`runInternalTests`**.
-3. Click **▶ Run**.
-4. Click **Execution log** (bottom panel) to see results.
-
-### Expected output
-
-```
-══════════════ runInternalTests START ══════════════
-
-[ normalizePhone — valid Israeli mobile ]
-✅ PASS — 054 ten digits | got: "+972541234567"
-✅ PASS — 050 ten digits | got: "+972501234567"
-✅ PASS — dashes 050-123-4567 | got: "+972501234567"
-✅ PASS — spaces "050 123 4567" | got: "+972501234567"
-...
-
-[ normalizePhone — invalid inputs ]
-✅ PASS — landline 02 | got: "null"
-✅ PASS — empty string | got: "null"
-...
-
-[ generateOTP ]
-✅ PASS — length is 6 | got: "6"
-✅ PASS — digits only | got: "yes"
-...
-
-══════════════ RESULTS: 18 passed, 0 failed ══════════════
-🎉 All tests passed!
-```
-
-If any line shows `❌ FAIL`, the log prints both the expected and actual values so the bug is immediately visible.
-
-### What is tested
-
-| Test group | Cases |
+| Layer | Technology |
 |---|---|
-| `normalizePhone` — valid Israeli mobile | `054XXXXXXXX`, `050XXXXXXXX`, `052XXXXXXXX`, dashes, spaces, mixed |
-| `normalizePhone` — E.164 / 972 prefix | `+972...` and bare `972...` (12 digits) |
-| `normalizePhone` — invalid inputs | landlines (`02`, `03`), too short, empty string, `null`, letters |
-| `generateOTP` | length = 6, digits only, range 100 000–999 999 |
-| `handleSendOTP` phone path | same four formats as above, no Twilio call made |
+| Frontend | Vanilla JS · Tailwind CSS · GitHub Pages |
+| Database & Auth | Supabase (PostgreSQL + Row-Level Security) |
+| API | 19 Supabase Deno Edge Functions |
+| Calendar | Google Apps Script → Google Calendar API |
+| SMS / OTP | Twilio (paid pay-as-you-go) |
+| Testing | Playwright (E2E) · Vitest (unit) |
 
-### Diagnosing OTP failures
+### Services
 
-If `sendOTP` returns `{ success: false, error: "...", debugInfo: {...} }`, check:
-
-| `debugInfo.stage` | Meaning | Fix |
+| ID | Name | Duration |
 |---|---|---|
-| `"network"` | GAS could not reach `api.twilio.com` | Check Twilio URL / GAS external URL permissions |
-| `"twilio"` | Twilio replied with a non-2xx status | See `debugInfo.twilioCode` and `debugInfo.twilioMessage` |
-| *(absent)* | Invalid phone before Twilio was reached | See `error` field — expected `05XXXXXXXX` format |
+| `gel_hands` | ג'ל ידיים | 60 min |
+| `regular_feet` | לק רגליים | 30 min |
+| `gel_combo` | ג'ל ידיים + לק רגליים | 90 min |
 
-Common Twilio error codes:
+---
 
-| Code | Meaning |
+## Developer Setup
+
+### Prerequisites
+
+- Node.js (for Playwright / Vitest)
+- Python 3.12 at `C:\Users\DELL\AppData\Local\Programs\Python\Python312\python.exe`
+- Bash shell (Git Bash on Windows)
+- `gh` CLI authenticated (`gh auth login`)
+- Supabase CLI (`npm i -g supabase`)
+
+### Install dependencies
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+### WARNING — U+200F Characters in Project Path
+
+The repository folder path contains **two invisible U+200F (RIGHT-TO-LEFT MARK)**
+characters before `OfirBaram`. This causes several tools to silently resolve to
+the wrong directory:
+
+| Tool | Status |
 |---|---|
-| `21211` | Invalid `To` number format |
-| `21614` | `To` number is not a mobile number |
-| `21608` | `To` number is not verified (trial account) |
-| `20003` | Authentication error — check `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` |
----
+| `git` via Bash | Works — use Bash only |
+| `git` via PowerShell | **Broken** — always fails with "not a git repository" |
+| Claude Code Edit/Write built-ins | **Broken** — silently mis-resolve path |
+| Python via Bash | Works |
+| Node/npm/npx | Works |
 
-## Deployment — GitHub Pages
-
-The live booking page is served from the `deploy/github-pages` branch via GitHub Pages.
-
-### URL structure
-
-```
-https://ofirbaram.github.io/meital-booking-system/frontend/
-```
-
-*(Root `/` redirects automatically to `/frontend/`.)*
-
-### How to enable GitHub Pages
-
-1. Go to **Repository Settings → Pages**.
-2. Under **Source**, select **Deploy from a branch**.
-3. Choose branch **`deploy/github-pages`**, folder **`/ (root)`**.
-4. Click **Save** — GitHub will publish within ~1 minute.
-
-### What is deployed
-
-| File | Role |
-|------|------|
-| `index.html` (root) | Meta-refresh redirect → `/frontend/` |
-| `frontend/index.html` | Full booking wizard UI |
-| `frontend/booking.js` | All booking logic, state, API integration |
-| `frontend/favicon.svg` | Dust-rose monogram favicon |
-| `.nojekyll` | Disables Jekyll processing (required for Tailwind CDN to load) |
-
-### Updating the live site
+**Rule: edit all JS and HTML files only via the Python patch utility:**
 
 ```bash
-git checkout deploy/github-pages
-# make changes
-git push origin deploy/github-pages
+PYTHON=/c/Users/DELL/AppData/Local/Programs/Python/Python312/python.exe
+$PYTHON skills/utils/ai_tools.py patch frontend/booking.js \
+  --old "exact old string" \
+  --new "replacement string"
 ```
 
-GitHub Pages redeploys automatically on every push to this branch.
-
-### Backend
-
-The frontend connects to a Google Apps Script web app via `CONFIG.API_BASE` in `booking.js`.  
-See `backend/gas-backend.js` and the [Deployment Checklist](CLAUDE.md#7-deployment-checklist) in `CLAUDE.md` for backend setup.
-﻿
+Never use `sed -i` for multi-line JS patches (breaks template literals).
+Never use PowerShell for file writes (random EPERM errors).
 
 ---
 
-## Updating the Bot (AI Assistant)
+## Development Workflow
 
-The chatbot lives in `supabase/functions/chat-handler/`. All business knowledge
-and configuration is separated from the request-handling logic.
+```
+sync → branch → plan → validate → state-update
+```
 
-### Changing Business Info (hours, services, contact)
+1. **Sync** — pull main, confirm clean state
+2. **Branch** — `git checkout -b feat/your-feature`
+3. **Plan** — agree on approach before writing code
+4. **Validate** — run tests, pass the Deployment Gate
+5. **State-update** — update `CLAUDE.md` changelog if behaviour changed
 
-1. Open `config/studio.json` at the repo root.
-2. Edit the relevant fields (hours, services, contact details).
-3. Open `supabase/functions/_shared/bot-config.ts` and update the
-   `SYSTEM_PROMPT` constant to match (it is a plain text template — find the
-   `── STUDIO CONTEXT ──` section).
-4. Redeploy the function:
-   ```bash
-   bash scripts/deploy-functions.sh
-   ```
+No direct commits to `main`. Every change on its own feature branch → PR.
 
-### Changing the Bot's Tone or Rules
+---
 
-Open `supabase/functions/_shared/bot-config.ts` and edit the `SYSTEM_PROMPT`
-constant directly.  
-**Do not move or remove the `SECURITY BOUNDARY` block** — its position at the
-top of the prompt is a security control.
+## Deployment Gate (mandatory before every frontend push)
 
-### Enabling Debug Logging
+A SyntaxError in `admin.js` once caused a full white screen in production while
+all GAS tests passed green. Backend tests do not invoke the browser JS parser.
 
-Set the `CHAT_DEBUG` environment variable to `true` in Supabase Edge Function
-secrets.  The bot will then log conversation state and tool I/O to the
-server-side console (never exposed to users).
+**Rule: zero JS console errors before any frontend commit:**
 
 ```bash
-supabase secrets set CHAT_DEBUG=true
+npx playwright test tests/e2e/admin-dashboard.spec.js --headed
+```
+
+Must pass: no console errors, login panel visible immediately, tab switching
+works without exceptions.
+
+---
+
+## Backend: GAS Build Model
+
+```
+backend/gas-backend.js   ← source of truth (edit this)
+backend/Main.js          ← generated copy (clasp pushes this to GAS)
+```
+
+Before every `clasp push`, sync `Main.js` from `gas-backend.js`.
+After push, run `clasp deploy` — **push ≠ deploy** (they are separate steps).
+
+GAS handles Google Calendar only. All SMS and booking logic runs in
+Supabase Edge Functions.
+
+---
+
+## Deploying Supabase Edge Functions
+
+```bash
+bash scripts/deploy-functions.sh
+```
+
+19 functions. After any change under `supabase/functions/`, always redeploy —
+the running function in production is a separate artifact from the source file.
+
+---
+
+## Running Tests
+
+```bash
+# Unit tests (Vitest)
+npm test
+
+# E2E tests (Playwright, headless)
+npx playwright test
+
+# E2E with browser visible
+npx playwright test --headed
+
+# Single spec
+npx playwright test tests/e2e/admin-dashboard.spec.js --headed
 ```
 
 ---
 
-## Adding a New Bot Skill (Tool)
+## GAS Internal Tests
 
-Tools extend the chatbot with live-data capabilities (e.g. look up a client's
-booking, check a service's price). The architecture uses a **registry pattern**:
-add your tool once and the agentic loop picks it up automatically.
+For backend-only validation (phone normalisation, OTP generation) without
+Twilio or Sheets:
 
-**Steps:**
+1. Open [script.google.com](https://script.google.com) → Meital Booking project
+2. Select function `runInternalTests` in the toolbar dropdown
+3. Click Run → check Execution log
 
-1. Open `supabase/functions/_shared/bot-config.ts`.
-2. Define your tool:
-   ```typescript
-   interface MyInput extends Record<string, unknown> { someParam: string }
-   interface MyOutput { result: string }
-
-   const myTool: BotTool<MyInput, MyOutput> = {
-     definition: {
-       name: 'my_tool',
-       description: 'What this tool does — be specific for the model.',
-       input_schema: {
-         type: 'object' as const,
-         properties: { someParam: { type: 'string', description: '...' } },
-         required: ['someParam'],
-       },
-     },
-     async execute(input, { supabase }) {
-       // Use supabase client or any Deno-compatible API here
-       return { result: `processed ${input.someParam}` }
-     },
-   }
-   ```
-3. Register it:
-   ```typescript
-   export const TOOL_REGISTRY = new Map<string, BotTool>([
-     ['check_availability', checkAvailabilityTool],
-     ['my_tool',            myTool],           // ← add here
-   ])
-   ```
-4. Mention the tool in `SYSTEM_PROMPT` so the model knows when to use it.
-5. Redeploy: `bash scripts/deploy-functions.sh`
+Expected: `18 passed, 0 failed`
 
 ---
 
-## Changing the Branding / Colors
+## Chatbot (AI Assistant)
 
-The design system has two layers, both must be updated for a full rebrand:
+Lives in `supabase/functions/chat-handler/`.
+Business config is in `config/studio.json` and
+`supabase/functions/_shared/bot-config.ts`.
 
-### Layer 1 — `frontend/styles/tokens.css` (build-time)
-This is the canonical CSS custom-property file used by the booking wizard
-(`index.html`), admin dashboard (`admin.html`), and landing page.
-Edit the `--color-*` and `--surface-*` variables here.
+To update hours, services, or contact info:
 
-### Layer 2 — `SiteConfig.colors` in `frontend/landing.html` (runtime)
-The landing page injects overrides at page-load via JavaScript. Find the
-`const SiteConfig` block near the bottom of `landing.html` and update the
-`colors: { ... }` object.  The short variable names (`--primary`, `--bg`, etc.)
-are now aliases to `tokens.css` — changing Layer 1 updates the static fallback;
-changing Layer 2 updates the runtime injection.
+1. Edit `config/studio.json`
+2. Update the `── STUDIO CONTEXT ──` section in `bot-config.ts → SYSTEM_PROMPT`
+3. `bash scripts/deploy-functions.sh`
 
-**To rebrand fully:** update both Layer 1 (`tokens.css`) and Layer 2
-(`SiteConfig.colors`) with the same values.
+Do not remove the `SECURITY BOUNDARY` block from `SYSTEM_PROMPT` — its
+position is a security control.
+
+---
+
+## Branding / Colors
+
+Two layers must stay in sync for a full rebrand:
+
+| Layer | File | Used by |
+|---|---|---|
+| Build-time tokens | `frontend/styles/tokens.css` | booking wizard, admin, landing |
+| Runtime injection | `SiteConfig.colors` in `frontend/landing.html` | landing page JS override |
+
+Update both with the same values.
+
+---
+
+## Key Files
+
+| Path | Purpose |
+|---|---|
+| `frontend/booking.js` | Booking wizard — all state in `State` object |
+| `frontend/admin.js` | Admin dashboard |
+| `frontend/landing.html` | Public landing page |
+| `backend/gas-backend.js` | GAS source (Calendar sync, reminders) |
+| `supabase/functions/` | 19 Edge Functions |
+| `skills/utils/ai_tools.py` | Safe patch tool for JS/HTML edits |
+| `skills/db/list_supabase_tables.py` | List live DB tables |
+| `CLAUDE.md` | Full system spec and AI agent protocol |
