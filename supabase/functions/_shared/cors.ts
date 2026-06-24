@@ -2,6 +2,8 @@
 
 /** Production origin + local dev origins allowed for admin endpoints. */
 const ADMIN_ORIGINS = new Set([
+  'https://meytalnails.co.il',
+  'https://www.meytalnails.co.il',
   'https://ofirbaram.github.io',
   'http://127.0.0.1:5500',
   'http://localhost:5500',
@@ -9,7 +11,7 @@ const ADMIN_ORIGINS = new Set([
 ])
 
 /** Primary origin (used as fallback when request has no Origin header). */
-export const ADMIN_ORIGIN = 'https://ofirbaram.github.io'
+export const ADMIN_ORIGIN = 'https://meytalnails.co.il'
 
 /** CORS headers for admin-only endpoints — echoes back the matched origin, enables credentials. */
 export function adminCors(req: Request): Record<string, string> {
