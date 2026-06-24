@@ -919,6 +919,113 @@
     .reel-mute-btn svg { width: 1.0625rem; height: 1.0625rem; }
 
   </style>
+
+  <!-- WebSite schema — enables Sitelinks search box + brand entity -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": "https://meytalnails.co.il/#website",
+    "name": "מיטל שבע ברעם — עיצוב ציפורניים",
+    "url": "https://meytalnails.co.il/",
+    "inLanguage": "he-IL",
+    "description": "סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן — מיטל שבע ברעם",
+    "publisher": {
+      "@type": "Person",
+      "@id": "https://meytalnails.co.il/#meital",
+      "name": "מיטל שבע ברעם"
+    }
+  }
+  </script>
+
+  <!-- Person schema — brand entity for Meital Sheva Baram -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": "https://meytalnails.co.il/#meital",
+    "name": "מיטל שבע ברעם",
+    "jobTitle": "מעצבת ציפורניים ומעצבת גבות",
+    "url": "https://meytalnails.co.il/",
+    "worksFor": {
+      "@type": "BeautySalon",
+      "@id": "https://meytalnails.co.il/#business",
+      "name": "מיטל שבע ברעם — עיצוב ציפורניים"
+    },
+    "sameAs": [
+      "https://www.instagram.com/meytal.sheva",
+      "https://www.tiktok.com/@meytal.sheva"
+    ],
+    "knowsAbout": [
+      "לק ג'ל",
+      "עיצוב ציפורניים",
+      "עיצוב גבות ושפם",
+      "נייל ארט",
+      "ג'ל נייל",
+      "מניקור"
+    ]
+  }
+  </script>
+
+  <!-- ImageGallery schema — submits top gallery images as structured content -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ImageGallery",
+    "name": "גלריית עבודות — מיטל שבע ברעם, עיצוב ציפורניים ברמת גן",
+    "description": "תמונות עבודות לק ג'ל, נייל ארט ועיצוב ציפורניים מסטודיו מיטל שבע ברעם ברמת גן",
+    "url": "https://meytalnails.co.il/",
+    "author": {
+      "@type": "Person",
+      "@id": "https://meytalnails.co.il/#meital",
+      "name": "מיטל שבע ברעם"
+    },
+    "image": [
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-15.jpg",
+        "name": "פרנץ' שחור בצורת עיט — לק ג'ל רמת גן",
+        "description": "עיצוב לק ג'ל פרנץ' שחור דרמטי — מיטל שבע ברעם, סטודיו ברמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-09.jpg",
+        "name": "פרנץ' קרם עם פרחי פוקסיה — נייל ארט רמת גן",
+        "description": "עיצוב נייל ארט פרחוני — לק ג'ל בוטיק, מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-13.jpg",
+        "name": "גלשה סגולה-פוקסיה נוצצת — לק ג'ל יוקרתי",
+        "description": "לק ג'ל גלשה סגולה עם ניצוצות — עיצוב ציפורניים ברמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-01.jpg",
+        "name": "לק ג'ל שחור קלאסי — עיצוב ציפורניים רמת גן",
+        "description": "לק ג'ל שחור קלאסי ויוקרתי — סטודיו מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-27.jpg",
+        "name": "לק ג'ל קשת פסטל — ציפורניים צבעוניות",
+        "description": "לק ג'ל קשת פסטל עליז — כל אצבע בצבע שונה, מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-35.jpg",
+        "name": "פרנץ' שחור על בסיס ניוד — לק ג'ל איקוני",
+        "description": "עיצוב פרנץ' שחור חדשני — לק ג'ל בסטודיו מיטל, רמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
