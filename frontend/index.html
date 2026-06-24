@@ -1435,35 +1435,79 @@ function renderServices() {
   });
 }
 
-// Gallery grid
+// Process steps
+function renderProcess() {
+  var container = document.getElementById('process-steps');
+  if (!container || !SiteConfig.process) return;
+  SiteConfig.process.forEach(function(step, i) {
+    var item = document.createElement('div');
+    item.className = 'process-step reveal';
+    item.style.transitionDelay = (i * 120) + 'ms';
+    item.setAttribute('role', 'listitem');
+    item.innerHTML =
+      '<div class="process-icon" aria-hidden="true">' + sanitize(step.icon) + '</div>' +
+      '<span class="process-num" aria-hidden="true">' + sanitize(step.num) + '</span>' +
+      '<h3 class="process-title">' + sanitize(step.title) + '</h3>' +
+      '<p class="process-desc">' + sanitize(step.desc) + '</p>';
+    container.appendChild(item);
+  });
+}
+
+// Testimonial cards
+function renderTestimonials() {
+  var container = document.getElementById('testimonials-grid');
+  if (!container || !SiteConfig.testimonials) return;
+  var STAR_SVG = '<svg class="star-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>';
+  SiteConfig.testimonials.forEach(function(t, i) {
+    var card = document.createElement('article');
+    card.className = 'testimonial-card reveal';
+    card.style.transitionDelay = (i * 100) + 'ms';
+    card.setAttribute('role', 'listitem');
+    var stars = '';
+    for (var s = 0; s < (t.stars || 5); s++) stars += STAR_SVG;
+    card.innerHTML =
+      '<div class="testimonial-stars" role="img" aria-label="' + (t.stars || 5) + ' כוכבים מתוך 5">' + stars + '</div>' +
+      '<blockquote class="testimonial-text">' + sanitize(t.text) + '</blockquote>' +
+      '<footer class="testimonial-footer">' +
+        '<strong class="testimonial-name">' + sanitize(t.name) + '</strong>' +
+        '<span class="testimonial-meta">' + sanitize(t.service) + ' · ' + sanitize(t.date) + '</span>' +
+      '</footer>';
+    container.appendChild(card);
+  });
+}
+
+// Gallery masonry grid
 function renderGallery() {
   var outer = document.getElementById('gallery-grid');
   if (!outer) return;
-  var strip = document.getElementById('gallery-strip');
-  if (!strip) return;
+  outer.innerHTML = '';
 
-  // Build slides — keep .gallery-item so initLightbox() still attaches
+  var masonry = document.createElement('div');
+  masonry.className = 'gallery-masonry';
+
+  var extraCount = 0;
+
   SiteConfig.gallery.forEach(function(img, idx) {
+    var isExtra = !!img.hidden;
+    if (isExtra) extraCount++;
+
     var item = document.createElement('figure');
-    item.className = 'gallery-item reveal';
-    item.style.transitionDelay = (Math.min(idx, 6) * 40) + 'ms';
-    item.setAttribute('tabindex', '0');
+    item.className = 'gallery-item reveal' +
+      (img.span2 ? ' span2' : '') +
+      (isExtra   ? ' gallery-extra' : '');
+    item.style.transitionDelay = isExtra ? '0ms' : (Math.min(idx, 8) * 35) + 'ms';
+    item.setAttribute('tabindex', isExtra ? '-1' : '0');
     item.setAttribute('role', 'button');
     item.setAttribute('aria-label', 'הגדל תמונה: ' + sanitize(img.alt));
 
-    // Image with blur-up skeleton (background stays until loaded)
     var el = document.createElement('img');
-    el.alt  = sanitize(img.alt);
+    el.alt      = sanitize(img.alt);
     el.decoding = 'async';
-    if (idx < 3) {
-      el.loading = 'eager';
-      el.setAttribute('fetchpriority', 'high');
-    } else {
-      el.loading = 'lazy';
-    }
+    el.loading  = (idx < 3 && !isExtra) ? 'eager' : 'lazy';
+    if (idx < 3 && !isExtra) el.setAttribute('fetchpriority', 'high');
     el.addEventListener('load',  function() { el.classList.add('img-loaded'); });
-    el.addEventListener('error', function() { el.classList.add('img-loaded'); }); // hide broken too
-    el.src = sanitize(img.src); // set src AFTER event listener
+    el.addEventListener('error', function() { el.classList.add('img-loaded'); });
+    el.src = sanitize(img.src);
     if (el.complete && el.naturalWidth) el.classList.add('img-loaded');
 
     var overlay = document.createElement('figcaption');
@@ -1472,101 +1516,33 @@ function renderGallery() {
 
     item.appendChild(el);
     item.appendChild(overlay);
-    strip.appendChild(item);
+    masonry.appendChild(item);
   });
 
-  // Prev / Next buttons
-  var btnPrev = document.createElement('button');
-  btnPrev.type = 'button';
-  btnPrev.className = 'gallery-nav-btn gallery-prev';
-  btnPrev.setAttribute('aria-label', 'תמונה הבאה');
-  btnPrev.innerHTML = '&#8250;';
-  var btnNext = document.createElement('button');
-  btnNext.type = 'button';
-  btnNext.className = 'gallery-nav-btn gallery-next';
-  btnNext.setAttribute('aria-label', 'תמונה קודמת');
-  btnNext.innerHTML = '&#8249;';
-  outer.appendChild(btnPrev);
-  outer.appendChild(btnNext);
+  outer.appendChild(masonry);
 
-  // Dots
-  var dotsWrap = document.createElement('div');
-  dotsWrap.className = 'gallery-dots';
-  var perPage  = window.innerWidth > 767 ? 3 : (window.innerWidth > 430 ? 2 : 1);
-  var pageCount = Math.ceil(SiteConfig.gallery.length / perPage);
-  var dots = [];
-  for (var p = 0; p < pageCount; p++) {
-    var d = document.createElement('button');
-    d.type = 'button';
-    d.className = 'gallery-dot' + (p === 0 ? ' active' : '');
-    d.setAttribute('aria-label', 'עמוד ' + (p + 1));
-    d.dataset.page = p;
-    dots.push(d);
-    dotsWrap.appendChild(d);
+  // "Show more" button — reveals gallery-extra items
+  if (extraCount > 0) {
+    var moreWrap = document.createElement('div');
+    moreWrap.className = 'gallery-more-wrap';
+    var moreBtn = document.createElement('button');
+    moreBtn.className = 'btn-outline gallery-more-btn';
+    moreBtn.type = 'button';
+    moreBtn.setAttribute('aria-expanded', 'false');
+    moreBtn.textContent = 'ראי עוד עבודות (' + extraCount + ')';
+    moreBtn.addEventListener('click', function() {
+      masonry.querySelectorAll('.gallery-extra').forEach(function(el) {
+        el.classList.remove('gallery-extra');
+        el.classList.add('reveal');
+        el.setAttribute('tabindex', '0');
+      });
+      initReveal();
+      moreWrap.remove();
+      if (typeof trackEvent === 'function') trackEvent('gallery_load_more_clicked', { count: extraCount });
+    });
+    moreWrap.appendChild(moreBtn);
+    outer.appendChild(moreWrap);
   }
-  outer.parentNode.insertBefore(dotsWrap, outer.nextSibling);
-
-  // Helpers
-  function slideW() {
-    var el = strip.querySelector('.gallery-item');
-    return el ? el.offsetWidth + 10 : 1;
-  }
-  function currentPage() {
-    return Math.round(strip.scrollLeft / (slideW() * perPage));
-  }
-  function updateDots() {
-    var pg = currentPage();
-    dots.forEach(function(d, i) { d.classList.toggle('active', i === pg); });
-  }
-  function scrollToPage(pg) {
-    strip.scrollTo({ left: pg * slideW() * perPage, behavior: 'smooth' });
-  }
-
-  // Auto-scroll (advances 1 full slide, loops)
-  var autoTimer;
-  function startAuto() {
-    clearInterval(autoTimer);
-    autoTimer = setInterval(function() {
-      var atEnd = strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 8;
-      if (atEnd) { strip.scrollTo({ left: 0, behavior: 'smooth' }); }
-      else        { strip.scrollBy({ left: slideW(), behavior: 'smooth' }); }
-      setTimeout(updateDots, 650);
-    }, 3800);
-  }
-  function stopAuto() { clearInterval(autoTimer); }
-
-  strip.addEventListener('scroll',     updateDots,  { passive: true });
-  strip.addEventListener('mouseenter', stopAuto);
-  strip.addEventListener('mouseleave', startAuto);
-
-  btnPrev.addEventListener('click', function() {
-    strip.scrollBy({ left:  slideW(), behavior: 'smooth' }); startAuto();
-  });
-  btnNext.addEventListener('click', function() {
-    strip.scrollBy({ left: -slideW(), behavior: 'smooth' }); startAuto();
-  });
-  dots.forEach(function(d) {
-    d.addEventListener('click', function() { scrollToPage(+d.dataset.page); startAuto(); });
-  });
-
-  // Pointer drag (desktop)
-  var dragX, dragScroll;
-  strip.addEventListener('pointerdown', function(e) {
-    if (e.button !== 0) return;
-    dragX      = e.clientX;
-    dragScroll = strip.scrollLeft;
-    strip.setPointerCapture(e.pointerId);
-    stopAuto();
-  });
-  strip.addEventListener('pointermove', function(e) {
-    if (dragX === undefined) return;
-    strip.scrollLeft = dragScroll - (e.clientX - dragX);
-  });
-  strip.addEventListener('pointerup',     function() { dragX = undefined; startAuto(); });
-  strip.addEventListener('pointercancel', function() { dragX = undefined; startAuto(); });
-
-  // Kick off auto-scroll after a short delay
-  setTimeout(startAuto, 1800);
 }
 
 // Contact section
@@ -1631,32 +1607,27 @@ function initMobileMenu() {
   });
 }
 
-// ── Lightbox
+// ── Lightbox (delegation-based — works before and after show-more expansion)
 function initLightbox() {
-  var lb = document.getElementById('lightbox');
+  var lb    = document.getElementById('lightbox');
   if (!lb) return;
   var lbImg = document.getElementById('lb-img');
   var lbCap = document.getElementById('lb-caption');
-  var current = 0;
-  var items = [];
-  var itemIdx = 0;
+  var cur   = 0;
 
-  document.querySelectorAll('.gallery-item').forEach(function(el) {
-    var img = el.querySelector('img');
-    if (!img) return;
-    var n = itemIdx++;
-    items.push({ src: img.src, alt: img.alt });
-    el.addEventListener('click', function() { openImg(n); });
-    el.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImg(n); }
-    });
-  });
-
+  function visibleItems() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll('#gallery-grid .gallery-item:not(.gallery-extra)')
+    );
+  }
   function showImg(idx) {
-    current = (idx + items.length) % items.length;
-    lbImg.src = items[current].src;
-    lbImg.alt = items[current].alt;
-    lbCap.textContent = items[current].alt;
+    var items = visibleItems();
+    if (!items.length) return;
+    cur = (idx + items.length) % items.length;
+    var img = items[cur].querySelector('img');
+    lbImg.src = img ? img.src : '';
+    lbImg.alt = img ? img.alt : '';
+    lbCap.textContent = img ? img.alt : '';
   }
   function openImg(idx) {
     showImg(idx);
@@ -1669,21 +1640,38 @@ function initLightbox() {
     document.body.style.overflow = '';
   }
 
+  // Delegation on gallery-grid — picks up newly-revealed items after show-more
+  var grid = document.getElementById('gallery-grid');
+  if (grid) {
+    grid.addEventListener('click', function(e) {
+      var item = e.target.closest('.gallery-item:not(.gallery-extra)');
+      if (!item) return;
+      openImg(visibleItems().indexOf(item));
+    });
+    grid.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var item = e.target.closest('.gallery-item:not(.gallery-extra)');
+      if (!item) return;
+      e.preventDefault();
+      openImg(visibleItems().indexOf(item));
+    });
+  }
+
   document.getElementById('lb-close').addEventListener('click', closeImg);
   lb.addEventListener('click', function(e) { if (e.target === lb) closeImg(); });
-  document.getElementById('lb-prev').addEventListener('click', function() { showImg(current - 1); });
-  document.getElementById('lb-next').addEventListener('click', function() { showImg(current + 1); });
+  document.getElementById('lb-prev').addEventListener('click', function() { showImg(cur - 1); });
+  document.getElementById('lb-next').addEventListener('click', function() { showImg(cur + 1); });
   document.addEventListener('keydown', function(e) {
     if (lb.hasAttribute('hidden')) return;
-    if (e.key === 'Escape') closeImg();
-    if (e.key === 'ArrowRight') showImg(current - 1);
-    if (e.key === 'ArrowLeft') showImg(current + 1);
+    if (e.key === 'Escape')     closeImg();
+    if (e.key === 'ArrowRight') showImg(cur - 1);
+    if (e.key === 'ArrowLeft')  showImg(cur + 1);
   });
   var tX = 0;
   lb.addEventListener('touchstart', function(e) { tX = e.touches[0].clientX; }, { passive: true });
   lb.addEventListener('touchend', function(e) {
     var dx = e.changedTouches[0].clientX - tX;
-    if (Math.abs(dx) > 50) { if (dx > 0) showImg(current - 1); else showImg(current + 1); }
+    if (Math.abs(dx) > 50) { if (dx > 0) showImg(cur - 1); else showImg(cur + 1); }
   });
 }
 
@@ -1914,7 +1902,7 @@ var HERO_TAGLINES = [
   { main: 'אמנות ציפורניים', em: 'מרגע ראשון',     sub: "לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם." },
   { main: 'יוקרה',           em: 'בכל פרט',          sub: 'כי הציפורניים שלך מגיעות לטיפול שמרשים ומחזיק שבועות. עיצוב מדויק, יחס אישי ופינוק שמרגישים — בסטודיו הבוטיק של מיטל שבע ברעם.' },
   { main: 'הסטודיו',         em: 'שמחכה לך',         sub: 'ציפורניים יפות הן לא רק פינוק — הן הצהרה. אווירה אינטימית, מקצועיות ותשומת לב שתרגישי — אצל מיטל שבע ברעם.' },
-  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פרטים קטנים עושים את כל ההבדל — בגוון, בצורה, בדיוק. ג\'ל לידיים, לק לרגליים, או הסט המושלם — הכל אצל מיטל שבע ברעם.' },
+  { main: 'פרטים קטנים',     em: 'עושים הבדל גדול', sub: 'פרטים קטנים עושים את כל ההבדל — בגוון, בצורה, בדיוק. ג\'ל ידיים, עיצוב גבות ושפם — הכל אצל מיטל שבע ברעם.' },
 ];
 var _taglineIdx = 0;
 
@@ -1945,15 +1933,16 @@ document.addEventListener('DOMContentLoaded', function() {
   renderSocialStrip('footer-social');
   renderHeroCta();
   renderServices();
+  renderProcess();
   applyLiveSiteConfig();
   renderGallery();
   renderFAQ();
+  renderTestimonials();
   renderContact();
   renderFooter();
   initMobileMenu();
   initLightbox();
   initStickyBook();
-  initNextSlot();
   initReveal();
   initReel();
   initHeroTaglines();
