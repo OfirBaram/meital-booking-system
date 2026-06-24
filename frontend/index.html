@@ -1631,138 +1631,23 @@ function initReel() {
   });
 }
 
-// ── AMBIENT AUDIO: Venus-inspired E-Dorian groove (120 BPM) ────────────────
-var _audioCtx   = null;
-var _masterGain = null;
+// ── AMBIENT AUDIO: MP3 file ──────────────────────────────────────────────────
+var _audioEl    = null;
 var _audioMuted = true;
-var _arpTimer   = null;
-var _bassTimer  = null;
-var _hatTimer   = null;
+var _fadeTmr    = null;
 
-function buildAmbientAudio() {
-  if (_audioCtx) return;
-  var BPM    = 120;
-  var beat   = 60 / BPM;     // 0.5s per quarter note
-  var eighth = beat / 2;     // 0.25s per 8th note
-  var bar    = beat * 4;     // 2.0s per bar
-
-  _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
-  _masterGain = _audioCtx.createGain();
-  _masterGain.gain.value = 0;
-  _masterGain.connect(_audioCtx.destination);
-
-  // Short plate reverb
-  var rvbDly = _audioCtx.createDelay(0.5);
-  rvbDly.delayTime.value = 0.14;
-  var rvbFb  = _audioCtx.createGain(); rvbFb.gain.value  = 0.18;
-  var rvbMix = _audioCtx.createGain(); rvbMix.gain.value = 0.11;
-  rvbDly.connect(rvbFb); rvbFb.connect(rvbDly); rvbDly.connect(rvbMix);
-  rvbMix.connect(_masterGain);
-
-  // Hook melody: E4-G4-A4-B4-D5-B4-A4-G4 (E Dorian ascending/descending, sawtooth)
-  var MELODY = [329.63, 392.0, 440.0, 493.88, 587.33, 493.88, 440.0, 392.0];
-
-  function scheduleMelody() {
-    if (!_audioCtx) return;
-    var now = _audioCtx.currentTime;
-    MELODY.forEach(function(freq, i) {
-      var t   = now + i * eighth;
-      var osc = _audioCtx.createOscillator();
-      var env = _audioCtx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq;
-      osc.detune.value = -6;
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.028, t + 0.018);
-      env.gain.exponentialRampToValueAtTime(0.001, t + eighth * 0.70);
-      osc.connect(env); env.connect(_masterGain); env.connect(rvbDly);
-      osc.start(t); osc.stop(t + eighth);
-    });
-    _arpTimer = setTimeout(scheduleMelody, MELODY.length * eighth * 1000);
-  }
-
-  // Walking bass: E2-A2-B2-G2 (quarter notes, triangle)
-  var BASS = [82.41, 110.0, 123.47, 98.0];
-
-  function scheduleBass() {
-    if (!_audioCtx) return;
-    var now = _audioCtx.currentTime;
-    BASS.forEach(function(freq, i) {
-      var t   = now + i * beat;
-      var osc = _audioCtx.createOscillator();
-      var env = _audioCtx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
-      env.gain.setValueAtTime(0, t);
-      env.gain.linearRampToValueAtTime(0.095, t + 0.022);
-      env.gain.exponentialRampToValueAtTime(0.001, t + beat * 0.58);
-      osc.connect(env); env.connect(_masterGain);
-      osc.start(t); osc.stop(t + beat);
-    });
-    _bassTimer = setTimeout(scheduleBass, BASS.length * beat * 1000);
-  }
-
-  // Drum machine: kick(beats 1+3) snare(beats 2+4) hat(8th notes)
-  function scheduleDrums() {
-    if (!_audioCtx) return;
-    var now = _audioCtx.currentTime;
-    for (var i = 0; i < 8; i++) {
-      var t = now + i * eighth;
-
-      // Kick: 8th-note slots 0 and 4 (beats 1 and 3)
-      if (i === 0 || i === 4) {
-        var ko = _audioCtx.createOscillator();
-        var ke = _audioCtx.createGain();
-        ko.type = 'sine';
-        ko.frequency.setValueAtTime(120, t);
-        ko.frequency.exponentialRampToValueAtTime(38, t + 0.09);
-        ke.gain.setValueAtTime(0.24, t);
-        ke.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
-        ko.connect(ke); ke.connect(_masterGain);
-        ko.start(t); ko.stop(t + 0.24);
-      }
-
-      // Snare: 8th-note slots 2 and 6 (beats 2 and 4)
-      if (i === 2 || i === 6) {
-        (function(st) {
-          var buf  = _audioCtx.createBuffer(1, Math.ceil(_audioCtx.sampleRate * 0.06), _audioCtx.sampleRate);
-          var data = buf.getChannelData(0);
-          for (var j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
-          var src  = _audioCtx.createBufferSource();
-          src.buffer = buf;
-          var bpf  = _audioCtx.createBiquadFilter();
-          bpf.type = 'bandpass'; bpf.frequency.value = 1800; bpf.Q.value = 0.7;
-          var env  = _audioCtx.createGain();
-          env.gain.setValueAtTime(0.082, st);
-          env.gain.exponentialRampToValueAtTime(0.001, st + 0.055);
-          src.connect(bpf); bpf.connect(env); env.connect(_masterGain);
-          src.start(st);
-        })(t);
-      }
-
-      // Hi-hat: every 8th note, beat subdivisions accented
-      (function(st, idx) {
-        var buf  = _audioCtx.createBuffer(1, Math.ceil(_audioCtx.sampleRate * 0.028), _audioCtx.sampleRate);
-        var data = buf.getChannelData(0);
-        for (var j = 0; j < data.length; j++) data[j] = Math.random() * 2 - 1;
-        var src  = _audioCtx.createBufferSource();
-        src.buffer = buf;
-        var hpf  = _audioCtx.createBiquadFilter();
-        hpf.type = 'highpass'; hpf.frequency.value = 9500;
-        var env  = _audioCtx.createGain();
-        var vol  = (idx % 2 === 0) ? 0.010 : 0.006;
-        env.gain.setValueAtTime(vol, st);
-        env.gain.exponentialRampToValueAtTime(0.001, st + 0.020);
-        src.connect(hpf); hpf.connect(env); env.connect(_masterGain);
-        src.start(st);
-      })(t, i);
-    }
-    _hatTimer = setTimeout(scheduleDrums, bar * 1000);
-  }
-
-  setTimeout(scheduleMelody, 100);
-  setTimeout(scheduleBass,   100);
-  setTimeout(scheduleDrums,  100);
+function _fadeTo(target, duration) {
+  if (!_audioEl) return;
+  clearInterval(_fadeTmr);
+  var start = _audioEl.volume;
+  var diff  = target - start;
+  var steps = Math.ceil(duration / 50);
+  var step  = 0;
+  _fadeTmr = setInterval(function() {
+    step++;
+    _audioEl.volume = Math.min(1, Math.max(0, start + diff * (step / steps)));
+    if (step >= steps) clearInterval(_fadeTmr);
+  }, 50);
 }
 
 function initAmbientAudio() {
@@ -1771,23 +1656,23 @@ function initAmbientAudio() {
   var iconOn  = document.getElementById('reel-icon-sound');
   if (!btn) return;
 
+  _audioEl         = new Audio('./ambient.mp3');
+  _audioEl.loop    = true;
+  _audioEl.volume  = 0;
+  _audioEl.preload = 'none';
+
   btn.addEventListener('click', function() {
     _audioMuted = !_audioMuted;
     if (!_audioMuted) {
-      buildAmbientAudio();
-      _audioCtx.resume();
-      _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
-      _masterGain.gain.linearRampToValueAtTime(1, _audioCtx.currentTime + 2.0);
+      _audioEl.play().catch(function() {});
+      _fadeTo(0.8, 2000);
       btn.setAttribute('aria-label', 'השתק מוזיקה');
       btn.setAttribute('aria-pressed', 'true');
       if (iconOff) iconOff.style.display = 'none';
       if (iconOn)  iconOn.style.display  = '';
     } else {
-      clearTimeout(_arpTimer); clearTimeout(_bassTimer); clearTimeout(_hatTimer);
-      if (_masterGain) {
-        _masterGain.gain.cancelScheduledValues(_audioCtx.currentTime);
-        _masterGain.gain.linearRampToValueAtTime(0, _audioCtx.currentTime + 1.2);
-      }
+      _fadeTo(0, 1200);
+      setTimeout(function() { if (_audioMuted) _audioEl.pause(); }, 1300);
       btn.setAttribute('aria-label', 'הפעל מוזיקת רקע');
       btn.setAttribute('aria-pressed', 'false');
       if (iconOff) iconOff.style.display = '';
@@ -1796,9 +1681,9 @@ function initAmbientAudio() {
   });
 
   document.addEventListener('visibilitychange', function() {
-    if (!_audioCtx) return;
-    if (document.hidden) { _audioCtx.suspend(); }
-    else if (!_audioMuted) { _audioCtx.resume(); }
+    if (!_audioEl) return;
+    if (document.hidden) { _audioEl.pause(); }
+    else if (!_audioMuted) { _audioEl.play().catch(function() {}); }
   });
 }
 
