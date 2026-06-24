@@ -17,6 +17,14 @@
   <!-- ── META ── -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- LCP preload: first hero reel image to improve Core Web Vitals -->
+  <link rel="preload" as="image" href="./gallery/nail-15.jpg" fetchpriority="high" />
+
+  <!-- DNS prefetch for external resources -->
+  <link rel="dns-prefetch" href="//cdn.mxpnl.com" />
+  <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
   <!--
@@ -29,7 +37,8 @@
 
   <title>מיטל שבע ברעם — לק ג'ל ועיצוב גבות בוטיק | רמת גן</title>
   <meta name="description" content="מיטל שבע ברעם — סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן. תוצאות שמחזיקות 3–4 שבועות, חוויה אישית ומפנקת. קביעת תור בווטסאפ." />
-  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, עיצוב גבות, גבות, שפם, ג'ל ידיים, בוטיק, מיטל שבע ברעם" />
+  <meta name="keywords" content="לק ג'ל, לק ג'ל רמת גן, ציפורניים, רמת גן, מניקור, מניקור רמת גן, עיצוב גבות, עיצוב גבות רמת גן, גבות, שפם, ג'ל ידיים, ג'ל נייל, נייל ארט, פרנץ' ג'ל, הסרת לק ג'ל, סטודיו ציפורניים, בוטיק, מיטל שבע ברעם, meytalnails, גבעתיים, פתח תקווה, תל אביב" />
+  <meta name="application-name" content="מיטל שבע ברעם — עיצוב ציפורניים" />
   <meta name="author"  content="מיטל שבע ברעם" />
   <meta name="robots"  content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="theme-color" content="#A67C8E" />
@@ -40,6 +49,11 @@
   <meta name="geo.position"  content="32.0853;34.8120" />
   <meta name="ICBM"          content="32.0853, 34.8120" />
   <link rel="canonical" href="https://meytalnails.co.il/" />
+
+  <!-- hreflang: language targeting for Hebrew search results -->
+  <link rel="alternate" hreflang="he"        href="https://meytalnails.co.il/" />
+  <link rel="alternate" hreflang="he-IL"     href="https://meytalnails.co.il/" />
+  <link rel="alternate" hreflang="x-default" href="https://meytalnails.co.il/" />
 
   <!-- Open Graph -->
   <meta property="og:type"        content="website" />
@@ -67,6 +81,7 @@
   {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
+    "@id": "https://meytalnails.co.il/#business",
     "name": "מיטל שבע ברעם — עיצוב ציפורניים",
     "description": "סטודיו עיצוב ציפורניים ועיצוב גבות ושפם בוטיק ברמת גן. לק ג'ל לידיים, עיצוב גבות ושפם. חוויה אישית, איכות פרימיום.",
     "address": {
@@ -164,6 +179,7 @@
   {
     "@context": "https://schema.org",
     "@type": "FAQPage",
+    "@id": "https://meytalnails.co.il/#faq",
     "mainEntity": [
       {
         "@type": "Question",
@@ -184,6 +200,26 @@
         "@type": "Question",
         "name": "איפה הסטודיו ממוקם?",
         "acceptedAnswer": { "@type": "Answer", "text": "הסטודיו ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze." }
+      },
+      {
+        "@type": "Question",
+        "name": "כמה עולה לק ג'ל ברמת גן?",
+        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס." }
+      },
+      {
+        "@type": "Question",
+        "name": "מה ההבדל בין לק ג'ל לג'ל נייל?",
+        "acceptedAnswer": { "@type": "Answer", "text": "לק ג'ל (Gel Polish) הוא לק שמוקשה בנורת UV/LED ומחזיק 3–4 שבועות. ג'ל נייל (Builder Gel) הוא חומר לבנייה ולהארכת ציפורן. הסטודיו מתמחה בלק ג'ל על ציפורן טבעית." }
+      },
+      {
+        "@type": "Question",
+        "name": "מה מומלץ לציפורניים קצרות?",
+        "acceptedAnswer": { "@type": "Answer", "text": "לציפורניים קצרות מומלץ על ניוד, פרנץ' קלאסי או צבע אחיד מבריק — הם מאריכים את מראה האצבע ומחמיאים לכל גודל ציפורן." }
+      },
+      {
+        "@type": "Question",
+        "name": "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
+        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
       }
     ]
   }
@@ -885,9 +921,141 @@
     .reel-mute-btn svg { width: 1.0625rem; height: 1.0625rem; }
 
   </style>
+
+  <!-- WebSite schema — enables Sitelinks search box + brand entity -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": "https://meytalnails.co.il/#website",
+    "name": "מיטל שבע ברעם — עיצוב ציפורניים",
+    "url": "https://meytalnails.co.il/",
+    "inLanguage": "he-IL",
+    "description": "סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן — מיטל שבע ברעם",
+    "publisher": {
+      "@type": "Person",
+      "@id": "https://meytalnails.co.il/#meital",
+      "name": "מיטל שבע ברעם"
+    }
+  }
+  </script>
+
+  <!-- Person schema — brand entity for Meital Sheva Baram -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": "https://meytalnails.co.il/#meital",
+    "name": "מיטל שבע ברעם",
+    "jobTitle": "מעצבת ציפורניים ומעצבת גבות",
+    "url": "https://meytalnails.co.il/",
+    "worksFor": {
+      "@type": "BeautySalon",
+      "@id": "https://meytalnails.co.il/#business",
+      "name": "מיטל שבע ברעם — עיצוב ציפורניים"
+    },
+    "sameAs": [
+      "https://www.instagram.com/meytal.sheva",
+      "https://www.tiktok.com/@meytal.sheva"
+    ],
+    "knowsAbout": [
+      "לק ג'ל",
+      "עיצוב ציפורניים",
+      "עיצוב גבות ושפם",
+      "נייל ארט",
+      "ג'ל נייל",
+      "מניקור"
+    ]
+  }
+  </script>
+
+  <!-- ImageGallery schema — submits top gallery images as structured content -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "ImageGallery",
+    "name": "גלריית עבודות — מיטל שבע ברעם, עיצוב ציפורניים ברמת גן",
+    "description": "תמונות עבודות לק ג'ל, נייל ארט ועיצוב ציפורניים מסטודיו מיטל שבע ברעם ברמת גן",
+    "url": "https://meytalnails.co.il/",
+    "author": {
+      "@type": "Person",
+      "@id": "https://meytalnails.co.il/#meital",
+      "name": "מיטל שבע ברעם"
+    },
+    "image": [
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-15.jpg",
+        "name": "פרנץ' שחור בצורת עיט — לק ג'ל רמת גן",
+        "description": "עיצוב לק ג'ל פרנץ' שחור דרמטי — מיטל שבע ברעם, סטודיו ברמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-09.jpg",
+        "name": "פרנץ' קרם עם פרחי פוקסיה — נייל ארט רמת גן",
+        "description": "עיצוב נייל ארט פרחוני — לק ג'ל בוטיק, מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-13.jpg",
+        "name": "גלשה סגולה-פוקסיה נוצצת — לק ג'ל יוקרתי",
+        "description": "לק ג'ל גלשה סגולה עם ניצוצות — עיצוב ציפורניים ברמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-01.jpg",
+        "name": "לק ג'ל שחור קלאסי — עיצוב ציפורניים רמת גן",
+        "description": "לק ג'ל שחור קלאסי ויוקרתי — סטודיו מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-27.jpg",
+        "name": "לק ג'ל קשת פסטל — ציפורניים צבעוניות",
+        "description": "לק ג'ל קשת פסטל עליז — כל אצבע בצבע שונה, מיטל שבע ברעם",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      },
+      {
+        "@type": "ImageObject",
+        "url": "https://meytalnails.co.il/gallery/nail-35.jpg",
+        "name": "פרנץ' שחור על בסיס ניוד — לק ג'ל איקוני",
+        "description": "עיצוב פרנץ' שחור חדשני — לק ג'ל בסטודיו מיטל, רמת גן",
+        "author": { "@type": "Person", "name": "מיטל שבע ברעם" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
+
+<!-- NOSCRIPT: content-rich fallback for first-pass Googlebot crawl -->
+<noscript>
+  <div style="direction:rtl;font-family:Arial,sans-serif;padding:2rem;max-width:800px;margin:0 auto;background:#FAF5F0">
+    <h1>מיטל שבע ברעם — לק ג'ל ועיצוב גבות בוטיק | רמת גן</h1>
+    <p>סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן. חוויה אישית ומפנקת, תוצאות שמחזיקות 3–4 שבועות. קביעת תור בווטסאפ: 054-768-6865.</p>
+    <h2>שירותים — לק ג'ל ועיצוב ציפורניים</h2>
+    <ul>
+      <li><strong>לק ג'ל לידיים</strong> — 60 דקות. מחזיק 3–4 שבועות.</li>
+      <li><strong>לק ג'ל לרגליים</strong> — 30 דקות. גמר מבריק ועמיד.</li>
+      <li><strong>לק ג'ל ידיים + רגליים</strong> — 90 דקות. חבילה מלאה.</li>
+    </ul>
+    <h2>מיקום — סטודיו רמת גן</h2>
+    <address>
+      <strong>מיטל שבע ברעם — עיצוב ציפורניים</strong><br />
+      רש"י 11, רמת גן<br />
+      ווטסאפ: <a href="tel:+972547686865">054-768-6865</a>
+    </address>
+    <p>נגיש מתל אביב, גבעתיים, פתח תקווה. עיצוב גבות ושפם — גם בשילוב עם לק ג'ל באותו ביקור.</p>
+    <h2>שאלות נפוצות</h2>
+    <p><strong>כמה זמן מחזיק לק ג'ל?</strong> 3–4 שבועות.</p>
+    <p><strong>כמה עולה לק ג'ל ברמת גן?</strong> לפרטים שלחי הודעה בווטסאפ.</p>
+    <p><strong>האם צריך לקבוע תור?</strong> כן, בתיאום מראש בלבד.</p>
+  </div>
+</noscript>
 
 <!-- SKIP LINK — WCAG 2.4.1 -->
 <a class="skip-link" href="#main-content">דלג לתוכן הראשי</a>
@@ -1243,6 +1411,22 @@ const SiteConfig = {
     {
       q: "איפה הסטודיו ממוקם?",
       a: "הסטודיו שלי ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze.",
+    },
+    {
+      q: "כמה עולה לק ג'ל ברמת גן?",
+      a: "המחיר תלוי בסוג הטיפול, אורך הציפורן וסוג העיצוב. לקבלת מחיר מדויק — כתבי לי בווטסאפ ואשמח לענות. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס.",
+    },
+    {
+      q: "מה ההבדל בין לק ג'ל לג'ל נייל?",
+      a: "לק ג'ל (Gel Polish) הוא לק שמוקשה בנורת UV/LED ומחזיק 3–4 שבועות. ג'ל נייל (Builder Gel) הוא חומר לבנייה ולהארכת ציפורן. בסטודיו שלי מתמחה בלק ג'ל איכותי לציפורן הטבעית.",
+    },
+    {
+      q: "מה מומלץ לציפורניים קצרות?",
+      a: "לציפורניים קצרות ממליצה על צבעים עדינים כמו ניוד, פרנץ' קלאסי או צבע אחיד מבריק — הם מאריכים את מראה האצבע ומחמיאים לכל גודל ציפורן. נשמח להתאים עיצוב מושלם!",
+    },
+    {
+      q: "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
+      a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
     },
   ],
 
