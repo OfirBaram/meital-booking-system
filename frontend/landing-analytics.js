@@ -80,4 +80,38 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
   }
+
+  // Process section — fires once when 50% of the section is visible
+  const processSection = document.getElementById('process');
+  if (processSection) {
+    new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          trackEvent('process_section_viewed');
+          obs.disconnect();
+        }
+      });
+    }, { threshold: 0.5 }).observe(processSection);
+  }
+
+  // Testimonials section — fires once when 50% is visible
+  const testimonialsSection = document.getElementById('testimonials');
+  if (testimonialsSection) {
+    new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          trackEvent('testimonials_section_viewed');
+          obs.disconnect();
+        }
+      });
+    }, { threshold: 0.5 }).observe(testimonialsSection);
+  }
+
+  // Gallery "show more" button — delegated, button is rendered after init
+  document.addEventListener('click', e => {
+    if (e.target.closest('.gallery-more-btn')) {
+      trackEvent('gallery_load_more_clicked');
+    }
+  });
+
 });
