@@ -48,12 +48,13 @@
   <meta name="twitter:image"       content="./gallery/nail-01.jpg" />
 
   <!-- Structured Data — Local Business -->
+  <!-- Structured Data — Local Business + Aggregate Rating -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "BeautySalon",
     "name": "מיטל שבע ברעם — עיצוב ציפורניים",
-    "description": "סטודיו עיצוב ציפורניים בוטיק ברמת גן",
+    "description": "סטודיו עיצוב ציפורניים ועיצוב גבות ושפם בוטיק ברמת גן. לק ג'ל לידיים, עיצוב גבות ושפם. חוויה אישית, איכות פרימיום.",
     "address": {
       "@type": "PostalAddress",
       "streetAddress": "רש\"י 11",
@@ -62,7 +63,7 @@
     },
     "telephone": "+972547686865",
     "email": "meital_sheva7@hotmail.com",
-    "url": "https://ofirbaram.github.io/meital-booking-system/",
+    "url": "https://meytalnails.co.il/",
     "openingHoursSpecification": [{
       "@type": "OpeningHoursSpecification",
       "dayOfWeek": ["Sunday","Monday","Tuesday","Wednesday","Thursday"],
@@ -72,6 +73,81 @@
     "sameAs": [
       "https://www.instagram.com/meytal.sheva",
       "https://www.tiktok.com/@meytal.sheva"
+    ],
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "5",
+      "bestRating": "5",
+      "worstRating": "1",
+      "reviewCount": "3"
+    },
+    "review": [
+      {
+        "@type": "Review",
+        "author": { "@type": "Person", "name": "שני כ." },
+        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+        "reviewBody": "הציפורניים שלי נראות מדהים! מיטל מקצועית, נעימה ומקפידה על הפרטים הקטנים ביותר. אני חוזרת אליה כבר שנה.",
+        "datePublished": "2026-05"
+      },
+      {
+        "@type": "Review",
+        "author": { "@type": "Person", "name": "תמר ל." },
+        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+        "reviewBody": "עיצוב הגבות שעשתה לי מיטל שינה לי את הפנים! עבודה מדויקת ומקצועית. ממליצה בחום.",
+        "datePublished": "2026-06"
+      },
+      {
+        "@type": "Review",
+        "author": { "@type": "Person", "name": "אור מ." },
+        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
+        "reviewBody": "החוויה בסטודיו של מיטל היא לא רק טיפול — זה מפגש מפנק ואישי. יצאתי עם ציפורניים מושלמות שהחזיקו שלושה שבועות.",
+        "datePublished": "2026-06"
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data — FAQ (enables rich snippets in Google) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "כמה זמן מחזיק לק ג'ל?",
+        "acceptedAnswer": { "@type": "Answer", "text": "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אני עובדת עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר." }
+      },
+      {
+        "@type": "Question",
+        "name": "האם ההסרה פוגעת בציפורן?",
+        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
+      },
+      {
+        "@type": "Question",
+        "name": "האם צריך לקבוע תור מראש?",
+        "acceptedAnswer": { "@type": "Answer", "text": "כן, עובדת בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לכתוב בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים." }
+      },
+      {
+        "@type": "Question",
+        "name": "איפה הסטודיו ממוקם?",
+        "acceptedAnswer": { "@type": "Answer", "text": "הסטודיו ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze." }
+      }
+    ]
+  }
+  </script>
+
+  <!-- Structured Data — HowTo (booking process rich snippet) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "איך קובעים תור אצל מיטל שבע ברעם?",
+    "description": "תהליך פשוט ואישי בשלושה שלבים — מהזמנה לציפורניים מושלמות",
+    "step": [
+      { "@type": "HowToStep", "position": "1", "name": "קביעת תור בווטסאפ", "text": "שולחים הודעה בווטסאפ ומתאמים זמן נוח. בדרך כלל עונה תוך שעות ספורות." },
+      { "@type": "HowToStep", "position": "2", "name": "מגיעים לסטודיו", "text": "אווירה אינטימית ומפנקת ברמת גן. קפה, מוזיקה ותשומת לב מלאה מהרגע הראשון." },
+      { "@type": "HowToStep", "position": "3", "name": "יוצאות מושלמות", "text": "תוצאה מקצועית שמחזיקה 3–4 שבועות. ברק כמו ביום הראשון עד לטיפול הבא." }
     ]
   }
   </script>
