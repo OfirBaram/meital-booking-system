@@ -17,6 +17,14 @@
   <!-- ── META ── -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- LCP preload: first hero reel image to improve Core Web Vitals -->
+  <link rel="preload" as="image" href="./gallery/nail-15.jpg" fetchpriority="high" />
+
+  <!-- DNS prefetch for external resources -->
+  <link rel="dns-prefetch" href="//cdn.mxpnl.com" />
+  <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
   <!--
@@ -29,7 +37,8 @@
 
   <title>מיטל שבע ברעם — לק ג'ל ועיצוב גבות בוטיק | רמת גן</title>
   <meta name="description" content="מיטל שבע ברעם — סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן. תוצאות שמחזיקות 3–4 שבועות, חוויה אישית ומפנקת. קביעת תור בווטסאפ." />
-  <meta name="keywords" content="לק ג'ל, ציפורניים, רמת גן, מניקור, עיצוב גבות, גבות, שפם, ג'ל ידיים, בוטיק, מיטל שבע ברעם" />
+  <meta name="keywords" content="לק ג'ל, לק ג'ל רמת גן, ציפורניים, רמת גן, מניקור, מניקור רמת גן, עיצוב גבות, עיצוב גבות רמת גן, גבות, שפם, ג'ל ידיים, ג'ל נייל, נייל ארט, פרנץ' ג'ל, הסרת לק ג'ל, סטודיו ציפורניים, בוטיק, מיטל שבע ברעם, meytalnails, גבעתיים, פתח תקווה, תל אביב" />
+  <meta name="application-name" content="מיטל שבע ברעם — עיצוב ציפורניים" />
   <meta name="author"  content="מיטל שבע ברעם" />
   <meta name="robots"  content="index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1" />
   <meta name="theme-color" content="#A67C8E" />
@@ -40,6 +49,11 @@
   <meta name="geo.position"  content="32.0853;34.8120" />
   <meta name="ICBM"          content="32.0853, 34.8120" />
   <link rel="canonical" href="https://meytalnails.co.il/" />
+
+  <!-- hreflang: language targeting for Hebrew search results -->
+  <link rel="alternate" hreflang="he"        href="https://meytalnails.co.il/" />
+  <link rel="alternate" hreflang="he-IL"     href="https://meytalnails.co.il/" />
+  <link rel="alternate" hreflang="x-default" href="https://meytalnails.co.il/" />
 
   <!-- Open Graph -->
   <meta property="og:type"        content="website" />
