@@ -854,7 +854,9 @@
       <ul class="nav-links" role="list">
         <li><a href="#about">אודות</a></li>
         <li><a href="#services">שירותים</a></li>
+        <li><a href="#process">תהליך</a></li>
         <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#testimonials">ביקורות</a></li>
         <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
       </ul>
@@ -880,7 +882,10 @@
       <ul role="list">
         <li><a href="#about">אודות</a></li>
         <li><a href="#services">שירותים</a></li>
+        <li><a href="#process">תהליך</a></li>
         <li><a href="#gallery">גלריה</a></li>
+        <li><a href="#testimonials">ביקורות</a></li>
+        <li><a href="#faq">שאלות נפוצות</a></li>
         <li><a href="#contact">צרי קשר</a></li>
       </ul>
       <div class="social-strip" id="mobile-social-strip" aria-label="קישורים חברתיים"></div>
@@ -908,7 +913,6 @@
         <span id="hero-title-main">אמנות ציפורניים</span><br /><em id="hero-title-em">מרגע ראשון</em>
       </h1>
       <p class="hero-subtitle" id="hero-subtitle">לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם.</p>
-      <div id="hero-next-slot" hidden><span class="slot-dot" aria-hidden="true"></span><span id="hero-next-slot-text"></span></div>
       <div class="btn-group" id="hero-cta">
         <!-- populated by JS -->
       </div>
@@ -978,17 +982,39 @@
     </div>
   </section>
 
-  <!-- ── GALLERY ── -->
-  <section id="gallery" class="section bg-lp-card" aria-labelledby="gallery-heading">
+  <!-- ── PROCESS ── -->
+  <section id="process" class="section bg-lp-card" aria-labelledby="process-heading">
     <div class="section-inner">
-      <p class="section-label reveal" aria-hidden="true">גלריה</p>
-      <h2 class="section-title reveal" id="gallery-heading">עבודות נבחרות</h2>
-      <div class="gallery-strip-outer" id="gallery-grid">
-        <div class="gallery-strip" id="gallery-strip" role="list"></div>
+      <p class="section-label reveal" aria-hidden="true">איך זה עובד</p>
+      <h2 class="section-title reveal" id="process-heading">מהזמנה לציפורניים<br />מושלמות</h2>
+      <div class="process-steps" id="process-steps" role="list">
+        <!-- populated by JS from SiteConfig.process -->
       </div>
     </div>
   </section>
 
+  <!-- ── GALLERY ── -->
+  <section id="gallery" class="section bg-lp" aria-labelledby="gallery-heading">
+    <div class="section-inner">
+      <p class="section-label reveal" aria-hidden="true">גלריה</p>
+      <h2 class="section-title reveal" id="gallery-heading">עבודות נבחרות</h2>
+      <div id="gallery-grid">
+        <!-- populated by renderGallery() -->
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ── TESTIMONIALS ── -->
+  <section id="testimonials" class="section bg-lp-card" aria-labelledby="testimonials-heading">
+    <div class="section-inner">
+      <p class="section-label reveal" aria-hidden="true">לקוחות מספרות</p>
+      <h2 class="section-title reveal" id="testimonials-heading">מה אומרות הלקוחות</h2>
+      <div class="testimonials-grid" id="testimonials-grid" role="list">
+        <!-- populated by JS from SiteConfig.testimonials -->
+      </div>
+    </div>
+  </section>
 
   <!-- ── FAQ ── -->
   <section id="faq" class="section bg-lp" aria-labelledby="faq-heading">
