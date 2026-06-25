@@ -3118,5 +3118,16 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 <script type="importmap">{ "imports": { "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
 <script type="module" src="./landing-analytics.js"></script>
+<script>
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest('a[href*="wa.me"], a[href*="whatsapp.com"]');
+    if (!a || typeof gtag === 'undefined') return;
+    gtag('event', 'whatsapp_click', {
+      event_category: 'conversion',
+      event_label: a.id || a.dataset.qa || 'whatsapp_cta',
+      page_location: window.location.href
+    });
+  });
+</script>
 </body>
 </html>
