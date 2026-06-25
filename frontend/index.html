@@ -1,6 +1,14 @@
 ﻿<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RVJWR7VWN4"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-RVJWR7VWN4');
+  </script>
   <!--
   ╔══════════════════════════════════════════════════════════════╗
   ║   LANDING PAGE — מיטל שבע ברעם | עדכון תוכן: ראה SiteConfig ║
@@ -23,7 +31,13 @@
 
   <!-- DNS prefetch for external resources -->
   <link rel="dns-prefetch" href="//cdn.mxpnl.com" />
+  <link rel="dns-prefetch" href="//api-eu.mixpanel.com" />
   <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+  <link rel="dns-prefetch" href="//www.googletagmanager.com" />
+  <link rel="dns-prefetch" href="//clarity.ms" />
+
+  <!-- Apple Touch Icon — iOS home screen bookmark -->
+  <link rel="apple-touch-icon" sizes="180x180" href="./meital_profile_header.webp" />
 
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
@@ -49,6 +63,40 @@
   <meta name="geo.position"  content="32.0853;34.8120" />
   <meta name="ICBM"          content="32.0853, 34.8120" />
   <link rel="canonical" href="https://meytalnails.co.il/" />
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TRACKING — מלאי את הפרטים שלך:
+
+       1. Google Search Console — אימות בעלות על הדומיין
+          https://search.google.com/search-console → Add property → URL prefix
+          → HTML tag → copy the "content" value → הדביקי ב-GSC_TOKEN
+       <meta name="google-site-verification" content="GSC_TOKEN" />
+
+       2. Google Analytics 4 — מעקב תנועה + Search Console integration
+          https://analytics.google.com → Admin → Create → Property → Web
+          → copy Measurement ID (G-XXXXXXXXXX)
+          → פתחי את ה-comment, החליפי MEASUREMENT_ID
+       <script async src="https://www.googletagmanager.com/gtag/js?id=MEASUREMENT_ID"></script>
+       <script>
+         window.dataLayer = window.dataLayer || [];
+         function gtag(){dataLayer.push(arguments);}
+         gtag("js", new Date());
+         gtag("config", "MEASUREMENT_ID", {
+           page_location: window.location.href,
+           send_page_view: true
+         });
+       </script>
+
+       3. Microsoft Clarity — heatmaps + session recordings (חינמי)
+          https://clarity.microsoft.com → New Project → copy Project ID
+          → פתחי את ה-comment, החליפי CLARITY_ID
+       <script type="text/javascript">
+         (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+         })(window,document,"clarity","script","CLARITY_ID");
+       </script>
+       ═══════════════════════════════════════════════════════════ -->
 
   <!-- hreflang: language targeting for Hebrew search results -->
   <link rel="alternate" hreflang="he"        href="https://meytalnails.co.il/" />
@@ -139,7 +187,8 @@
     },
     "sameAs": [
       "https://www.instagram.com/meytal.sheva",
-      "https://www.tiktok.com/@meytal.sheva"
+      "https://www.tiktok.com/@meytal.sheva",
+      "https://easy.co.il/page/10159641"
     ],
     "aggregateRating": {
       "@type": "AggregateRating",
@@ -220,6 +269,21 @@
         "@type": "Question",
         "name": "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
         "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
+      },
+      {
+        "@type": "Question",
+        "name": "מה עיצוב גבות ושפם כולל?",
+        "acceptedAnswer": { "@type": "Answer", "text": "עיצוב גבות ושפם בשיטת ווקס — מסיר שיערות מיותרות, מעצב קשת מחמיאה לצורת הפנים ומעניק מראה נקי ומסוגנן שמחזיק 3–4 שבועות." }
+      },
+      {
+        "@type": "Question",
+        "name": "האם אפשר לעשות נייל ארט?",
+        "acceptedAnswer": { "@type": "Answer", "text": "כן! עיצובים מיוחדים — פרנץ', אומברה, נקודות, פרחים, שיש ועוד. ניתן לשלוח תמונת השראה בווטסאפ לתיאום עיצוב מיוחד." }
+      },
+      {
+        "@type": "Question",
+        "name": "כמה זמן לפני לקבוע תור?",
+        "acceptedAnswer": { "@type": "Answer", "text": "כדאי לקבוע 3–7 ימים מראש. בוחרת לקוחות ספורות בלבד בכל יום כדי להבטיח שירות אישי. בתקופות עמוסות (חגים, שבת הכלה) כדאי להזמין מוקדם יותר." }
       }
     ]
   }
@@ -238,6 +302,46 @@
       { "@type": "HowToStep", "position": "3", "name": "יוצאות מושלמות", "text": "תוצאה מקצועית שמחזיקה 3–4 שבועות. ברק כמו ביום הראשון עד לטיפול הבא." }
     ]
   }
+  </script>
+
+  <!-- Structured Data — Service + BookAction (enables "Book" button in Google) -->
+  <script type="application/ld+json">
+  [{
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": "https://meytalnails.co.il/#service-gel-hands",
+    "name": "לק ג'ל לידיים",
+    "description": "לק ג'ל מקצועי לידיים — מחזיק 3–4 שבועות ללא שבירה. כולל הכנת ציפורן, עיצוב ואפייה מושלמת.",
+    "provider": { "@id": "https://meytalnails.co.il/#business" },
+    "areaServed": { "@type": "City", "name": "רמת גן" },
+    "potentialAction": {
+      "@type": "ReserveAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://wa.me/972547686865?text=%D7%94%D7%99%D7%99%20%D7%9E%D7%99%D7%98%D7%9C%21%20%F0%9F%98%8A%20%D7%90%D7%A0%D7%99%20%D7%A8%D7%95%D7%A6%D7%94%20%D7%9C%D7%A7%D7%91%D7%95%D7%A2%20%D7%AA%D7%95%D7%A8.",
+        "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform"]
+      },
+      "result": { "@type": "Reservation", "name": "הזמנת תור" }
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "@id": "https://meytalnails.co.il/#service-eyebrows",
+    "name": "עיצוב גבות ושפם",
+    "description": "עיצוב גבות ושפם בשיטת ווקס — תוצאה נקייה ומחמיאה שמחזיקה 3–4 שבועות.",
+    "provider": { "@id": "https://meytalnails.co.il/#business" },
+    "areaServed": { "@type": "City", "name": "רמת גן" },
+    "potentialAction": {
+      "@type": "ReserveAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://wa.me/972547686865?text=%D7%94%D7%99%D7%99%20%D7%9E%D7%99%D7%98%D7%9C%21%20%F0%9F%98%8A%20%D7%90%D7%A0%D7%99%20%D7%A8%D7%95%D7%A6%D7%94%20%D7%9C%D7%A7%D7%91%D7%95%D7%A2%20%D7%AA%D7%95%D7%A8.",
+        "actionPlatform": ["http://schema.org/DesktopWebPlatform","http://schema.org/MobileWebPlatform"]
+      },
+      "result": { "@type": "Reservation", "name": "הזמנת תור" }
+    }
+  }]
   </script>
 
   <!-- Fonts -->
@@ -338,6 +442,17 @@
     }
     .social-icon:hover { color: var(--charcoal); background: rgba(166,124,142,.12); }
     .social-icon svg   { width: 1.125rem; height: 1.125rem; fill: currentColor; }
+
+    /* trust badge */
+    .hero-trust {
+      display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+      gap: .5rem; margin: 0 0 2rem; font-size: .8125rem; color: rgba(250,245,240,.75);
+    }
+    .hero-trust .stars { color: #f5c518; letter-spacing: .05em; }
+    .hero-trust .sep { opacity: .4; }
+    .hero.has-reel .hero-trust { color: rgba(250,245,240,.78); }
+    .hero:not(.has-reel) .hero-trust { color: var(--muted); }
+    .hero:not(.has-reel) .hero-trust .sep { opacity: .35; }
 
     /* mobile menu */
     .menu-btn { display: none; background: none; border: none; cursor: pointer; padding: .5rem; color: var(--charcoal); }
@@ -573,6 +688,26 @@
         gap: 8px;
       }
     }
+    .service-book-btn {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: .45rem 1.1rem;
+      background: transparent;
+      border: 1px solid var(--primary);
+      border-radius: 2rem;
+      color: var(--primary);
+      font-size: .8125rem;
+      font-weight: 500;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: background .2s, color .2s;
+    }
+    .service-book-btn:hover,
+    .service-book-btn:focus-visible {
+      background: var(--primary);
+      color: #fff;
+    }
+
     .gallery-item {
       border-radius: 8px;
       overflow: hidden;
@@ -791,8 +926,22 @@
     }
     #lightbox[hidden] { display: none; }
     #lb-body { max-width: 90vw; max-height: 90vh; text-align: center; }
-    #lb-img { max-width: 100%; max-height: 80vh; object-fit: contain; display: block; }
+    #lb-img { max-width: 100%; max-height: 78vh; object-fit: contain; display: block; }
     #lb-caption { color: rgba(255,255,255,.65); margin-top: .75rem; font-size: .875rem; }
+    #lb-wa-cta {
+      display: inline-flex; align-items: center; gap: .45rem;
+      margin-top: 1rem;
+      padding: .55rem 1.4rem;
+      background: #25D366;
+      color: #fff;
+      border-radius: 2rem;
+      font-size: .875rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity .2s;
+    }
+    #lb-wa-cta:hover { opacity: .88; }
+    #lb-wa-cta svg { flex-shrink: 0; }
     #lb-close {
       position: fixed; top: 1.25rem; left: 1.25rem;
       background: none; border: none; color: #fff; font-size: 2rem;
@@ -1133,6 +1282,14 @@
         <span id="hero-title-main">אמנות ציפורניים</span><br /><em id="hero-title-em">מרגע ראשון</em>
       </h1>
       <p class="hero-subtitle" id="hero-subtitle">לק ג'ל ועיצוב ציפורניים מקצועי ויוקרתי, עם תשומת לב לכל פרט. חוויה אישית ואינטימית בסטודיו הבוטיק של מיטל שבע ברעם.</p>
+      <div class="hero-trust" aria-label="דירוג לקוחות">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <span>5/5</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span>לקוחות חוזרות</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span>מקומות מוגבלים</span>
+      </div>
       <div class="btn-group" id="hero-cta">
         <!-- populated by JS -->
       </div>
@@ -1428,6 +1585,18 @@ const SiteConfig = {
       q: "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
       a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
     },
+    {
+      q: "מה עיצוב גבות ושפם כולל?",
+      a: "עיצוב גבות ושפם בשיטת ווקס — מסיר שיערות מיותרות, מעצב קשת מחמיאה לצורת הפנים ומעניק מראה נקי ומסוגנן שמחזיק 3–4 שבועות. מתאים מאוד לשלב עם לק ג'ל לידיים בביקור אחד.",
+    },
+    {
+      q: "האם אפשר לעשות נייל ארט?",
+      a: "כן! אני עושה עיצובים מיוחדים — פרנץ', אומברה, נקודות, פרחים, שיש ועוד. הגלריה באתר מציגה חלק מהעיצובים. לתיאום עיצוב מיוחד שלחי לי תמונת השראה בווטסאפ ונחליט יחד.",
+    },
+    {
+      q: "כמה זמן לפני לקבוע תור?",
+      a: "כדאי לקבוע 3–7 ימים מראש, בוחרת לקוחות ספורות בלבד בכל יום כדי להבטיח שירות אישי. בתקופות עמוסות (חגים, שבת הכלה) כדאי להזמין מוקדם יותר.",
+    },
   ],
 
   // ── PROCESS STEPS ────────────────────────────────────────────
@@ -1658,11 +1827,13 @@ function renderServices() {
     card.className = 'service-card reveal';
     card.style.transitionDelay = (i * 90) + 'ms';
     card.setAttribute('role', 'listitem');
+    var waMsg = encodeURIComponent("היי מיטל! 😊 אני מעוניינת ב" + s.title + " (" + s.meta + "). מתי יש מקום פנוי?");
     card.innerHTML =
       '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
       '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
       '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
-      '<p class="service-desc">' + sanitize(s.desc) + '</p>';
+      '<p class="service-desc">' + sanitize(s.desc) + '</p>' +
+      '<a class="service-book-btn" href="https://wa.me/972547686865?text='" + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל'" + sanitize(s.title) + '">קביעי תור ←</a>';
     grid.appendChild(card);
   });
 }
@@ -2190,6 +2361,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <div id="lb-body">
     <img id="lb-img" src="" alt="" />
     <p id="lb-caption"></p>
+    <a id="lb-wa-cta" href="https://wa.me/972547686865?text=%D7%94%D7%99%D7%99%20%D7%9E%D7%99%D7%98%D7%9C%21%20%F0%9F%98%8A%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%94%D7%A2%D7%91%D7%95%D7%93%D7%95%D7%AA%20%D7%A9%D7%9C%D7%9A%20%D7%95%D7%90%D7%A0%D7%99%20%D7%A8%D7%95%D7%A6%D7%94%20%D7%9C%D7%A7%D7%91%D7%95%D7%A2%20%D7%AA%D7%95%D7%A8." target="_blank" rel="noopener noreferrer" aria-label="קביעת תור בווטסאפ">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      רוצה גם כזה? קביעי תור
+    </a>
   </div>
 </div>
 
