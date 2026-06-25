@@ -1053,11 +1053,21 @@
     }
     .reel-slide {
       position: absolute; inset: 0;
-      opacity: 0;
-      transition: opacity 1.8s ease-in-out;
-      will-change: opacity;
+      opacity: 0; transform: scale(1);
+      transition: opacity 1.8s ease-in-out, transform 1.8s ease-in-out;
+      will-change: opacity, transform;
     }
-    .reel-slide.reel-active { opacity: 1; }
+    .reel-slide.reel-active  { opacity: 1;  transform: scale(1);    }
+    .reel-slide.reel-exiting { opacity: 0;  transform: scale(0.97); }
+    /* Per-slide colour mood tint (sits below the vignette overlay) */
+    .reel-slide::after {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0; transition: opacity 2s ease-in-out;
+    }
+    .reel-slide.reel-active::after                { opacity: 1; }
+    .reel-slide[data-mood="warm"]::after  { background: radial-gradient(ellipse at 50% 65%, rgba(200,100,60,.22)  0%, transparent 70%); }
+    .reel-slide[data-mood="cool"]::after  { background: radial-gradient(ellipse at 50% 40%, rgba(80,80,200,.18)   0%, transparent 70%); }
+    .reel-slide[data-mood="rose"]::after  { background: radial-gradient(ellipse at 50% 60%, rgba(180,90,130,.24)  0%, transparent 68%); }
     .reel-slide img {
       position: absolute; inset: 0;
       width: 100%; height: 100%; object-fit: cover;
@@ -1070,18 +1080,25 @@
       .reel-slide.kb-3 img { animation: kb3 8s ease-in-out forwards; }
       .reel-slide.kb-4 img { animation: kb4 8s ease-in-out forwards; }
       .reel-slide.kb-5 img { animation: kb5 8s ease-in-out forwards; }
+      .reel-slide.kb-6 img { animation: kb6 8s ease-in-out forwards; }
+      .reel-slide.kb-7 img { animation: kb7 8s ease-in-out forwards; }
+      .reel-slide.kb-8 img { animation: kb8 8s ease-in-out forwards; }
     }
-    @keyframes kb0 { from { transform: scale(1)    translate(0,0);     } to { transform: scale(1.13) translate(-2%,-1%);  } }
-    @keyframes kb1 { from { transform: scale(1.11) translate(2%,1%);   } to { transform: scale(1)    translate(0,0);       } }
-    @keyframes kb2 { from { transform: scale(1)    translate(-2%,1%);  } to { transform: scale(1.12) translate(2%,-1%);   } }
-    @keyframes kb3 { from { transform: scale(1.09) translate(-1%,-2%); } to { transform: scale(1)    translate(1%,2%);    } }
-    @keyframes kb4 { from { transform: scale(1)    translate(1%,-1%);  } to { transform: scale(1.11) translate(-1%,1%);   } }
-    @keyframes kb5 { from { transform: scale(1.07) translate(0,2%);    } to { transform: scale(1)    translate(0,-2%);    } }
+    /* Ken Burns v2: 9 variants — scale 1.0↔1.22, wider diagonals */
+    @keyframes kb0 { from { transform: scale(1)    translate(0,0);      } to { transform: scale(1.20) translate(-3%,-2%);  } }
+    @keyframes kb1 { from { transform: scale(1.18) translate(3%,2%);    } to { transform: scale(1)    translate(0,0);       } }
+    @keyframes kb2 { from { transform: scale(1)    translate(-3%,2%);   } to { transform: scale(1.20) translate(3%,-2%);   } }
+    @keyframes kb3 { from { transform: scale(1.16) translate(-2%,-3%);  } to { transform: scale(1)    translate(2%,3%);    } }
+    @keyframes kb4 { from { transform: scale(1)    translate(2%,-2%);   } to { transform: scale(1.20) translate(-2%,2%);   } }
+    @keyframes kb5 { from { transform: scale(1.14) translate(0,3%);     } to { transform: scale(1)    translate(0,-3%);    } }
+    @keyframes kb6 { from { transform: scale(1.22) translate(-4%,0);    } to { transform: scale(1)    translate(4%,0);     } }
+    @keyframes kb7 { from { transform: scale(1)    translate(0,2%);     } to { transform: scale(1.22) translate(0,-2%);    } }
+    @keyframes kb8 { from { transform: scale(1.10) translate(-2%,2%);   } to { transform: scale(1.22) translate(2%,-2%);   } }
     .reel-overlay {
       position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background: linear-gradient(to bottom,
-        rgba(30,28,48,.58) 0%, rgba(30,28,48,.22) 38%,
-        rgba(30,28,48,.28) 62%, rgba(30,28,48,.65) 100%);
+        rgba(20,18,38,.68) 0%, rgba(20,18,38,.16) 35%,
+        rgba(20,18,38,.20) 65%, rgba(20,18,38,.75) 100%);
     }
     .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.92); text-shadow: 0 1px 10px rgba(0,0,0,.65); }
     .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 6px rgba(0,0,0,.75), 0 4px 36px rgba(0,0,0,.55), 0 0 80px rgba(0,0,0,.30); }
@@ -1096,13 +1113,18 @@
     .hero.has-reel #hero-next-slot .slot-dot { background: rgba(250,245,240,.78); }
     .reel-progress {
       position: absolute; bottom: 0; left: 0; right: 0;
-      height: 2px; z-index: 2;
+      height: 3px; z-index: 2;
       background: rgba(250,245,240,.10);
     }
     .reel-progress-bar {
       height: 100%;
-      background: linear-gradient(90deg, rgba(250,245,240,.55) 0%, var(--champagne) 100%);
+      background: linear-gradient(90deg, rgba(250,245,240,.45) 0%, var(--champagne) 50%, rgba(220,180,200,.85) 100%);
       width: 0%;
+    }
+    .reel-counter {
+      position: absolute; bottom: 0.75rem; right: 1.5rem; z-index: 3;
+      font-size: 0.6875rem; letter-spacing: .14em; font-weight: 500;
+      color: rgba(250,245,240,.38); font-variant-numeric: tabular-nums;
     }
     .reel-mute-btn {
       position: fixed; bottom: 1.5rem; left: 1.5rem;
@@ -1327,6 +1349,7 @@
   <section class="hero has-reel" aria-labelledby="hero-heading">
     <div class="reel" id="hero-reel" aria-hidden="true"><div class="reel-overlay"></div></div>
     <div class="reel-progress" aria-hidden="true"><div class="reel-progress-bar" id="reel-progress-bar"></div></div>
+    <div class="reel-counter" id="reel-counter" aria-hidden="true" dir="ltr"></div>
     <button class="reel-mute-btn" id="reel-mute-btn" aria-label="הפעל מוזיקת רקע" aria-pressed="false">
       <svg id="reel-icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
       <svg id="reel-icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -1617,6 +1640,16 @@ const SiteConfig = {
     { src: './gallery/nail-37.jpg', alt: "ג'ל כתום ניאון מבריק — אנרגטי, קיצי ובוהק",           span2: false, hidden: true  },
   ],
 
+
+  // ── REEL (curated hero images, 6 best for full-bleed) ───────
+  reel: [
+    { src: './gallery/nail-15.jpg', mood: 'cool'    },
+    { src: './gallery/nail-30.jpg', mood: 'warm'    },
+    { src: './gallery/nail-13.jpg', mood: 'cool'    },
+    { src: './gallery/nail-27.jpg', mood: 'rose'    },
+    { src: './gallery/nail-01.jpg', mood: 'neutral' },
+    { src: './gallery/nail-22.jpg', mood: 'cool'    },
+  ],
 
   // ── FAQ ─────────────────────────────────────────────────────
   faq: [
@@ -2226,24 +2259,25 @@ function initReveal() {
 }
 
 // ── CINEMATIC HERO REEL ─────────────────────────────────────────────────────
-var REEL_DURATION = 6000;
+var REEL_DURATION = 5000;
 var REEL_FADE     = 1800;
 
 function initReel() {
   var container = document.getElementById('hero-reel');
   if (!container) return;
 
-  var images  = SiteConfig.gallery.map(function(g) { return g.src; });
-  var total   = images.length;
+  var reelCfg = SiteConfig.reel || SiteConfig.gallery.map(function(g) { return { src: g.src, mood: 'neutral' }; });
+  var total   = reelCfg.length;
   var current = 0;
   var slides  = [];
   var timer   = null;
 
-  images.forEach(function(src, i) {
+  reelCfg.forEach(function(cfg, i) {
     var div = document.createElement('div');
     div.className = 'reel-slide';
+    div.dataset.mood = cfg.mood || 'neutral';
     var img = document.createElement('img');
-    img.src = src;
+    img.src = cfg.src;
     img.alt = '';
     img.setAttribute('draggable', 'false');
     if (i > 0) img.loading = 'lazy';
@@ -2255,10 +2289,15 @@ function initReel() {
   function restartKB(slide, idx) {
     var img = slide.querySelector('img');
     img.style.animation = 'none';
-    img.getBoundingClientRect();          // sync reflow — restarts CSS animation
+    img.getBoundingClientRect();
     img.style.animation = '';
-    for (var k = 0; k < 6; k++) slide.classList.remove('kb-' + k);
-    slide.classList.add('kb-' + (idx % 6));
+    for (var k = 0; k < 9; k++) slide.classList.remove('kb-' + k);
+    slide.classList.add('kb-' + (idx % 9));
+  }
+
+  function updateCounter(idx) {
+    var counter = document.getElementById('reel-counter');
+    if (counter) counter.textContent = (idx + 1) + ' / ' + total;
   }
 
   function animateProgress() {
@@ -2275,19 +2314,27 @@ function initReel() {
   }
 
   function showSlide(idx) {
-    var prev     = current;
-    current      = (idx + total) % total;
-    var slide    = slides[current];
+    var prev      = current;
+    current       = (idx + total) % total;
+    var slide     = slides[current];
     var prevSlide = slides[prev];
 
-    // Restart KB in-place — no DOM replacement, no flash frame
+    // New slide enters
     restartKB(slide, current);
     slide.classList.add('reel-active');
+    updateCounter(current);
 
-    // Keep old slide visible through the full crossfade, then remove
+    // Old slide: cinematic exit — fade out + subtle scale-down
+    prevSlide.classList.add('reel-exiting');
+    prevSlide.classList.remove('reel-active');
+
     setTimeout(function() {
-      prevSlide.classList.remove('reel-active');
-    }, REEL_FADE + 200);
+      // Snap reset without visible reverse-animation
+      prevSlide.style.transition = 'none';
+      prevSlide.classList.remove('reel-exiting');
+      void prevSlide.offsetWidth;
+      prevSlide.style.transition = '';
+    }, REEL_FADE + 500);
 
     animateProgress();
     clearTimeout(timer);
@@ -2297,6 +2344,7 @@ function initReel() {
   var startIdx = Math.floor(Math.random() * total);
   restartKB(slides[startIdx], startIdx);
   slides[startIdx].classList.add('reel-active');
+  updateCounter(startIdx);
   animateProgress();
   timer = setTimeout(function() { showSlide(startIdx + 1); }, REEL_DURATION);
 
