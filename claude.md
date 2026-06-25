@@ -312,26 +312,7 @@ Echo-back origin (לא `*`) — נדרש עבור `credentials: 'include'`. `ADM
 
 ---
 
-# 23. AI Agent Quick-Start Protocol
-
-## Session Start
-```bash
-bash skills/utils/ai_context.sh
-```
-Run this FIRST in every session. Outputs: branch, recent commits, modified files, edge functions list, feature flags, last test result, critical rules.
-
-## After Every Edit
-```bash
-bash skills/utils/verify_change.sh [optional-file]
-```
-Checks: syntax, Deno .catch() hazard, status casing, GAS getValues(), onclick strings, git diff.
-
-## Edge Functions Map
-See `EDGE_FUNCTIONS.md` — all 31 functions with auth type, inputs, outputs, and actions.
-
----
-
-# 24. Bug Report Format
+# 23. Bug Report Format
 
 When reporting a bug, include:
 
@@ -358,14 +339,12 @@ When reporting a bug, include:
 
 ---
 
-# 25. New Feature Checklist
+# 24. New Feature Checklist
 
 לפני כל פיצ'ר חדש:
-- [ ] `bash skills/utils/ai_context.sh` — ודא שאתה על הברנץ הנכון
 - [ ] `git checkout -b feat/<name>-YYYY-MM-DD` — ברנץ חדש
-- [ ] האם צריך Edge Function חדשה? ראה `EDGE_FUNCTIONS.md` לדפוסים
+- [ ] האם צריך Edge Function חדשה? ראה `supabase/functions/` לדפוסים
 - [ ] האם צריך feature flag? הוסף ל-`feature_flags` table + `admin-flags` + Pulse UI
 - [ ] האם הפיצ'ר משפיע על SMS? בדוק quota ו-`communication_logs`
-- [ ] `bash skills/utils/verify_change.sh` אחרי כל עריכה
 - [ ] `npx playwright test tests/e2e/admin-dashboard.spec.js --headed` לפני push
 - [ ] עדכן את סעיף 20 (Changelog) ב-CLAUDE.md עם מספר גרסה ותיאור
