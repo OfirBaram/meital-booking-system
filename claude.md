@@ -309,3 +309,42 @@ Echo-back origin (לא `*`) — נדרש עבור `credentials: 'include'`. `ADM
 | v2.1.0 | 06-15 | Smart Scheduling (feature flag, gap-safe SQL, per-slot logging); admin-flags Edge Function; dual-mode session auth; הגדרות מערכת card; Deno .catch() fix |
 | v2.2.0 | 06-16 | Service catalog update: gel_hands (60m), regular_feet (30m), gel_combo (90m) — replaces gel_classic/gel_feet; skill update-services added; 18 touch-points updated |
 
+
+---
+
+# 23. Bug Report Format
+
+When reporting a bug, include:
+
+```
+קובץ/פונקציה: (e.g., admin.js / get-slots / change-status)
+שכבה:          (frontend / edge function / GAS / DB)
+סימפטום:       מה המשתמש/אדמין רואה בפועל
+צפוי:          מה אמור לקרות
+שלבים לשחזור: (1. לחץ על X, 2. ...)
+נסיון עד כה:  מה כבר ניסית
+לוגים:         console errors / Supabase logs / SMS log אם רלוונטי
+```
+
+**Example:**
+```
+קובץ/פונקציה: change-status
+שכבה:          edge function
+סימפטום:       אישור הזמנה מדשבורד לא שולח SMS ללקוח
+צפוי:          SMS "ההזמנה שלך אושרה" אמור להישלח
+שלבים לשחזור: 1. כנסי לדשבורד, 2. אשרי הזמנה pending, 3. SMS לא הגיע
+נסיון עד כה:  בדקתי SMS_LOG — הרשומה לא נוצרה
+לוגים:         Supabase Edge Function logs: TypeError: ...
+```
+
+---
+
+# 24. New Feature Checklist
+
+לפני כל פיצ'ר חדש:
+- [ ] `git checkout -b feat/<name>-YYYY-MM-DD` — ברנץ חדש
+- [ ] האם צריך Edge Function חדשה? ראה `supabase/functions/` לדפוסים
+- [ ] האם צריך feature flag? הוסף ל-`feature_flags` table + `admin-flags` + Pulse UI
+- [ ] האם הפיצ'ר משפיע על SMS? בדוק quota ו-`communication_logs`
+- [ ] `npx playwright test tests/e2e/admin-dashboard.spec.js --headed` לפני push
+- [ ] עדכן את סעיף 20 (Changelog) ב-CLAUDE.md עם מספר גרסה ותיאור
