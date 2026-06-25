@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <!-- Google tag (gtag.js) -->
@@ -253,7 +253,7 @@
       {
         "@type": "Question",
         "name": "כמה עולה לק ג'ל ברמת גן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס." }
+        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, ביט ופייבוקס." }
       },
       {
         "@type": "Question",
@@ -1638,7 +1638,7 @@ const SiteConfig = {
     },
     {
       q: "כמה עולה לק ג'ל ברמת גן?",
-      a: "המחיר תלוי בסוג הטיפול, אורך הציפורן וסוג העיצוב. לקבלת מחיר מדויק — כתבי לי בווטסאפ ואשמח לענות. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס.",
+      a: "המחיר תלוי בסוג הטיפול, אורך הציפורן וסוג העיצוב. לקבלת מחיר מדויק — כתבי לי בווטסאפ ואשמח לענות. מקבלת מזומן, ביט ופייבוקס.",
     },
     {
       q: "מה ההבדל בין לק ג'ל לג'ל נייל?",
@@ -2726,8 +2726,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <script>
 (function () {
-  var WELCOME = 'שלום! 💅\nאני הסוכנת האישית של מיטל שבע ברעם — לק ג\'ל בוטיק.\nקביעת תורים מתבצעת כעת בווטסאפ בלבד — מהיר, נוח ואישי 🌟\nבמה אוכל לעזור?';
-  var WELCOME_QR = ['קביעי תור בווטסאפ 💬', 'שירותים ומחירים', 'מיקום הסטודיו', 'שאלה כללית'];
+  var WELCOME = 'היי! 💅✨\nאני הסוכנת הדיגיטלית של מיטל שבע ברעם — סטודיו לק ג\'ל ועיצוב גבות בוטיק ברמת גן.\nיכולה לענות על שאלות לגבי שירותים, מחירים, מיקום ועוד.\nקביעת תורים מתבצעת בווטסאפ — מהיר ואישי 🌸\nאיך אוכל לעזור?';
+  var WELCOME_QR = ['שירותים ומחירים', 'קביעי תור 💬', 'כמה עולה?', 'ראי עבודות 📸'];
 
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
 
@@ -2746,7 +2746,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function parseBotContent(text, bubble) {
-    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\])/g);
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\]|\[TK\]|\[EMAIL\])/g);
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
@@ -2791,8 +2791,22 @@ document.addEventListener('DOMContentLoaded', function() {
         var ai = document.createElement('a');
         ai.href = 'https://www.instagram.com/meytal.sheva'; ai.className = 'clink ig-link';
         ai.target = '_blank'; ai.rel = 'noopener noreferrer'; ai.dir = 'rtl';
-        ai.textContent = '📸 ראי את הגלריה שלי';
+        ai.textContent = '📸 אינסטגרם שלי';
         bubble.appendChild(ai);
+      } else if (p === '[TK]') {
+        bubble.appendChild(document.createElement('br'));
+        var atk = document.createElement('a');
+        atk.href = 'https://www.tiktok.com/@meytal.sheva'; atk.className = 'clink tk-link';
+        atk.target = '_blank'; atk.rel = 'noopener noreferrer'; atk.dir = 'rtl';
+        atk.textContent = '🎵 טיקטוק שלי';
+        bubble.appendChild(atk);
+      } else if (p === '[EMAIL]') {
+        bubble.appendChild(document.createElement('br'));
+        var aem = document.createElement('a');
+        aem.href = 'mailto:meital_sheva7@hotmail.com'; aem.className = 'clink email-link';
+        aem.dir = 'rtl';
+        aem.textContent = '✉️ meital_sheva7@hotmail.com';
+        bubble.appendChild(aem);
       } else {
         bubble.appendChild(document.createTextNode(p));
       }
@@ -2901,4 +2915,310 @@ document.addEventListener('DOMContentLoaded', function() {
     var out = [];
     for (var i = 0; i < h.length; i++) {
       var expected = out.length % 2 === 0 ? 'user' : 'assistant';
- 
+      if (h[i].role === expected && typeof h[i].content === 'string' && h[i].content.length > 0) out.push(h[i]);
+    }
+    if (out.length > 0 && out[out.length - 1].role === 'user') out.pop();
+    return out;
+  }
+
+  var LSK = 'chat_hist_v1';
+
+  var LOCAL_INTENTS = [
+    { kw: ['להזמין','לזמן','קביעה','לקבוע','תור','הזמנה','קביעי תור','קביעי','לתאם','אפשר לבוא'], id: 'booking' },
+    { kw: ['פנוי','זמין','יש מקום','זמינות','מתי אפשר','מתי יש','מקום פנוי'], id: 'avail' },
+    { kw: ['שירות','טיפול','מה יש','מציעה',"ג'ל",'לק','ציפורן','מה את עושה','גבות','שפם','רגליים','ידיים','שירותים ומחירים'], id: 'services' },
+    { kw: ['מחיר','עלות','עולה','כמה זה','כסף','כמה עולה','תמחור','כמה עולה?'], id: 'prices' },
+    { kw: ['כמה זמן','משך','ארוך','לוקח','שעה','דקות','כמה זמן לוקח?'], id: 'duration' },
+    { kw: ['שעות','פתוח','סגור','עובדת','מתי את','מתי פ','ראשון','שני','שלישי'], id: 'hours' },
+    { kw: ['כתובת','איפה','מיקום','מגיעים','ניווט','לאן','מיקום הסטודיו'], id: 'location' },
+    { kw: ['ביטול','לבטל','לשנות','שינוי','להזיז','לדחות'], id: 'cancel' },
+    { kw: ['ואטסאפ','whatsapp','טלפון','קשר','להתקשר','לכתוב','פרטי קשר'], id: 'contact' },
+    { kw: ['אינסטגרם','instagram','insta','אינסטה','עבודות','גלריה','תמונות','ראי עבודות'], id: 'instagram' },
+    { kw: ['טיקטוק','tiktok','סרטון','סרטונים'], id: 'tiktok' },
+    { kw: ['מייל','email','mail','אימייל'], id: 'email' },
+    { kw: ['תשלום','אשראי','מזומן','ביט','פייבוקס','כרטיס','לשלם'], id: 'payment' },
+    { kw: ['מחזיק','לכמה זמן','אחרי הטיפול','תחזוקה','ימים','שבועות','כמה מחזיק'], id: 'care' },
+    { kw: ['להתכונן','מה צריך','מה להביא','ביקור ראשון','פעם ראשונה','הכנה'], id: 'prepare' },
+    { kw: ["עיצוב","צבע","גוון","רעיון","מה לבחור","השראה","נייל ארט","פרנץ","אומברה","גלייטר"], id: 'design' },
+    { kw: ['תודה','תנקיו','יופי','סבבה','מעולה','ברור','אחלה'], id: 'thanks' },
+    { kw: ['שלום','היי','הי ','בוקר','ערב','צהריים','אהלן','שאלה כללית'], id: 'greeting' },
+  ];
+
+  var LOCAL_RESPONSES = {
+    booking: {
+      text: 'כמובן! 💅 קביעת תורים מתבצעת אצלי בווטסאפ — זה הכי מהיר ואישי.
+שלחי לי הודעה ואחזור אלייך במהרה 🌸
+[WA]',
+      qr: ['שירותים ומחירים', 'כמה עולה?']
+    },
+    avail: {
+      text: 'לבדיקת תאריכים פנויים — כתבי לי בווטסאפ ואעדכן אותך מיד 🗓️
+בדרך כלל יש מקומות תוך כמה ימים!
+[WA]',
+      qr: ['שירותים ומחירים', 'כמה עולה?']
+    },
+    services: {
+      text: "הנה מה שאני מציעה:
+
+💅 לק ג'ל ידיים — 60 דקות
+🦶 לק ג'ל רגליים — 30 דקות
+✨ גל קומבו (ידיים + רגליים) — 90 דקות
+🪴 עיצוב גבות ושפם — ניתן לשלב!
+
+לתיאום תור:
+[WA]",
+      qr: ['כמה עולה?', 'כמה זמן לוקח?', 'קביעי תור 💬']
+    },
+    prices: {
+      text: 'המחירים תלויים בסוג הטיפול ובאורך הציפורן 💅
+למחיר מדויק — שלחי לי הודעה קצרה ואחזור אלייך!
+[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור 💬']
+    },
+    duration: {
+      text: "כך נמשכים הטיפולים:
+
+💅 לק ג'ל ידיים — ~60 דקות
+🦶 לק ג'ל רגליים — ~30 דקות
+✨ גל קומבו — ~90 דקות
+
+כל ביקור כולל גם זמן פינוק ואווירה מפנקת ☕",
+      qr: ['כמה עולה?', 'קביעי תור 💬']
+    },
+    hours: {
+      text: 'השעות משתנות לפי הזמנה אישית — כדי להבטיח לכל לקוחה זמן ותשומת לב מלאה 🌸
+לבדיקת זמינות:
+[WA]',
+      qr: ['קביעי תור 💬', 'מיקום הסטודיו']
+    },
+    location: {
+      text: 'הסטודיו ממוקם ברמת גן 📍
+נגיש בנסיעה מתל אביב, גבעתיים, פתח תקווה ובני ברק.
+אשלח את הכתובת המדויקת בווטסאפ אחרי שנתאם תור:
+[WA]',
+      qr: ['קביעי תור 💬', 'שירותים ומחירים']
+    },
+    cancel: {
+      text: 'בכיף! לביטול או שינוי מועד — שלחי לי הודעה בווטסאפ ואסדר עבורך מיד 😊
+[WA]',
+      qr: ['שאלה כללית']
+    },
+    contact: {
+      text: 'הכי מהיר? ווטסאפ 💬
+[WA]
+אפשר גם במייל:
+[EMAIL]
+או לעקוב ולשאול באינסטגרם:
+[IG]',
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    instagram: {
+      text: 'בטח 📸 באינסטגרם מעלימה עיצובים חדשים כל הזמן!
+[IG]
+
+ואם מרגישה בא לך לקבוע — אני פה 💅
+[WA]',
+      qr: ['קביעי תור 💬', 'שירותים ומחירים']
+    },
+    tiktok: {
+      text: 'יש לי גם טיקטוק! 🍗 שם מצלמת תהליכים, עיצובים ורגעים מהסטודיו.
+[TK]
+
+באינסטגרם יש עוד עבודות:
+[IG]',
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    email: {
+      text: 'כמובן! אפשר לפנות אליי גם במייל:
+[EMAIL]
+
+אבל הכי מהיר זה ווטסאפ — שם אני הכי זמינה 😊
+[WA]',
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    payment: {
+      text: 'מקבלת תשלום במזומן, ביט ופייבוקס 💰
+לא מקבלת כרטיסי אשראי — מזומן דיגיטלי (ביט/פייבוקס) זה הכי נוח!
+
+שאלות נוספות?
+[WA]',
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    care: {
+      text: "לק ג'ל איכותי מחזיק 3–4 שבועות ✨
+כמה טיפים לשמירה על התוצאה:
+
+• מרחי קרם ידיים + שמן קוטיקולות כל יום
+• הימנעי ממגע ממושך עם מים לפחות 2 שעות אחרי הטיפול
+• אל תשתמשי בציפורניים ככלי 😄
+
+לתור הבא:
+[WA]",
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    prepare: {
+      text: 'בכלל לא צריך להכין כלום! 😊
+מגיעים כרגיל — לק ישן מורידים בסטודיו.
+מומלץ להגיע עם ציפורניים נקיות ויבשות.
+
+רוצה לקבוע?
+[WA]',
+      qr: ['קביעי תור 💬', 'שירותים ומחירים']
+    },
+    design: {
+      text: "אני אוהבת עיצובים! 🎨 פרנץ', ניוד, אומברה, גלייטר, נייל-ארט, שיש — הכל אפשרי.
+הכי כיף כשמביאים תמונת השראה 📱
+
+באינסטגרם יש הרבה דוגמאות:
+[IG]
+
+לתיאום עיצוב מיוחד:
+[WA]",
+      qr: ['קביעי תור 💬', 'שאלה כללית']
+    },
+    thanks: {
+      text: 'בשמחה! 🌸 תמיד כיף לשמוע.
+מחכה לראות אותך בסטודיו בקרוב 💅
+[WA]',
+      qr: ['שאלה כללית']
+    },
+    greeting: {
+      text: 'היי! 😊 שמחה שפנית.
+אני כאן לעזור עם שאלות לגבי שירותים, מחירים, מיקום ועוד!
+קביעת תורים מתבצעת בווטסאפ 🌸
+[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור 💬', 'כמה עולה?']
+    },
+    fallback: {
+      text: 'שאלה טובה! 😊 לא תמיד אני מספיקה לכסות הכל — הכי נוח לשאול את מיטל ישירות:
+[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור 💬']
+    },
+  };
+
+  function matchLocalIntent(text) {
+    var t = text.toLowerCase().replace(/[?!.,;]/g, '');
+    for (var i = 0; i < LOCAL_INTENTS.length; i++) {
+      var kws = LOCAL_INTENTS[i].kw;
+      for (var j = 0; j < kws.length; j++) {
+        if (t.indexOf(kws[j].toLowerCase()) !== -1) return LOCAL_INTENTS[i].id;
+      }
+    }
+    return 'fallback';
+  }
+
+  function sendLocal(userText) {
+    var id = matchLocalIntent(userText);
+    var r = LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+    var typingRow = showTyping();
+    setTimeout(function() {
+      if (typingRow) typingRow.remove();
+      lastRole = null;
+      addRow('bot', r.text, r.qr);
+    }, 700);
+  }
+
+  function send() {
+    if (sending) return;
+    var inp = document.getElementById('chat-input');
+    var txt = inp ? inp.value.trim() : '';
+    if (!txt) return;
+
+    haptic();
+    inp.value = ''; autoResize(inp);
+    inp.focus();
+
+    addRow('user', txt);
+    document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
+    sendLocal(txt);
+  }
+
+  function openPanel() {
+    if (isOpen) return; isOpen = true;
+    unread = 0;
+    var badge = document.getElementById('chat-badge');
+    if (badge) badge.hidden = true;
+
+    var panel = document.getElementById('chat-panel');
+    var wrap  = document.getElementById('chat-messages');
+    panel.hidden = false;
+    panel.classList.add('chat-in');
+    setTimeout(function() { panel.classList.remove('chat-in'); }, 350);
+
+    if (wrap && wrap.children.length === 0) {
+      lastRole = null;
+      load();
+      if (hist.length > 0) {
+        hist.forEach(function(m) {
+          if (m.role === 'user') { lastRole = null; addRow('user', m.content, null, true); }
+          else { addRow('bot', m.content, null, true); }
+        });
+      } else {
+        addRow('bot', WELCOME, WELCOME_QR);
+      }
+    }
+
+    var inp = document.getElementById('chat-input');
+    if (inp) inp.focus();
+  }
+
+  function closePanel() {
+    if (!isOpen) return; isOpen = false;
+    var p = document.getElementById('chat-panel');
+    if (p) { p.hidden = true; p.style.bottom = ''; p.style.height = ''; p.style.maxHeight = ''; }
+    var b = document.getElementById('chat-bubble'); if (b) b.focus();
+  }
+
+  function bindVisualViewport() {
+    var vv = window.visualViewport;
+    if (!vv || window.innerWidth > 480) return;
+    var panel = document.getElementById('chat-panel');
+    if (!panel) return;
+    function onVVChange() {
+      if (!isOpen || panel.hidden) return;
+      requestAnimationFrame(function() {
+        var kbH = window.innerHeight - vv.offsetTop - vv.height;
+        panel.style.bottom = (kbH > 0 ? kbH : 0) + 'px';
+        var maxH = vv.height - 16;
+        panel.style.height = maxH + 'px';
+        panel.style.maxHeight = maxH + 'px';
+        var msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'instant' });
+      });
+    }
+    vv.addEventListener('resize',  onVVChange, { passive: true });
+    vv.addEventListener('scroll',  onVVChange, { passive: true });
+  }
+
+  function init() {
+    var bubble = document.getElementById('chat-bubble');
+    bubble.addEventListener('click', openPanel);
+    bubble.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
+    });
+    document.getElementById('chat-close').addEventListener('click', closePanel);
+    document.getElementById('chat-send').addEventListener('click', send);
+
+    var inp = document.getElementById('chat-input');
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    inp.addEventListener('input', function() { autoResize(this); });
+
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closePanel(); });
+    bindVisualViewport();
+  }
+
+  function lazyInit() {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(init, { timeout: 2000 });
+    } else { setTimeout(init, 0); }
+  }
+  if (document.readyState === 'complete') { lazyInit(); }
+  else { window.addEventListener('load', lazyInit, { once: true }); }
+}());
+</script>
+<script type="importmap">{ "imports": { "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
+<script type="module" src="./landing-analytics.js"></script>
+</body>
+</html>
