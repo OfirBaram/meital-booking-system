@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     has_saved_client: !!localStorage.getItem('meital_client'),
   });
 
-  // Global click delegation — covers all dynamically-rendered elements
+  // ── Global click delegation ─────────────────────────────────────────────────
   document.body.addEventListener('click', e => {
     const el = e.target.closest('a, button');
     if (!el) return;
@@ -65,18 +65,43 @@ document.addEventListener('DOMContentLoaded', () => {
       if (platform) trackEvent('social_clicked', { platform });
       return;
     }
+    // Contact: phone link
+    if (href.startsWith('tel:')) {
+      trackEvent('contact_phone_clicked');
+      return;
+    }
+    // Contact: email link
+    if (href.startsWith('mailto:')) {
+      trackEvent('contact_email_clicked');
+      return;
+    }
+    // Gallery CTA button (below gallery grid — separate from lightbox WA)
+    if (el.classList.contains('gallery-cta-btn')) {
+      trackEvent('gallery_cta_clicked');
+      return;
+    }
+    // Lightbox close button
+    if (el.id === 'lb-close') {
+      trackEvent('lightbox_closed');
+      return;
+    }
+    // Lightbox prev / next navigation
+    if (el.id === 'lb-prev' || el.id === 'lb-next') {
+      trackEvent('lightbox_navigated', { direction: el.id === 'lb-prev' ? 'prev' : 'next' });
+      return;
+    }
   });
 
-  // Mobile hamburger menu open
+  // ── Mobile menu open / close ────────────────────────────────────────────────
   const menuBtn = document.getElementById('menu-btn');
   if (menuBtn) {
     menuBtn.addEventListener('click', () => {
       const willOpen = menuBtn.getAttribute('aria-expanded') !== 'true';
-      if (willOpen) trackEvent('mobile_menu_opened');
+      trackEvent(willOpen ? 'mobile_menu_opened' : 'mobile_menu_closed');
     });
   }
 
-  // Gallery lightbox — track which photo the user opens
+  // ── Gallery lightbox: which photo the user opens ────────────────────────────
   const galleryGrid = document.getElementById('gallery-grid');
   if (galleryGrid) {
     galleryGrid.addEventListener('click', e => {
@@ -91,37 +116,103 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Process section — fires once when 50% of the section is visible
-  const processSection = document.getElementById('process');
-  if (processSection) {
-    new IntersectionObserver((entries, obs) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          trackEvent('process_section_viewed');
-          obs.disconnect();
-        }
-      });
-    }, { threshold: 0.5 }).observe(processSection);
-  }
-
-  // Testimonials section — fires once when 50% is visible
-  const testimonialsSection = document.getElementById('testimonials');
-  if (testimonialsSection) {
-    new IntersectionObserver((entries, obs) => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          trackEvent('testimonials_section_viewed');
-          obs.disconnect();
-        }
-      });
-    }, { threshold: 0.5 }).observe(testimonialsSection);
-  }
-
-  // Gallery "show more" button — delegated, button is rendered after init
+  // ── Gallery "show more" button ──────────────────────────────────────────────
   document.addEventListener('click', e => {
     if (e.target.closest('.gallery-more-btn')) {
       trackEvent('gallery_load_more_clicked');
     }
   });
 
+  // ── Section scroll visibility (IntersectionObserver) ───────────────────────
+  [
+    ['process',      'process_section_viewed'],
+    ['testimonials', 'testimonials_section_viewed'],
+  ].forEach(([id, event]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) { trackEvent(event); obs.disconnect(); }
+      });
+    }, { threshold: 0.5 }).observe(el);
+  });
+
+  // ── Reel mute / unmute ──────────────────────────────────────────────────────
+  // aria-pressed="false" = sound OFF; "true" = sound ON.
+  // Microtask ensures the reel's own click handler updates aria-pressed first.
+  const reelMuteBtn = document.getElementById('reel-mute-btn');
+  if (reelMuteBtn) {
+    reelMuteBtn.addEventListener('click', () => {
+      Promise.resolve().then(() => {
+        const nowOn = reelMuteBtn.getAttribute('aria-pressed') === 'true';
+        trackEvent(nowOn ? 'reel_unmuted' : 'reel_muted');
+      });
+    });
+  }
+
+  // ── FAQ accordion ───────────────────────────────────────────────────────────
+  // 'toggle' on <details> does not bubble — capture phase on the container.
+  const faqList = document.getElementById('faq-list');
+  if (faqList) {
+    faqList.addEventListener('toggle', e => {
+      const details = e.target.closest('details');
+      if (!details || !details.open) return;
+      const question = details.querySelector('summary')?.textContent?.trim() || '';
+      trackEvent('faq_item_opened', { question });
+    }, true);
+  }
+
+  // ── Scroll depth (25 / 50 / 75 / 100 %) ────────────────────────────────────
+  const depthFired = new Set();
+  const depthThresholds = [25, 50, 75, 100];
+
+  function checkScrollDepth() {
+    const scrolled = window.scrollY + window.innerHeight;
+    const total    = document.documentElement.scrollHeight;
+    const pct      = Math.floor((scrolled / total) * 100);
+
+    for (const t of depthThresholds) {
+      if (pct >= t && !depthFired.has(t)) {
+        depthFired.add(t);
+        trackEvent('scroll_depth', { depth: t });
+      }
+    }
+    if (depthFired.size === depthThresholds.length) {
+      window.removeEventListener('scroll', checkScrollDepth);
+    }
+  }
+  window.addEventListener('scroll', checkScrollDepth, { passive: true });
+
+  // ── Chatbot ─────────────────────────────────────────────────────────────────
+  const chatBubble = document.getElementById('chat-bubble');
+  const chatClose  = document.getElementById('chat-close');
+  const chatSend   = document.getElementById('chat-send');
+  const chatInput  = document.getElementById('chat-input');
+  const chatMsgs   = document.getElementById('chat-messages');
+
+  if (chatBubble) {
+    chatBubble.addEventListener('click', () => trackEvent('chat_opened'));
+  }
+  if (chatClose) {
+    chatClose.addEventListener('click', () => trackEvent('chat_closed'));
+  }
+
+  // Track message send via button click or Enter key
+  function trackChatSend() {
+    const msg = chatInput?.value?.trim();
+    if (msg) trackEvent('chat_message_sent', { message_length: msg.length });
+  }
+  if (chatSend)  chatSend.addEventListener('click', trackChatSend);
+  if (chatInput) {
+    chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) trackChatSend();
+    });
+  }
+
+  // WA escalation links are injected dynamically into #chat-messages by the bot
+  if (chatMsgs) {
+    chatMsgs.addEventListener('click', e => {
+      if (e.target.closest('.wa-link')) trackEvent('chat_escalated_to_wa');
+    });
+  }
 });

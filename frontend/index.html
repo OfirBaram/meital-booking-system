@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
   <!-- Google tag (gtag.js) -->
@@ -238,7 +238,7 @@
       {
         "@type": "Question",
         "name": "האם ההסרה פוגעת בציפורן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
+        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
       },
       {
         "@type": "Question",
@@ -253,7 +253,7 @@
       {
         "@type": "Question",
         "name": "כמה עולה לק ג'ל ברמת גן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס." }
+        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, ביט ופייבוקס." }
       },
       {
         "@type": "Question",
@@ -268,7 +268,7 @@
       {
         "@type": "Question",
         "name": "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
-        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
+        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. ניתן לשלב לק ג'ל לידיים עם עיצוב גבות ושפם — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
       },
       {
         "@type": "Question",
@@ -647,31 +647,95 @@
       pointer-events: none;
     }
 
-    /* ── SERVICES ── */
+    /* ── SERVICES v2 — dark editorial panels ── */
     .services-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 1.25rem;
-      margin-top: 3rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 3.5rem;
+    }
+    @media (max-width: 640px) {
+      .services-grid { grid-template-columns: 1fr; }
     }
     .service-card {
-      padding: 2rem 1.75rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      transition: border-color .3s, box-shadow .3s;
+      position: relative; overflow: hidden;
+      padding: 3rem 2.5rem 2.5rem;
+      background: linear-gradient(148deg, #1a1826 0%, #2b1821 100%);
+      border: 1px solid rgba(166,124,142,.15);
+      border-radius: 3px;
+      min-height: 400px;
+      display: flex; flex-direction: column;
+      cursor: default;
+      transition: border-color .4s ease,
+                  transform .4s cubic-bezier(.22,1,.36,1),
+                  box-shadow .4s ease;
+    }
+    .service-card::before {
+      content: attr(data-num);
+      position: absolute; top: -1.5rem; right: -0.5rem;
+      font-family: 'Assistant', sans-serif;
+      font-size: 13rem; font-weight: 800; line-height: 1;
+      letter-spacing: -.04em;
+      color: #fff; opacity: 0.04;
+      pointer-events: none; user-select: none;
+      direction: ltr;
+    }
+    .service-card::after {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--champagne) 100%);
+      opacity: 0;
+      transition: opacity .4s ease;
+    }
+    .service-card:nth-child(2) {
+      background: linear-gradient(148deg, #1a1826 0%, #231d10 100%);
+    }
+    .service-card:nth-child(2)::after {
+      background: linear-gradient(90deg, var(--champagne) 0%, rgba(221,195,165,.55) 100%);
     }
     .service-card:hover {
-      border-color: var(--champagne);
-      box-shadow: 0 8px 32px -12px rgba(166,124,142,.18);
+      border-color: rgba(166,124,142,.42);
+      transform: translateY(-5px);
+      box-shadow: 0 24px 64px -20px rgba(0,0,0,.55),
+                  0 6px 24px -8px rgba(166,124,142,.22);
     }
-    .service-number {
+    .service-card:hover::after { opacity: 1; }
+    .service-top-row {
+      display: flex; align-items: center;
+      margin-bottom: 1.875rem; position: relative;
+    }
+    .service-duration-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .3rem 1rem;
+      border: 1px solid rgba(221,195,165,.28);
+      border-radius: 50px;
+      font-size: .75rem; letter-spacing: .12em; font-weight: 500;
+      color: rgba(221,195,165,.72);
+    }
+    .service-duration-badge svg { opacity: .7; flex-shrink: 0; }
+    .service-title {
       font-family: 'Assistant', sans-serif;
-      font-size: 2rem; font-weight: 300;
-      color: var(--champagne); display: block; margin-bottom: .75rem;
+      font-size: clamp(1.75rem, 3.2vw, 2.25rem);
+      font-weight: 300; line-height: 1.2;
+      color: #FAF5F0; margin: 0 0 1.25rem;
+      position: relative;
     }
-    .service-title { font-size: 1.125rem; font-weight: 600; color: var(--charcoal); margin: 0 0 .375rem; }
-    .service-meta  { font-size: .8125rem; color: var(--muted); margin: 0 0 .875rem; }
-    .service-desc  { font-size: .9375rem; color: var(--muted); line-height: 1.75; margin: 0; }
+    .service-title em { font-style: italic; color: var(--champagne); font-weight: 300; }
+    .service-divider {
+      width: 2.5rem; height: 1px;
+      background: rgba(221,195,165,.22);
+      margin: 0 0 1.25rem; border: none;
+    }
+    .service-desc {
+      font-size: .9375rem; color: rgba(250,245,240,.55);
+      line-height: 1.9; margin: 0; flex: 1; position: relative;
+    }
+    .service-cta-row {
+      margin-top: 2.25rem; display: flex; align-items: center; gap: 1rem;
+      position: relative;
+    }
+    .service-number { display: none; }
+    .service-meta   { display: none; }
 
     /* ── GALLERY MASONRY ─────────────────────────────────────── */
     .gallery-masonry {
@@ -689,23 +753,22 @@
       }
     }
     .service-book-btn {
-      display: inline-block;
-      margin-top: 1rem;
-      padding: .45rem 1.1rem;
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .7rem 1.75rem;
       background: transparent;
-      border: 1px solid var(--primary);
-      border-radius: 2rem;
-      color: var(--primary);
-      font-size: .8125rem;
-      font-weight: 500;
-      letter-spacing: .04em;
+      border: 1px solid rgba(166,124,142,.45);
+      border-radius: 50px;
+      color: rgba(250,245,240,.82);
+      font-size: .875rem; font-weight: 500; letter-spacing: .04em;
       text-decoration: none;
-      transition: background .2s, color .2s;
+      transition: background .25s, border-color .25s, color .25s, transform .2s;
     }
     .service-book-btn:hover,
     .service-book-btn:focus-visible {
       background: var(--primary);
-      color: #fff;
+      border-color: var(--primary);
+      color: #FAF5F0;
+      transform: translateX(-2px);
     }
 
     .gallery-item {
@@ -1053,11 +1116,21 @@
     }
     .reel-slide {
       position: absolute; inset: 0;
-      opacity: 0;
-      transition: opacity 1.8s ease-in-out;
-      will-change: opacity;
+      opacity: 0; transform: scale(1);
+      transition: opacity 1.8s ease-in-out, transform 1.8s ease-in-out;
+      will-change: opacity, transform;
     }
-    .reel-slide.reel-active { opacity: 1; }
+    .reel-slide.reel-active  { opacity: 1;  transform: scale(1);    }
+    .reel-slide.reel-exiting { opacity: 0;  transform: scale(0.97); }
+    /* Per-slide colour mood tint (sits below the vignette overlay) */
+    .reel-slide::after {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0; transition: opacity 2s ease-in-out;
+    }
+    .reel-slide.reel-active::after                { opacity: 1; }
+    .reel-slide[data-mood="warm"]::after  { background: radial-gradient(ellipse at 50% 65%, rgba(200,100,60,.22)  0%, transparent 70%); }
+    .reel-slide[data-mood="cool"]::after  { background: radial-gradient(ellipse at 50% 40%, rgba(80,80,200,.18)   0%, transparent 70%); }
+    .reel-slide[data-mood="rose"]::after  { background: radial-gradient(ellipse at 50% 60%, rgba(180,90,130,.24)  0%, transparent 68%); }
     .reel-slide img {
       position: absolute; inset: 0;
       width: 100%; height: 100%; object-fit: cover;
@@ -1070,18 +1143,25 @@
       .reel-slide.kb-3 img { animation: kb3 8s ease-in-out forwards; }
       .reel-slide.kb-4 img { animation: kb4 8s ease-in-out forwards; }
       .reel-slide.kb-5 img { animation: kb5 8s ease-in-out forwards; }
+      .reel-slide.kb-6 img { animation: kb6 8s ease-in-out forwards; }
+      .reel-slide.kb-7 img { animation: kb7 8s ease-in-out forwards; }
+      .reel-slide.kb-8 img { animation: kb8 8s ease-in-out forwards; }
     }
-    @keyframes kb0 { from { transform: scale(1)    translate(0,0);     } to { transform: scale(1.13) translate(-2%,-1%);  } }
-    @keyframes kb1 { from { transform: scale(1.11) translate(2%,1%);   } to { transform: scale(1)    translate(0,0);       } }
-    @keyframes kb2 { from { transform: scale(1)    translate(-2%,1%);  } to { transform: scale(1.12) translate(2%,-1%);   } }
-    @keyframes kb3 { from { transform: scale(1.09) translate(-1%,-2%); } to { transform: scale(1)    translate(1%,2%);    } }
-    @keyframes kb4 { from { transform: scale(1)    translate(1%,-1%);  } to { transform: scale(1.11) translate(-1%,1%);   } }
-    @keyframes kb5 { from { transform: scale(1.07) translate(0,2%);    } to { transform: scale(1)    translate(0,-2%);    } }
+    /* Ken Burns v2: 9 variants — scale 1.0↔1.22, wider diagonals */
+    @keyframes kb0 { from { transform: scale(1)    translate(0,0);      } to { transform: scale(1.20) translate(-3%,-2%);  } }
+    @keyframes kb1 { from { transform: scale(1.18) translate(3%,2%);    } to { transform: scale(1)    translate(0,0);       } }
+    @keyframes kb2 { from { transform: scale(1)    translate(-3%,2%);   } to { transform: scale(1.20) translate(3%,-2%);   } }
+    @keyframes kb3 { from { transform: scale(1.16) translate(-2%,-3%);  } to { transform: scale(1)    translate(2%,3%);    } }
+    @keyframes kb4 { from { transform: scale(1)    translate(2%,-2%);   } to { transform: scale(1.20) translate(-2%,2%);   } }
+    @keyframes kb5 { from { transform: scale(1.14) translate(0,3%);     } to { transform: scale(1)    translate(0,-3%);    } }
+    @keyframes kb6 { from { transform: scale(1.22) translate(-4%,0);    } to { transform: scale(1)    translate(4%,0);     } }
+    @keyframes kb7 { from { transform: scale(1)    translate(0,2%);     } to { transform: scale(1.22) translate(0,-2%);    } }
+    @keyframes kb8 { from { transform: scale(1.10) translate(-2%,2%);   } to { transform: scale(1.22) translate(2%,-2%);   } }
     .reel-overlay {
       position: absolute; inset: 0; z-index: 1; pointer-events: none;
       background: linear-gradient(to bottom,
-        rgba(30,28,48,.58) 0%, rgba(30,28,48,.22) 38%,
-        rgba(30,28,48,.28) 62%, rgba(30,28,48,.65) 100%);
+        rgba(20,18,38,.68) 0%, rgba(20,18,38,.16) 35%,
+        rgba(20,18,38,.20) 65%, rgba(20,18,38,.75) 100%);
     }
     .hero.has-reel .hero-eyebrow  { color: rgba(250,245,240,.92); text-shadow: 0 1px 10px rgba(0,0,0,.65); }
     .hero.has-reel .hero-title    { color: #FAF5F0; text-shadow: 0 2px 6px rgba(0,0,0,.75), 0 4px 36px rgba(0,0,0,.55), 0 0 80px rgba(0,0,0,.30); }
@@ -1096,13 +1176,18 @@
     .hero.has-reel #hero-next-slot .slot-dot { background: rgba(250,245,240,.78); }
     .reel-progress {
       position: absolute; bottom: 0; left: 0; right: 0;
-      height: 2px; z-index: 2;
+      height: 3px; z-index: 2;
       background: rgba(250,245,240,.10);
     }
     .reel-progress-bar {
       height: 100%;
-      background: linear-gradient(90deg, rgba(250,245,240,.55) 0%, var(--champagne) 100%);
+      background: linear-gradient(90deg, rgba(250,245,240,.45) 0%, var(--champagne) 50%, rgba(220,180,200,.85) 100%);
       width: 0%;
+    }
+    .reel-counter {
+      position: absolute; bottom: 0.75rem; right: 1.5rem; z-index: 3;
+      font-size: 0.6875rem; letter-spacing: .14em; font-weight: 500;
+      color: rgba(250,245,240,.38); font-variant-numeric: tabular-nums;
     }
     .reel-mute-btn {
       position: fixed; bottom: 1.5rem; left: 1.5rem;
@@ -1243,9 +1328,8 @@
     <p>סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן. חוויה אישית ומפנקת, תוצאות שמחזיקות 3–4 שבועות. קביעת תור בווטסאפ: 054-768-6865.</p>
     <h2>שירותים — לק ג'ל ועיצוב ציפורניים</h2>
     <ul>
-      <li><strong>לק ג'ל לידיים</strong> — 60 דקות. מחזיק 3–4 שבועות.</li>
-      <li><strong>לק ג'ל לרגליים</strong> — 30 דקות. גמר מבריק ועמיד.</li>
-      <li><strong>לק ג'ל ידיים + רגליים</strong> — 90 דקות. חבילה מלאה.</li>
+      <li><strong>לק ג'ל ידיים</strong> — מחזיק 3–4 שבועות.</li>
+      <li><strong>עיצוב גבות ושפם</strong> — תוצאה מסוגננת ומדויקת.</li>
     </ul>
     <h2>מיקום — סטודיו רמת גן</h2>
     <address>
@@ -1327,6 +1411,7 @@
   <section class="hero has-reel" aria-labelledby="hero-heading">
     <div class="reel" id="hero-reel" aria-hidden="true"><div class="reel-overlay"></div></div>
     <div class="reel-progress" aria-hidden="true"><div class="reel-progress-bar" id="reel-progress-bar"></div></div>
+    <div class="reel-counter" id="reel-counter" aria-hidden="true" dir="ltr"></div>
     <button class="reel-mute-btn" id="reel-mute-btn" aria-label="הפעל מוזיקת רקע" aria-pressed="false">
       <svg id="reel-icon-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
       <svg id="reel-icon-sound" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
@@ -1401,11 +1486,10 @@
   <!-- ── SERVICES ── -->
   <section id="services" class="section bg-lp" aria-labelledby="services-heading">
     <div class="section-inner">
-      <p class="section-label reveal" aria-hidden="true">שירותים</p>
-      <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
-      <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
-        שני שירותים מדויקים ברמה הגבוהה ביותר — לק ג'ל לידיים ועיצוב גבות ושפם.
-        כל טיפול מותאם אישית לכל לקוחה עם תוצאה מושלמת.
+      <p class="section-label reveal" aria-hidden="true">הטיפולים שלי</p>
+      <h2 class="section-title reveal" id="services-heading">שני טיפולים.<br />שלמות בכל אחד.</h2>
+      <p class="reveal" style="color:var(--muted); max-width:520px; line-height:1.85; margin-bottom:0;">
+        כל לקוחה מקבלת שעת טיפול שלמה עם תשומת לב מלאה. לא שרשרת ייצור — בוטיק.
       </p>
 
       <div class="services-grid" id="services-grid" role="list">
@@ -1567,13 +1651,13 @@ const SiteConfig = {
       num:   '01',
       title: "ג'ל ידיים",
       meta:  '60 דקות',
-      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
+      desc:  "הכל מתחיל מהכנה נכונה. ציפורן מוכנה, עיצוב שמדייק את הצורה, ואפייה שמשמרת את הברק — לתוצאה שמחזיקה 3–4 שבועות ונראית כאילו נעשתה הבוקר.",
     },
     {
       num:   '02',
       title: 'עיצוב גבות ושפם',
       meta:  '15 דקות',
-      desc:  'עיצוב גבות ועיצוב שפם בשיטת ווקס — תוצאה נקייה, מסוגננת ומדויקת.',
+      desc:  'גבות שמסגרות את הפנים אינן מקריות — הן מדודות. עיצוב מדויק בשיטת ווקס שמביא את הקשת הנכונה, לפנים שלך.',
     },
   ],
 
@@ -1618,6 +1702,16 @@ const SiteConfig = {
   ],
 
 
+  // ── REEL (curated hero images, 6 best for full-bleed) ───────
+  reel: [
+    { src: './gallery/nail-15.jpg', mood: 'cool'    },
+    { src: './gallery/nail-30.jpg', mood: 'warm'    },
+    { src: './gallery/nail-13.jpg', mood: 'cool'    },
+    { src: './gallery/nail-27.jpg', mood: 'rose'    },
+    { src: './gallery/nail-01.jpg', mood: 'neutral' },
+    { src: './gallery/nail-22.jpg', mood: 'cool'    },
+  ],
+
   // ── FAQ ─────────────────────────────────────────────────────
   faq: [
     {
@@ -1626,7 +1720,7 @@ const SiteConfig = {
     },
     {
       q: "האם ההסרה פוגעת בציפורן?",
-      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
+      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
     },
     {
       q: "האם צריך לקבוע תור מראש?",
@@ -1638,7 +1732,7 @@ const SiteConfig = {
     },
     {
       q: "כמה עולה לק ג'ל ברמת גן?",
-      a: "המחיר תלוי בסוג הטיפול, אורך הציפורן וסוג העיצוב. לקבלת מחיר מדויק — כתבי לי בווטסאפ ואשמח לענות. מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס.",
+      a: "המחיר תלוי בסוג הטיפול, אורך הציפורן וסוג העיצוב. לקבלת מחיר מדויק — כתבי לי בווטסאפ ואשמח לענות. מקבלת מזומן, ביט ופייבוקס.",
     },
     {
       q: "מה ההבדל בין לק ג'ל לג'ל נייל?",
@@ -1650,7 +1744,7 @@ const SiteConfig = {
     },
     {
       q: "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
-      a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
+      a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים עם עיצוב גבות ושפם — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
     },
     {
       q: "מה עיצוב גבות ושפם כולל?",
@@ -1831,7 +1925,7 @@ function applyLiveSiteConfig() {
         return {
           num:   String(i + 1).padStart(2, '0'),
           title: svc.name_he,
-          meta:  svc.duration_min + ' דקות',
+
           desc:  svc.desc_he || ''
         };
       });
@@ -1840,7 +1934,7 @@ function applyLiveSiteConfig() {
       window._SVC_MAP = {};
       data.services.forEach(function(svc){
         window._SVC_MAP[svc.id] = {
-          label: (svc.icon || '💅') + ' ' + svc.name_he + ' — ' + svc.duration_min + ' דק׳',
+          label: (svc.icon || '💅') + ' ' + svc.name_he,
           msg:   svc.name_he
         };
       });
@@ -1889,18 +1983,25 @@ function applyLandingTheme(config) {
 function renderServices() {
   var grid = document.getElementById('services-grid');
   if (!grid) return;
+  var clockSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>';
   SiteConfig.services.forEach(function(s, i) {
     var card = document.createElement('article');
     card.className = 'service-card reveal';
-    card.style.transitionDelay = (i * 90) + 'ms';
+    card.dataset.num = s.num || (i === 0 ? '01' : '02');
+    card.style.transitionDelay = (i * 120) + 'ms';
     card.setAttribute('role', 'listitem');
-    var waMsg = encodeURIComponent("היי מיטל! 😊 אני מעוניינת ב" + s.title + " (" + s.meta + "). מתי יש מקום פנוי?");
+    var waMsg = encodeURIComponent('היי מיטל! 😊 אני מעוניינת ב' + s.title + (s.meta ? ' (' + s.meta + ')' : '') + '. מתי יש מקום פנוי?');
+    var badgeHtml = s.meta
+      ? '<div class="service-top-row"><span class="service-duration-badge">' + clockSvg + sanitize(s.meta) + '</span></div>'
+      : '<div class="service-top-row"></div>';
     card.innerHTML =
-      '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
+      badgeHtml +
       '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
-      '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
+      '<hr class="service-divider" aria-hidden="true" />' +
       '<p class="service-desc">' + sanitize(s.desc) + '</p>' +
-      '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>';
+      '<div class="service-cta-row">' +
+        '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>' +
+      '</div>';
     grid.appendChild(card);
   });
 }
@@ -2226,24 +2327,25 @@ function initReveal() {
 }
 
 // ── CINEMATIC HERO REEL ─────────────────────────────────────────────────────
-var REEL_DURATION = 6000;
+var REEL_DURATION = 5000;
 var REEL_FADE     = 1800;
 
 function initReel() {
   var container = document.getElementById('hero-reel');
   if (!container) return;
 
-  var images  = SiteConfig.gallery.map(function(g) { return g.src; });
-  var total   = images.length;
+  var reelCfg = SiteConfig.reel || SiteConfig.gallery.map(function(g) { return { src: g.src, mood: 'neutral' }; });
+  var total   = reelCfg.length;
   var current = 0;
   var slides  = [];
   var timer   = null;
 
-  images.forEach(function(src, i) {
+  reelCfg.forEach(function(cfg, i) {
     var div = document.createElement('div');
     div.className = 'reel-slide';
+    div.dataset.mood = cfg.mood || 'neutral';
     var img = document.createElement('img');
-    img.src = src;
+    img.src = cfg.src;
     img.alt = '';
     img.setAttribute('draggable', 'false');
     if (i > 0) img.loading = 'lazy';
@@ -2255,10 +2357,15 @@ function initReel() {
   function restartKB(slide, idx) {
     var img = slide.querySelector('img');
     img.style.animation = 'none';
-    img.getBoundingClientRect();          // sync reflow — restarts CSS animation
+    img.getBoundingClientRect();
     img.style.animation = '';
-    for (var k = 0; k < 6; k++) slide.classList.remove('kb-' + k);
-    slide.classList.add('kb-' + (idx % 6));
+    for (var k = 0; k < 9; k++) slide.classList.remove('kb-' + k);
+    slide.classList.add('kb-' + (idx % 9));
+  }
+
+  function updateCounter(idx) {
+    var counter = document.getElementById('reel-counter');
+    if (counter) counter.textContent = (idx + 1) + ' / ' + total;
   }
 
   function animateProgress() {
@@ -2275,19 +2382,27 @@ function initReel() {
   }
 
   function showSlide(idx) {
-    var prev     = current;
-    current      = (idx + total) % total;
-    var slide    = slides[current];
+    var prev      = current;
+    current       = (idx + total) % total;
+    var slide     = slides[current];
     var prevSlide = slides[prev];
 
-    // Restart KB in-place — no DOM replacement, no flash frame
+    // New slide enters
     restartKB(slide, current);
     slide.classList.add('reel-active');
+    updateCounter(current);
 
-    // Keep old slide visible through the full crossfade, then remove
+    // Old slide: cinematic exit — fade out + subtle scale-down
+    prevSlide.classList.add('reel-exiting');
+    prevSlide.classList.remove('reel-active');
+
     setTimeout(function() {
-      prevSlide.classList.remove('reel-active');
-    }, REEL_FADE + 200);
+      // Snap reset without visible reverse-animation
+      prevSlide.style.transition = 'none';
+      prevSlide.classList.remove('reel-exiting');
+      void prevSlide.offsetWidth;
+      prevSlide.style.transition = '';
+    }, REEL_FADE + 500);
 
     animateProgress();
     clearTimeout(timer);
@@ -2297,6 +2412,7 @@ function initReel() {
   var startIdx = Math.floor(Math.random() * total);
   restartKB(slides[startIdx], startIdx);
   slides[startIdx].classList.add('reel-active');
+  updateCounter(startIdx);
   animateProgress();
   timer = setTimeout(function() { showSlide(startIdx + 1); }, REEL_DURATION);
 
@@ -2726,8 +2842,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <script>
 (function () {
-  var WELCOME = 'שלום! 💅\nאני הסוכנת האישית של מיטל שבע ברעם — לק ג\'ל בוטיק.\nקביעת תורים מתבצעת כעת בווטסאפ בלבד — מהיר, נוח ואישי 🌟\nבמה אוכל לעזור?';
-  var WELCOME_QR = ['קביעי תור בווטסאפ 💬', 'שירותים ומחירים', 'מיקום הסטודיו', 'שאלה כללית'];
+  var WELCOME = 'היי! 💅✨\nאני הסוכנת הדיגיטלית של מיטל שבע ברעם — סטודיו לק ג\'ל ועיצוב גבות בוטיק ברמת גן.\nיכולה לענות על שאלות לגבי שירותים, מחירים, מיקום ועוד.\nקביעת תורים מתבצעת בווטסאפ — מהיר ואישי 🌸\nאיך אוכל לעזור?';
+  var WELCOME_QR = ['שירותים ומחירים', 'קביעי תור 💬', 'כמה עולה?', 'ראי עבודות 📸'];
 
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
 
@@ -2746,7 +2862,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function parseBotContent(text, bubble) {
-    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\])/g);
+    var parts = text.split(/(\[BOOK:[^\]]+\]|\[SVC:[^\]]+\]|\[WA\]|\[IG\]|\[TK\]|\[EMAIL\])/g);
     parts.forEach(function(p) {
       var m = p.match(/^\[BOOK:(\d{4}-\d{2}-\d{2}):(\d{2}:\d{2}):(\w+)\]$/);
       if (m) {
@@ -2791,8 +2907,22 @@ document.addEventListener('DOMContentLoaded', function() {
         var ai = document.createElement('a');
         ai.href = 'https://www.instagram.com/meytal.sheva'; ai.className = 'clink ig-link';
         ai.target = '_blank'; ai.rel = 'noopener noreferrer'; ai.dir = 'rtl';
-        ai.textContent = '📸 ראי את הגלריה שלי';
+        ai.textContent = '📸 אינסטגרם שלי';
         bubble.appendChild(ai);
+      } else if (p === '[TK]') {
+        bubble.appendChild(document.createElement('br'));
+        var atk = document.createElement('a');
+        atk.href = 'https://www.tiktok.com/@meytal.sheva'; atk.className = 'clink tk-link';
+        atk.target = '_blank'; atk.rel = 'noopener noreferrer'; atk.dir = 'rtl';
+        atk.textContent = '🎵 טיקטוק שלי';
+        bubble.appendChild(atk);
+      } else if (p === '[EMAIL]') {
+        bubble.appendChild(document.createElement('br'));
+        var aem = document.createElement('a');
+        aem.href = 'mailto:meital_sheva7@hotmail.com'; aem.className = 'clink email-link';
+        aem.dir = 'rtl';
+        aem.textContent = '✉️ meital_sheva7@hotmail.com';
+        bubble.appendChild(aem);
       } else {
         bubble.appendChild(document.createTextNode(p));
       }
@@ -2883,22 +3013,237 @@ document.addEventListener('DOMContentLoaded', function() {
     requestAnimationFrame(function() { wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' }); });
     return row;
   }
-
-  function setSending(busy) {
-    sending = busy;
-    var btn = document.getElementById('chat-send');
-    if (!btn) return;
-    if (busy) {
-      btn.classList.add('sending');
-      btn.innerHTML = '<span class="send-spinner"></span>';
-    } else {
-      btn.classList.remove('sending');
-      btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
-    }
-  }
-
   function sanitizeHist(h) {
     var out = [];
     for (var i = 0; i < h.length; i++) {
       var expected = out.length % 2 === 0 ? 'user' : 'assistant';
- 
+      if (h[i].role === expected && typeof h[i].content === 'string' && h[i].content.length > 0) out.push(h[i]);
+    }
+    if (out.length > 0 && out[out.length - 1].role === 'user') out.pop();
+    return out;
+  }
+
+  /* ── LOCAL INTENTS (no backend) ── */
+
+  /* ── LOCAL INTENTS (no backend) ── */
+  var LOCAL_INTENTS = [
+    { kw: ['להזמין','לזמן','קביעה','לקבוע','תור','הזמנה','קביעי תור'], id: 'booking' },
+    { kw: ['פנוי','זמין','יש מקום','זמינות','מתי אפשר'], id: 'avail' },
+    { kw: ['שירות','טיפול','מה יש','מציעה',"ג'ל",'לק','ציפורן','מה את עושה'], id: 'services' },
+    { kw: ['מחיר','עלות','עולה','כמה זה','כסף','כמה עולה'], id: 'prices' },
+    { kw: ['כמה זמן','משך','ארוך','לוקח'], id: 'duration' },
+    { kw: ['שעות','פתוח','סגור','עובדת','מתי את','מתי פ'], id: 'hours' },
+    { kw: ['כתובת','איפה','מיקום','מגיעים','ניווט','לאן'], id: 'location' },
+    { kw: ['ביטול','לבטל','לשנות','שינוי','להזיז'], id: 'cancel' },
+    { kw: ['ואטסאפ','whatsapp','טלפון','קשר','להתקשר','לכתוב'], id: 'contact' },
+    { kw: ['תשלום','אשראי','מזומן','ביט','פייבוקס','כרטיס'], id: 'payment' },
+    { kw: ['מחזיק','לכמה זמן','אחרי הטיפול','תחזוקה','ימים','שבועות'], id: 'care' },
+    { kw: ['להתכונן','מה צריך','מה להביא','ביקור ראשון','פעם ראשונה'], id: 'prepare' },
+    { kw: ['עיצוב','צבע','גוון','רעיון','מה לבחור','השראה','נייל ארט'], id: 'design' },
+    { kw: ['תודה','תנקיו','יופי','סבבה','מעולה','ברור'], id: 'thanks' },
+    { kw: ['שלום','היי','הי ','בוקר','ערב','צהריים','אהלן','שירותים ומחירים','מיקום הסטודיו','שאלה כללית'], id: 'greeting' },
+  ];
+  var LOCAL_RESPONSES = {
+    booking: {
+      text: 'קביעת תורים מתבצעת אצלי בווטסאפ 😊\nפשוט שלחי לי הודעה ואחזור אלייך מהר!\n[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    avail: {
+      text: 'לבדיקת זמינות וקביעת תור — כתבי לי בווטסאפ ואעדכן אותך ישירות 🌟\n[WA]',
+      qr: ['שירותים ומחירים', 'שאלה כללית']
+    },
+    services: {
+      text: 'אני מציעה שני שירותים עיקריים:\n\n💅 ג\'ל ידיים\n✨ עיצוב גבות ושפם\n\nלקביעת תור:\n[WA]',
+      qr: ['מחירים?', 'קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prices: {
+      text: 'לגבי מחירים — הכי טוב לשאול אותי ישירות 😊\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    duration: {
+      text: 'לפרטי הטיפולים — שלחי לי בווטסאפ ואשמח לענות 😊\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    hours: {
+      text: 'שעות הפעילות משתנות — כתבי לי ואעדכן אותך 😊\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    location: {
+      text: 'לפרטי המיקום — שלחי לי הודעה ואשלח לך את הכתובת המדויקת 📍\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    cancel: {
+      text: 'לביטול או שינוי תור — שלחי לי הודעה בווטסאפ ואסדר את זה מיד 😊\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    contact: {
+      text: 'את מוזמנת לכתוב לי ישירות בווטסאפ — אחזור אלייך בהקדם! 💌\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    payment: {
+      text: 'מקבלת מזומן, כרטיס אשראי, ביט ופייבוקס 💳\nלכל שאלה נוספת:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    care: {
+      text: 'ג\'ל איכותי מחזיק בדרך כלל 3–4 שבועות 💅\nלשמירה על התוצאה:\n• לחות ידיים + קרם קוטיקולות מדי יום\n• להימנע ממגע ממושך עם מים\n• לא להשתמש בציפורניים ככלי עבודה\n\nלקביעת תור הבא:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    prepare: {
+      text: 'אין צורך בהכנה מיוחדת! 😊\nמגיעים כרגיל — לקינה ישנה מורידים בסטודיו.\nמומלץ להגיע עם ציפורניים נקיות ויבשות.\n\nלקביעת תור:\n[WA]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    design: {
+      text: 'יש אינסוף אפשרויות! 🎨\nפרנץ\', ניוד, אומברה, גלייטר, נייל-ארט ועוד.\nמומלץ לשלוח תמונות השראה לפני הביקור.\n[WA]\n[IG]',
+      qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
+    },
+    thanks: {
+      text: 'בשמחה! מחכה לראות אותך בקרוב 💅\n[WA]',
+      qr: ['שאלה כללית']
+    },
+    greeting: {
+      text: 'היי! 😊 שמחה שפנית.\nאני כאן לעזור עם שאלות על שירותים, מחירים, ועוד!\nקביעת תורים מתבצעת דרך ווטסאפ — מהיר ונוח 🌟\n[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬', 'מיקום הסטודיו']
+    },
+    fallback: {
+      text: 'לא הצלחתי להבין לגמרי... 😊\nהכי נוח לשלוח לי הודעה ואעזור לך ישירות!\n[WA]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬']
+    },
+  };
+
+  function matchLocalIntent(text) {
+    var t = text.toLowerCase().replace(/[?!.,;]/g, '');
+    for (var i = 0; i < LOCAL_INTENTS.length; i++) {
+      var kws = LOCAL_INTENTS[i].kw;
+      for (var j = 0; j < kws.length; j++) {
+        if (t.indexOf(kws[j].toLowerCase()) !== -1) return LOCAL_INTENTS[i].id;
+      }
+    }
+    return 'fallback';
+  }
+
+  function sendLocal(userText) {
+    var id = matchLocalIntent(userText);
+    var r = LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+    var typingRow = showTyping();
+    setTimeout(function() {
+      if (typingRow) typingRow.remove();
+      lastRole = null;
+      addRow('bot', r.text, r.qr);
+    }, 650);
+  }
+
+  function send() {
+    if (sending) return;
+    var inp = document.getElementById('chat-input');
+    var txt = inp ? inp.value.trim() : '';
+    if (!txt) return;
+
+    haptic();
+    inp.value = ''; autoResize(inp);
+    inp.focus();
+
+    addRow('user', txt);
+    document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
+    sendLocal(txt);
+  }
+
+  function openPanel() {
+    if (isOpen) return; isOpen = true;
+    unread = 0;
+    var badge = document.getElementById('chat-badge');
+    if (badge) badge.hidden = true;
+
+    var panel = document.getElementById('chat-panel');
+    var wrap  = document.getElementById('chat-messages');
+    panel.hidden = false;
+    panel.classList.add('chat-in');
+    setTimeout(function() { panel.classList.remove('chat-in'); }, 350);
+
+    if (wrap && wrap.children.length === 0) {
+      lastRole = null;
+      if (hist.length > 0) {
+        hist.forEach(function(m) {
+          if (m.role === 'user') { lastRole = null; addRow('user', m.content, null, true); }
+          else { addRow('bot', m.content, null, true); }
+        });
+      } else {
+        addRow('bot', WELCOME, WELCOME_QR);
+      }
+    }
+
+    var inp = document.getElementById('chat-input');
+    if (inp) inp.focus();
+  }
+
+  function closePanel() {
+    if (!isOpen) return; isOpen = false;
+    var p = document.getElementById('chat-panel');
+    if (p) { p.hidden = true; p.style.bottom = ''; p.style.height = ''; p.style.maxHeight = ''; }
+    var b = document.getElementById('chat-bubble'); if (b) b.focus();
+  }
+
+  function bindVisualViewport() {
+    var vv = window.visualViewport;
+    if (!vv || window.innerWidth > 480) return;
+    var panel = document.getElementById('chat-panel');
+    if (!panel) return;
+    function onVVChange() {
+      if (!isOpen || panel.hidden) return;
+      requestAnimationFrame(function() {
+        var kbH = window.innerHeight - vv.offsetTop - vv.height;
+        panel.style.bottom = (kbH > 0 ? kbH : 0) + 'px';
+        var maxH = vv.height - 16;
+        panel.style.height = maxH + 'px';
+        panel.style.maxHeight = maxH + 'px';
+        var msgs = document.getElementById('chat-messages');
+        if (msgs) msgs.scrollTo({ top: msgs.scrollHeight, behavior: 'instant' });
+      });
+    }
+    vv.addEventListener('resize',  onVVChange, { passive: true });
+    vv.addEventListener('scroll',  onVVChange, { passive: true });
+  }
+
+  function init() {
+    addRow('bot', WELCOME, WELCOME_QR);
+    var bubble = document.getElementById('chat-bubble');
+    bubble.addEventListener('click', openPanel);
+    bubble.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
+    });
+    document.getElementById('chat-close').addEventListener('click', closePanel);
+    document.getElementById('chat-send').addEventListener('click', send);
+
+    var inp = document.getElementById('chat-input');
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+    });
+    inp.addEventListener('input', function() { autoResize(this); });
+
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closePanel(); });
+    bindVisualViewport();
+  }
+
+  function lazyInit() {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(init, { timeout: 2000 });
+    } else { setTimeout(init, 0); }
+  }
+  if (document.readyState === 'complete') { lazyInit(); }
+  else { window.addEventListener('load', lazyInit, { once: true }); }
+}());
+</script>
+<script type="importmap">{ "imports": { "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
+<script type="module" src="./landing-analytics.js"></script>
+<script>
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest('a[href*="wa.me"], a[href*="whatsapp.com"]');
+    if (!a || typeof gtag === 'undefined') return;
+    gtag('event', 'whatsapp_click', {
+      event_category: 'conversion',
+      event_label: a.id || a.dataset.qa || 'whatsapp_cta',
+      page_location: window.location.href
+    });
+  });
+</script>
+</body>
+</html>
