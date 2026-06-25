@@ -647,31 +647,95 @@
       pointer-events: none;
     }
 
-    /* ── SERVICES ── */
+    /* ── SERVICES v2 — dark editorial panels ── */
     .services-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 1.25rem;
-      margin-top: 3rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 3.5rem;
+    }
+    @media (max-width: 640px) {
+      .services-grid { grid-template-columns: 1fr; }
     }
     .service-card {
-      padding: 2rem 1.75rem;
-      background: var(--card);
-      border: 1px solid var(--border);
-      transition: border-color .3s, box-shadow .3s;
+      position: relative; overflow: hidden;
+      padding: 3rem 2.5rem 2.5rem;
+      background: linear-gradient(148deg, #1a1826 0%, #2b1821 100%);
+      border: 1px solid rgba(166,124,142,.15);
+      border-radius: 3px;
+      min-height: 400px;
+      display: flex; flex-direction: column;
+      cursor: default;
+      transition: border-color .4s ease,
+                  transform .4s cubic-bezier(.22,1,.36,1),
+                  box-shadow .4s ease;
+    }
+    .service-card::before {
+      content: attr(data-num);
+      position: absolute; top: -1.5rem; right: -0.5rem;
+      font-family: 'Assistant', sans-serif;
+      font-size: 13rem; font-weight: 800; line-height: 1;
+      letter-spacing: -.04em;
+      color: #fff; opacity: 0.04;
+      pointer-events: none; user-select: none;
+      direction: ltr;
+    }
+    .service-card::after {
+      content: "";
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--champagne) 100%);
+      opacity: 0;
+      transition: opacity .4s ease;
+    }
+    .service-card:nth-child(2) {
+      background: linear-gradient(148deg, #1a1826 0%, #231d10 100%);
+    }
+    .service-card:nth-child(2)::after {
+      background: linear-gradient(90deg, var(--champagne) 0%, rgba(221,195,165,.55) 100%);
     }
     .service-card:hover {
-      border-color: var(--champagne);
-      box-shadow: 0 8px 32px -12px rgba(166,124,142,.18);
+      border-color: rgba(166,124,142,.42);
+      transform: translateY(-5px);
+      box-shadow: 0 24px 64px -20px rgba(0,0,0,.55),
+                  0 6px 24px -8px rgba(166,124,142,.22);
     }
-    .service-number {
+    .service-card:hover::after { opacity: 1; }
+    .service-top-row {
+      display: flex; align-items: center;
+      margin-bottom: 1.875rem; position: relative;
+    }
+    .service-duration-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      padding: .3rem 1rem;
+      border: 1px solid rgba(221,195,165,.28);
+      border-radius: 50px;
+      font-size: .75rem; letter-spacing: .12em; font-weight: 500;
+      color: rgba(221,195,165,.72);
+    }
+    .service-duration-badge svg { opacity: .7; flex-shrink: 0; }
+    .service-title {
       font-family: 'Assistant', sans-serif;
-      font-size: 2rem; font-weight: 300;
-      color: var(--champagne); display: block; margin-bottom: .75rem;
+      font-size: clamp(1.75rem, 3.2vw, 2.25rem);
+      font-weight: 300; line-height: 1.2;
+      color: #FAF5F0; margin: 0 0 1.25rem;
+      position: relative;
     }
-    .service-title { font-size: 1.125rem; font-weight: 600; color: var(--charcoal); margin: 0 0 .375rem; }
-    .service-meta  { font-size: .8125rem; color: var(--muted); margin: 0 0 .875rem; }
-    .service-desc  { font-size: .9375rem; color: var(--muted); line-height: 1.75; margin: 0; }
+    .service-title em { font-style: italic; color: var(--champagne); font-weight: 300; }
+    .service-divider {
+      width: 2.5rem; height: 1px;
+      background: rgba(221,195,165,.22);
+      margin: 0 0 1.25rem; border: none;
+    }
+    .service-desc {
+      font-size: .9375rem; color: rgba(250,245,240,.55);
+      line-height: 1.9; margin: 0; flex: 1; position: relative;
+    }
+    .service-cta-row {
+      margin-top: 2.25rem; display: flex; align-items: center; gap: 1rem;
+      position: relative;
+    }
+    .service-number { display: none; }
+    .service-meta   { display: none; }
 
     /* ── GALLERY MASONRY ─────────────────────────────────────── */
     .gallery-masonry {
@@ -689,23 +753,22 @@
       }
     }
     .service-book-btn {
-      display: inline-block;
-      margin-top: 1rem;
-      padding: .45rem 1.1rem;
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .7rem 1.75rem;
       background: transparent;
-      border: 1px solid var(--primary);
-      border-radius: 2rem;
-      color: var(--primary);
-      font-size: .8125rem;
-      font-weight: 500;
-      letter-spacing: .04em;
+      border: 1px solid rgba(166,124,142,.45);
+      border-radius: 50px;
+      color: rgba(250,245,240,.82);
+      font-size: .875rem; font-weight: 500; letter-spacing: .04em;
       text-decoration: none;
-      transition: background .2s, color .2s;
+      transition: background .25s, border-color .25s, color .25s, transform .2s;
     }
     .service-book-btn:hover,
     .service-book-btn:focus-visible {
       background: var(--primary);
-      color: #fff;
+      border-color: var(--primary);
+      color: #FAF5F0;
+      transform: translateX(-2px);
     }
 
     .gallery-item {
@@ -1423,11 +1486,10 @@
   <!-- ── SERVICES ── -->
   <section id="services" class="section bg-lp" aria-labelledby="services-heading">
     <div class="section-inner">
-      <p class="section-label reveal" aria-hidden="true">שירותים</p>
-      <h2 class="section-title reveal" id="services-heading">מה אני מציעה</h2>
-      <p class="reveal" style="color:var(--muted); max-width:560px; line-height:1.85; margin-bottom:0;">
-        שני שירותים מדויקים ברמה הגבוהה ביותר — לק ג'ל לידיים ועיצוב גבות ושפם.
-        כל טיפול מותאם אישית לכל לקוחה עם תוצאה מושלמת.
+      <p class="section-label reveal" aria-hidden="true">הטיפולים שלי</p>
+      <h2 class="section-title reveal" id="services-heading">שני טיפולים.<br />שלמות בכל אחד.</h2>
+      <p class="reveal" style="color:var(--muted); max-width:520px; line-height:1.85; margin-bottom:0;">
+        כל לקוחה מקבלת שעת טיפול שלמה עם תשומת לב מלאה. לא שרשרת ייצור — בוטיק.
       </p>
 
       <div class="services-grid" id="services-grid" role="list">
@@ -1588,14 +1650,14 @@ const SiteConfig = {
     {
       num:   '01',
       title: "ג'ל ידיים",
-
-      desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
+      meta:  '60 דקות',
+      desc:  "הכל מתחיל מהכנה נכונה. ציפורן מוכנה, עיצוב שמדייק את הצורה, ואפייה שמשמרת את הברק — לתוצאה שמחזיקה 3–4 שבועות ונראית כאילו נעשתה הבוקר.",
     },
     {
       num:   '02',
       title: 'עיצוב גבות ושפם',
-
-      desc:  'עיצוב גבות ועיצוב שפם בשיטת ווקס — תוצאה נקייה, מסוגננת ומדויקת.',
+      meta:  '15 דקות',
+      desc:  'גבות שמסגרות את הפנים אינן מקריות — הן מדודות. עיצוב מדויק בשיטת ווקס שמביא את הקשת הנכונה, לפנים שלך.',
     },
   ],
 
@@ -1921,18 +1983,25 @@ function applyLandingTheme(config) {
 function renderServices() {
   var grid = document.getElementById('services-grid');
   if (!grid) return;
+  var clockSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="13" height="13" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 3"/></svg>';
   SiteConfig.services.forEach(function(s, i) {
     var card = document.createElement('article');
     card.className = 'service-card reveal';
-    card.style.transitionDelay = (i * 90) + 'ms';
+    card.dataset.num = s.num || (i === 0 ? '01' : '02');
+    card.style.transitionDelay = (i * 120) + 'ms';
     card.setAttribute('role', 'listitem');
-    var waMsg = encodeURIComponent("היי מיטל! 😊 אני מעוניינת ב" + s.title + ". מתי יש מקום פנוי?");
+    var waMsg = encodeURIComponent('היי מיטל! 😊 אני מעוניינת ב' + s.title + (s.meta ? ' (' + s.meta + ')' : '') + '. מתי יש מקום פנוי?');
+    var badgeHtml = s.meta
+      ? '<div class="service-top-row"><span class="service-duration-badge">' + clockSvg + sanitize(s.meta) + '</span></div>'
+      : '<div class="service-top-row"></div>';
     card.innerHTML =
-      '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
+      badgeHtml +
       '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
-      (s.meta ? '<p class="service-meta">' + sanitize(s.meta) + '</p>' : '') +
+      '<hr class="service-divider" aria-hidden="true" />' +
       '<p class="service-desc">' + sanitize(s.desc) + '</p>' +
-      '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>';
+      '<div class="service-cta-row">' +
+        '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>' +
+      '</div>';
     grid.appendChild(card);
   });
 }
