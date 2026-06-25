@@ -238,7 +238,7 @@
       {
         "@type": "Question",
         "name": "האם ההסרה פוגעת בציפורן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
+        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
       },
       {
         "@type": "Question",
@@ -268,7 +268,7 @@
       {
         "@type": "Question",
         "name": "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
-        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
+        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. ניתן לשלב לק ג'ל לידיים עם עיצוב גבות ושפם — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
       },
       {
         "@type": "Question",
@@ -1265,9 +1265,8 @@
     <p>סטודיו לק ג'ל ועיצוב גבות ושפם בוטיק ברמת גן. חוויה אישית ומפנקת, תוצאות שמחזיקות 3–4 שבועות. קביעת תור בווטסאפ: 054-768-6865.</p>
     <h2>שירותים — לק ג'ל ועיצוב ציפורניים</h2>
     <ul>
-      <li><strong>לק ג'ל לידיים</strong> — 60 דקות. מחזיק 3–4 שבועות.</li>
-      <li><strong>לק ג'ל לרגליים</strong> — 30 דקות. גמר מבריק ועמיד.</li>
-      <li><strong>לק ג'ל ידיים + רגליים</strong> — 90 דקות. חבילה מלאה.</li>
+      <li><strong>לק ג'ל ידיים</strong> — מחזיק 3–4 שבועות.</li>
+      <li><strong>עיצוב גבות ושפם</strong> — תוצאה מסוגננת ומדויקת.</li>
     </ul>
     <h2>מיקום — סטודיו רמת גן</h2>
     <address>
@@ -1589,13 +1588,13 @@ const SiteConfig = {
     {
       num:   '01',
       title: "ג'ל ידיים",
-      meta:  '60 דקות',
+
       desc:  "לק ג'ל מקצועי עם הכנת ציפורן, עיצוב ואפייה מושלמת. עמיד ל-3–4 שבועות עם ברק כמו ביום הראשון.",
     },
     {
       num:   '02',
       title: 'עיצוב גבות ושפם',
-      meta:  '15 דקות',
+
       desc:  'עיצוב גבות ועיצוב שפם בשיטת ווקס — תוצאה נקייה, מסוגננת ומדויקת.',
     },
   ],
@@ -1659,7 +1658,7 @@ const SiteConfig = {
     },
     {
       q: "האם ההסרה פוגעת בציפורן?",
-      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה תוך 30 דקות בלבד — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
+      a: "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו שלי מבצעת הסרה עדינה — ללא שיוף מוגזם וללא נזק לציפורן הטבעית.",
     },
     {
       q: "האם צריך לקבוע תור מראש?",
@@ -1683,7 +1682,7 @@ const SiteConfig = {
     },
     {
       q: "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
-      a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים (60 דקות) עם עיצוב גבות ושפם (30 דקות) — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
+      a: "בהחלט! אחת האפשרויות האהובות על הלקוחות שלי היא לשלב לק ג'ל לידיים עם עיצוב גבות ושפם — סיימים כל הסטיילינג בביקור אחד. לתיאום: שלחי הודעה בווטסאפ.",
     },
     {
       q: "מה עיצוב גבות ושפם כולל?",
@@ -1864,7 +1863,7 @@ function applyLiveSiteConfig() {
         return {
           num:   String(i + 1).padStart(2, '0'),
           title: svc.name_he,
-          meta:  svc.duration_min + ' דקות',
+
           desc:  svc.desc_he || ''
         };
       });
@@ -1873,7 +1872,7 @@ function applyLiveSiteConfig() {
       window._SVC_MAP = {};
       data.services.forEach(function(svc){
         window._SVC_MAP[svc.id] = {
-          label: (svc.icon || '💅') + ' ' + svc.name_he + ' — ' + svc.duration_min + ' דק׳',
+          label: (svc.icon || '💅') + ' ' + svc.name_he,
           msg:   svc.name_he
         };
       });
@@ -1927,11 +1926,11 @@ function renderServices() {
     card.className = 'service-card reveal';
     card.style.transitionDelay = (i * 90) + 'ms';
     card.setAttribute('role', 'listitem');
-    var waMsg = encodeURIComponent("היי מיטל! 😊 אני מעוניינת ב" + s.title + " (" + s.meta + "). מתי יש מקום פנוי?");
+    var waMsg = encodeURIComponent("היי מיטל! 😊 אני מעוניינת ב" + s.title + ". מתי יש מקום פנוי?");
     card.innerHTML =
       '<span class="service-number" aria-hidden="true">' + sanitize(s.num) + '</span>' +
       '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
-      '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
+      (s.meta ? '<p class="service-meta">' + sanitize(s.meta) + '</p>' : '') +
       '<p class="service-desc">' + sanitize(s.desc) + '</p>' +
       '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>';
     grid.appendChild(card);
