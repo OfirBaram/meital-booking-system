@@ -49,6 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
       trackEvent('contact_whatsapp_clicked');
       return;
     }
+    // Service card book button
+    if (el.classList.contains('service-book-btn')) {
+      trackEvent('service_book_clicked', { service: el.closest('article')?.querySelector('.service-title')?.textContent?.trim() || '' });
+      return;
+    }
+    // Gallery lightbox WA CTA
+    if (el.id === 'lb-wa-cta') {
+      trackEvent('lightbox_wa_clicked');
+      return;
+    }
     // Social strip links (header, mobile, footer)
     if (el.closest('#header-social-strip, #mobile-social-strip, #footer-social')) {
       const platform = platformFromHref(href);
