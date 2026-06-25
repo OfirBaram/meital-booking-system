@@ -1833,7 +1833,7 @@ function renderServices() {
       '<h3 class="service-title">' + sanitize(s.title) + '</h3>' +
       '<p class="service-meta">' + sanitize(s.meta) + '</p>' +
       '<p class="service-desc">' + sanitize(s.desc) + '</p>' +
-      '<a class="service-book-btn" href="https://wa.me/972547686865?text='" + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל'" + sanitize(s.title) + '">קביעי תור ←</a>';
+      '<a class="service-book-btn" href="https://wa.me/972547686865?text=' + waMsg + '" target="_blank" rel="noopener noreferrer" aria-label="קביעת תור ל' + sanitize(s.title) + '">קביעי תור ←</a>';
     grid.appendChild(card);
   });
 }
