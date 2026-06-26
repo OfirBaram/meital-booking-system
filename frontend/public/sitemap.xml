@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
 
   <url>
     <loc>https://meytalnails.co.il/</loc>
@@ -10,6 +11,122 @@
     <xhtml:link rel="alternate" hreflang="he" href="https://meytalnails.co.il/" />
     <xhtml:link rel="alternate" hreflang="he-IL" href="https://meytalnails.co.il/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://meytalnails.co.il/" />
+    <!-- Gallery images — SEO-named for local keyword targeting -->
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-french-shachor-dramatic.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — פרנץ' שחור דרמטי</image:title>
+      <image:caption>פרנץ' שחור בצורת עיט — עיצוב לק ג'ל דרמטי ומינימלי בסטודיו מיטל, רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-adom-cherry-mabrik.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — אדום דובדבן מבריק</image:title>
+      <image:caption>ג'ל אדום-דובדבן מבריק — תשוקה, יוקרה ואלגנטיות בסטודיו לק ג'ל רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-sagol-fuchsia-nitsots.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — סגול פוקסיה נוצץ</image:title>
+      <image:caption>גלשה סגולה-פוקסיה עם ניצוצות — נייל ארט מרהיב בסטודיו ציפורניים רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-rainbow-pastel.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — קשת פסטל</image:title>
+      <image:caption>לק ג'ל קשת פסטל — כל אצבע בצבע אחר, שמחה טהורה מסטודיו מיטל רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-shachor-classic.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — שחור קלאסי</image:title>
+      <image:caption>לק ג'ל שחור קלאסי — מראה דרמטי ויוקרתי מהסטודיו לציפורניים ברמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-ramat-gan-ombre-menta-tachelet.jpg</image:loc>
+      <image:title>לק ג'ל רמת גן — אומברה מנטה תכלת</image:title>
+      <image:caption>ג'ל אומברה מנטה-תכלת — קיצי, מרענן ומלא חיים, סטודיו לק ג'ל רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/french-manicure-ramat-gan-krem-fuchsia.jpg</image:loc>
+      <image:title>פרנץ' מניקור רמת גן — קרם עם פרחי פוקסיה</image:title>
+      <image:caption>פרנץ' קרם עם פרחי פוקסיה ונקודות — מניקור קיצי ושובב בסטודיו רמת גן</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-lilach-keshet-levana.jpg</image:loc>
+      <image:title>לק ג'ל לילך עם קשת לבנה</image:title>
+      <image:caption>ג'ל לילך עדין עם קשת לבנה — עיצוב מינימלי ורומנטי</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-fuchsia-sfatayim-adumot.jpg</image:loc>
+      <image:title>לק ג'ל פוקסיה עם שפתיים אדומות</image:title>
+      <image:caption>ג'ל פוקסיה עם שפתיים אדומות — נייל ארט שובבי ואיקוני</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-varod-baby-mabrik.jpg</image:loc>
+      <image:title>לק ג'ל ורוד בייבי מבריק</image:title>
+      <image:caption>ג'ל ורוד בייבי — חלקלק, מבריק וחמוד, סטודיו ציפורניים בוטיק</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-holographic-sagol-menatsnets.jpg</image:loc>
+      <image:title>לק ג'ל הולוגרפי סגול מנצנץ</image:title>
+      <image:caption>ג'ל הולוגרפי סגול — מנצנץ ומשנה צבע בכל זווית</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-turkiz-aksent-shachor.jpg</image:loc>
+      <image:title>לק ג'ל טורקיז עם אקסנט שחור</image:title>
+      <image:caption>לק ג'ל טורקיז עם אקסנט שחור — עיצוב מקורי ועז</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/nail-art-varod-zevra-itsug.jpg</image:loc>
+      <image:title>נייל ארט ורוד עם ציור זברה</image:title>
+      <image:caption>עיצוב נייל ארט אמנותי — ורוד עם ציור זברה ייחודי</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-lavan-levavot-adumim.jpg</image:loc>
+      <image:title>לק ג'ל לבן עם לבבות אדומים</image:title>
+      <image:caption>ג'ל לבן-שמנת עם לבבות אדומים — עדין ומלא אהבה</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-niud-gliter-elegant.jpg</image:loc>
+      <image:title>לק ג'ל ניוד מנצנץ אלגנטי</image:title>
+      <image:caption>לק ג'ל ניוד מנצנץ — אלגנטיות טבעית עדינה</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-niud-perach-adeen.jpg</image:loc>
+      <image:title>לק ג'ל ניוד עם פרח עדין</image:title>
+      <image:caption>ג'ל ניוד עם ציור פרח עדין — רומנטי ובוטי</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/french-adom-keshet-nekudot.jpg</image:loc>
+      <image:title>פרנץ' אדום עם קשת ונקודות</image:title>
+      <image:caption>פרנץ' אדום עם ציור קשת ונקודות — פסטיבלי ומיוחד</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-adom-nail-art-kochavim.jpg</image:loc>
+      <image:title>לק ג'ל אדום עם נייל ארט כוכבים</image:title>
+      <image:caption>ג'ל אדום עם נייל-ארט כוכבים — קלאסי ומיוחד בו-זמנית</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/french-lavan-keshet-adeen.jpg</image:loc>
+      <image:title>פרנץ' לבן עם קשת עדינה</image:title>
+      <image:caption>פרנץ' לבן עם קשת לבנה עדינה — נשי, עדין ומרגש</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-mat-lilach-modern.jpg</image:loc>
+      <image:title>לק ג'ל מט לילך מודרני</image:title>
+      <image:caption>ג'ל מט לילך-אפור — סגנוני, מודרני ויוקרתי</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-mat-beige-adeen.jpg</image:loc>
+      <image:title>לק ג'ל מט בז' עדין</image:title>
+      <image:caption>ג'ל מט בז' עדין — רך, טבעי ומינימלי</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/french-shachor-bsis-niud-iconic.jpg</image:loc>
+      <image:title>פרנץ' שחור על בסיס ניוד</image:title>
+      <image:caption>פרנץ' שחור על בסיס ניוד — דרמטי, חדשני ואיקוני</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://meytalnails.co.il/gallery/lak-gel-bordeaux-amok-romantic.jpg</image:loc>
+      <image:title>לק ג'ל בורדו עמוק רומנטי</image:title>
+      <image:caption>ג'ל בורדו-וינה עמוק — יוקרה, רומנטיקה ועוז</image:caption>
+    </image:image>
   </url>
 
   <url>
