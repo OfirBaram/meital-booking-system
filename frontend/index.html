@@ -1998,7 +1998,7 @@ function applyLiveSiteConfig() {
         return {
           num:   String(i + 1).padStart(2, '0'),
           title: svc.name_he,
-
+          meta:  svc.duration_min ? svc.duration_min + ' דקות' : '',
           desc:  svc.desc_he || ''
         };
       });
@@ -2015,7 +2015,7 @@ function applyLiveSiteConfig() {
     // Editable texts.
     var c = data.config || {};
     var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
-    setText('#services-heading', c.landing_services_title);
+    // services-heading is static design text — not overridden by site_config
     // Apply the active palette + effects to the whole landing page.
     // In admin preview mode (?preview=1) the parent injects the unsaved
     // palette directly, so don't clobber it with the saved one.
