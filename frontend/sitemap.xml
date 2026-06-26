@@ -1,175 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
   <url>
     <loc>https://meytalnails.co.il/</loc>
-    <lastmod>2026-06-25</lastmod>
+    <lastmod>2026-06-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-15.jpg</image:loc>
-      <image:title>פרנץ' שחור בצורת עיט — לק ג'ל רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-09.jpg</image:loc>
-      <image:title>פרנץ' קרם עם פרחי פוקסיה — נייל ארט רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-10.jpg</image:loc>
-      <image:title>ג'ל לילך עדין עם קשת לבנה — מניקור בוטיק רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-12.jpg</image:loc>
-      <image:title>ג'ל פוקסיה עם שפתיים — לק ג'ל רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-11.jpg</image:loc>
-      <image:title>ג'ל ורוד בייבי — לק ג'ל מבריק רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-01.jpg</image:loc>
-      <image:title>לק ג'ל שחור קלאסי — עיצוב ציפורניים רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-13.jpg</image:loc>
-      <image:title>גלשה סגולה-פוקסיה עם ניצוצות — לק ג'ל נוצצת</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-14.jpg</image:loc>
-      <image:title>ג'ל הולוגרפי סגול — נייל ארט מנצנץ</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-02.jpg</image:loc>
-      <image:title>לק ג'ל טורקיז עם אקסנט שחור — עיצוב ציפורניים</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-03.jpg</image:loc>
-      <image:title>עיצוב אמנותי ורוד עם זברה — נייל ארט בוטיק</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-16.jpg</image:loc>
-      <image:title>ג'ל לבן-שמנת עם לבבות — לק ג'ל רומנטי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-04.jpg</image:loc>
-      <image:title>לק ג'ל ניוד מנצנץ — אלגנטיות טבעית</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-05.jpg</image:loc>
-      <image:title>ג'ל ניוד עם ציור פרח — מניקור רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-06.jpg</image:loc>
-      <image:title>פרנץ' אדום עם קשת ונקודות — לק ג'ל פסטיבלי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-07.jpg</image:loc>
-      <image:title>לק ג'ל מט ורדרד — מניקור מודרני</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-08.jpg</image:loc>
-      <image:title>לק ג'ל סגול עמוק — עיצוב ציפורניים אלגנטי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-18.jpg</image:loc>
-      <image:title>ג'ל ורוד-תות מבריק — לק ג'ל נשי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-19.jpg</image:loc>
-      <image:title>ג'ל אדום עם נייל-ארט כוכבים — לק ג'ל קלאסי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-20.jpg</image:loc>
-      <image:title>פרנץ' לבן עדין — לק ג'ל נשי רמת גן</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-21.jpg</image:loc>
-      <image:title>ג'ל מט לילך-אפור — מניקור סגנוני</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-22.jpg</image:loc>
-      <image:title>ג'ל אומברה מנטה-תכלת — לק ג'ל קיצי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-23.jpg</image:loc>
-      <image:title>ג'ל שקוף ניוד ארוך — לק ג'ל טבעי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-24.jpg</image:loc>
-      <image:title>ג'ל שמנת עם אקסנט שיש — נייל ארט מינימלי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-26.jpg</image:loc>
-      <image:title>ג'ל מט בז' עדין — מניקור טבעי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-27.jpg</image:loc>
-      <image:title>לק ג'ל קשת פסטל — ציפורניים צבעוניות</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-28.jpg</image:loc>
-      <image:title>ג'ל שקוף-אפרסק ארוך — לק ג'ל יוקרתי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-29.jpg</image:loc>
-      <image:title>ג'ל ורוד-לבן מרובע קצר — מניקור עדין</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-30.jpg</image:loc>
-      <image:title>ג'ל אדום-דובדבן מבריק — לק ג'ל קלאסי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-32.jpg</image:loc>
-      <image:title>ג'ל ירוק-כהה — לק ג'ל ייחודי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-34.jpg</image:loc>
-      <image:title>ג'ל בורדו-וינה — לק ג'ל יוקרתי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-35.jpg</image:loc>
-      <image:title>פרנץ' שחור על בסיס ניוד — לק ג'ל איקוני</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-36.jpg</image:loc>
-      <image:title>ג'ל ניוד-עור קצר — מניקור נקי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://meytalnails.co.il/gallery/nail-37.jpg</image:loc>
-      <image:title>ג'ל כתום ניאון — לק ג'ל קיצי</image:title>
-      <image:caption>עיצוב ציפורניים — מיטל שבע ברעם, סטודיו לק ג'ל ברמת גן</image:caption>
-    </image:image>
+    <xhtml:link rel="alternate" hreflang="he" href="https://meytalnails.co.il/" />
+    <xhtml:link rel="alternate" hreflang="he-IL" href="https://meytalnails.co.il/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://meytalnails.co.il/" />
   </url>
+
+  <url>
+    <loc>https://meytalnails.co.il/booking.html</loc>
+    <lastmod>2026-06-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <url>
+    <loc>https://meytalnails.co.il/privacy.html</loc>
+    <lastmod>2026-06-26</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <url>
+    <loc>https://meytalnails.co.il/takanon.html</loc>
+    <lastmod>2026-06-26</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <url>
+    <loc>https://meytalnails.co.il/accessibility.html</loc>
+    <lastmod>2026-06-26</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+
 </urlset>

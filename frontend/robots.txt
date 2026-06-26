@@ -1,4 +1,9 @@
+# robots.txt — meytalnails.co.il
 User-agent: *
 Allow: /
+
+Disallow: /admin.html
+Disallow: /admin.js
+Disallow: /admin-*.js
 
 Sitemap: https://meytalnails.co.il/sitemap.xml
