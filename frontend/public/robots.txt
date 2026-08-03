@@ -2,6 +2,8 @@
 User-agent: *
 Allow: /
 
+Disallow: /booking.html
+Disallow: /booking.js
 Disallow: /admin.html
 Disallow: /admin.js
 Disallow: /admin-*.js

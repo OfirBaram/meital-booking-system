@@ -2423,7 +2423,7 @@ let _themePreset     = DEFAULT_PRESET;
 let _themeBrightness = 0;
 let _themeEffects    = new Set();
 let _previewReady    = false;
-let _previewPage     = 'booking';   // 'booking' | 'landing'
+let _previewPage     = 'landing';   // landing only — booking.html is not published
 
 // ── Library (static catalog) ───────────────────────────────────
 async function loadServiceLibrary() {
@@ -3142,9 +3142,12 @@ function initThemeStateFromRows() {
   _themeEffects    = new Set(String(get('theme_effects') || '').split(',').map(s => s.trim()).filter(Boolean));
 }
 
-// ── 1:1 live preview iframe (real booking page) ──
-function _previewSrc(page) {
-  return (page === 'landing' ? './index.html' : './booking.html') + '?preview=1';
+// ── 1:1 live preview iframe ──
+// booking.html is no longer published (online self-booking is not offered on
+// the site), so every preview target resolves to the landing page. Pointing the
+// iframe at a page that is not deployed just renders a 404 inside the console.
+function _previewSrc(_page) {
+  return './index.html?preview=1';
 }
 
 function ensurePreview() {
