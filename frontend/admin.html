@@ -11,7 +11,7 @@
 
   <!-- Graceful degradation: catch any JS load/parse error before a white screen -->
   <!-- QW-5: Content-Security-Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co https://script.google.com https://esm.sh https://api-eu.mixpanel.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://callmnxlcganwugxwiym.supabase.co https://script.google.com https://esm.sh https://api-eu.mixpanel.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com;">
 
   <!-- QW-1: onerror handler — uses DOM APIs (not innerHTML) to prevent HTML injection via error messages. -->
   <script>
