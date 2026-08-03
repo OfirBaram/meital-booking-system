@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'meital-v2';
+const CACHE = 'meital-v3';
 
 // Resolve all precache URLs relative to this SW file so the same code works
 // for root deployment (https://domain.com/sw.js) and GitHub Pages subdirectory
@@ -13,7 +13,6 @@ const PRECACHE = [
   _base,
   _base + 'index.html',
   _base + 'admin.html',
-  _base + 'booking.html',
   _base + 'takanon.html',
   _base + 'privacy.html',
   _base + 'manifest.json',

@@ -15,7 +15,11 @@ export default defineConfig({
     rollupOptions: {
       input: {
         landing:  entry('index.html'),
-        main:     entry('booking.html'),
+        // booking.html is deliberately NOT built. Online self-booking is not
+        // offered on the site — enquiries go through WhatsApp. The source is
+        // kept in the repo so the flow can be restored, but it must never be
+        // published: an unlinked-but-reachable page still gets found, shared,
+        // and indexed. See docs/NO-ONLINE-BOOKING.md.
         admin:    entry('admin.html'),
         takanon:      entry('takanon.html'),
         privacy:      entry('privacy.html'),
