@@ -182,8 +182,16 @@ export async function sendClientStatusNotification(supabase: any, bookingId: str
   // WhatsApp TEMPLATE — only for WhatsApp-sourced bookings, only when configured.
   if (creds && waFrom && tmpl) {
     let source = ''
+    // `appt` must outlive the try block: the awaiting_terms upsert below reads
+    // appt.client_id. It used to be `const` INSIDE the try, so that line threw
+    // ReferenceError, the surrounding catch swallowed it as 'terms-state-fail',
+    // and state was never set — meaning the terms gate never engaged and
+    // wa-terms-reminder (which queries state='awaiting_terms') never found
+    // anyone. Fixed 2026-08-03.
+    let appt: { source?: string; client_id?: string } | null = null
     try {
-      const { data: appt } = await supabase.from('appointments').select('source, client_id').eq('id', bookingId).maybeSingle()
+      const res = await supabase.from('appointments').select('source, client_id').eq('id', bookingId).maybeSingle()
+      appt   = res.data ?? null
       source = (appt?.source ?? '') as string
     } catch { /* source column absent in older DBs → treat as non-whatsapp → SMS */ }
 

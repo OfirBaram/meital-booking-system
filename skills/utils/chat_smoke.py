@@ -24,12 +24,10 @@ import urllib.request
 SUPA = os.environ.get("SUPA_URL", "https://callmnxlcganwugxwiym.supabase.co")
 ENDPOINT = SUPA + "/functions/v1/chat-handler"
 
-# Anon key is public by design (it is embedded in the landing page).
-ANON = os.environ.get("SUPA_ANON") or (
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
-    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0."
-    "79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8"
-)
+# Publishable key — public by design (it is embedded in the landing page).
+# The old legacy `eyJ...` anon JWT no longer authenticates against this project;
+# see frontend/config.js for the full explanation.
+ANON = os.environ.get("SUPA_ANON") or "sb_publishable_jdsiuEIyFXDUS6kxkyOYDA_juWKqjAZ"
 
 DEFAULT_QUESTIONS = [
     "כמה עולה לק ג׳ל?",                      # how much is gel polish

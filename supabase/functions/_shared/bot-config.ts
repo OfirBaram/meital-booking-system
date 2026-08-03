@@ -30,8 +30,8 @@ import { hmacSha256Hex }            from './crypto.ts'
 import { twilioCredsFromEnv, sendTwilioWhatsApp } from './sms.ts'
 import { sendAndLogSms }            from './notify.ts'
 import { toDialable }               from './phone.ts'
-import { buildAdminNewBookingSms, buildAdminApprovalWhatsApp } from './messages.ts'
-import { scrubPhones }              from './whatsapp.ts'
+import { buildAdminNewBookingSms, buildAdminApprovalWhatsApp, buildAdminSupportTicketSms } from './messages.ts'
+import { scrubPhones, maskPhone }   from './whatsapp.ts'
 import { signClientSession }        from './client-auth.ts'
 
 // ── Debug mode ──────────────────────────────────────────────────────────────
@@ -252,6 +252,45 @@ const escalateToSupportTool: BotTool<EscalateInput, EscalateOutput> = {
         console.error('[escalate_to_support]', error.message)
         return { success: false, error: 'insert_failed' }
       }
+
+      // Tell Meital. Until 2026-08-03 this tool only wrote the row, so a ticket
+      // reached her ONLY if she happened to open the admin console — and once
+      // more than DEGRADED_OPEN_SUPPORT tickets sat unread, health.ts flipped
+      // the whole bot into handover mode for every customer. A backlog nobody
+      // was told about could therefore take the bot down silently.
+      //
+      // Fire-and-forget: the customer's reply must not wait on Twilio, and an
+      // SMS failure must never fail the escalation she was just promised.
+      // Async IIFE, not .catch() — PostgrestBuilder is thenable but not a real
+      // Promise in Deno, so .catch() throws (see CLAUDE.md).
+      ;(async () => {
+        try {
+          const adminPhone = Deno.env.get('ADMIN_PHONE')
+          if (!adminPhone) return
+
+          // One SMS per person per open ticket. A customer who escalates twice
+          // in one conversation should not cost two messages, and a model stuck
+          // in a loop must not be able to run up the Twilio bill.
+          if (phone) {
+            const { count } = await ctx.supabase
+              .from('support_requests')
+              .select('id', { count: 'exact', head: true })
+              .eq('phone', phone).eq('status', 'open').neq('id', data.id)
+            if ((count ?? 0) > 0) return
+          }
+
+          const label = (ctx.clientName ?? '').trim() || maskPhone(phone ?? '')
+          await sendAndLogSms(ctx.supabase, {
+            to:      adminPhone,
+            body:    buildAdminSupportTicketSms(label, String(input.reason ?? '')),
+            context: 'AdminNotify',
+            creds:   twilioCredsFromEnv(),
+          })
+        } catch (e) {
+          console.error('[escalate_to_support] admin alert failed', e)
+        }
+      })()
+
       return { success: true, ticket_id: data.id as string }
     } catch (e) {
       console.error('[escalate_to_support]', e)

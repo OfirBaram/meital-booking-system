@@ -1,6 +1,9 @@
 'use strict';
 
-const CACHE = 'meital-v3';
+// v4 (2026-08-03): index.html changed — the chat widget now calls chat-handler
+// and carries the new publishable key. index.html is precached, so without a new
+// cache name a returning visitor keeps the pre-AI chat from disk.
+const CACHE = 'meital-v4';
 
 // Resolve all precache URLs relative to this SW file so the same code works
 // for root deployment (https://domain.com/sw.js) and GitHub Pages subdirectory

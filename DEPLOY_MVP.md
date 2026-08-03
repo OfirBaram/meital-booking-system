@@ -109,7 +109,7 @@ All 11 functions should show `Active`.
 
 ```bash
 curl "https://callmnxlcganwugxwiym.supabase.co/functions/v1/get-slots?year=2026&month=6" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8"
+  -H "Authorization: Bearer sb_publishable_jdsiuEIyFXDUS6kxkyOYDA_juWKqjAZ"
 ```
 
 Expected: `{"success":true,"slots":{...}}`
