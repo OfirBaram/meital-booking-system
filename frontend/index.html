@@ -2979,6 +2979,16 @@ document.addEventListener('DOMContentLoaded', function() {
   var WELCOME = 'היי! 💅✨\nאני הסוכנת הדיגיטלית של מיטל שבע ברעם — סטודיו לק ג\'ל ועיצוב גבות בוטיק ברמת גן.\nיכולה לענות על שאלות לגבי שירותים, מחירים, מיקום ועוד.\nקביעת תורים מתבצעת בווטסאפ — מהיר ואישי 🌸\nאיך אוכל לעזור?';
   var WELCOME_QR = ['שירותים ומחירים', 'קביעי תור 💬', 'כמה עולה?', 'ראי עבודות 📸'];
 
+  // Endpoint for the AI brain. The chat-handler web channel is stateless — the
+  // browser carries the whole conversation — so `hist` is not a nicety here, it
+  // IS the conversation memory. Keep load()/save() wired.
+  var CHAT_API = SUPA_URL + '/functions/v1/chat-handler';
+  var CHAT_TIMEOUT_MS = 15000;
+  // Restored 2026-08-03: commit 2b22764 deleted this constant but left load() and
+  // save() behind, so history silently never persisted (the ReferenceError was
+  // swallowed by their try/catch).
+  var LSK = 'chat_hist_v1';
+
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
 
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || '[]'); } catch(e) { hist = []; } }
@@ -3147,19 +3157,10 @@ document.addEventListener('DOMContentLoaded', function() {
     requestAnimationFrame(function() { wrap.scrollTo({ top: wrap.scrollHeight, behavior: 'smooth' }); });
     return row;
   }
-  function sanitizeHist(h) {
-    var out = [];
-    for (var i = 0; i < h.length; i++) {
-      var expected = out.length % 2 === 0 ? 'user' : 'assistant';
-      if (h[i].role === expected && typeof h[i].content === 'string' && h[i].content.length > 0) out.push(h[i]);
-    }
-    if (out.length > 0 && out[out.length - 1].role === 'user') out.pop();
-    return out;
-  }
-
-  /* ── LOCAL INTENTS (no backend) ── */
-
-  /* ── LOCAL INTENTS (no backend) ── */
+  /* ── OFFLINE FALLBACK ANSWERS ──
+     Used only when the AI backend is unreachable, timing out, or switched off
+     via the web_chat_enabled flag. Online, chat-handler answers instead.
+     Never put a price in this table — it cannot read the live catalogue. */
   var LOCAL_INTENTS = [
     { kw: ['להזמין','לזמן','קביעה','לקבוע','תור','הזמנה','קביעי תור'], id: 'booking' },
     { kw: ['פנוי','זמין','יש מקום','זמינות','מתי אפשר'], id: 'avail' },
@@ -3173,6 +3174,7 @@ document.addEventListener('DOMContentLoaded', function() {
     { kw: ['תשלום','אשראי','מזומן','ביט','פייבוקס','כרטיס'], id: 'payment' },
     { kw: ['מחזיק','לכמה זמן','אחרי הטיפול','תחזוקה','ימים','שבועות'], id: 'care' },
     { kw: ['להתכונן','מה צריך','מה להביא','ביקור ראשון','פעם ראשונה'], id: 'prepare' },
+    { kw: ['עבודות','גלריה','תמונות','לראות','אינסטגרם','instagram','פורטפוליו'], id: 'gallery' },
     { kw: ['עיצוב','צבע','גוון','רעיון','מה לבחור','השראה','נייל ארט'], id: 'design' },
     { kw: ['תודה','תנקיו','יופי','סבבה','מעולה','ברור'], id: 'thanks' },
     { kw: ['שלום','היי','הי ','בוקר','ערב','צהריים','אהלן','שירותים ומחירים','מיקום הסטודיו','שאלה כללית'], id: 'greeting' },
@@ -3191,19 +3193,23 @@ document.addEventListener('DOMContentLoaded', function() {
       qr: ['מחירים?', 'קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
     prices: {
+      // Deliberately no number here. This table is the OFFLINE fallback; it
+      // cannot read services.price_ils, so a hardcoded price would be the one
+      // thing guaranteed to go stale. Online, the AI answers this with the live
+      // price from the catalogue.
       text: 'לגבי מחירים — הכי טוב לשאול אותי ישירות 😊\n[WA]',
       qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
     duration: {
-      text: 'לפרטי הטיפולים — שלחי לי בווטסאפ ואשמח לענות 😊\n[WA]',
+      text: 'לק ג\'ל לידיים לוקח כשעה 💅\nעיצוב גבות ושפם — כ-15 דקות ✨\nלכל שאלה נוספת:\n[WA]',
       qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
     hours: {
-      text: 'שעות הפעילות משתנות — כתבי לי ואעדכן אותך 😊\n[WA]',
+      text: 'אני עובדת ראשון–חמישי, 08:00–19:00 ⏰\nשישי ושבת — סגור 🙏\nלקביעת תור:\n[WA]',
       qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
     location: {
-      text: 'לפרטי המיקום — שלחי לי הודעה ואשלח לך את הכתובת המדויקת 📍\n[WA]',
+      text: 'הסטודיו נמצא ברחוב רש"י 11, רמת גן 📍\nנגיש מתל אביב, גבעתיים ופתח תקווה, ויש חניה בסביבה.\nלתיאום:\n[WA]',
       qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
     cancel: {
@@ -3230,6 +3236,13 @@ document.addEventListener('DOMContentLoaded', function() {
       text: 'יש אינסוף אפשרויות! 🎨\nפרנץ\', ניוד, אומברה, גלייטר, נייל-ארט ועוד.\nמומלץ לשלוח תמונות השראה לפני הביקור.\n[WA]\n[IG]',
       qr: ['קביעי תור בווטסאפ 💬', 'שאלה כללית']
     },
+    gallery: {
+      // Added 2026-08-03. The welcome chip 'ראי עבודות 📸' matched no keyword and
+      // fell through to the "I didn't understand" fallback — on the very first
+      // screen a customer sees.
+      text: 'בשמחה! כל העבודות האחרונות שלי נמצאות באינסטגרם 📸\nשם תוכלי לראות צבעים, עיצובים ותוצאות אמיתיות:\n[IG]',
+      qr: ['שירותים ומחירים', 'קביעי תור בווטסאפ 💬']
+    },
     thanks: {
       text: 'בשמחה! מחכה לראות אותך בקרוב 💅\n[WA]',
       qr: ['שאלה כללית']
@@ -3255,15 +3268,100 @@ document.addEventListener('DOMContentLoaded', function() {
     return 'fallback';
   }
 
-  function sendLocal(userText) {
+  // Offline answer for `userText`, used when the AI is unreachable or disabled.
+  // Kept deliberately: a customer must never hit a dead chat because a network
+  // blipped. Returns { text, qr }.
+  function localAnswer(userText) {
     var id = matchLocalIntent(userText);
-    var r = LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+    return LOCAL_RESPONSES[id] || LOCAL_RESPONSES.fallback;
+  }
+
+  // Trim `hist` into a payload chat-handler's validateMessages() will accept:
+  // strict user/assistant alternation, starting with user, max 20 messages,
+  // each 1..1000 chars. Anything malformed is dropped rather than sent — a 400
+  // would cost the customer her reply.
+  // (sanitizeHist was left dead in the file when the API call was removed; this
+  // is that validator restored to its actual purpose.)
+  function buildPayload(nextUserText) {
+    var out = [];
+    for (var i = 0; i < hist.length; i++) {
+      var m = hist[i];
+      if (!m || (m.role !== 'user' && m.role !== 'assistant')) continue;
+      var c = String(m.content == null ? '' : m.content).trim();
+      if (!c) continue;
+      if (c.length > 1000) c = c.slice(0, 1000);
+      // Enforce alternation: first entry must be a user turn, and no two
+      // consecutive turns may share a role.
+      if (out.length === 0) { if (m.role !== 'user') continue; }
+      else if (out[out.length - 1].role === m.role) { out[out.length - 1] = { role: m.role, content: c }; continue; }
+      out.push({ role: m.role, content: c });
+    }
+    var last = String(nextUserText).trim().slice(0, 1000);
+    if (out.length && out[out.length - 1].role === 'user') out.pop();
+    out.push({ role: 'user', content: last });
+    // Keep the newest turns and make sure the window still opens on a user turn.
+    if (out.length > 20) out = out.slice(out.length - 20);
+    while (out.length && out[0].role !== 'user') out.shift();
+    return out;
+  }
+
+  function sendToBot(userText) {
     var typingRow = showTyping();
-    setTimeout(function() {
+    var done = false;
+
+    function finish(text, qr) {
+      if (done) return; done = true;
       if (typingRow) typingRow.remove();
       lastRole = null;
-      addRow('bot', r.text, r.qr);
-    }, 650);
+      addRow('bot', text, qr);
+      hist.push({ role: 'assistant', content: text });
+      save();
+      sending = false;
+      setSendBusy(false);
+    }
+
+    var ctrl = null;
+    var timer = null;
+    try { ctrl = new AbortController(); } catch (e) { ctrl = null; }
+    if (ctrl) timer = setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, CHAT_TIMEOUT_MS);
+
+    fetch(CHAT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPA_ANON },
+      body: JSON.stringify({ messages: buildPayload(userText) }),
+      signal: ctrl ? ctrl.signal : undefined
+    })
+      .then(function (r) {
+        // 429 (rate limited) and 503 (kill switch) carry a friendly Hebrew
+        // message from the server — show it rather than a generic failure.
+        if (r.status === 429 || r.status === 503) {
+          return r.json().then(function (b) { return { soft: (b && b.message) || null }; },
+                               function ()  { return { soft: null }; });
+        }
+        if (!r.ok) throw new Error('http_' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (timer) clearTimeout(timer);
+        if (data && data.soft) { finish(data.soft, ['שאלה כללית']); return; }
+        var reply = data && typeof data.reply === 'string' ? data.reply.trim() : '';
+        if (!reply) throw new Error('empty_reply');
+        finish(reply, null);
+      })
+      .catch(function () {
+        if (timer) clearTimeout(timer);
+        // Silent, graceful degradation to the offline table. The customer sees a
+        // useful answer; only the answer quality drops, never the experience.
+        var r = localAnswer(userText);
+        finish(r.text, r.qr);
+      });
+  }
+
+  function setSendBusy(busy) {
+    var btn = document.getElementById('chat-send');
+    if (!btn) return;
+    btn.classList.toggle('sending', !!busy);
+    btn.disabled = !!busy;
   }
 
   function send() {
@@ -3272,13 +3370,17 @@ document.addEventListener('DOMContentLoaded', function() {
     var txt = inp ? inp.value.trim() : '';
     if (!txt) return;
 
+    sending = true;
+    setSendBusy(true);
     haptic();
     inp.value = ''; autoResize(inp);
     inp.focus();
 
     addRow('user', txt);
+    hist.push({ role: 'user', content: txt });
+    save();
     document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
-    sendLocal(txt);
+    sendToBot(txt);
   }
 
   function openPanel() {
@@ -3293,17 +3395,7 @@ document.addEventListener('DOMContentLoaded', function() {
     panel.classList.add('chat-in');
     setTimeout(function() { panel.classList.remove('chat-in'); }, 350);
 
-    if (wrap && wrap.children.length === 0) {
-      lastRole = null;
-      if (hist.length > 0) {
-        hist.forEach(function(m) {
-          if (m.role === 'user') { lastRole = null; addRow('user', m.content, null, true); }
-          else { addRow('bot', m.content, null, true); }
-        });
-      } else {
-        addRow('bot', WELCOME, WELCOME_QR);
-      }
-    }
+    renderInitial();
 
     var inp = document.getElementById('chat-input');
     if (inp) inp.focus();
@@ -3337,8 +3429,30 @@ document.addEventListener('DOMContentLoaded', function() {
     vv.addEventListener('scroll',  onVVChange, { passive: true });
   }
 
+  // Paint the message list exactly once — either a restored conversation or the
+  // welcome. Called from init() (so the unread badge appears without opening the
+  // panel) and again from openPanel() as a safety net; the children check makes
+  // the second call a no-op.
+  function renderInitial() {
+    var wrap = document.getElementById('chat-messages');
+    if (!wrap || wrap.children.length > 0) return;
+    lastRole = null;
+    if (hist.length > 0) {
+      hist.forEach(function (m) {
+        if (m.role === 'user') { lastRole = null; addRow('user', m.content, null, true); }
+        else { addRow('bot', m.content, null, true); }
+      });
+    } else {
+      addRow('bot', WELCOME, WELCOME_QR);
+    }
+  }
+
   function init() {
-    addRow('bot', WELCOME, WELCOME_QR);
+    // Restore before first paint, so a returning visitor sees her conversation
+    // instead of the welcome message. The backend is stateless — this history is
+    // the only memory the bot has.
+    load();
+    renderInitial();
     var bubble = document.getElementById('chat-bubble');
     bubble.addEventListener('click', openPanel);
     bubble.addEventListener('keydown', function(e) {

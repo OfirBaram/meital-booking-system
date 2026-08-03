@@ -18,7 +18,7 @@ import { assert, assertEquals, assertStringIncludes } from 'jsr:@std/assert@1'
 import { renderForWhatsApp, trimHistory, maskPhone, scrubPhones, type ChatTurn } from '../_shared/whatsapp.ts'
 import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
 import { buildTwilioSignatureBase, verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
-import { TOOL_REGISTRY, toolsForChannel } from '../_shared/bot-config.ts'
+import { TOOL_REGISTRY, toolsForChannel, WEB_TOOLS, buildSystemPrompt } from '../_shared/bot-config.ts'
 import { checkFaq } from '../_shared/faq-engine.ts'
 import { buildAdminApprovalWhatsApp } from '../_shared/messages.ts'
 import { sendClientStatusNotification } from '../_shared/notify.ts'
@@ -380,7 +380,90 @@ Deno.test('toolsForChannel: web excludes phone-only tools; whatsapp gets all', (
     assert(!web.includes(t), 'web must NOT expose ' + t)
     assert(wa.includes(t), 'whatsapp must expose ' + t)
   }
-  assert(web.includes('check_availability') && web.includes('join_waitlist'), 'web keeps the advisory tools')
+  assert(web.includes('join_waitlist'), 'web keeps the lead-capture tool')
+})
+
+// The website chat is deliberately NOT connected to the calendar (2026-08-03).
+// check_availability needs no phone number, so nothing except this rule stops it
+// leaking back onto the public site. If this test fails, the website widget can
+// read `slots` and quote real appointment times — re-read WEB_TOOLS before
+// "fixing" it.
+Deno.test('toolsForChannel: web has NO calendar access', () => {
+  const web = toolsForChannel('web').map(t => t.name)
+  assert(!web.includes('check_availability'), 'web must NOT expose check_availability')
+  assert(toolsForChannel('whatsapp').map(t => t.name).includes('check_availability'),
+    'whatsapp still books, so it keeps check_availability')
+})
+
+// WEB_TOOLS is an allow-list precisely so a newly registered tool cannot become
+// publicly reachable by default. This asserts the allow-list semantics hold.
+Deno.test('toolsForChannel: web surface is an allow-list, not a deny-list', () => {
+  const web = toolsForChannel('web').map(t => t.name)
+  for (const name of web) {
+    assert(WEB_TOOLS.has(name), 'web exposed ' + name + ' which is not in WEB_TOOLS')
+  }
+  assert(web.length === WEB_TOOLS.size, 'every WEB_TOOLS entry must resolve to a real tool')
+})
+
+// ── Price injection into the system prompt ──────────────────────────────────────
+// Prices became real data on 2026-08-03 (services.price_ils). The model may only
+// quote a price that reached it through the catalogue, so these assert the two
+// states — published and withheld — are both rendered unambiguously.
+Deno.test('buildSystemPrompt: a published price reaches the model', () => {
+  const prompt = buildSystemPrompt(
+    [{ id: 'gel_hands', name_he: "לק ג׳ל", duration_min: 60, price_ils: 160, sort_order: 0 }],
+    'web',
+  )
+  assertStringIncludes(prompt, '160 ILS')
+})
+
+Deno.test('buildSystemPrompt: a null price is stated as NOT published, never as 0', () => {
+  const prompt = buildSystemPrompt(
+    [{ id: 'brows_wax', name_he: 'גבות', duration_min: 15, price_ils: null, sort_order: 0 }],
+    'web',
+  )
+  assertStringIncludes(prompt, 'NOT PUBLISHED')
+  assert(!/גבות.*0 ILS/.test(prompt), 'a missing price must never render as 0 ILS')
+})
+
+Deno.test('buildSystemPrompt: each price stays attached to its own service', () => {
+  const prompt = buildSystemPrompt([
+    { id: 'gel_hands', name_he: "לק ג׳ל", duration_min: 60, price_ils: 160,  sort_order: 0 },
+    { id: 'brows_wax', name_he: 'גבות',   duration_min: 15, price_ils: null, sort_order: 1 },
+  ], 'web')
+  // Only the catalogue lines ("- name — N min — price"); the studio-name line
+  // also contains "לק ג׳ל" and would otherwise match first.
+  const svcLines  = prompt.split('\n').filter(l => l.startsWith('- '))
+  const gelLine   = svcLines.find(l => l.includes("לק ג׳ל")) ?? ''
+  const browsLine = svcLines.find(l => l.includes('גבות'))   ?? ''
+  assertStringIncludes(gelLine, '160 ILS')
+  assert(!browsLine.includes('160'), 'the brows line must not inherit the gel price')
+})
+
+// ── Web channel prompt: calendar-free framing ───────────────────────────────────
+Deno.test('buildSystemPrompt: web gets the no-calendar block, whatsapp does not', () => {
+  const web = buildSystemPrompt([], 'web')
+  const wa  = buildSystemPrompt([], 'whatsapp')
+  assertStringIncludes(web, 'WEBSITE CHANNEL')
+  assertStringIncludes(web, 'YOU DO NOT SCHEDULE')
+  assertStringIncludes(web, 'no calendar access')
+  assert(!wa.includes('WEBSITE CHANNEL'), 'whatsapp must not receive the website block')
+  assertStringIncludes(wa, 'WHATSAPP CHANNEL')
+  // The calendar instructions must live ONLY in the WhatsApp block. If they leak
+  // back into the shared template, the web prompt starts contradicting itself —
+  // which is what made the model answer price questions with a bare greeting.
+  assert(!web.includes('check_availability'), 'web prompt must never mention check_availability')
+  assertStringIncludes(wa, 'check_availability')
+})
+
+// ── FAQ engine must not shadow live prices ──────────────────────────────────────
+// The FAQ runs BEFORE the model and has no DB access. A rule matching a price
+// question would permanently pin the answer to whatever string is typed here,
+// silently overriding services.price_ils. This guards that door.
+Deno.test('faq-engine: price questions fall through to the model', () => {
+  for (const q of ['כמה עולה לק ג\'ל?', 'מה המחיר?', 'how much does it cost?']) {
+    assertEquals(checkFaq(q), null, 'FAQ must not answer the price question: ' + q)
+  }
 })
 
 // ── renderForWhatsApp: no self-link ─────────────────────────────────────────────

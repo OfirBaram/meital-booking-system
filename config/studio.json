@@ -1,7 +1,8 @@
 {
-  "_doc": "Canonical business config for the Meital chatbot. Update here, then redeploy the chat-handler edge function (bash scripts/deploy-functions.sh).",
+  "_doc": "DOCUMENTATION ONLY — nothing imports this file. It is a human-readable snapshot of the studio facts, kept so a reader can see them in one place. The bot does NOT read it: services (incl. price_ils) come from the Supabase `services` table at request time, and the rest is hardcoded in supabase/functions/_shared/bot-config.ts (SYSTEM_PROMPT_TEMPLATE) and _shared/faq-engine.ts. Changing this file changes nothing at runtime — update those instead, then redeploy (bash scripts/deploy-functions.sh).",
+  "_lastVerified": "2026-08-03",
   "studio": {
-    "name": "מיטל שבע ברעם — לק ג'ל בוטק",
+    "name": "מיטל שבע ברעם — לק ג'ל בוטיק",
     "location": "רחוב רש\"י 11, רמת גן",
     "locationNotes": "accessible from Tel Aviv, Givatayim, Petah Tikva",
     "contact": {
@@ -18,38 +19,44 @@
       "Saturday"
     ]
   },
+  "_servicesNote": "Live source of truth is the `services` table. regular_feet and gel_combo were DELETED on 2026-06-21 (migration 20260621000000) — do not re-add them here. price_ils NULL means the price is not published and the bot must defer to WhatsApp.",
   "services": [
     {
       "id": "gel_hands",
       "name": "לק ג'ל לציפורניים",
       "nameEn": "Gel Nail Polish",
       "emoji": "💅",
-      "durationMin": 60
+      "durationMin": 60,
+      "priceIls": 160
     },
     {
-      "id": "regular_feet",
-      "name": "לק רגיל לציפורניים ברגליים",
-      "nameEn": "Regular Feet Nail Polish",
-      "emoji": "🦶",
-      "durationMin": 30
-    },
-    {
-      "id": "gel_combo",
-      "name": "לק ג'ל לציפורניים + לק רגיל לרגליים",
-      "nameEn": "Gel Hands + Regular Feet Combo",
+      "id": "brows_wax",
+      "name": "עיצוב גבות ושפם",
+      "nameEn": "Eyebrow & Lip Wax",
       "emoji": "✨",
-      "durationMin": 90
+      "durationMin": 15,
+      "priceIls": null
     }
   ],
+  "policy": {
+    "cancelHours": 48,
+    "rescheduleHours": 48,
+    "rescheduleLimitPerBooking": 1,
+    "minAge": 16,
+    "payment": ["מזומן", "כרטיס אשראי", "ביט", "פייבוקס"]
+  },
   "bot": {
     "model": "claude-haiku-4-5-20251001",
+    "temperature": 0.3,
     "maxTokens": 600,
     "maxToolTurns": 3,
     "maxSlotsToPresent": 3,
-    "defaultAvailabilityWindowDays": 14,
+    "defaultAvailabilityWindowDays": 30,
+    "webChannelHasCalendarAccess": false,
+    "_webChannelNote": "The website widget deliberately has NO check_availability tool — see WEB_TOOLS in _shared/bot-config.ts. Booking is arranged on WhatsApp.",
     "rateLimit": {
-      "maxRequestsPerWindow": 10,
-      "windowMs": 60000
+      "web": { "maxRequestsPerWindow": 10, "windowMs": 60000 },
+      "whatsapp": { "maxRequestsPerWindow": 8, "windowMs": 60000 }
     }
   }
 }

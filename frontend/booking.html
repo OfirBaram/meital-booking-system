@@ -388,7 +388,11 @@
   <script type="importmap">{ "imports": { "motion": "https://esm.sh/motion@12", "mixpanel-browser": "./lib/mixpanel-stub.js" } }</script>
   <script type="module" src="./booking.js?v=2.4.0"></script>
   <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");</script>
-<script type="module" src="./chatbot.js"></script>
+<!-- The legacy chatbot.js widget was removed on 2026-08-03. It was a second,
+     independently-maintained bot with its own persona and its own hardcoded
+     answers, and it still advertised "לק רגיל ברגליים" — a service deleted from
+     the catalogue on 2026-06-21. The landing page widget (index.html) is the
+     single chat surface; it is backed by chat-handler. -->
 <script>
   document.addEventListener('click', function(e) {
     var a = e.target.closest('a[href*="wa.me"], a[href*="whatsapp.com"]');

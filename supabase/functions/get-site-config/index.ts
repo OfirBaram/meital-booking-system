@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const [{ data: services, error: svcErr }, { data: cfgRows, error: cfgErr }] = await Promise.all([
       supabase
         .from('services')
-        .select('id, name_he, desc_he, duration_min, icon, image_url, color_hex, sort_order')
+        .select('id, name_he, desc_he, duration_min, price_ils, icon, image_url, color_hex, sort_order')
         .eq('active', true)
         .order('sort_order', { ascending: true }),
       supabase
