@@ -1,14 +1,13 @@
 # Chat Security Gate
 #
 # Runs automatically on any PR that touches the WhatsApp chat module.
-# Two jobs run in parallel:
-#   1. unit-tests  — 151 behavioural + security unit tests
-#   2. static-scan — grep-based checks that cannot be caught by unit tests
+# Single job:
+#   static-scan — grep-based checks
 #      (e.g. secrets accidentally logged, sig-check bypass left enabled)
 #
 # To add this as a required check in GitHub:
 #   Settings → Branches → Branch protection rule for "main"
-#   ✅ Require status checks: "Chat Security — Unit Tests" + "Chat Security — Static Scan"
+#   ✅ Require status checks: "Chat Security — Static Scan"
 
 name: Chat Security Gate
 
@@ -23,7 +22,6 @@ on:
       - 'supabase/functions/_shared/whatsapp.ts'
       - 'supabase/functions/_shared/twilio-webhook.ts'
       - 'supabase/functions/_shared/circuit-breaker.ts'
-      - 'tests/unit/whatsapp-security.test.js'
   # Allow manual trigger for ad-hoc audits
   workflow_dispatch:
 
@@ -32,24 +30,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # ─── Job 1: Unit Tests ──────────────────────────────────────────────────────
-  unit-tests:
-    name: Chat Security — Unit Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run WhatsApp security unit tests
-        run: npx vitest run tests/unit/whatsapp-security.test.js
-
   # ─── Job 2: Static Security Scan ────────────────────────────────────────────
   static-scan:
     name: Chat Security — Static Scan

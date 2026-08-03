@@ -1,4 +1,0 @@
-{
-  "//": "Scopes `deno test` for the WhatsApp edge suite. The repo's package.json otherwise puts Deno in byonm (node_modules) mode and it fails to resolve the type-only npm:@supabase/supabase-js import. 'none' = resolve npm from Deno's own cache, ignore node_modules. Does NOT affect npm/Vitest/Playwright jobs or `supabase functions deploy` (which works inside supabase/).",
-  "nodeModulesDir": "none"
-}
