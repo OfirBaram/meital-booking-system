@@ -20,7 +20,7 @@ import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
 import { buildTwilioSignatureBase, verifyTwilioSignature } from '../_shared/twilio-webhook.ts'
 import { TOOL_REGISTRY, toolsForChannel, WEB_TOOLS, buildSystemPrompt } from '../_shared/bot-config.ts'
 import { checkFaq } from '../_shared/faq-engine.ts'
-import { buildAdminApprovalWhatsApp } from '../_shared/messages.ts'
+import { buildAdminApprovalWhatsApp, buildAdminSupportTicketSms, buildAdminBotDegradedSms } from '../_shared/messages.ts'
 import { sendClientStatusNotification } from '../_shared/notify.ts'
 
 // ── A chainable, configurable Supabase mock ─────────────────────────────────────
@@ -403,6 +403,85 @@ Deno.test('toolsForChannel: web surface is an allow-list, not a deny-list', () =
     assert(WEB_TOOLS.has(name), 'web exposed ' + name + ' which is not in WEB_TOOLS')
   }
   assert(web.length === WEB_TOOLS.size, 'every WEB_TOOLS entry must resolve to a real tool')
+})
+
+// ── escalate_to_support: Meital must actually be told ───────────────────────────
+// Until 2026-08-03 this tool only inserted a row. A ticket reached her only if
+// she happened to open the console, and once more than DEGRADED_OPEN_SUPPORT
+// tickets sat unread, health.ts put the whole bot into handover for everyone —
+// so an unseen backlog could take the bot down silently.
+
+/** Minimal supabase double for the escalate path. */
+function fakeSupabaseForEscalate(opts: { existingOpen: number }) {
+  const inserted: Record<string, unknown>[] = []
+  const logged:   Record<string, unknown>[] = []
+  // deno-lint-ignore no-explicit-any
+  const client: any = {
+    from(table: string) {
+      if (table === 'support_requests') {
+        return {
+          insert(row: Record<string, unknown>) {
+            inserted.push(row)
+            return { select: () => ({ single: () => Promise.resolve({ data: { id: 'ticket-1' }, error: null }) }) }
+          },
+          // the dedupe probe: how many OTHER open tickets this phone already has
+          select: () => ({
+            eq: () => ({ eq: () => ({ neq: () => Promise.resolve({ count: opts.existingOpen }) }) }),
+          }),
+        }
+      }
+      if (table === 'communication_logs') {
+        return { insert: (row: Record<string, unknown>) => { logged.push(row); return Promise.resolve({ error: null }) } }
+      }
+      return { insert: () => Promise.resolve({ error: null }) }
+    },
+  }
+  return { client, inserted, logged }
+}
+
+Deno.test('escalate_to_support: opens a ticket and alerts the admin', async () => {
+  Deno.env.set('ADMIN_PHONE', '+972500000000')
+  const fake = fakeSupabaseForEscalate({ existingOpen: 0 })
+  const res = await runTool('escalate_to_support', { reason: 'לקוחה מבקשת החזר כספי' }, {
+    supabase: fake.client, phone: '+972501234567', clientId: null,
+    channel: 'whatsapp', clientName: 'דנה', history: [],
+  })
+
+  assert(res.success, 'escalation must succeed')
+  assertEquals(fake.inserted.length, 1)
+  assertEquals(fake.inserted[0].status, 'open')
+
+  // The alert is fire-and-forget, so let the microtask queue drain.
+  await new Promise((r) => setTimeout(r, 20))
+  const alert = fake.logged.find((l) => l.context === 'AdminNotify')
+  assert(alert, 'an AdminNotify row must be logged for the ticket')
+  const body = String(alert!.message_body ?? '')
+  assertStringIncludes(body, 'דנה')
+  assert(!/https?:\/\//.test(body), 'admin SMS must stay link-free — carriers drop link-heavy admin SMS')
+})
+
+Deno.test('escalate_to_support: does not re-alert while the caller already has an open ticket', async () => {
+  Deno.env.set('ADMIN_PHONE', '+972500000000')
+  const fake = fakeSupabaseForEscalate({ existingOpen: 1 })
+  const res = await runTool('escalate_to_support', { reason: 'שוב אותה בקשה' }, {
+    supabase: fake.client, phone: '+972501234567', clientId: null,
+    channel: 'whatsapp', clientName: 'דנה', history: [],
+  })
+
+  assert(res.success)
+  await new Promise((r) => setTimeout(r, 20))
+  assertEquals(fake.logged.filter((l) => l.context === 'AdminNotify').length, 0,
+    'a second escalation from the same caller must not cost another SMS')
+})
+
+Deno.test('buildAdminSupportTicketSms / buildAdminBotDegradedSms: link-free and bounded', () => {
+  const t = buildAdminSupportTicketSms('דנה', 'x'.repeat(400))
+  assert(!/https?:\/\//.test(t), 'no links')
+  assert(t.length < 200, 'a long reason must not balloon the SMS: ' + t.length)
+
+  const d = buildAdminBotDegradedSms(7)
+  assertStringIncludes(d, '7')
+  assert(!/https?:\/\//.test(d), 'no links')
 })
 
 // ── Price injection into the system prompt ──────────────────────────────────────

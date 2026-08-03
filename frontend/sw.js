@@ -1,6 +1,11 @@
 'use strict';
 
-const CACHE = 'meital-v8';
+// v9 (2026-08-03): config.js changed (dead anon key -> publishable key) and
+// index.html changed (chat widget now calls chat-handler). Both are precached,
+// so without a new cache name a returning visitor keeps being served the old
+// copies from disk — she would carry the dead key and the pre-AI chat forever.
+// Only a changed CACHE value triggers the activate path that evicts them.
+const CACHE = 'meital-v9';
 
 // Resolve all precache URLs relative to this SW file so the same code works
 // for root deployment (https://domain.com/sw.js) and GitHub Pages subdirectory

@@ -12,7 +12,7 @@
  */
 
 const EP   = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
-const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
+const ANON = 'sb_publishable_jdsiuEIyFXDUS6kxkyOYDA_juWKqjAZ';
 const POST_HEADERS = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON}` };
 
 // ── test runner ───────────────────────────────────────────────────────────────

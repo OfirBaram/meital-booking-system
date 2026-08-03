@@ -8,6 +8,9 @@ import { normalizeIsraeliPhone } from '../_shared/phone.ts'
 import { getSystemHealth } from '../_shared/health.ts'
 import { createCircuitBreaker } from '../_shared/circuit-breaker.ts'
 import { type ChatTurn, maskPhone, renderForWhatsApp, trimHistory } from '../_shared/whatsapp.ts'
+import { sendAndLogSms } from '../_shared/notify.ts'
+import { twilioCredsFromEnv } from '../_shared/sms.ts'
+import { buildAdminBotDegradedSms } from '../_shared/messages.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -116,11 +119,39 @@ function recordWaError(): void {
 let _healthAt = 0
 let _degraded = false
 const HEALTH_TTL = 60_000
+// Alert Meital the first time the bot flips into handover mode, not on every
+// message while it stays there. Degraded mode means the bot has stopped
+// answering EVERYONE because unread tickets piled up — the one failure state
+// that is invisible from the outside, since customers still get a polite reply.
+let _degradedAlerted = false
 // deno-lint-ignore no-explicit-any
 async function isDegraded(supabase: any): Promise<boolean> {
   const now = Date.now()
   if (now - _healthAt < HEALTH_TTL) return _degraded
-  try { _degraded = (await getSystemHealth(supabase)).degraded; _healthAt = now }
+  try {
+    const health = await getSystemHealth(supabase)
+    const wasDegraded = _degraded
+    _degraded = health.degraded
+    _healthAt = now
+
+    if (_degraded && !wasDegraded && !_degradedAlerted) {
+      _degradedAlerted = true
+      // Fire-and-forget; the customer in front of us must not wait on Twilio.
+      ;(async () => {
+        try {
+          const adminPhone = Deno.env.get('ADMIN_PHONE')
+          if (!adminPhone) return
+          await sendAndLogSms(supabase, {
+            to:      adminPhone,
+            body:    buildAdminBotDegradedSms(health.openSupport),
+            context: 'AdminNotify',
+            creds:   twilioCredsFromEnv(),
+          })
+        } catch (e) { console.error('[wa] degraded alert failed', e) }
+      })()
+    }
+    if (!_degraded) _degradedAlerted = false   // re-arm once she clears the queue
+  }
   catch (e) { console.error('[wa] health check failed (fail-open):', e instanceof Error ? e.message : String(e)) }
   return _degraded
 }

@@ -148,6 +148,30 @@ export function buildClientSelfCancelSms(f: BookingMsgFields): string {
   return 'ההזמנה ב' + formatDateDmy(f.date) + ' ' + f.time + ' בוטלה. להזמנה חדשה — שלחי לנו הודעה 💬'
 }
 
+/**
+ * Alert Meital that the bot opened a support ticket.
+ *
+ * Deliberately link-free: link-heavy admin SMS has been dropped by the carrier
+ * before (see the admin-SMS filtering incident), and this message must arrive.
+ * The reason is the bot's own short Hebrew summary, truncated so a long one
+ * cannot push the message into extra SMS segments.
+ */
+export function buildAdminSupportTicketSms(clientLabel: string, reason: string): string {
+  const who = (clientLabel ?? '').trim() || 'לקוחה'
+  const why = (reason ?? '').trim().replace(/\s+/g, ' ').slice(0, 120) || 'ללא פירוט'
+  return 'פנייה חדשה מהבוט: ' + who + '. ' + why + '. ממתינה לך בקונסולה.'
+}
+
+/**
+ * Alert Meital that unanswered tickets have put the bot into handover mode.
+ * Above DEGRADED_OPEN_SUPPORT open tickets the bot stops answering everyone,
+ * so this is the difference between a quiet backlog and a silently dead bot.
+ */
+export function buildAdminBotDegradedSms(openCount: number): string {
+  return 'שימי לב: ' + openCount + ' פניות פתוחות בקונסולה, והבוט עבר למצב העברה לנציג. '
+       + 'סגירת הפניות תחזיר אותו לפעולה.'
+}
+
 export function buildAdminSelfCancelSms(name: string, f: BookingMsgFields): string {
   const n = (name ?? '').trim()
   return 'ביטול עצמאי: ' + n + ', ' + formatDateDmy(f.date) + ' ' + f.time + '.'

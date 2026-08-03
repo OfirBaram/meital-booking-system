@@ -8,7 +8,7 @@
  */
 
 const ENDPOINT = 'https://callmnxlcganwugxwiym.supabase.co/functions/v1/chat-handler';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNhbGxtbnhsY2dhbnd1Z3h3aXltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMjMwMDAsImV4cCI6MjA5NDY5OTAwMH0.79kCMds3YptSKwxnUKO09GoybggSwWG1aaYlUxJlsQ8';
+const ANON_KEY = 'sb_publishable_jdsiuEIyFXDUS6kxkyOYDA_juWKqjAZ';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function pass(label) { console.log('  ✓ ' + label); }
