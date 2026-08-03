@@ -3309,7 +3309,9 @@ document.addEventListener('DOMContentLoaded', function() {
     var typingRow = showTyping();
     var done = false;
 
-    function finish(text, qr) {
+    var startedAt = Date.now();
+
+    function finish(text, qr, source) {
       if (done) return; done = true;
       if (typingRow) typingRow.remove();
       lastRole = null;
@@ -3318,6 +3320,20 @@ document.addEventListener('DOMContentLoaded', function() {
       save();
       sending = false;
       setSendBusy(false);
+
+      // Tell the analytics module a reply landed. A CustomEvent keeps this
+      // inline script free of module imports and keeps the tracking wiring in
+      // landing-analytics.js. Metadata ONLY — never the message text: /track
+      // deliberately rejects anything that looks like PII with a 400.
+      try {
+        document.dispatchEvent(new CustomEvent('chat:reply', {
+          detail: {
+            latency_ms:   Date.now() - startedAt,
+            source:       source || 'unknown',
+            reply_length: text ? text.length : 0,
+          },
+        }));
+      } catch (e) { /* analytics must never break the chat */ }
     }
 
     var ctrl = null;
@@ -3343,17 +3359,17 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .then(function (data) {
         if (timer) clearTimeout(timer);
-        if (data && data.soft) { finish(data.soft, ['שאלה כללית']); return; }
+        if (data && data.soft) { finish(data.soft, ['שאלה כללית'], 'unavailable'); return; }
         var reply = data && typeof data.reply === 'string' ? data.reply.trim() : '';
         if (!reply) throw new Error('empty_reply');
-        finish(reply, null);
+        finish(reply, null, 'ai');
       })
       .catch(function () {
         if (timer) clearTimeout(timer);
         // Silent, graceful degradation to the offline table. The customer sees a
         // useful answer; only the answer quality drops, never the experience.
         var r = localAnswer(userText);
-        finish(r.text, r.qr);
+        finish(r.text, r.qr, 'offline');
       });
   }
 

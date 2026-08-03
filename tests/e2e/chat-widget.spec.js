@@ -145,6 +145,54 @@ test('conversation survives a page reload', async ({ page }) => {
   await expect(page.locator('#chat-messages')).toContainText('תשובה ייחודית לבדיקה', { timeout: 10_000 });
 });
 
+test('emits chat:reply telemetry with source, latency and NO message text', async ({ page }) => {
+  await page.route(CHAT_ROUTE, (route) => route.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ reply: 'לק ג׳ל אצלי הוא 160 ₪' }),
+  }));
+
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.__chatEvents = [];
+    document.addEventListener('chat:reply', (e) => window.__chatEvents.push(e.detail));
+  });
+
+  await page.locator('#chat-bubble').click();
+  await page.locator('#chat-input').fill('כמה עולה לק ג׳ל?');
+  await page.locator('#chat-send').click();
+  await expect(page.locator('#chat-messages')).toContainText('160 ₪', { timeout: 10_000 });
+
+  const events = await page.evaluate(() => window.__chatEvents);
+  expect(events).toHaveLength(1);
+  expect(events[0].source).toBe('ai');
+  expect(typeof events[0].latency_ms).toBe('number');
+  expect(events[0].reply_length).toBeGreaterThan(0);
+
+  // /track rejects PII with a 400 instead of sanitising it, so the payload must
+  // carry length and metadata only — never what the customer or bot said.
+  const serialised = JSON.stringify(events[0]);
+  expect(serialised).not.toContain('כמה עולה');
+  expect(serialised).not.toContain('160');
+});
+
+test('telemetry reports source=offline when the backend is down', async ({ page }) => {
+  await page.route(CHAT_ROUTE, (route) => route.abort('failed'));
+
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.__chatEvents = [];
+    document.addEventListener('chat:reply', (e) => window.__chatEvents.push(e.detail));
+  });
+
+  await page.locator('#chat-bubble').click();
+  await page.locator('#chat-input').fill('איפה הסטודיו?');
+  await page.locator('#chat-send').click();
+  await expect(page.locator('#chat-messages')).toContainText('רש"י 11', { timeout: 10_000 });
+
+  const events = await page.evaluate(() => window.__chatEvents);
+  expect(events[0]?.source).toBe('offline');
+});
+
 test('widget loads with no console errors', async ({ page }) => {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
