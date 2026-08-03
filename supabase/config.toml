@@ -402,6 +402,18 @@ verify_jwt = false
 [functions.chat-handler]
 verify_jwt = false
 
+# get-site-config serves the public service catalog and theme config to every
+# page load, and track is the analytics ingest the browser posts to. Both are
+# called by anonymous visitors with no session. They were deployed by hand with
+# verify_jwt = false but were NOT listed here, so the first CI deploy after
+# their creation reset them to the default and returned 401 on every page load.
+# Listing them is what makes that fix survive a redeploy.
+[functions.get-site-config]
+verify_jwt = false
+
+[functions.track]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
