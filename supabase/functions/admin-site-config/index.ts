@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     if (action === 'listServices') {
       const { data, error } = await supabase
         .from('services')
-        .select('id, name_he, desc_he, duration_min, icon, image_url, color_hex, sort_order, active')
+        .select('id, name_he, desc_he, duration_min, price_ils, icon, image_url, color_hex, sort_order, active')
         .order('sort_order', { ascending: true })
       if (error) throw error
       return json({ success: true, services: data ?? [] })
@@ -110,6 +110,20 @@ Deno.serve(async (req) => {
       if (colorHex && !HEX_RE.test(colorHex)) {
         return json({ success: false, error: 'צבע לא תקין (#RRGGBB)' }, 400)
       }
+
+      // price_ils — NULL is meaningful and is NOT 0. An empty field means "do
+      // not publish a price", and the bot answers "בתיאום אישי" instead. Only a
+      // real number here authorises the bot to quote it, so treat '', null and
+      // undefined all as "unpublish" rather than coercing them to 0.
+      const rawPrice = svc.price_ils
+      let priceIls: number | null = null
+      if (rawPrice !== null && rawPrice !== undefined && String(rawPrice).trim() !== '') {
+        priceIls = parseInt(String(rawPrice), 10)
+        if (!Number.isFinite(priceIls) || priceIls < 0 || priceIls > 5000) {
+          return json({ success: false, error: 'מחיר חייב להיות בין 0 ל-5000 ₪ (או ריק)' }, 400)
+        }
+      }
+
       const active = svc.active !== false   // default true
 
       // Resolve id: existing (edit) or generate (new).
@@ -142,6 +156,7 @@ Deno.serve(async (req) => {
 
       const record = {
         id, name_he: name, desc_he: desc, duration_min: duration,
+        price_ils: priceIls,
         icon, image_url: imageUrl, color_hex: colorHex,
         sort_order: sortOrder, active, updated_at: new Date().toISOString(),
       }

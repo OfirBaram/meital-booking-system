@@ -209,6 +209,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // The widget dispatches 'chat:reply' when an answer lands. It is an inline
+  // (non-module) script, so a CustomEvent is the seam between it and this file.
+  //
+  // `source` is the value worth watching: 'ai' means chat-handler answered,
+  // 'offline' means the request failed and the local fallback table answered,
+  // 'unavailable' means the kill switch or a rate limit replied. A rising
+  // offline share is the signal that the bot is silently degraded — the
+  // customer still sees an answer, so nothing else would surface it.
+  //
+  // Metadata only. Never send message text: /track rejects anything resembling
+  // PII with a 400 rather than sanitising it, on purpose.
+  document.addEventListener('chat:reply', e => {
+    const d = e.detail || {};
+    trackEvent('chat_reply_received', {
+      latency_ms:   Number(d.latency_ms) || 0,
+      source:       String(d.source || 'unknown'),
+      reply_length: Number(d.reply_length) || 0,
+    });
+  });
+
   // WA escalation links are injected dynamically into #chat-messages by the bot
   if (chatMsgs) {
     chatMsgs.addEventListener('click', e => {

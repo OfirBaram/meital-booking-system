@@ -79,7 +79,7 @@ export async function runConversation(
   try {
     const { data: svcRows } = await supabase
       .from('services')
-      .select('id, name_he, duration_min, active, sort_order')
+      .select('id, name_he, duration_min, price_ils, active, sort_order')
       .eq('active', true)
       .order('sort_order', { ascending: true })
     if (svcRows && svcRows.length) systemPrompt = buildSystemPrompt(svcRows as never, channel, clientName)
@@ -114,6 +114,11 @@ export async function runConversation(
     const resp = await anthropic.messages.create({
       model:      MODEL,
       max_tokens: MAX_TOKENS,
+      // Low temperature on purpose. This bot states prices, hours and booking
+      // policy as fact, and the API default (1.0) invites paraphrase drift on
+      // exactly those numbers. Warmth comes from the persona in the prompt, not
+      // from sampling randomness.
+      temperature: 0.3,
       // Prompt caching: cache_control on the system block caches tools+system, so
       // the large static prompt is billed at ~10% on repeat calls within the
       // 5-min window — a big token saving for a chatty bot.

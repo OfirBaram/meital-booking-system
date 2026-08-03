@@ -125,6 +125,41 @@ async function isDegraded(supabase: any): Promise<boolean> {
   return _degraded
 }
 
+// ── Web-chat kill switch ──────────────────────────────────────────────────────
+// The website widget calls a paid LLM on every message from anonymous visitors.
+// Before this flag there was no way to stop that short of a redeploy or revoking
+// ANTHROPIC_API_KEY (which would also kill WhatsApp). `web_chat_enabled` lets
+// Meital turn the site chat off from Admin → דופק עסקי → הגדרות מערכת, instantly.
+//
+// feature_flags is service_role-only (RLS with no anon policy), and the web path
+// otherwise runs on the anon key, so this needs its own client. Cached ~60s per
+// worker to keep it off the hot path.
+//
+// Fail-OPEN, matching isDegraded(): a transient DB error must not take the chat
+// down. An explicit `enabled = false` row is the only thing that disables it.
+let _webFlagAt = 0
+let _webChatOn = true
+const WEB_FLAG_TTL = 60_000
+async function isWebChatEnabled(): Promise<boolean> {
+  const now = Date.now()
+  if (now - _webFlagAt < WEB_FLAG_TTL) return _webChatOn
+  try {
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const { data, error } = await admin
+      .from('feature_flags').select('enabled').eq('key', 'web_chat_enabled').maybeSingle()
+    if (error) throw error
+    // Missing row = feature not configured = on. Only an explicit false disables.
+    _webChatOn = data ? data.enabled !== false : true
+    _webFlagAt = now
+  } catch (e) {
+    console.error('[chat-handler] web_chat_enabled check failed (fail-open):', e instanceof Error ? e.message : String(e))
+  }
+  return _webChatOn
+}
+
 // deno-lint-ignore no-explicit-any
 async function persistConversation(supabase: any, phone: string, clientId: string | null, history: ChatTurn[], messageSid: string): Promise<void> {
   // Must NEVER throw — a save failure must not cost the customer the reply the
@@ -466,6 +501,12 @@ Deno.serve(async (req) => {
 
   const messages = validateMessages((body as Record<string, unknown>)?.messages)
   if (!messages) return json({ error: 'invalid_messages' }, 400)
+
+  // Kill switch — checked after validation (cheap rejects first) but before the
+  // paid LLM call. 503 tells the widget to fall back to its offline answers.
+  if (!(await isWebChatEnabled())) {
+    return json({ error: 'chat_disabled', message: 'הצ׳אט אינו זמין כרגע. אפשר לכתוב לי בווטסאפ ואשמח לעזור 💬' }, 503)
+  }
 
   debugLog('incoming', { ip, messageCount: messages.length })
 

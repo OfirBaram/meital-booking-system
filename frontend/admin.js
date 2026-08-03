@@ -2512,6 +2512,15 @@ async function loadServicesAdmin(force) {
   }
 }
 
+// Price suffix for a service row. Makes the published/unpublished distinction
+// visible at a glance, because that is exactly what the chat will or will not
+// tell a customer — a blank price is a deliberate state, not missing data.
+function svcPriceLabel(s) {
+  return (s.price_ils == null)
+    ? ' · <span class="text-text-muted/70">מחיר בתיאום</span>'
+    : ' · <span class="font-bold text-primary">' + Number(s.price_ils) + ' ₪</span>';
+}
+
 function renderSvcList() {
   const el = document.getElementById('js-svc-list');
   if (!el) return;
@@ -2532,7 +2541,7 @@ function renderSvcList() {
         iconHtml +
         '<div class="flex-1 min-w-0">' +
           '<div class="text-sm font-bold text-text-main truncate">' + esc(s.name_he) + '</div>' +
-          '<div class="text-[11px] text-text-muted">' + Number(s.duration_min) + ' דק׳</div>' +
+          '<div class="text-[11px] text-text-muted">' + Number(s.duration_min) + ' דק׳' + svcPriceLabel(s) + '</div>' +
         '</div>' +
         dot +
         '<button type="button" data-svc-toggle class="text-[11px] font-bold px-2 py-1 rounded-lg ' + (s.active ? 'text-approved' : 'text-text-muted') + '">' + (s.active ? 'פעיל' : 'כבוי') + '</button>' +
@@ -2620,6 +2629,9 @@ function openSvcModal(svc) {
   document.getElementById('js-svc-name').value     = svc ? svc.name_he : '';
   document.getElementById('js-svc-desc').value     = svc ? (svc.desc_he || '') : '';
   document.getElementById('js-svc-duration').value = svc ? svc.duration_min : 60;
+  // Empty string, not 0 — a blank field is what tells the bot not to publish a
+  // price, so a null price must round-trip back as blank and never as '0'.
+  document.getElementById('js-svc-price').value    = (svc && svc.price_ils != null) ? svc.price_ils : '';
   document.getElementById('js-svc-image').value    = svc ? (svc.image_url || '') : '';
   document.getElementById('js-svc-icon-btn').textContent = svc ? (svc.icon || '💅') : '💅';
   document.getElementById('js-svc-desc-count').textContent = (svc && svc.desc_he ? svc.desc_he.length : 0) + '/200';
@@ -2716,12 +2728,17 @@ async function submitSvcForm(e) {
     name_he:      document.getElementById('js-svc-name').value.trim(),
     desc_he:      document.getElementById('js-svc-desc').value.trim(),
     duration_min: parseInt(document.getElementById('js-svc-duration').value, 10),
+    // Send null (not 0, not '') when blank — null is the "do not publish" signal.
+    price_ils:    document.getElementById('js-svc-price').value.trim() === ''
+                    ? null
+                    : parseInt(document.getElementById('js-svc-price').value, 10),
     icon:         document.getElementById('js-svc-icon-btn').textContent.trim() || '💅',
     image_url:    document.getElementById('js-svc-image').value.trim() || null,
     active:       document.querySelector('input[name="svc-active"]:checked')?.value === '1',
   };
   if (!service.name_he) { err.textContent = 'שם השירות חובה'; err.classList.remove('hidden'); return; }
   if (!(service.duration_min >= 5 && service.duration_min <= 360)) { err.textContent = 'משך חייב להיות בין 5 ל-360 דקות'; err.classList.remove('hidden'); return; }
+  if (service.price_ils !== null && !(service.price_ils >= 0 && service.price_ils <= 5000)) { err.textContent = 'מחיר חייב להיות בין 0 ל-5000 ₪ (או ריק)'; err.classList.remove('hidden'); return; }
 
   const submitBtn = document.getElementById('js-svc-submit');
   submitBtn.disabled = true;

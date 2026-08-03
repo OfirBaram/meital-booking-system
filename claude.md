@@ -308,6 +308,7 @@ Echo-back origin (לא `*`) — נדרש עבור `credentials: 'include'`. `ADM
 | v2.0.0 | 06-04 | Confirmation screen polish (personalized heading, short ref, WhatsApp pre-fill); GAS sync + full live deploy |
 | v2.1.0 | 06-15 | Smart Scheduling (feature flag, gap-safe SQL, per-slot logging); admin-flags Edge Function; dual-mode session auth; הגדרות מערכת card; Deno .catch() fix |
 | v2.2.0 | 06-16 | Service catalog update: gel_hands (60m), regular_feet (30m), gel_combo (90m) — replaces gel_classic/gel_feet; skill update-services added; 18 touch-points updated |
+| v2.3.0 | 08-03 | **Site chat connected to the AI brain, calendar-free.** `services.price_ils` (gel_hands=160 ₪, brows_wax=NULL="בתיאום אישי") + admin price field → single source of truth; landing widget now calls `chat-handler` (local table kept as offline fallback); `WEB_TOOLS` allow-list withholds `check_availability` from web; availability rules moved out of the shared prompt into the WhatsApp block; `web_chat_enabled` kill switch; temperature 0.3; legacy `frontend/chatbot.js` deleted; FAQ pedicure/brows/cancellation(48h)/payment/duration corrected |
 
 
 ---

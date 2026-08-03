@@ -56,15 +56,32 @@ const FAQ_RULES: FaqRule[] = [
       /מה\s*(ה)?(שירות|טיפול|מציע|עושה|נותנ)|אילו\s*שירות|מה\s*אפשר/i,
       /what.{0,10}(services?|treatments?|offer|do you do)/i,
     ],
-    response: "מיטל מתמחה בלק ג'ל לציפורניים — ידיים ורגליים 💅\nאשמח לעזור לך לקבוע תור! כתבי לי איזה שירות מעניין אותך ומתי נוח לך.",
+    // No price here on purpose — this engine has no DB access, so a number typed
+    // into this string would go stale the moment Meital edits it in the console.
+    // Price questions fall through to the model, which gets the live catalogue.
+    response: "אני מציעה שני שירותים 💅\nלק ג'ל לציפורניים ידיים — 60 דקות\nעיצוב גבות ושפם בווקס — 15 דקות\nאיזה מהם מעניין אותך? אשמח לפרט על מחיר וזמינות.",
   },
 
-  // Q3 -- Gel pedicure / feet
+  // Q3 -- Feet / pedicure — NOT offered.
+  // regular_feet and gel_combo were deleted from the catalogue on 2026-06-21
+  // (migration 20260621000000). This rule used to promise the service; it now
+  // declines it, because there is no service_id and no slot that can fulfil it.
   {
     triggers: [
       /לק.{0,5}ג.ל.{0,10}רגלי|פדיקור|ג.ל.{0,5}רגל|gel.{0,10}feet|pedicure/i,
     ],
-    response: "בהחלט! מיטל עושה גם לק לציפורניים ברגליים 🦶\nרוצה שאמצא לך זמן פנוי? כתבי לי ונתאם 💅",
+    response: "כרגע אני מתמקדת בלק ג'ל לידיים ובעיצוב גבות ושפם 💅\nטיפולי רגליים לא בתחום שלי כרגע.\nאם תרצי לק ג'ל לידיים — אשמח לעזור!",
+  },
+
+  // Q3b -- Eyebrows / mustache (wax). Added 2026-08-03: brows_wax has been in the
+  // catalogue since 2026-06-21 but had NO rule, so "עושה גבות?" fell through to
+  // the services rule and was answered with "לק ג'ל" — actively wrong.
+  // Price is deliberately absent: eyebrow pricing is arranged personally.
+  {
+    triggers: [
+      /גבות|שפם|ווקס|wax|eyebrow|brows/i,
+    ],
+    response: "כן! אני עושה עיצוב גבות ושפם בווקס ✨\nתוצאה נקייה ומדויקת, הטיפול לוקח כ-15 דקות.\nלגבי מחיר ותיאום — הכי נוח לדבר איתי ישירות:\n[WA]",
   },
 
   // Q5 -- Difference between regular polish and gel
@@ -141,7 +158,10 @@ const FAQ_RULES: FaqRule[] = [
     triggers: [
       /כמה\s*זמן\s*(אורך|לוקח|נמשך|הטיפול)|משך\s*הטיפול|how\s*long.{0,20}(take|treatment)/i,
     ],
-    response: "משך הטיפול משתנה לפי השירות 💅\nאשמח לעזור לך לקבוע תור — כתבי לי איזה שירות מעניין אותך ואראה לך זמנים.",
+    // Durations are known and fixed, so state them. The old answer said the
+    // duration "varies" and promised "ואראה לך זמנים" — a promise the website
+    // bot cannot keep, since it has no calendar access.
+    response: "לק ג'ל לציפורניים ידיים — כשעה 💅\nעיצוב גבות ושפם — כ-15 דקות ✨\nלתיאום תור:\n[WA]",
   },
 
   // Q16 -- Shortening / shaping nails
@@ -302,7 +322,10 @@ const FAQ_RULES: FaqRule[] = [
   // Q37 -- Cancellation policy
   {
     triggers: [/ביטול\s*(תור|הזמנה)|לבטל|cancel|cancellat/i],
-    response: "אני מכבדת את הזמן שלך 🙏\nלפרטים על מדיניות הביטול:\n[WA]",
+    // 48h is the policy the code actually enforces (client-cancel/index.ts and
+    // client-reschedule/index.ts). Stating it here stops the bot from deflecting
+    // a question it can answer, and keeps it aligned with what the system will do.
+    response: "אפשר לבטל או לשנות תור עד 48 שעות לפני המועד 🙏\nאם זה דחוף יותר מזה — כתבי לי ונמצא פתרון:\n[WA]",
   },
 
   // Q38 -- Late arrival
@@ -316,7 +339,9 @@ const FAQ_RULES: FaqRule[] = [
     triggers: [
       /תשלום|לשלם|ביט|אשראי|מזומן|אפל\s*פיי|גוגל\s*פיי|payment|credit|cash|bit\b|visa|mastercard/i,
     ],
-    response: "לפרטי אמצעי התשלום — שוחחי איתי:\n[WA]",
+    // Already public on the landing page FAQ — there was no reason for the bot
+    // to be the only surface that refused to say it.
+    response: "אפשר לשלם במזומן, בכרטיס אשראי, בביט או בפייבוקס 💳\nלכל שאלה נוספת אני כאן:\n[WA]",
   },
 
   // == GROUP 5: ABOUT & MISC ===================================================
@@ -391,13 +416,14 @@ const FAQ_RULES: FaqRule[] = [
     response: "מיטל עונה בהקדם האפשרי 📲\nשלחי הודעה ותקבלי מענה:\n[WA]",
   },
 
-  // -- PRICING (catch-all after specific rules) ---------------------------------
-  {
-    triggers: [
-      /מחיר|עלות|תעריף|כמה.{0,20}(עולה|זה)|price|pricing|cost|how\s*much|rates?/i,
-    ],
-    response: "המחירים נקבעים לפי הטיפול ♥\nלבירור מחיר מדויק:\n[WA]",
-  },
+  // -- PRICING — deliberately NOT handled here ----------------------------------
+  // There used to be a catch-all price rule returning "המחירים נקבעים לפי הטיפול".
+  // It was removed on 2026-08-03 when prices became real data (services.price_ils).
+  // This engine runs BEFORE the model (bot-core.ts) and has no DB access, so any
+  // rule matching /מחיר|כמה עולה/ would shadow the live price and permanently
+  // re-introduce the deflection. Price questions must fall through to the model,
+  // which receives the current catalogue and its prices in the system prompt.
+  // Do NOT add a pricing rule here.
 
   // -- MINIMUM AGE -------------------------------------------------------------
   {
