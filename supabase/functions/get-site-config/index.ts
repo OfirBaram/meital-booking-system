@@ -33,6 +33,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
+    // 2026-08-03: this function had been sitting on deployment v30 since well
+    // before the project's API keys were rotated, and its stale secret snapshot
+    // made PostgREST reject every query with PGRST303 'JWT issued at future' —
+    // a 500 on every page load. Freshly deployed functions (get-slots et al.)
+    // were unaffected. Redeploying is what fixes it; keep this function in the
+    // regular deploy sweep so it never drifts this far behind again.
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
