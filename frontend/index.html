@@ -136,7 +136,20 @@
   <meta name="twitter:image"       content="https://meytalnails.co.il/gallery/lak-gel-ramat-gan-french-shachor-dramatic.jpg" />
   <meta name="twitter:image:alt"   content="פרנץ' שחור — עיצוב ציפורניים של מיטל שבע ברעם" />
 
-  <!-- Structured Data — Local Business -->
+  <!-- Structured Data — Local Business
+
+       No aggregateRating / review here, deliberately (removed 2026-08-03).
+       Google's review-snippet policy forbids reviews about a business that are
+       written and hosted by that business on its own site, and a perfect 5.0
+       from exactly three self-published reviews is the textbook
+       structured-data-spam pattern — the risk is a manual action, not just
+       losing the stars. The testimonials remain as visible page content; only
+       the markup asserting they are verified ratings is gone. The legitimate
+       way to get stars back is real reviews on Google Business Profile.
+
+       Kept as an HTML comment rather than a key inside the JSON-LD: "@comment"
+       is not a JSON-LD keyword, and @-prefixed names are reserved, so a strict
+       processor can flag it as an unrecognised keyword. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -196,8 +209,7 @@
       "https://www.instagram.com/meytal.sheva",
       "https://www.tiktok.com/@meytal.sheva",
       "https://easy.co.il/page/10159641"
-    ],
-    "@comment": "aggregateRating + review were removed on 2026-08-03. Google's review-snippet policy forbids reviews about a business that are written and hosted by that business on its own site, and a perfect 5.0 from exactly 3 self-published reviews is the textbook structured-data-spam pattern — it risks a manual action, not just loss of stars. The testimonials remain as visible page content; only the markup claiming they are verified ratings is gone. To get stars back legitimately, collect reviews on Google Business Profile."
+    ]
   }
   </script>
 
