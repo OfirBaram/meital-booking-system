@@ -2,10 +2,17 @@
 User-agent: *
 Allow: /
 
-Disallow: /booking.html
-Disallow: /booking.js
-Disallow: /admin.html
+# admin.html carries <meta name="robots" content="noindex, nofollow">.
+# It is deliberately NOT disallowed here: Disallow blocks the crawl, which means
+# Googlebot never fetches the page and therefore never reads the noindex — so the
+# URL can still be indexed from any external link, with no snippet. Allowing the
+# crawl is what actually keeps it out of the index. The admin JS bundles stay
+# disallowed; they carry no indexable content and nothing links to them.
 Disallow: /admin.js
 Disallow: /admin-*.js
+
+# booking.html / booking.js are not built or deployed at all (see
+# docs/NO-ONLINE-BOOKING.md) and return 404, so a Disallow for them would be a
+# dead rule that also advertises the paths. Omitted on purpose.
 
 Sitemap: https://meytalnails.co.il/sitemap.xml

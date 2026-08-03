@@ -11,11 +11,48 @@ function platformFromHref(href) {
   return null;
 }
 
+// UTM capture. Read once on landing and kept for the session, because the
+// parameters survive only the first URL — every later event would otherwise look
+// like direct traffic. The server also strips the referrer's query string
+// (track/index.ts), so without this an Instagram bio-link visit is
+// indistinguishable from someone typing the domain in.
+function captureUtm() {
+  try {
+    const KEY = 'mn_utm';
+    const stored = sessionStorage.getItem(KEY);
+    if (stored) return JSON.parse(stored);
+
+    const q = new URLSearchParams(location.search);
+    const utm = {};
+    for (const k of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']) {
+      const v = q.get(k);
+      if (v) utm[k] = v.slice(0, 100);
+    }
+    // gclid/fbclid mark paid or social traffic that often arrives referrer-less.
+    for (const k of ['gclid', 'fbclid']) if (q.get(k)) utm[k] = '1';
+
+    sessionStorage.setItem(KEY, JSON.stringify(utm));
+    return utm;
+  } catch { return {}; }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  const utm = captureUtm();
+
   // Landing page load — richer than the auto $pageview from Mixpanel init
   trackEvent('landing_page_viewed', {
     referrer:         document.referrer || 'direct',
     has_saved_client: !!localStorage.getItem('meital_client'),
+    ...utm,
+  });
+
+  // Every WhatsApp CTA that runs through openWA() — the hero button, the sticky
+  // bar and the gallery CTA. None of them is an <a href*="wa.me"> that the
+  // delegation below could match: the first two carried href="#" until today and
+  // the third is a <button>. The hero CTA is the most important control on the
+  // page and it recorded nothing at all.
+  document.addEventListener('wa:click', e => {
+    trackEvent('whatsapp_clicked', { from: location.pathname, source: String((e.detail || {}).source || 'unknown') });
   });
 
   // ── Global click delegation ─────────────────────────────────────────────────
@@ -124,17 +161,37 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ── Section scroll visibility (IntersectionObserver) ───────────────────────
+  // Only #process and #testimonials were observed; #about, #services, #gallery,
+  // #faq and #contact — five of the seven sections, including the two that carry
+  // the actual offer — produced no visibility signal at all. Every section now
+  // reports through one generic `section_viewed{section}` rather than a new event
+  // name each time, so the ALLOWED set in track/index.ts stops growing per section.
   [
-    ['process',      'process_section_viewed'],
-    ['testimonials', 'testimonials_section_viewed'],
+    ['process',      'process_section_viewed'],       // kept: already in ALLOWED and in the views
+    ['testimonials', 'testimonials_section_viewed'],  // kept for the same reason
+    ['about',        null],
+    ['services',     null],
+    ['gallery',      null],
+    ['faq',          null],
+    ['contact',      null],
   ].forEach(([id, event]) => {
     const el = document.getElementById(id);
     if (!el) return;
+    // threshold:0.5 was unreachable for any section taller than the viewport —
+    // 50% of a 1500px section can never be visible in a 700px window, so those
+    // sections would never report no matter how long someone read them.
+    // Instead: shrink the root to the middle half of the viewport and fire when
+    // the section crosses it. That is height-independent and reads as "this
+    // section was actually in front of the user".
     new IntersectionObserver((entries, obs) => {
       entries.forEach(e => {
-        if (e.isIntersecting) { trackEvent(event); obs.disconnect(); }
+        if (e.isIntersecting) {
+          if (event) trackEvent(event);
+          else       trackEvent('section_viewed', { section: id });
+          obs.disconnect();
+        }
       });
-    }, { threshold: 0.5 }).observe(el);
+    }, { threshold: 0, rootMargin: '-25% 0px -25% 0px' }).observe(el);
   });
 
   // ── Reel mute / unmute ──────────────────────────────────────────────────────
@@ -197,17 +254,26 @@ document.addEventListener('DOMContentLoaded', () => {
     chatClose.addEventListener('click', () => trackEvent('chat_closed'));
   }
 
-  // Track message send via button click or Enter key
-  function trackChatSend() {
-    const msg = chatInput?.value?.trim();
-    if (msg) trackEvent('chat_message_sent', { message_length: msg.length });
-  }
-  if (chatSend)  chatSend.addEventListener('click', trackChatSend);
-  if (chatInput) {
-    chatInput.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) trackChatSend();
+  // chat_message_sent is emitted from inside the widget's send(), via 'chat:sent'.
+  //
+  // It used to be bound here to the #chat-send click and the Enter keydown. The
+  // quick-reply chips call send() programmatically — no click on #chat-send, no
+  // keydown — so every conversation started from a chip was counted as zero
+  // messages. The welcome message ships four chips, so that was the main entry
+  // point into the bot and it was missing from the data entirely.
+  document.addEventListener('chat:sent', e => {
+    const d = e.detail || {};
+    trackEvent('chat_message_sent', {
+      message_length: Number(d.message_length) || 0,
+      via:            String(d.via || 'input'),   // 'input' | 'quick_reply'
     });
-  }
+  });
+
+  // Which canned prompt people actually press — the fastest read on what the
+  // welcome message should offer.
+  document.addEventListener('chat:quickreply', e => {
+    trackEvent('chat_quick_reply_clicked', { label: String((e.detail || {}).label || '') });
+  });
 
   // The widget dispatches 'chat:reply' when an answer lands. It is an inline
   // (non-module) script, so a CustomEvent is the seam between it and this file.
@@ -229,10 +295,35 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // WA escalation links are injected dynamically into #chat-messages by the bot
+  // WA escalation links are injected dynamically into #chat-messages by the bot.
+  // The Instagram and TikTok links the bot emits live in the same container and
+  // were not attributed to anything, so portfolio traffic driven by the bot was
+  // invisible.
   if (chatMsgs) {
     chatMsgs.addEventListener('click', e => {
-      if (e.target.closest('.wa-link')) trackEvent('chat_escalated_to_wa');
+      if (e.target.closest('.wa-link')) { trackEvent('chat_escalated_to_wa'); return; }
+      if (e.target.closest('.ig-link')) { trackEvent('social_clicked', { platform: 'instagram', source: 'chat' }); return; }
+      if (e.target.closest('.tk-link')) { trackEvent('social_clicked', { platform: 'tiktok',    source: 'chat' }); }
     });
   }
+
+  // ── Dwell time ──────────────────────────────────────────────────────────────
+  // No time-on-page metric existed at all, so "did anyone actually read this?"
+  // was unanswerable. `pagehide` fires reliably on mobile (unlike `beforeunload`)
+  // and sendBeacon is already the transport, so this survives the unload.
+  // Guarded against double-fire: pagehide and visibilitychange can both run.
+  let _dwellSent = false;
+  const _startedAt = Date.now();
+  function sendDwell() {
+    if (_dwellSent) return;
+    _dwellSent = true;
+    const seconds = Math.round((Date.now() - _startedAt) / 1000);
+    // Bucketed, and capped well under the PII_RE trap in track/index.ts — that
+    // regex rejects any run of 9+ digits, so a raw millisecond value would 400.
+    if (seconds > 0 && seconds < 86400) trackEvent('time_on_page', { seconds });
+  }
+  window.addEventListener('pagehide', sendDwell);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') sendDwell();
+  });
 });

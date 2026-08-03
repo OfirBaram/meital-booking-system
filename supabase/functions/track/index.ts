@@ -41,7 +41,9 @@ const ALLOWED = new Set([
   'social_clicked',
   // chat
   'chat_opened', 'chat_closed', 'chat_message_sent', 'chat_reply_received',
-  'chat_escalated_to_wa',
+  'chat_escalated_to_wa', 'chat_quick_reply_clicked',
+  // engagement
+  'section_viewed', 'time_on_page',
 ])
 
 // Israeli mobile numbers, E.164, and long digit runs. Cheap guard, not a

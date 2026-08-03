@@ -33,8 +33,12 @@
   <link rel="dns-prefetch" href="//cdn.mxpnl.com" />
   <link rel="dns-prefetch" href="//api-eu.mixpanel.com" />
   <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-  <link rel="dns-prefetch" href="//www.googletagmanager.com" />
-  <link rel="dns-prefetch" href="//clarity.ms" />
+  <!-- googletagmanager loads immediately, so it wants a full preconnect (TLS warm-up),
+       not just DNS. The clarity.ms hint was dropped: Clarity exists only inside a
+       commented-out snippet below, so that host is never contacted.
+       The Mixpanel hints above stay — the import-map stub applies only to dev; Vite
+       bundles the real SDK for production and api-eu.mixpanel.com is hit every load. -->
+  <link rel="preconnect"   href="https://www.googletagmanager.com" crossorigin />
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="./favicon.ico" />
@@ -115,21 +119,24 @@
   <meta property="og:title"       content="מיטל שבע ברעם — לק ג'ל ועיצוב גבות | בוטיק ברמת גן" />
   <meta property="og:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם — חוויה אישית ומפנקת, תוצאות שמחזיקות 3–4 שבועות." />
   <meta property="og:image"       content="https://meytalnails.co.il/gallery/lak-gel-ramat-gan-french-shachor-dramatic.jpg" />
-  <meta property="og:image:width"  content="990" />
-  <meta property="og:image:height" content="1240" />
+  <!-- Must match the real file. Declared 990x1240 until 2026-08-03 while the image
+       is 1488x1742 (ratio .798 vs .854), which made WhatsApp and Facebook crop the
+       preview wrongly or skip it. -->
+  <meta property="og:image:width"  content="1488" />
+  <meta property="og:image:height" content="1742" />
   <meta property="og:image:alt"    content="פרנץ' שחור על נייל אליס — עיצוב ציפורניים של מיטל שבע ברעם" />
   <meta property="og:url"         content="https://meytalnails.co.il/" />
 
   <!-- Twitter Card -->
   <meta name="twitter:card"        content="summary_large_image" />
-  <meta name="twitter:site"        content="@meytal.sheva" />
+  <!-- twitter:site removed 2026-08-03 — it pointed at the Instagram/TikTok handle.
+       There is no X account, and an invalid handle is silently dropped anyway. -->
   <meta name="twitter:title"       content="מיטל שבע ברעם — לק ג'ל ועיצוב גבות | רמת גן" />
   <meta name="twitter:description" content="סטודיו עיצוב ציפורניים בוטיק ברמת גן. לק ג'ל לידיים ועיצוב גבות ושפם. תוצאות שמחזיקות 3–4 שבועות." />
   <meta name="twitter:image"       content="https://meytalnails.co.il/gallery/lak-gel-ramat-gan-french-shachor-dramatic.jpg" />
   <meta name="twitter:image:alt"   content="פרנץ' שחור — עיצוב ציפורניים של מיטל שבע ברעם" />
 
   <!-- Structured Data — Local Business -->
-  <!-- Structured Data — Local Business + Aggregate Rating -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -180,12 +187,7 @@
           "@type": "Offer",
           "name": "לק ג'ל לידיים",
           "description": "לק ג'ל מקצועי לידיים — מחזיק 3-4 שבועות ללא שבירה",
-          "priceCurrency": "ILS"
-        },
-        {
-          "@type": "Offer",
-          "name": "עיצוב גבות ושפם",
-          "description": "עיצוב מדויק ומחמיא של גבות ושפם — מותאם לצורת הפנים",
+          "price": "160",
           "priceCurrency": "ILS"
         }
       ]
@@ -195,119 +197,17 @@
       "https://www.tiktok.com/@meytal.sheva",
       "https://easy.co.il/page/10159641"
     ],
-    "aggregateRating": {
-      "@type": "AggregateRating",
-      "ratingValue": "5",
-      "bestRating": "5",
-      "worstRating": "1",
-      "reviewCount": "3"
-    },
-    "review": [
-      {
-        "@type": "Review",
-        "author": { "@type": "Person", "name": "שני כ." },
-        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-        "reviewBody": "הציפורניים שלי נראות מדהים! מיטל מקצועית, נעימה ומקפידה על הפרטים הקטנים ביותר. אני חוזרת אליה כבר שנה.",
-        "datePublished": "2026-05"
-      },
-      {
-        "@type": "Review",
-        "author": { "@type": "Person", "name": "תמר ל." },
-        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-        "reviewBody": "עיצוב הגבות שעשתה לי מיטל שינה לי את הפנים! עבודה מדויקת ומקצועית. ממליצה בחום.",
-        "datePublished": "2026-06"
-      },
-      {
-        "@type": "Review",
-        "author": { "@type": "Person", "name": "אור מ." },
-        "reviewRating": { "@type": "Rating", "ratingValue": "5", "bestRating": "5" },
-        "reviewBody": "החוויה בסטודיו של מיטל היא לא רק טיפול — זה מפגש מפנק ואישי. יצאתי עם ציפורניים מושלמות שהחזיקו שלושה שבועות.",
-        "datePublished": "2026-06"
-      }
-    ]
+    "@comment": "aggregateRating + review were removed on 2026-08-03. Google's review-snippet policy forbids reviews about a business that are written and hosted by that business on its own site, and a perfect 5.0 from exactly 3 self-published reviews is the textbook structured-data-spam pattern — it risks a manual action, not just loss of stars. The testimonials remain as visible page content; only the markup claiming they are verified ratings is gone. To get stars back legitimately, collect reviews on Google Business Profile."
   }
   </script>
 
-  <!-- Structured Data — FAQ (enables rich snippets in Google) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    "@id": "https://meytalnails.co.il/#faq",
-    "mainEntity": [
-      {
-        "@type": "Question",
-        "name": "כמה זמן מחזיק לק ג'ל?",
-        "acceptedAnswer": { "@type": "Answer", "text": "לק ג'ל איכותי מחזיק בין 3 ל-4 שבועות ללא שבירה, עם ברק מושלם לאורך כל התקופה. אני עובדת עם מותגים מובילים כמו Gelish, OPI ו-CND לתוצאות הארוכות ביותר." }
-      },
-      {
-        "@type": "Question",
-        "name": "האם ההסרה פוגעת בציפורן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "הסרה מקצועית נכונה לא פוגעת בציפורן. בסטודיו מבצעת הסרה עדינה — ללא שיוף מוגזם וללא נזק לציפורן הטבעית." }
-      },
-      {
-        "@type": "Question",
-        "name": "האם צריך לקבוע תור מראש?",
-        "acceptedAnswer": { "@type": "Answer", "text": "כן, עובדת בתיאום מראש בלבד כדי להבטיח לכל לקוחה את מלוא תשומת הלב. ניתן לכתוב בווטסאפ — בדרך כלל ניתן לקבל מקום תוך 2–3 ימים." }
-      },
-      {
-        "@type": "Question",
-        "name": "איפה הסטודיו ממוקם?",
-        "acceptedAnswer": { "@type": "Answer", "text": "הסטודיו ממוקם ברמת גן, נגיש בנסיעה מתל אביב, גבעתיים ופתח תקווה. לפרטי הגעה מדויקים ניתן לנווט דרך Waze." }
-      },
-      {
-        "@type": "Question",
-        "name": "כמה עולה לק ג'ל ברמת גן?",
-        "acceptedAnswer": { "@type": "Answer", "text": "המחיר תלוי בסוג הטיפול ואורך הציפורן. לקבלת מחיר מדויק — שלחי הודעה בווטסאפ. מקבלת מזומן, ביט ופייבוקס." }
-      },
-      {
-        "@type": "Question",
-        "name": "מה ההבדל בין לק ג'ל לג'ל נייל?",
-        "acceptedAnswer": { "@type": "Answer", "text": "לק ג'ל (Gel Polish) הוא לק שמוקשה בנורת UV/LED ומחזיק 3–4 שבועות. ג'ל נייל (Builder Gel) הוא חומר לבנייה ולהארכת ציפורן. הסטודיו מתמחה בלק ג'ל על ציפורן טבעית." }
-      },
-      {
-        "@type": "Question",
-        "name": "מה מומלץ לציפורניים קצרות?",
-        "acceptedAnswer": { "@type": "Answer", "text": "לציפורניים קצרות מומלץ על ניוד, פרנץ' קלאסי או צבע אחיד מבריק — הם מאריכים את מראה האצבע ומחמיאים לכל גודל ציפורן." }
-      },
-      {
-        "@type": "Question",
-        "name": "האם אפשר לשלב עיצוב גבות עם לק ג'ל באותו ביקור?",
-        "acceptedAnswer": { "@type": "Answer", "text": "בהחלט. ניתן לשלב לק ג'ל לידיים עם עיצוב גבות ושפם — סיימים כל הסטיילינג בביקור אחד. לתיאום שלחי הודעה בווטסאפ." }
-      },
-      {
-        "@type": "Question",
-        "name": "מה עיצוב גבות ושפם כולל?",
-        "acceptedAnswer": { "@type": "Answer", "text": "עיצוב גבות ושפם בשיטת ווקס — מסיר שיערות מיותרות, מעצב קשת מחמיאה לצורת הפנים ומעניק מראה נקי ומסוגנן שמחזיק 3–4 שבועות." }
-      },
-      {
-        "@type": "Question",
-        "name": "האם אפשר לעשות נייל ארט?",
-        "acceptedAnswer": { "@type": "Answer", "text": "כן! עיצובים מיוחדים — פרנץ', אומברה, נקודות, פרחים, שיש ועוד. ניתן לשלוח תמונת השראה בווטסאפ לתיאום עיצוב מיוחד." }
-      },
-      {
-        "@type": "Question",
-        "name": "כמה זמן לפני לקבוע תור?",
-        "acceptedAnswer": { "@type": "Answer", "text": "כדאי לקבוע 3–7 ימים מראש. בוחרת לקוחות ספורות בלבד בכל יום כדי להבטיח שירות אישי. בתקופות עמוסות (חגים, שבת הכלה) כדאי להזמין מוקדם יותר." }
-      }
-    ]
-  }
-  </script>
-
-  <!-- Structured Data — HowTo (booking process rich snippet) -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "HowTo",
-    "name": "איך קובעים תור אצל מיטל שבע ברעם?",
-    "description": "תהליך פשוט ואישי בשלושה שלבים — מהזמנה לציפורניים מושלמות",
-    "step": [
-      { "@type": "HowToStep", "position": "1", "name": "קביעת תור בווטסאפ", "text": "שולחים הודעה בווטסאפ ומתאמים זמן נוח. בדרך כלל עונה תוך שעות ספורות." },
-      { "@type": "HowToStep", "position": "2", "name": "מגיעים לסטודיו", "text": "אווירה אינטימית ומפנקת ברמת גן. קפה, מוזיקה ותשומת לב מלאה מהרגע הראשון." },
-      { "@type": "HowToStep", "position": "3", "name": "יוצאות מושלמות", "text": "תוצאה מקצועית שמחזיקה 3–4 שבועות. ברק כמו ביום הראשון עד לטיפול הבא." }
-    ]
-  }
-  </script>
+  <!-- FAQPage and HowTo structured data were removed on 2026-08-03.
+       FAQPage: since Google's Aug-2023 change, FAQ rich results are shown only for
+       authoritative government and health sites, so the block earned nothing here —
+       while 6 of its 11 answers had drifted out of sync with the visible FAQ text
+       (SiteConfig.faq), which is a mismatch penalty risk for no upside.
+       HowTo: fully deprecated by Google in Sept 2023; it rendered nothing.
+       The visible FAQ section on the page is unchanged and is what users read. -->
 
   <!-- Structured Data — Service + BookAction (enables "Book" button in Google) -->
   <script type="application/ld+json">
@@ -1647,7 +1547,6 @@
           referrerpolicy="no-referrer-when-downgrade">
         </iframe>
       </div>
-    </div>
   </section>
 
 </main><!-- /main -->
@@ -1928,9 +1827,29 @@ var SOCIAL_LABELS = {
 };
 
 var WA_PREFILL = 'היי מיטל! 😊 אשמח לקבוע תור לטיפול. מתי יש לך זמן פנוי?';
+var WA_URL = 'https://wa.me/972547686865?text=' + encodeURIComponent(WA_PREFILL);
+
 function openWA(e) {
+  // Announce the click so analytics can count it. Every WhatsApp CTA that goes
+  // through openWA() used to be invisible: landing-analytics.js only matches
+  // <a href*="wa.me">, and these elements carried href="#" (or were <button>s),
+  // so the hero CTA — the single most important button on the page — recorded
+  // nothing at all, and the whatsapp_clickers column in analytics_funnel was
+  // undercounting. A CustomEvent covers every call site regardless of tag.
+  try {
+    var src = 'unknown';
+    var el = e && e.currentTarget;
+    if (el && el.closest) {
+      if (el.closest('#hero-cta'))            src = 'hero';
+      else if (el.closest('#sticky-book'))    src = 'sticky_bar';
+      else if (el.closest('#gallery'))        src = 'gallery_cta';
+      else if (el.closest('#contact'))        src = 'contact';
+    }
+    document.dispatchEvent(new CustomEvent('wa:click', { detail: { source: src } }));
+  } catch (err) { /* analytics must never block the CTA */ }
+
   if (e) e.preventDefault();
-  window.open('https://wa.me/972547686865?text=' + encodeURIComponent(WA_PREFILL), '_blank', 'noopener,noreferrer');
+  window.open(WA_URL, '_blank', 'noopener,noreferrer');
 }
 
 function buildSocialIcon(name, href) {
@@ -1967,7 +1886,7 @@ function renderHeroCta() {
   if (!el) return;
   var wa = document.createElement('a');
   wa.className = 'btn-primary';
-  wa.href = '#';
+  wa.href = WA_URL;   // real link: works without JS, and analytics can match it
   wa.setAttribute('aria-label', 'קביעת תור בווטסאפ');
   wa.addEventListener('click', openWA);
   wa.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg><span>קביעי תור בווטסאפ</span>';
@@ -2015,7 +1934,6 @@ function applyLiveSiteConfig() {
     }
     // Editable texts.
     var c = data.config || {};
-    var setText = function(sel, val){ if(!val) return; var el=document.querySelector(sel); if(el) el.textContent = val; };
     // services-heading is static design text — not overridden by site_config
     // Apply the active palette + effects to the whole landing page.
     // In admin preview mode (?preview=1) the parent injects the unsaved
@@ -2203,7 +2121,8 @@ function renderGallery() {
       });
       initReveal();
       moreWrap.remove();
-      if (typeof trackEvent === 'function') trackEvent('gallery_load_more_clicked', { count: extraCount });
+      // gallery_load_more_clicked is emitted by landing-analytics.js via delegation.
+      // A call here could never have worked — trackEvent is a module import, never a global.
     });
     moreWrap.appendChild(moreBtn);
     outer.appendChild(moreWrap);
@@ -2298,7 +2217,8 @@ function initLightbox() {
     showImg(idx);
     lb.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
-    document.getElementById('lb-close').focus();
+    var lbClose = document.getElementById('lb-close');
+    if (lbClose) lbClose.focus();
   }
   function closeImg() {
     lb.setAttribute('hidden', '');
@@ -2322,10 +2242,16 @@ function initLightbox() {
     });
   }
 
-  document.getElementById('lb-close').addEventListener('click', closeImg);
+  // Guarded: initLightbox() checks `lb` but used to dereference these three
+  // children blind. One markup edit would have thrown here and killed every
+  // listener registered after this point.
+  var _lbClose = document.getElementById('lb-close');
+  var _lbPrev  = document.getElementById('lb-prev');
+  var _lbNext  = document.getElementById('lb-next');
+  if (_lbClose) _lbClose.addEventListener('click', closeImg);
   lb.addEventListener('click', function(e) { if (e.target === lb) closeImg(); });
-  document.getElementById('lb-prev').addEventListener('click', function() { showImg(cur - 1); });
-  document.getElementById('lb-next').addEventListener('click', function() { showImg(cur + 1); });
+  if (_lbPrev) _lbPrev.addEventListener('click', function() { showImg(cur - 1); });
+  if (_lbNext) _lbNext.addEventListener('click', function() { showImg(cur + 1); });
   document.addEventListener('keydown', function(e) {
     if (lb.hasAttribute('hidden')) return;
     if (e.key === 'Escape')     closeImg();
@@ -2425,9 +2351,12 @@ function renderFAQ() {
   if (!list) return;
   var chevron = '<svg class="faq-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>';
   list.innerHTML = SiteConfig.faq.map(function(item) {
+    // sanitize() like every sibling renderer. The FAQ is hardcoded today, but
+    // applyLiveSiteConfig() already pulls content from a remote endpoint — the day
+    // `faq` joins that payload, an unsanitized innerHTML here is a stored-XSS sink.
     return '<details class="faq-item reveal" role="listitem">' +
-      '<summary>' + item.q + chevron + '</summary>' +
-      '<p class="faq-answer">' + item.a + '</p>' +
+      '<summary>' + sanitize(item.q) + chevron + '</summary>' +
+      '<p class="faq-answer">' + sanitize(item.a) + '</p>' +
       '</details>';
   }).join('');
 }
@@ -2529,7 +2458,15 @@ function initReel() {
     timer = setTimeout(function() { showSlide(current + 1); }, REEL_DURATION);
   }
 
-  var startIdx = Math.floor(Math.random() * total);
+  // Always start on slide 0. This used to be Math.floor(Math.random() * total),
+  // which meant that on 5 of 6 loads the hero image that actually painted was
+  // neither the one preloaded in <head> (fetchpriority=high) nor eagerly loaded —
+  // it was loading="lazy". The browser downloaded a 1488x1742 JPEG and threw it
+  // away, then fetched the real LCP image late. On a full-viewport hero that is a
+  // direct, measurable LCP regression, and LCP is a ranking signal.
+  // Variety is preserved: the reel still cycles all six slides during the visit;
+  // only the first painted frame is deterministic, which is what LCP needs.
+  var startIdx = 0;
   restartKB(slides[startIdx], startIdx);
   slides[startIdx].classList.add('reel-active');
   updateCounter(startIdx);
@@ -2687,7 +2624,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- ── STICKY BOOK BUTTON ── -->
 <div id="sticky-book">
-  <a href="#" onclick="openWA(event)">
+  <a href="https://wa.me/972547686865" onclick="openWA(event)">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
     ווטסאפ
   </a>
@@ -2990,6 +2927,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var LSK = 'chat_hist_v1';
 
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
+  var _sendVia = 'input';   // how the pending message was triggered; reset after each send
 
   function load() { try { hist = JSON.parse(localStorage.getItem(LSK) || '[]'); } catch(e) { hist = []; } }
   function save() { try { localStorage.setItem(LSK, JSON.stringify(hist.slice(-20))); } catch(e) {} }
@@ -3117,6 +3055,10 @@ document.addEventListener('DOMContentLoaded', function() {
           qrDiv.querySelectorAll('.cqr-chip').forEach(function(c) { c.disabled = true; });
           var inp = document.getElementById('chat-input');
           if (inp) { inp.value = label; autoResize(inp); }
+          try {
+            document.dispatchEvent(new CustomEvent('chat:quickreply', { detail: { label: label } }));
+          } catch (e) { /* never block the reply */ }
+          _sendVia = 'quick_reply';
           send();
         });
         qrDiv.appendChild(btn);
@@ -3396,6 +3338,16 @@ document.addEventListener('DOMContentLoaded', function() {
     hist.push({ role: 'user', content: txt });
     save();
     document.querySelectorAll('.cmsg-qr .cqr-chip:not([disabled])').forEach(function(c) { c.disabled = true; });
+
+    // Fired here, not from the button/keydown, so programmatic sends (quick-reply
+    // chips, service buttons) are counted too. Length only — never the text.
+    try {
+      document.dispatchEvent(new CustomEvent('chat:sent', {
+        detail: { message_length: txt.length, via: _sendVia },
+      }));
+    } catch (e) { /* analytics must never break the chat */ }
+    _sendVia = 'input';
+
     sendToBot(txt);
   }
 
@@ -3406,7 +3358,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (badge) badge.hidden = true;
 
     var panel = document.getElementById('chat-panel');
-    var wrap  = document.getElementById('chat-messages');
+    if (!panel) { isOpen = false; return; }
     panel.hidden = false;
     panel.classList.add('chat-in');
     setTimeout(function() { panel.classList.remove('chat-in'); }, 350);
@@ -3469,19 +3421,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // the only memory the bot has.
     load();
     renderInitial();
+
+    // Guarded throughout. init() used to dereference four elements blind, so a
+    // single markup edit would throw here and silently drop everything after —
+    // including bindVisualViewport(), which is what keeps the panel above the
+    // mobile keyboard.
     var bubble = document.getElementById('chat-bubble');
-    bubble.addEventListener('click', openPanel);
-    bubble.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
-    });
-    document.getElementById('chat-close').addEventListener('click', closePanel);
-    document.getElementById('chat-send').addEventListener('click', send);
+    if (bubble) {
+      bubble.addEventListener('click', openPanel);
+      bubble.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
+      });
+    }
+    var closeBtn = document.getElementById('chat-close');
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+    var sendBtn = document.getElementById('chat-send');
+    if (sendBtn) sendBtn.addEventListener('click', send);
 
     var inp = document.getElementById('chat-input');
-    inp.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
-    });
-    inp.addEventListener('input', function() { autoResize(this); });
+    if (inp) {
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+      });
+      inp.addEventListener('input', function() { autoResize(this); });
+    }
 
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closePanel(); });
     bindVisualViewport();
