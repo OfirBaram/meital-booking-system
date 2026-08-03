@@ -13,9 +13,25 @@ import { test, expect } from '../support/test-base.js'
 
 const CHAT_ROUTE = '**/functions/v1/chat-handler'
 
+/**
+ * Wait for the widget to finish initialising before interacting with it.
+ *
+ * init() runs inside requestIdleCallback(..., { timeout: 2000 }), so the bubble
+ * exists in the markup well before its click listener is attached. Clicking too
+ * early does nothing and the test fails later with a confusing "no reply".
+ * init() ends by painting the welcome message, so a non-empty message list is a
+ * deterministic readiness signal — no arbitrary sleep.
+ */
+async function waitForChatReady(page) {
+  await expect
+    .poll(() => page.locator('#chat-messages > *').count(), { timeout: 15_000 })
+    .toBeGreaterThan(0)
+}
+
 /** Open the widget and return the message-list locator. */
 async function openChat(page) {
   await page.goto('/')
+  await waitForChatReady(page)
   await page.locator('#chat-bubble').click()
   const panel = page.locator('#chat-panel')
   await expect(panel).toBeVisible()
@@ -108,6 +124,7 @@ test('every welcome quick-reply chip produces an answer — no dead chips', asyn
   await page.route(CHAT_ROUTE, (route) => route.abort('failed'));
 
   await page.goto('/');
+  await waitForChatReady(page);
   await page.locator('#chat-bubble').click();
   const count = await page.locator('.cmsg-qr .cqr-chip').count();
   expect(count).toBeGreaterThan(0);
@@ -117,6 +134,7 @@ test('every welcome quick-reply chip produces an answer — no dead chips', asyn
     // instead of the welcome message and the welcome chips are gone.
     await page.evaluate(() => localStorage.clear());
     await page.reload();
+    await waitForChatReady(page);
     await page.locator('#chat-bubble').click();
 
     const chip = page.locator('.cmsg-qr .cqr-chip').nth(i);
@@ -141,6 +159,7 @@ test('conversation survives a page reload', async ({ page }) => {
   await expect(page.locator('#chat-messages')).toContainText('תשובה ייחודית לבדיקה', { timeout: 10_000 });
 
   await page.reload();
+  await waitForChatReady(page);
   await page.locator('#chat-bubble').click();
   await expect(page.locator('#chat-messages')).toContainText('תשובה ייחודית לבדיקה', { timeout: 10_000 });
 });
@@ -157,6 +176,7 @@ test('emits chat:reply telemetry with source, latency and NO message text', asyn
     document.addEventListener('chat:reply', (e) => window.__chatEvents.push(e.detail));
   });
 
+  await waitForChatReady(page);
   await page.locator('#chat-bubble').click();
   await page.locator('#chat-input').fill('כמה עולה לק ג׳ל?');
   await page.locator('#chat-send').click();
@@ -184,6 +204,7 @@ test('telemetry reports source=offline when the backend is down', async ({ page 
     document.addEventListener('chat:reply', (e) => window.__chatEvents.push(e.detail));
   });
 
+  await waitForChatReady(page);
   await page.locator('#chat-bubble').click();
   await page.locator('#chat-input').fill('איפה הסטודיו?');
   await page.locator('#chat-send').click();
