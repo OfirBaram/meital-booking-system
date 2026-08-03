@@ -23,6 +23,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ─── Job 0: Static asset validity ──────────────────────────────────────────
+  # sitemap.xml shipped broken on 2026-08-03: a Git-Bash invocation rewrote the
+  # closing </urlset> into "<C:/Program Files/Git/urlset>" (MSYS path mangling),
+  # which made the file unparseable. Google reported "Sitemap could not be read"
+  # and every URL plus all 23 image entries were discarded. Nothing in CI looked
+  # at these files, so it reached production silently. Cheap job, runs first.
+  static-assets:
+    name: Static Assets (XML/JSON)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate sitemap.xml is well-formed
+        run: python -c "import xml.dom.minidom; xml.dom.minidom.parse('frontend/public/sitemap.xml'); print('sitemap.xml OK')"
+
+      - name: Guard against MSYS path mangling
+        run: |
+          if grep -rn "C:/Program Files/Git" frontend/public/ frontend/*.html; then
+            echo "::error::A Git-Bash path leaked into a shipped asset (MSYS argument conversion)."
+            exit 1
+          fi
+          echo "no mangled paths"
+
+      - name: Validate shipped JSON
+        run: |
+          for f in frontend/public/manifest.json frontend/service-library.json config/studio.json; do
+            [ -f "$f" ] || continue
+            python -c "import json,sys; json.load(open(sys.argv[1],encoding='utf-8')); print(sys.argv[1] + ' OK')" "$f"
+          done
+
   # ─── Job 1: Unit Tests ─────────────────────────────────────────────────────
   unit-tests:
     name: Unit Tests (Vitest)
