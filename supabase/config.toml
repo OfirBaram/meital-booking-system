@@ -411,6 +411,11 @@ verify_jwt = false
 [functions.get-site-config]
 verify_jwt = false
 
+# admin-chats is admin-session gated in code (validateAdminSession), exactly like
+# admin-support. Listed here so a future deploy cannot silently flip its auth mode.
+[functions.admin-chats]
+verify_jwt = true
+
 [functions.track]
 verify_jwt = false
 

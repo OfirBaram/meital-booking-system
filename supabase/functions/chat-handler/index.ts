@@ -11,6 +11,7 @@ import { type ChatTurn, maskPhone, renderForWhatsApp, trimHistory } from '../_sh
 import { sendAndLogSms } from '../_shared/notify.ts'
 import { twilioCredsFromEnv } from '../_shared/sms.ts'
 import { buildAdminBotDegradedSms } from '../_shared/messages.ts'
+import { redactHistory } from '../_shared/redact.ts'
 
 // ── Rate Limiter (token bucket, per worker instance) ─────────────────────────
 // Supabase Edge Functions run in isolated Deno workers. In-memory state
@@ -189,6 +190,50 @@ async function isWebChatEnabled(): Promise<boolean> {
     console.error('[chat-handler] web_chat_enabled check failed (fail-open):', e instanceof Error ? e.message : String(e))
   }
   return _webChatOn
+}
+
+/** Trim + type-guard a string field coming from an untrusted request body. */
+function str(v: unknown, max: number): string {
+  return typeof v === 'string' ? v.trim().slice(0, max) : ''
+}
+
+/**
+ * Store one website conversation, keyed by the analytics session_id.
+ *
+ * Uses a SERVICE-ROLE client on purpose: the web request runs on the anon key,
+ * and chat_conversations has RLS enabled with no policies, so an anon write is
+ * rejected by design. This is the only place the web path needs elevated access.
+ *
+ * The transcript is redacted before it leaves this function — see _shared/redact.ts.
+ */
+async function persistWebChat(
+  sessionId: string,
+  messages: ChatTurn[],
+  reply: string,
+  req: Request,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const admin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
+
+  const full    = redactHistory([...messages, { role: 'assistant', content: reply }])
+  const userMsg = full.filter(t => t.role === 'user').length
+
+  const { error } = await admin.from('chat_conversations').upsert({
+    session_id:    sessionId,
+    history:       full,
+    message_count: userMsg,
+    page:          str(body.page, 200) || null,
+    referrer:      str(body.referrer, 300) || null,
+    device:        ['mobile', 'tablet', 'desktop'].includes(String(body.device)) ? String(body.device) : null,
+    // Populated by the edge when it knows; absent is normal, not an error.
+    country:       (req.headers.get('cf-ipcountry') ?? '').slice(0, 2) || null,
+    last_seen:     new Date().toISOString(),
+  }, { onConflict: 'session_id' })
+
+  if (error) console.error('[chat-handler] transcript upsert:', error.message)
 }
 
 // deno-lint-ignore no-explicit-any
@@ -549,6 +594,25 @@ Deno.serve(async (req) => {
     )
 
     const reply = await runConversation(messages, { supabase, channel: 'web' })
+
+    // Record the transcript so the studio can see what people ask. The web
+    // channel used to answer and forget, which is why "what do customers want to
+    // know?" had no answer anywhere.
+    //
+    // Fire-and-forget: the visitor must never wait on this, and a write failure
+    // must never cost her the reply that already exists. Async IIFE rather than
+    // .catch() — PostgrestBuilder is thenable but not a real Promise in Deno.
+    const sessionId = str((body as Record<string, unknown>)?.session_id, 64)
+    if (sessionId) {
+      ;(async () => {
+        try {
+          await persistWebChat(sessionId, messages, reply, req, body as Record<string, unknown>)
+        } catch (e) {
+          console.error('[chat-handler] transcript write failed', e instanceof Error ? e.message : String(e))
+        }
+      })()
+    }
+
     return json({ reply })
 
   } catch (err) {

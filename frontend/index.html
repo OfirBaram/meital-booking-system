@@ -2938,6 +2938,22 @@ document.addEventListener('DOMContentLoaded', function() {
   // swallowed by their try/catch).
   var LSK = 'chat_hist_v1';
 
+  // Read the analytics session id rather than minting a second one. lib/analytics.js
+  // owns 'mn_sid' in sessionStorage; reusing it is what makes a transcript and the
+  // site_events for the same visit joinable. This inline script cannot import the
+  // module, so it reads the key directly and mirrors the same fallback.
+  function analyticsSessionId() {
+    try {
+      var k = 'mn_sid', v = sessionStorage.getItem(k);
+      if (!v) {
+        v = (crypto && crypto.randomUUID) ? crypto.randomUUID()
+          : (Math.random().toString(36).slice(2) + Date.now().toString(36));
+        sessionStorage.setItem(k, v);
+      }
+      return v;
+    } catch (e) { return ''; }   // storage blocked → no transcript, chat still works
+  }
+
   var hist = [], isOpen = false, sending = false, unread = 0, lastRole = null;
   var _sendVia = 'input';   // how the pending message was triggered; reset after each send
 
@@ -3298,7 +3314,18 @@ document.addEventListener('DOMContentLoaded', function() {
     fetch(CHAT_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPA_ANON },
-      body: JSON.stringify({ messages: buildPayload(userText) }),
+      // session_id is the SAME id the analytics pipeline uses (sessionStorage
+      // 'mn_sid'), which is what lets a stored transcript be joined to the
+      // site_events funnel for the same visit — what she asked, where she came
+      // from, and whether she went on to WhatsApp. Without it the server keeps
+      // no transcript at all.
+      body: JSON.stringify({
+        messages:   buildPayload(userText),
+        session_id: analyticsSessionId(),
+        page:       location.pathname,
+        referrer:   document.referrer || 'direct',
+        device:     window.innerWidth < 768 ? 'mobile' : (window.innerWidth < 1024 ? 'tablet' : 'desktop'),
+      }),
       signal: ctrl ? ctrl.signal : undefined
     })
       .then(function (r) {
